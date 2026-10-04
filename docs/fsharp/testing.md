@@ -29,15 +29,21 @@ let greetingAsync (cancellationToken: CancellationToken) =
         // A private tmux server, session, window and pane, removed even if
         // the test fails.
         use! scope =
-            TmuxTestFactory().CreateHierarchyAsync(cancellationToken = cancellationToken)
+            TmuxTestFactory()
+                .CreateHierarchyAsync(cancellationToken = cancellationToken)
 
         let! shell =
             scope.Pane
-            |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+            |> Pane.split
+                cancellationToken
+                (SplitPaneRequest(Command = "/bin/sh"))
 
         let! result =
             shell
-            |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) "printf 'hello\\n'"
+            |> Pane.run
+                cancellationToken
+                (TimeSpan.FromSeconds 10.)
+                "printf 'hello\\n'"
 
         return List.ofSeq result.Output
     }

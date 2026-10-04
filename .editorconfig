@@ -23,3 +23,6 @@ dotnet_diagnostic.IDE0005.severity = warning
 dotnet_diagnostic.IDE0161.severity = warning
 dotnet_diagnostic.IDE0040.severity = warning
 dotnet_diagnostic.IDE1005.severity = warning
+
+[examples/**/*.{fs,fsx}]
+max_line_length = 80

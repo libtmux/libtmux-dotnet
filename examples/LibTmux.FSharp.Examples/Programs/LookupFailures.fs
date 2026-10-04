@@ -23,7 +23,8 @@ let runAsync () =
                     let! found = lookup ()
                     return if found.IsSome then "found" else "None"
                 with
-                | :? OperationCanceledException -> return "OperationCanceledException"
+                | :? OperationCanceledException ->
+                    return "OperationCanceledException"
                 | :? ArgumentException -> return "ArgumentException"
                 | :? LibTmuxException -> return "LibTmuxException"
             }
@@ -33,12 +34,19 @@ let runAsync () =
                 use! owned = options |> Server.createOwned token
 
                 use! session =
-                    owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/cat"), token)
+                    owned.Value.CreateOwnedSessionAsync(
+                        NewSessionRequest(Name = "demo", Command = "/bin/cat"),
+                        token
+                    )
 
                 let server = owned.Value
 
                 let! missing =
-                    failure (fun () -> server |> Server.tryFindSession token (SessionId Int32.MaxValue))
+                    failure (fun () ->
+                        server
+                        |> Server.tryFindSession
+                            token
+                            (SessionId Int32.MaxValue))
 
                 printfn "A session that does not exist: %s" missing
 
@@ -46,17 +54,25 @@ let runAsync () =
                 cancelled.Cancel()
 
                 let! canceled =
-                    failure (fun () -> server |> Server.tryFindSession cancelled.Token session.Value.Id)
+                    failure (fun () ->
+                        server
+                        |> Server.tryFindSession
+                            cancelled.Token
+                            session.Value.Id)
 
                 printfn "A cancelled lookup: %s" canceled
 
-                let! blank = failure (fun () -> server |> Server.tryFindClient token " ")
+                let! blank =
+                    failure (fun () -> server |> Server.tryFindClient token " ")
+
                 printfn "A blank client name: %s" blank
                 return server
             }
 
         let! stopped =
-            failure (fun () -> stoppedServer |> Server.tryFindSession token (SessionId Int32.MaxValue))
+            failure (fun () ->
+                stoppedServer
+                |> Server.tryFindSession token (SessionId Int32.MaxValue))
 
         printfn "A server that has stopped: %s" stopped
     }

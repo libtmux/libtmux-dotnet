@@ -10,7 +10,8 @@ module internal GuideSnippets =
         task {
             let options =
                 ServerConnectionOptions(
-                    SocketName = "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
+                    SocketName =
+                        "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
                     ConfigurationFile = "/dev/null"
                 )
 
@@ -23,9 +24,11 @@ module internal GuideSnippets =
                 )
 
             let! captured =
-                ownedServer.Value |> Server.capture cancellationToken SnapshotDepth.Panes
+                ownedServer.Value
+                |> Server.capture cancellationToken SnapshotDepth.Panes
 
-            return captured.Panes |> Seq.choose Pane.currentCommand |> Seq.toList
+            return
+                captured.Panes |> Seq.choose Pane.currentCommand |> Seq.toList
         }
 
     // fsharp-snippet: SendWaitList
@@ -34,13 +37,19 @@ module internal GuideSnippets =
     open LibTmux
     open LibTmux.FSharp
 
-    let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
+    let runInShellAsync
+        (cancellationToken: CancellationToken)
+        (server: Server)
+        =
         task {
             // List and filter: tmux narrows the listing, then every row is rechecked.
             let! shells =
                 server
                 |> Server.panes
-                |> Query.where (PaneFields.currentCommand |> Filter.oneOf [ "bash"; "sh"; "zsh" ])
+                |> Query.where (
+                    PaneFields.currentCommand
+                    |> Filter.oneOf [ "bash"; "sh"; "zsh" ]
+                )
                 |> Query.list cancellationToken
 
             match shells |> Seq.tryHead with
@@ -49,13 +58,23 @@ module internal GuideSnippets =
                 // Type a command and wait for what it prints, not for its echo.
                 let! ready =
                     pane
-                    |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
+                    |> Pane.sendAndWait
+                        cancellationToken
+                        (TimeSpan.FromSeconds 10.)
+                        "echo ready"
+                        "ready"
 
                 // Run a command to its exit status and read what it printed.
-                let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
+                let! listing =
+                    pane
+                    |> Pane.run
+                        cancellationToken
+                        (TimeSpan.FromSeconds 30.)
+                        "ls /"
 
                 match listing with
-                | PaneRun.Exited status -> return Some(ready.Found, status, listing.Output)
+                | PaneRun.Exited status ->
+                    return Some(ready.Found, status, listing.Output)
                 | PaneRun.Ended
                 | PaneRun.NotStarted
                 | PaneRun.TimedOut -> return None
@@ -68,7 +87,12 @@ module internal GuideSnippets =
     open LibTmux
     open LibTmux.FSharp
 
-    let queryShapesAsync (ct: CancellationToken) (server: Server) (session: Session) (held: Pane list) =
+    let queryShapesAsync
+        (ct: CancellationToken)
+        (server: Server)
+        (session: Session)
+        (held: Pane list)
+        =
         task {
             // Describing a listing reads nothing.
             let named =
@@ -77,10 +101,15 @@ module internal GuideSnippets =
                 |> Query.where (SessionFields.name |> Filter.startsWith "bu")
 
             let! (all: IReadOnlyList<Session>) = named |> Query.list ct
-            let! (one: Result<Session, CardinalityError>) = named |> Query.exactlyOne ct
+
+            let! (one: Result<Session, CardinalityError>) =
+                named |> Query.exactlyOne ct
+
             let! (maybe: Session option) = named |> Query.tryExactlyOne ct
             let! (atMost: Session option) = named |> Query.atMostOne ct
-            let! (inSession: IReadOnlyList<Pane>) = session |> Session.panes |> Query.list ct
+
+            let! (inSession: IReadOnlyList<Pane>) =
+                session |> Session.panes |> Query.list ct
 
             let! (showingError: IReadOnlyList<Pane>) =
                 server
@@ -91,7 +120,11 @@ module internal GuideSnippets =
             let! (withTail: IReadOnlyList<Session>) =
                 server
                 |> Server.sessions
-                |> Query.where (WindowFields.name |> Filter.eq "tail" |> Filter.any SessionFields.windows)
+                |> Query.where (
+                    WindowFields.name
+                    |> Filter.eq "tail"
+                    |> Filter.any SessionFields.windows
+                )
                 |> Query.list ct
 
             let! (active: IReadOnlyList<Pane>) =
@@ -103,9 +136,20 @@ module internal GuideSnippets =
             // Objects already in hand are filtered locally.
             let editors: IReadOnlyList<Pane> =
                 held
-                |> Query.matching (PaneFields.currentCommand |> Filter.oneOf [ "nvim"; "vim" ])
+                |> Query.matching (
+                    PaneFields.currentCommand |> Filter.oneOf [ "nvim"; "vim" ]
+                )
 
-            return all, one, maybe, atMost, inSession, showingError, withTail, active, editors
+            return
+                all,
+                one,
+                maybe,
+                atMost,
+                inSession,
+                showingError,
+                withTail,
+                active,
+                editors
         }
     // endfsharp-snippet
 
@@ -126,9 +170,12 @@ module internal GuideSnippets =
 
         // A relation filter reads captured children; its document says how deep.
         let hasEditor: Filter<Session> =
-            editor |> Filter.any WindowFields.panes |> Filter.any SessionFields.windows
+            editor
+            |> Filter.any WindowFields.panes
+            |> Filter.any SessionFields.windows
 
-        let depth: SnapshotDepth = (Filter.toDocument hasEditor).RequiredSnapshotDepth
+        let depth: SnapshotDepth =
+            (Filter.toDocument hasEditor).RequiredSnapshotDepth
 
         let withEditor: IReadOnlyList<Session> =
             capturedSessions |> Query.matching hasEditor
@@ -146,17 +193,26 @@ module internal GuideSnippets =
 
     let editorFilter = sessionsWithCommands [ "nvim"; "vim" ]
 
-    printfn "capture depth: %A" (Filter.toDocument editorFilter).RequiredSnapshotDepth
+    printfn
+        "capture depth: %A"
+        (Filter.toDocument editorFilter).RequiredSnapshotDepth
     // endfsharp-snippet
 
-    let readMatchingSessionNamesAsync (commands: string list) (cancellationToken: CancellationToken) (server: Server) =
+    let readMatchingSessionNamesAsync
+        (commands: string list)
+        (cancellationToken: CancellationToken)
+        (server: Server)
+        =
         task {
             let hasCommand = sessionsWithCommands commands
 
             let document = Filter.toDocument hasCommand
 
             let! captured =
-                server |> Server.capture cancellationToken document.RequiredSnapshotDepth
+                server
+                |> Server.capture
+                    cancellationToken
+                    document.RequiredSnapshotDepth
 
             return
                 captured.Sessions
@@ -173,11 +229,16 @@ module internal GuideSnippets =
     open LibTmux
     open LibTmux.FSharp
 
-    let readPaneCommandsAsync (cancellationToken: CancellationToken) (server: Server) =
+    let readPaneCommandsAsync
+        (cancellationToken: CancellationToken)
+        (server: Server)
+        =
         task {
-            let! captured = server |> Server.capture cancellationToken SnapshotDepth.Panes
+            let! captured =
+                server |> Server.capture cancellationToken SnapshotDepth.Panes
 
-            return captured.Panes |> Seq.choose Pane.currentCommand |> Seq.toList
+            return
+                captured.Panes |> Seq.choose Pane.currentCommand |> Seq.toList
         }
     // endfsharp-snippet
 
@@ -191,7 +252,8 @@ module internal GuideSnippets =
         task {
             let options =
                 ServerConnectionOptions(
-                    SocketName = "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
+                    SocketName =
+                        "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
                     ConfigurationFile = "/dev/null"
                 )
 
@@ -199,20 +261,33 @@ module internal GuideSnippets =
             let server = ownedServer.Value
 
             use! ownedSession =
-                server.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/sh"), cancellationToken)
+                server.CreateOwnedSessionAsync(
+                    NewSessionRequest(Name = "demo", Command = "/bin/sh"),
+                    cancellationToken
+                )
 
-            let! panes = ownedSession.Value |> Session.panes |> Query.list cancellationToken
+            let! panes =
+                ownedSession.Value
+                |> Session.panes
+                |> Query.list cancellationToken
 
             let! second =
-                panes[0] |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+                panes[0]
+                |> Pane.split
+                    cancellationToken
+                    (SplitPaneRequest(Command = "/bin/sh"))
 
             do! second |> Pane.sendLine cancellationToken "printf 'ready\\n'"
 
-            let! found = server |> Server.tryFindPane cancellationToken second.Id
-            let! captured = server |> Server.capture cancellationToken SnapshotDepth.Panes
+            let! found =
+                server |> Server.tryFindPane cancellationToken second.Id
+
+            let! captured =
+                server |> Server.capture cancellationToken SnapshotDepth.Panes
 
             return
-                captured.Panes |> Seq.map (fun pane -> pane.Id) |> Seq.toList, found |> Option.map (fun pane -> pane.Id)
+                captured.Panes |> Seq.map (fun pane -> pane.Id) |> Seq.toList,
+                found |> Option.map (fun pane -> pane.Id)
         }
     // endfsharp-snippet
 
@@ -221,7 +296,10 @@ module internal GuideSnippets =
     open LibTmux
     open LibTmux.FSharp
 
-    let readUntilTerminalAsync (cancellationToken: CancellationToken) (session: IControlModeSession) =
+    let readUntilTerminalAsync
+        (cancellationToken: CancellationToken)
+        (session: IControlModeSession)
+        =
         session
         |> Control.events
         |> Control.foldWhile
@@ -232,14 +310,17 @@ module internal GuideSnippets =
 
                     match event with
                     | :? TmuxEventsDroppedEvent
-                    | :? TmuxExitEvent -> return StreamStep.Stop(List.rev retained)
+                    | :? TmuxExitEvent ->
+                        return StreamStep.Stop(List.rev retained)
                     | _ -> return StreamStep.Continue retained
                 })
             []
 
     let observeUntilTerminalAsync cancellationToken server =
         server
-        |> Control.withSession cancellationToken (readUntilTerminalAsync cancellationToken)
+        |> Control.withSession
+            cancellationToken
+            (readUntilTerminalAsync cancellationToken)
     // endfsharp-snippet
 
     // fsharp-snippet: WatchPaneOutput
@@ -264,7 +345,9 @@ module internal GuideSnippets =
                     | PaneWatch.Output printed ->
                         let output = output + printed.Data
 
-                        if output.Contains(marker, StringComparison.Ordinal) then
+                        if
+                            output.Contains(marker, StringComparison.Ordinal)
+                        then
                             return StreamStep.Stop output
                         else
                             return StreamStep.Continue output
@@ -284,14 +367,21 @@ module internal GuideSnippets =
     open System.Threading
     open LibTmux
 
-    let readChainOutputAsync (cancellationToken: CancellationToken) (server: Server) =
+    let readChainOutputAsync
+        (cancellationToken: CancellationToken)
+        (server: Server)
+        =
         task {
             // Each typed request becomes one command of the chain.
             let print text =
-                DisplayMessageRequest(Format = text, ReturnText = true).ToCommand(server)
+                DisplayMessageRequest(Format = text, ReturnText = true)
+                    .ToCommand(server)
 
             let chain =
-                server.Chain().Then(print "fsharp-chain-first").Then(print "fsharp-chain-second")
+                server
+                    .Chain()
+                    .Then(print "fsharp-chain-first")
+                    .Then(print "fsharp-chain-second")
 
             let! result = chain.ExecuteAsync(cancellationToken)
             return result.StandardOutputLines |> Seq.toList
@@ -312,7 +402,9 @@ module internal GuideSnippets =
         (inputs: 'Input list)
         =
         if maximumConcurrency < 1 then
-            invalidArg "maximumConcurrency" "Maximum concurrency must be positive."
+            invalidArg
+                "maximumConcurrency"
+                "Maximum concurrency must be positive."
 
         task {
             use gate = new SemaphoreSlim(maximumConcurrency)
@@ -333,11 +425,18 @@ module internal GuideSnippets =
             return indexed |> Array.sortBy fst |> Array.map snd |> Array.toList
         }
 
-    let capturePanesBoundedAsync maximumConcurrency cancellationToken (panes: seq<Pane>) =
+    let capturePanesBoundedAsync
+        maximumConcurrency
+        cancellationToken
+        (panes: seq<Pane>)
+        =
         panes
         |> Seq.toList
-        |> boundedMapAsync maximumConcurrency cancellationToken (fun token pane ->
-            pane |> Pane.capture token (CapturePaneRequest()))
+        |> boundedMapAsync
+            maximumConcurrency
+            cancellationToken
+            (fun token pane ->
+                pane |> Pane.capture token (CapturePaneRequest()))
     // endfsharp-snippet
 
     // fsharp-snippet: PortableFilterJson
@@ -358,7 +457,10 @@ module internal GuideSnippets =
     open LibTmux
     open LibTmux.Workspace
 
-    let buildWorkspaceAsync (cancellationToken: CancellationToken) (server: Server) =
+    let buildWorkspaceAsync
+        (cancellationToken: CancellationToken)
+        (server: Server)
+        =
         task {
             let description =
                 WorkspaceFile(
@@ -367,16 +469,29 @@ module internal GuideSnippets =
                         [
                             WorkspaceWindow(
                                 windowName = "editor",
-                                panes = [ WorkspacePane([ "printf 'editing\\n'" ]); WorkspacePane() ]
+                                panes =
+                                    [
+                                        WorkspacePane([ "printf 'editing\\n'" ])
+                                        WorkspacePane()
+                                    ]
                             )
-                            WorkspaceWindow(windowName = "logs", panes = [ WorkspacePane([ "printf 'tailing\\n'" ]) ])
+                            WorkspaceWindow(
+                                windowName = "logs",
+                                panes =
+                                    [ WorkspacePane([ "printf 'tailing\\n'" ]) ]
+                            )
                         ]
                 )
 
             // Creates the session, its windows and panes, and sends each pane its
             // commands once its shell is ready.
-            let! built = WorkspaceBuilder(server).BuildAsync(description, cancellationToken)
-            return built.Session.Name, [ for window in built.Windows -> window.Name ]
+            let! built =
+                WorkspaceBuilder(server)
+                    .BuildAsync(description, cancellationToken)
+
+            return
+                built.Session.Name,
+                [ for window in built.Windows -> window.Name ]
         }
     // endfsharp-snippet
 
@@ -392,15 +507,21 @@ module internal GuideSnippets =
             // A private tmux server, session, window and pane, removed even if
             // the test fails.
             use! scope =
-                TmuxTestFactory().CreateHierarchyAsync(cancellationToken = cancellationToken)
+                TmuxTestFactory()
+                    .CreateHierarchyAsync(cancellationToken = cancellationToken)
 
             let! shell =
                 scope.Pane
-                |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+                |> Pane.split
+                    cancellationToken
+                    (SplitPaneRequest(Command = "/bin/sh"))
 
             let! result =
                 shell
-                |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) "printf 'hello\\n'"
+                |> Pane.run
+                    cancellationToken
+                    (TimeSpan.FromSeconds 10.)
+                    "printf 'hello\\n'"
 
             return List.ofSeq result.Output
         }
@@ -428,7 +549,10 @@ module internal GuideSnippets =
     open LibTmux
     open LibTmux.FSharp
 
-    let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server) =
+    let readSessionNamesAsync
+        (cancellationToken: CancellationToken)
+        (server: Server)
+        =
         task {
             try
                 // Runs again only when tmux never received the command, after
@@ -436,13 +560,18 @@ module internal GuideSnippets =
                 let! sessions =
                     Retry.ifNotSentAfter
                         cancellationToken
-                        [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ]
+                        [
+                            TimeSpan.FromMilliseconds 100.
+                            TimeSpan.FromMilliseconds 400.
+                        ]
                         (fun token -> server.GetSessionsAsync(token))
 
                 return Ok [ for session in sessions -> session.Name ]
             with
-            | TmuxFailure.Ran failure -> return Error $"tmux ran the command, then: {failure.Message}"
-            | TmuxFailure.MayHaveRun failure -> return Error $"tmux may have acted: {failure.Message}"
+            | TmuxFailure.Ran failure ->
+                return Error $"tmux ran the command, then: {failure.Message}"
+            | TmuxFailure.MayHaveRun failure ->
+                return Error $"tmux may have acted: {failure.Message}"
         }
     // endfsharp-snippet
 
@@ -456,12 +585,17 @@ module internal GuideSnippets =
         task {
             try
                 let! result =
-                    pane |> Pane.run cancellationToken (TimeSpan.FromMinutes 5.) "make test"
+                    pane
+                    |> Pane.run
+                        cancellationToken
+                        (TimeSpan.FromMinutes 5.)
+                        "make test"
 
                 match result with
                 | PaneRun.Exited 0 -> return "passed"
                 | PaneRun.Exited status -> return $"failed with status {status}"
-                | PaneRun.Ended -> return "the shell exited before the tests finished"
+                | PaneRun.Ended ->
+                    return "the shell exited before the tests finished"
                 | PaneRun.NotStarted -> return "the shell was not at a prompt"
                 | PaneRun.TimedOut -> return "still running after five minutes"
             with
@@ -469,9 +603,11 @@ module internal GuideSnippets =
             // A tmux client cancelled mid-call matches too, even before the
             // command went, erring towards "may have run". That cancellation
             // is an OperationCanceledException, so this case comes first.
-            | TmuxFailure.MayHaveRun _ -> return "may have run; read the pane before trying again"
+            | TmuxFailure.MayHaveRun _ ->
+                return "may have run; read the pane before trying again"
             // Cancelled between tmux calls, before the command was sent.
-            | :? OperationCanceledException -> return "cancelled before it was sent"
+            | :? OperationCanceledException ->
+                return "cancelled before it was sent"
         }
     // endfsharp-snippet
 
@@ -480,25 +616,38 @@ module internal GuideSnippets =
     open LibTmux
     open LibTmux.FSharp
 
-    let tuneAsync (cancellationToken: CancellationToken) (session: Session) (window: Window) =
+    let tuneAsync
+        (cancellationToken: CancellationToken)
+        (session: Session)
+        (window: Window)
+        =
         task {
             do!
                 session.Options
-                |> Options.set cancellationToken TmuxOptionKey.HistoryLimit 50_000
+                |> Options.set
+                    cancellationToken
+                    TmuxOptionKey.HistoryLimit
+                    50_000
 
             do!
                 session.Options
-                |> Options.set cancellationToken (TmuxOptionKey.Text "@stage") "build"
+                |> Options.set
+                    cancellationToken
+                    (TmuxOptionKey.Text "@stage")
+                    "build"
 
             let! history =
-                session.Options |> Options.get cancellationToken TmuxOptionKey.HistoryLimit
+                session.Options
+                |> Options.get cancellationToken TmuxOptionKey.HistoryLimit
 
             let! stage =
-                session.Options |> Options.get cancellationToken (TmuxOptionKey.Text "@stage")
+                session.Options
+                |> Options.get cancellationToken (TmuxOptionKey.Text "@stage")
 
             // Never set on the window, so this is tmux's inherited default.
             let! renames =
-                window.Options |> Options.get cancellationToken TmuxOptionKey.AutomaticRename
+                window.Options
+                |> Options.get cancellationToken TmuxOptionKey.AutomaticRename
 
             return history, stage, renames
         }
@@ -510,58 +659,101 @@ module internal GuideSnippets =
     open System.Threading
     open LibTmux
 
-    let inspectCoreSettingsAsync (cancellationToken: CancellationToken) (server: Server) (session: Session) =
+    let inspectCoreSettingsAsync
+        (cancellationToken: CancellationToken)
+        (server: Server)
+        (session: Session)
+        =
         task {
             // A global value, overridden locally, shows through again once the
             // local value is unset.
             let! _ =
-                session.Options.SetAsync(SetOptionRequest("status-keys", "vi", Global = true), cancellationToken)
+                session.Options.SetAsync(
+                    SetOptionRequest("status-keys", "vi", Global = true),
+                    cancellationToken
+                )
 
             let! _ =
-                session.Options.SetAsync(SetOptionRequest("status-keys", "emacs"), cancellationToken)
+                session.Options.SetAsync(
+                    SetOptionRequest("status-keys", "emacs"),
+                    cancellationToken
+                )
 
-            do! session.Options.UnsetAsync(UnsetOptionRequest("status-keys"), cancellationToken)
+            do!
+                session.Options.UnsetAsync(
+                    UnsetOptionRequest("status-keys"),
+                    cancellationToken
+                )
 
             let! statusKeys =
-                session.Options.GetAsync(GetOptionRequest("status-keys", IncludeInherited = true), cancellationToken)
+                session.Options.GetAsync(
+                    GetOptionRequest("status-keys", IncludeInherited = true),
+                    cancellationToken
+                )
 
             // An array option and a hook keep each entry's index.
             let! _ =
                 server.Options.SetAsync(
-                    SetOptionRequest("command-alias[40]", "fsharp-window=new-window"),
+                    SetOptionRequest(
+                        "command-alias[40]",
+                        "fsharp-window=new-window"
+                    ),
                     cancellationToken
                 )
 
             let! aliases =
-                server.Options.GetAsync(GetOptionRequest("command-alias"), cancellationToken)
+                server.Options.GetAsync(
+                    GetOptionRequest("command-alias"),
+                    cancellationToken
+                )
 
             let entries = Dictionary<int, string>()
             entries[3] <- "display-message fsharp-hook"
 
             let! hook =
-                server.Hooks.SetAsync(SetHooksRequest("alert-bell", entries, ClearExisting = true), cancellationToken)
+                server.Hooks.SetAsync(
+                    SetHooksRequest("alert-bell", entries, ClearExisting = true),
+                    cancellationToken
+                )
 
             let! _ =
-                session.Environment.SetAsync("LIBTMUX_FSHARP_EXAMPLE", "ready", cancellationToken = cancellationToken)
+                session.Environment.SetAsync(
+                    "LIBTMUX_FSHARP_EXAMPLE",
+                    "ready",
+                    cancellationToken = cancellationToken
+                )
 
             let! variable =
-                session.Environment.GetAsync("LIBTMUX_FSHARP_EXAMPLE", cancellationToken)
+                session.Environment.GetAsync(
+                    "LIBTMUX_FSHARP_EXAMPLE",
+                    cancellationToken
+                )
 
             let! rendered =
                 server.DisplayMessageAsync(
-                    DisplayMessageRequest(Format = "fsharp-#{pid}", ReturnText = true),
+                    DisplayMessageRequest(
+                        Format = "fsharp-#{pid}",
+                        ReturnText = true
+                    ),
                     cancellationToken
                 )
 
             return
                 {|
-                    StatusKeys = [ for option in statusKeys -> option.Value.Raw, option.Inherited ]
+                    StatusKeys =
+                        [
+                            for option in statusKeys ->
+                                option.Value.Raw, option.Inherited
+                        ]
                     Alias =
                         aliases
                         |> Seq.tryFind (fun alias -> alias.Index = Nullable 40)
                         |> Option.map (fun alias -> alias.Value.Raw)
                     HookIndexes = [ for value in hook.Values -> value.Index ]
-                    Variable = variable |> Option.ofObj |> Option.map (fun entry -> entry.Value)
+                    Variable =
+                        variable
+                        |> Option.ofObj
+                        |> Option.map (fun entry -> entry.Value)
                     Rendered = rendered |> Option.ofObj |> Option.map List.ofSeq
                 |}
         }
@@ -583,36 +775,66 @@ module internal GuideSnippets =
             // then unlink it; the original placement stays.
             do!
                 window.LinkAsync(
-                    LinkWindowRequest(session.Id.ToString(), TargetIndex = "5", Detach = true),
+                    LinkWindowRequest(
+                        session.Id.ToString(),
+                        TargetIndex = "5",
+                        Detach = true
+                    ),
                     cancellationToken
                 )
 
             let! placements = session.GetWindowsAsync(cancellationToken)
 
             let linked =
-                placements |> Seq.find (fun item -> item.Id = window.Id && item.Index = 5)
+                placements
+                |> Seq.find (fun item -> item.Id = window.Id && item.Index = 5)
 
             let! moved =
-                linked.MoveAsync(MoveWindowRequest(Destination = "3", NoSelect = true), cancellationToken)
+                linked.MoveAsync(
+                    MoveWindowRequest(Destination = "3", NoSelect = true),
+                    cancellationToken
+                )
 
             do! moved.UnlinkAsync(cancellationToken = cancellationToken)
             let! remaining = session.GetWindowsAsync(cancellationToken)
 
             // Layout and resize return the handle they changed.
-            let! split = window.SplitPaneAsync(cancellationToken = cancellationToken)
+            let! split =
+                window.SplitPaneAsync(cancellationToken = cancellationToken)
 
             let! laidOut =
-                window.SelectLayoutAsync(SelectLayoutRequest(Layout = "even-horizontal"), cancellationToken)
+                window.SelectLayoutAsync(
+                    SelectLayoutRequest(Layout = "even-horizontal"),
+                    cancellationToken
+                )
 
-            let! resized = split.ResizeAsync(ResizePaneRequest(Height = "10"), cancellationToken)
+            let! resized =
+                split.ResizeAsync(
+                    ResizePaneRequest(Height = "10"),
+                    cancellationToken
+                )
 
-            do! server.Buffers.SetAsync("fsharp-ready", "fsharp-guide", cancellationToken = cancellationToken)
-            let! contents = server.Buffers.GetAsync("fsharp-guide", cancellationToken)
+            do!
+                server.Buffers.SetAsync(
+                    "fsharp-ready",
+                    "fsharp-guide",
+                    cancellationToken = cancellationToken
+                )
+
+            let! contents =
+                server.Buffers.GetAsync("fsharp-guide", cancellationToken)
+
             do! server.Buffers.DeleteAsync("fsharp-guide", cancellationToken)
 
             do! pane.EnterCopyModeAsync(cancellationToken = cancellationToken)
             let! copying = pane.RefreshAsync(cancellationToken)
-            do! pane.EnterCopyModeAsync(CopyModeRequest(Cancel = true), cancellationToken)
+
+            do!
+                pane.EnterCopyModeAsync(
+                    CopyModeRequest(Cancel = true),
+                    cancellationToken
+                )
+
             let! normal = pane.RefreshAsync(cancellationToken)
 
             return
@@ -634,11 +856,18 @@ module internal GuideSnippets =
     open LibTmux
     open LibTmux.FSharp
 
-    let exerciseWindowInputAsync (cancellationToken: CancellationToken) (session: Session) =
+    let exerciseWindowInputAsync
+        (cancellationToken: CancellationToken)
+        (session: Session)
+        =
         task {
             let! window =
                 session.CreateWindowAsync(
-                    NewWindowRequest(Name = "fsharp-input", Command = "/bin/cat", Attach = false),
+                    NewWindowRequest(
+                        Name = "fsharp-input",
+                        Command = "/bin/cat",
+                        Attach = false
+                    ),
                     cancellationToken
                 )
 
@@ -647,11 +876,18 @@ module internal GuideSnippets =
 
             // Literal text is typed as written; a key name is pressed. Text
             // followed by Enter is two commands: the text, then the key.
-            let literal = SendKeysRequest(Text = "Enter", Literal = true, Enter = false)
-            let keyName = SendKeysRequest(Text = "Enter", Literal = false, Enter = false)
+            let literal =
+                SendKeysRequest(Text = "Enter", Literal = true, Enter = false)
+
+            let keyName =
+                SendKeysRequest(Text = "Enter", Literal = false, Enter = false)
 
             let textThenEnter =
-                SendKeysRequest(Text = "fsharp-input", Literal = true, Enter = true)
+                SendKeysRequest(
+                    Text = "fsharp-input",
+                    Literal = true,
+                    Enter = true
+                )
 
             do! pane |> Pane.sendKeys cancellationToken literal
             do! pane |> Pane.sendKeys cancellationToken keyName
@@ -660,7 +896,8 @@ module internal GuideSnippets =
 
             let arguments (request: SendKeysRequest) =
                 [
-                    for command in request.ToCommands(pane) -> List.ofSeq (command.ToArguments())
+                    for command in request.ToCommands(pane) ->
+                        List.ofSeq (command.ToArguments())
                 ]
 
             return
@@ -682,7 +919,10 @@ module internal GuideSnippets =
 
     // The options name the socket and carry the service's logger, as in
     // ServerConnectionOptions(SocketName = "build", Logger = logger).
-    let connectForServiceAsync (stopping: CancellationToken) (options: ServerConnectionOptions) =
+    let connectForServiceAsync
+        (stopping: CancellationToken)
+        (options: ServerConnectionOptions)
+        =
         task {
             let! server = options |> Server.connect stopping
 
@@ -698,22 +938,33 @@ module internal GuideSnippets =
     open LibTmux
     open LibTmux.FSharp
 
-    let runJobAsync (log: string -> unit) (stopping: CancellationToken) (pane: Pane) (command: string) =
+    let runJobAsync
+        (log: string -> unit)
+        (stopping: CancellationToken)
+        (pane: Pane)
+        (command: string)
+        =
         task {
             try
-                let! result = pane |> Pane.run stopping (TimeSpan.FromMinutes 10.) command
+                let! result =
+                    pane |> Pane.run stopping (TimeSpan.FromMinutes 10.) command
 
                 match result with
                 | PaneRun.Exited status -> log $"exited {status}"
-                | PaneRun.Ended -> log "the shell exited; respawn the pane before the next job"
+                | PaneRun.Ended ->
+                    log "the shell exited; respawn the pane before the next job"
                 | PaneRun.NotStarted -> log "the pane was busy; nothing ran"
-                | PaneRun.TimedOut -> log "still running after ten minutes; left running"
+                | PaneRun.TimedOut ->
+                    log "still running after ten minutes; left running"
             with
             // Stopping is not a failure, but a command already sent keeps
             // running in its pane after this process exits.
             | TmuxFailure.MayHaveRun _ when stopping.IsCancellationRequested ->
                 log $"stopped; the command may still be running in {pane.Id}"
-            | :? OperationCanceledException when stopping.IsCancellationRequested -> ()
+            | :? OperationCanceledException when
+                stopping.IsCancellationRequested
+                ->
+                ()
         }
     // endfsharp-snippet
 
@@ -727,9 +978,16 @@ module internal GuideSnippets =
     type PaneGate() =
         let gates = ConcurrentDictionary<PaneId, SemaphoreSlim>()
 
-        member _.UseAsync(pane: Pane, cancellationToken: CancellationToken, work: unit -> Task<'T>) =
+        member _.UseAsync
+            (
+                pane: Pane,
+                cancellationToken: CancellationToken,
+                work: unit -> Task<'T>
+            ) =
             task {
-                let gate = gates.GetOrAdd(pane.Id, fun _ -> new SemaphoreSlim(1, 1))
+                let gate =
+                    gates.GetOrAdd(pane.Id, fun _ -> new SemaphoreSlim(1, 1))
+
                 do! gate.WaitAsync(cancellationToken)
 
                 try
@@ -753,7 +1011,10 @@ module internal GuideSnippets =
             try
                 let! result =
                     pane
-                    |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) command
+                    |> Pane.run
+                        cancellationToken
+                        (TimeSpan.FromSeconds 10.)
+                        command
                     |> TmuxAsync.awaitTask
 
                 return
