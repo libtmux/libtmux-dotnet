@@ -295,6 +295,15 @@ In the [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md) the filter took
 top of a fixed 4.2 µs, across 256 events. That run checked each pane with a
 command of its own, before the watch listed them in one.
 
+## F# pane flood
+
+[`FSharpPaneFloodBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpPaneFloodBenchmarks.cs)
+has a shell print 1,000 or 20,000 numbered lines and a marker, and reads a
+real control client's events until the marker arrives: once by keeping the
+pane's output by hand, and once through `Control.watchPane`. It measures how
+fast output crosses tmux, the control client and the reader, and what the
+watch adds under a flood. Setup fails unless both routes see every line.
+
 ## F# live mirror
 
 [`FSharpMirrorBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpMirrorBenchmarks.cs)
