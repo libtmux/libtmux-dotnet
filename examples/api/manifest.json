@@ -101,6 +101,23 @@
       "output": "A session that does not exist: None\nA cancelled lookup: OperationCanceledException\nA blank client name: ArgumentException\nA server that has stopped: LibTmuxException\n"
     },
     {
+      "id": "fsharp-FailureKinds",
+      "profile": "fsharp",
+      "title": "Tell failures apart and retry only unsent commands",
+      "description": "Set and read a typed option, then meet each kind of failure on a real server: a tmux that cannot start (NotSent), a value tmux refuses (Ran), and a run cancelled after it was sent (MayHaveRun). Retry.ifNotSentAfter sends again only while nothing reached tmux.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/FailureKinds.fs",
+      "targets": [
+        "T:LibTmux.FSharp.TmuxFailure",
+        "M:LibTmux.FSharp.TmuxFailure.|NotSent|_|(System.Exception)",
+        "M:LibTmux.FSharp.TmuxFailure.|Ran|_|(System.Exception)",
+        "M:LibTmux.FSharp.TmuxFailure.|MayHaveRun|_|(System.Exception)",
+        "M:LibTmux.FSharp.Retry.ifNotSentAfter``1(System.Threading.CancellationToken,Microsoft.FSharp.Collections.FSharpList{System.TimeSpan},Microsoft.FSharp.Core.FSharpFunc{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}})",
+        "M:LibTmux.FSharp.Options.get``1(System.Threading.CancellationToken,LibTmux.TmuxOptionKey{``0},LibTmux.TmuxOptions)",
+        "M:LibTmux.FSharp.Options.set``1(System.Threading.CancellationToken,LibTmux.TmuxOptionKey{``0},``0,LibTmux.TmuxOptions)"
+      ],
+      "output": "history-limit: 50000\nA tmux that cannot start: NotSent\nA value tmux refuses: Ran\nA run cancelled after it was sent: MayHaveRun\nRetried while NotSent: 3 attempts, then NotSent\nRetried after Ran: 1 attempt, then Ran\n"
+    },
+    {
       "id": "fsharp-CreateWindowPane",
       "profile": "fsharp",
       "title": "Create, rename, select and kill windows and panes",
