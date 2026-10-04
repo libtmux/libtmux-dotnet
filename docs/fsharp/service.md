@@ -270,7 +270,7 @@ open System.Threading
 open System.Threading.Tasks
 open LibTmux
 
-/// Lets one task at a time type into a pane, run in it, or wait on what it typed.
+/// Lets one task at a time type into a pane, run in it, or wait on it.
 type PaneGate() =
     let gates = ConcurrentDictionary<PaneId, SemaphoreSlim>()
 

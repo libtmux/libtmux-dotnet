@@ -403,8 +403,8 @@ let buildWorkspaceAsync
                     ]
             )
 
-        // Creates the session, its windows and panes, and sends each pane its
-        // commands once its shell is ready.
+        // Creates the session, its windows and panes, then sends each pane
+        // its commands once its shell is ready.
         let! built =
             WorkspaceBuilder(server)
                 .BuildAsync(description, cancellationToken)

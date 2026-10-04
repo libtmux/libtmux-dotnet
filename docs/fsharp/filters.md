@@ -26,7 +26,7 @@ let filterShapes (panes: Pane list) (capturedSessions: Session list) =
     let isEditor: Pane -> bool = Filter.toPredicate editor
     let firstEditor: Pane option = panes |> List.tryFind isEditor
 
-    // A relation filter reads captured children; its document says how deep.
+    // A relation filter reads captured children; its document says how far.
     let hasEditor: Filter<Session> =
         editor
         |> Filter.any WindowFields.panes

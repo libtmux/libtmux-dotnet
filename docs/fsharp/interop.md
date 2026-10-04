@@ -262,11 +262,10 @@ let inspectCoreSettingsAsync
         let entries = Dictionary<int, string>()
         entries[3] <- "display-message fsharp-hook"
 
-        let! hook =
-            server.Hooks.SetAsync(
-                SetHooksRequest("alert-bell", entries, ClearExisting = true),
-                cancellationToken
-            )
+        let request =
+            SetHooksRequest("alert-bell", entries, ClearExisting = true)
+
+        let! hook = server.Hooks.SetAsync(request, cancellationToken)
 
         let! _ =
             session.Environment.SetAsync(
