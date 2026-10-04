@@ -42,7 +42,9 @@ public sealed class PaneRunTests
             "MARKER",
             Allowed,
             token);
-        _ = await shell.WaitUntilAsync(rows => rows.Any(row => row.Contains("wait-for", StringComparison.Ordinal)), Allowed, token);
+        // The typed line wraps where the socket path's length puts it, which
+        // can be inside "wait-for", so the rows are read as one text.
+        _ = await shell.WaitUntilAsync(rows => string.Concat(rows).Contains("wait-for", StringComparison.Ordinal), Allowed, token);
         Assert.False(waiting.IsCompleted);
         await raw.ExecuteAsync(["wait-for", "-S", gate], token);
         PaneWaitResult done = await waiting;
