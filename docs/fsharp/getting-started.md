@@ -173,14 +173,26 @@ the pane's own output through a control client rather than polling. A wait
 attaches that client and reads the pane through it, which costs a few
 milliseconds more than reading the screen once; for a series of waits on one
 session, `use! _ = Session.holdWaitClient ct session` keeps the client attached
-so each wait skips that and costs about what one read does. Read output already there with `Pane.capture`, and
-wait for output still to come; the
+so each wait skips that and takes about as long as one read. Read output
+already there with `Pane.capture`, and wait for output still to come; the
 [wait latency benchmark](../benchmarks/README.md#f-wait-latency) measures each.
 
 `Pane.run` needs the pane at a prompt of `sh`, `ash`, `bash`, `dash`, `zsh` or
 a Korn shell; fish, PowerShell and a REPL are refused. It runs the command in a
 subshell, so `cd` and `export` do not persist into the pane. A command still
-running at the timeout keeps running, and the result reports `TimedOut`.
+running at the timeout keeps running, and the result reports `TimedOut`. One
+that prints more than scrollback holds reports `LinesMissed`, and its `Output`
+is then only what the pane still showed; write long output to a file instead.
+
+How each call reports what can go wrong:
+
+| What happened | A wait | `Pane.run` | `Pane.readSince` |
+| --- | --- | --- | --- |
+| The time ran out | `PaneWait.TimedOut` | `PaneRun.TimedOut`; the command may still be running | — |
+| The token was cancelled | `OperationCanceledException` | `LibTmuxException`, matched by `TmuxFailure.MayHaveRun`, once the command was sent | `OperationCanceledException` |
+| The pane's program exits during the call | `PaneWait.Ended` | `PaneRun.TimedOut` once the time runs out | reads the pane as it stands |
+| The program had already exited | `TmuxPaneException` | `TmuxPaneException` | `TmuxPaneException` on a read without a position |
+| tmux no longer has the pane | `TmuxObjectNotFoundException` | `TmuxObjectNotFoundException` | `TmuxObjectNotFoundException` |
 
 ## Describe a session
 

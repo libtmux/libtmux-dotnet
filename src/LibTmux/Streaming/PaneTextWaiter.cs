@@ -53,8 +53,24 @@ internal static class PaneTextWaiter
         await using ConfiguredAsyncDisposable _ = lease.ConfigureAwait(false);
         IControlModeSession? control = readThroughControl ? activity.ControlFor(pane) : null;
 
-        PaneRead first = await PaneReader.ReadVisibleAsync(pane, null, fail, control, cancellationToken)
-            .ConfigureAwait(false);
+        PaneRead first;
+        try
+        {
+            first = await PaneReader.ReadVisibleAsync(pane, null, fail, control, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException and not TmuxPaneException)
+        {
+            Exception explained = await PaneReader.ExplainFailureAsync(pane, error, cancellationToken)
+                .ConfigureAwait(false);
+            if (ReferenceEquals(explained, error))
+            {
+                throw;
+            }
+
+            throw explained;
+        }
+
         PaneCursor cursor = PaneCursor.Build(pane, first.State, first.CursorRows);
         bool alternate = first.State.AlternateScreen;
         if (classify(first.Lines, true) is { } entry)
@@ -156,6 +172,18 @@ internal static class PaneTextWaiter
             {
                 read = await PaneReader.ReadVisibleAsync(pane, pid, fail, control, cancellationToken)
                     .ConfigureAwait(false);
+            }
+            catch (Exception error) when (pid is null
+                && error is not OperationCanceledException and not TmuxPaneException)
+            {
+                Exception explained = await PaneReader.ExplainFailureAsync(pane, error, cancellationToken)
+                    .ConfigureAwait(false);
+                if (ReferenceEquals(explained, error))
+                {
+                    throw;
+                }
+
+                throw explained;
             }
             catch (Exception error) when (pid is not null && error is not OperationCanceledException)
             {

@@ -28,12 +28,15 @@ public sealed partial class Pane
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
     /// <returns>The new lines and the position to pass next time; a read without a position returns none.</returns>
     /// <remarks>
-    /// Each read costs about the same however long the pane has been
-    /// printing, where capturing the pane again returns everything again.
-    /// Lines a program rewrote in place, such as a progress bar or a prompt
-    /// redraw, are reported again when they change.
+    /// A read captures what is new rather than everything the pane holds, so
+    /// it costs about the same however long the pane has been printing, until
+    /// history nears <c>history-limit</c>: a read then captures all of it to
+    /// find its place. Lines a program rewrote in place, such as a progress
+    /// bar or a prompt redraw, are reported again when they change. A pane
+    /// whose program has exited reads as it stands.
     /// </remarks>
     /// <exception cref="ArgumentException">The position came from another pane.</exception>
+    /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="TmuxPaneException">
     /// The pane runs a different program than when the position was taken, its
     /// program has exited, or it changed during every read attempt.
@@ -50,11 +53,27 @@ public sealed partial class Pane
                 nameof(position));
         }
 
-        PaneRead read = position is null
-            ? await PaneReader.ReadVisibleAsync(this, null, PaneReader.Failure, cancellationToken)
-                .ConfigureAwait(false)
-            : await PaneReader.ReadSinceAsync(this, position.Cursor, PaneReader.Failure, cancellationToken)
+        PaneRead read;
+        try
+        {
+            read = position is null
+                ? await PaneReader.ReadVisibleAsync(this, null, PaneReader.Failure, cancellationToken)
+                    .ConfigureAwait(false)
+                : await PaneReader.ReadSinceAsync(this, position.Cursor, PaneReader.Failure, cancellationToken)
+                    .ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException and not TmuxPaneException)
+        {
+            Exception explained = await PaneReader.ExplainFailureAsync(this, error, cancellationToken)
                 .ConfigureAwait(false);
+            if (ReferenceEquals(explained, error))
+            {
+                throw;
+            }
+
+            throw explained;
+        }
+
         return new PaneOutputSince(
             position is null ? [] : read.Lines,
             new PaneOutputPosition(PaneCursor.Build(this, read.State, read.CursorRows)),

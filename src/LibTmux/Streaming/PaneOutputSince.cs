@@ -4,9 +4,9 @@ namespace LibTmux;
 
 /// <summary>Where a read of a pane's output finished, so the next read returns only what is new.</summary>
 /// <remarks>
-/// Opaque, and good only for the pane and server process that issued it. It
-/// survives scrolling and history trimming: a later read finds its place again
-/// or says it could not.
+/// Opaque, and good only for the pane that issued it while it runs the same
+/// program. It survives scrolling, history trimming and resizing: a later read
+/// finds its place again or says it could not.
 /// </remarks>
 public sealed class PaneOutputPosition
 {

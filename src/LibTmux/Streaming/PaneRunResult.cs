@@ -6,7 +6,10 @@ namespace LibTmux;
 /// <param name="Output">The lines the command printed.</param>
 /// <param name="Elapsed">How long the command ran, or how long it was waited for.</param>
 /// <param name="Started">Whether the pane's shell ran the command at all.</param>
-/// <param name="LinesMissed">Whether scrollback dropped output before it was read.</param>
+/// <param name="LinesMissed">
+/// Whether scrollback dropped output before it was read; <paramref name="Output" />
+/// then holds only what the pane still showed.
+/// </param>
 public sealed record PaneRunResult(
     int? ExitStatus,
     bool TimedOut,

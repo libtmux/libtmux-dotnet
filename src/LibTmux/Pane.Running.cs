@@ -14,11 +14,16 @@ public sealed partial class Pane
     /// <summary>Runs a shell command in the pane and waits for its exit status.</summary>
     /// <param name="command">The shell command.</param>
     /// <param name="timeout">How long to wait for it.</param>
-    /// <param name="cancellationToken">Stops waiting; a command already sent keeps running.</param>
+    /// <param name="cancellationToken">
+    /// Stops waiting. A command already sent keeps running, so cancelling then raises
+    /// <see cref="LibTmuxException" /> saying it may have run, not <see cref="OperationCanceledException" />.
+    /// </param>
     /// <returns>The exit status and what the command printed.</returns>
     /// <inheritdoc cref="RunAsync(PaneRunRequest, CancellationToken)" path="/remarks" />
     /// <exception cref="ArgumentException"><paramref name="command" /> is blank.</exception>
     /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited.</exception>
+    /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
+    /// <exception cref="LibTmuxException">The command was sent but its result could not be read; inspect the pane before retrying.</exception>
     [UnsupportedOSPlatform("windows")]
     public Task<PaneRunResult> RunAsync(
         string command,
@@ -28,7 +33,10 @@ public sealed partial class Pane
 
     /// <summary>Runs a shell command in the pane and waits for its exit status.</summary>
     /// <param name="request">The command and how long to wait.</param>
-    /// <param name="cancellationToken">Stops waiting; a command already sent keeps running.</param>
+    /// <param name="cancellationToken">
+    /// Stops waiting. A command already sent keeps running, so cancelling then raises
+    /// <see cref="LibTmuxException" /> saying it may have run, not <see cref="OperationCanceledException" />.
+    /// </param>
     /// <returns>The exit status and what the command printed.</returns>
     /// <remarks>
     /// <para>
@@ -47,6 +55,7 @@ public sealed partial class Pane
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
     /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited.</exception>
+    /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="LibTmuxException">The command was sent but its result could not be read; inspect the pane before retrying.</exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<PaneRunResult> RunAsync(

@@ -124,6 +124,10 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The position came from another pane.
 
+`TmuxPaneException` The pane runs a different program than when the position was taken, or a read without a position found its program exited.
+
+`TmuxObjectNotFoundException`tmux no longer has the pane.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L199)
 
 <a name="run"></a>
@@ -133,7 +137,9 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 Runs a shell command in the pane and waits for its exit status and output.
 
 The pane must sit at a POSIX shell prompt. A command still running at
- the timeout keeps running; the result reports <code>TimedOut</code>.
+ the timeout keeps running; the result reports <code>TimedOut</code>. A command
+ that prints more than scrollback holds reports <code>LinesMissed</code>, and its
+ <code>Output</code> is then what the pane still showed.
 
 **Parameters:**
 
@@ -148,6 +154,10 @@ The pane must sit at a POSIX shell prompt. A command still running at
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;PaneRunResult&gt;</span></code>
 
 `TmuxPaneException` The pane is in a mode or not running a POSIX shell.
+
+`TmuxObjectNotFoundException`tmux no longer has the pane.
+
+`LibTmuxException` The command was sent and the run was cancelled or could not be observed; <code>TmuxFailure.MayHaveRun</code> matches it, and the pane needs inspecting before a retry.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L239)
 
@@ -182,6 +192,8 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane&#39;s program had already exited.
 
+`TmuxObjectNotFoundException`tmux no longer has the pane.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L214)
 
 <a name="sendAndWaitFor"></a>
@@ -209,6 +221,8 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The wait names no pattern.
 
 `TmuxPaneException` The pane&#39;s program had already exited.
+
+`TmuxObjectNotFoundException`tmux no longer has the pane.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L223)
 
@@ -317,6 +331,8 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane&#39;s program had already exited.
 
+`TmuxObjectNotFoundException`tmux no longer has the pane.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L211)
 
 <a name="waitForText"></a>
@@ -346,6 +362,8 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane&#39;s program had already exited.
 
+`TmuxObjectNotFoundException`tmux no longer has the pane.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L208)
 
 <a name="waitUntil"></a>
@@ -370,5 +388,7 @@ The condition sees the whole screen each time the pane prints or changes state.
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;PaneWaitResult&gt;</span></code>
 
 `TmuxPaneException` The pane&#39;s program had already exited.
+
+`TmuxObjectNotFoundException`tmux no longer has the pane.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L231)

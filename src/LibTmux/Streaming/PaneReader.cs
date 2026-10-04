@@ -76,6 +76,34 @@ internal static class PaneReader
         },
         pane.Id);
 
+    /// <summary>Explains a failed read: a pane tmux no longer has is reported as one, as a run reports it.</summary>
+    /// <param name="pane">The pane the read was for.</param>
+    /// <param name="error">Why the read failed.</param>
+    /// <param name="cancellationToken">Cancels the lookup.</param>
+    /// <returns>A <see cref="TmuxObjectNotFoundException" /> when tmux no longer has the pane, or <paramref name="error" />.</returns>
+    internal static async Task<Exception> ExplainFailureAsync(
+        Pane pane,
+        Exception error,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (await pane.Server.FindPaneAsync(pane.Id, cancellationToken).ConfigureAwait(false) is null)
+            {
+                return new TmuxObjectNotFoundException(
+                    $"tmux no longer has pane '{pane.Id}'.",
+                    pane.Id.ToString(),
+                    error);
+            }
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // A lookup that fails too says nothing the read's own failure does not.
+        }
+
+        return error;
+    }
+
     /// <summary>Reads what is on screen now, with no previous position.</summary>
     /// <param name="pane">The pane to read.</param>
     /// <param name="baselinePid">The pid the caller last saw, or null on a first read.</param>

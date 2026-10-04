@@ -161,6 +161,8 @@ module Pane =
     /// dropped output first. This is the MCP server's <c>capture_since</c>.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The position came from another pane.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane runs a different program than when the position was taken, or a read without a position found its program exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val readSince:
         cancellationToken: CancellationToken ->
         position: PaneOutputPosition option ->
@@ -182,6 +184,7 @@ module Pane =
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val waitForText:
         cancellationToken: CancellationToken ->
         timeout: TimeSpan ->
@@ -192,6 +195,7 @@ module Pane =
     /// <summary>Waits as the request describes: patterns, stop patterns, or any output.</summary>
     /// <remarks>Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.</remarks>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val waitFor:
         cancellationToken: CancellationToken -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>
 
@@ -206,6 +210,7 @@ module Pane =
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val sendAndWait:
         cancellationToken: CancellationToken ->
         timeout: TimeSpan ->
@@ -222,6 +227,7 @@ module Pane =
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The wait names no pattern.</exception>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val sendAndWaitFor:
         cancellationToken: CancellationToken ->
         keys: SendKeysRequest ->
@@ -235,6 +241,7 @@ module Pane =
     /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val waitUntil:
         cancellationToken: CancellationToken ->
         timeout: TimeSpan ->
@@ -245,9 +252,13 @@ module Pane =
     /// <summary>Runs a shell command in the pane and waits for its exit status and output.</summary>
     /// <remarks>
     /// The pane must sit at a POSIX shell prompt. A command still running at
-    /// the timeout keeps running; the result reports <c>TimedOut</c>.
+    /// the timeout keeps running; the result reports <c>TimedOut</c>. A command
+    /// that prints more than scrollback holds reports <c>LinesMissed</c>, and its
+    /// <c>Output</c> is then what the pane still showed.
     /// </remarks>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane is in a mode or not running a POSIX shell.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
+    /// <exception cref="T:LibTmux.LibTmuxException">The command was sent and the run was cancelled or could not be observed; <c>TmuxFailure.MayHaveRun</c> matches it, and the pane needs inspecting before a retry.</exception>
     val run:
         cancellationToken: CancellationToken ->
         timeout: TimeSpan ->

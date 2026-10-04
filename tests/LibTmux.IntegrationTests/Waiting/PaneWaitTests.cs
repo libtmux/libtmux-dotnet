@@ -113,6 +113,31 @@ public sealed class PaneWaitTests
         Assert.True(result.Found, $"The wait ended {result.Outcome}.");
     }
 
+    [UnixFact]
+    public async Task A_pane_tmux_no_longer_has_is_reported_as_not_found_by_every_read()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sleep 60"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+        await pane.KillAsync(cancellationToken: token);
+
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.WaitForTextAsync("x", Arrival, token));
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.WaitUntilAsync(_ => true, Arrival, token));
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.ReadOutputSinceAsync(cancellationToken: token));
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.RunAsync("true", Arrival, token));
+    }
+
     // A character with combining marks stacked on it takes up to 21 bytes in
     // one cell, so a wide row of them is longer than a control client accepts
     // in a line; read through the client, it would end it.
