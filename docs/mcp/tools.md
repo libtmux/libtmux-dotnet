@@ -122,12 +122,29 @@ An omitted parameter means:
 
 | Parameter | When omitted | Tools |
 |---|---|---|
+| `cursor` | start from what is on screen now | `capture_since` |
+| `height` | keep the current height | `resize_pane`, `resize_window` |
+| `height` | tmux's default of 24 | `create_session` |
+| `layout` | reapply the window's last preset layout, if it has had one | `select_layout` |
+| `maxLines` | the server default, 500 unless LIBTMUX_MCP_MAX_LINES sets another | `capture_pane`, `capture_since`, `run_shell_command`, `snapshot_pane` |
 | `name` | every name with hasValue instead of values | `show_environment` |
-| `paneId` | the active pane | `capture_pane`, `capture_since`, `clear_pane_scrollback`, `paste_text`, `resize_pane`, `respawn_pane`, `run_shell_command`, `send_keys`, `set_pane_title`, `snapshot_pane`, `split_window`, `wait_for_text` |
+| `name` | tmux names it after the program it runs | `create_window` |
+| `name` | tmux names it with a number | `create_session` |
+| `paneId` | the active pane | `capture_pane`, `capture_since`, `clear_pane_scrollback`, `get_tmux_variables`, `paste_text`, `resize_pane`, `respawn_pane`, `run_shell_command`, `send_keys`, `set_pane_title`, `show_hooks`, `show_option`, `snapshot_pane`, `split_window`, `wait_for_text` |
+| `patterns` | return on any new output | `wait_for_text` |
+| `percentage` | half | `split_window` |
 | `session` | every session | `list_panes`, `list_windows`, `search_panes` |
+| `session` | stay in the window's session | `move_window` |
+| `session` | the first session | `create_window`, `rename_session` |
 | `session` | the server environment | `show_environment` |
+| `startDirectory` | the MCP server's own working directory | `create_session`, `create_window`, `split_window` |
+| `startDirectory` | the directory the pane started in before | `respawn_pane` |
+| `stopPatterns` | none | `wait_for_text` |
+| `timeoutSeconds` | wait the whole ceiling, 30 unless LIBTMUX_MCP_WAIT_MAX_SECONDS sets another | `run_shell_command`, `wait_for_channel`, `wait_for_text` |
+| `width` | keep the current width | `resize_pane`, `resize_window` |
+| `width` | tmux's default of 80 | `create_session` |
 | `windowId` | every window | `list_panes` |
-| `windowId` | the active window | `resize_window`, `select_layout`, `set_synchronize_panes` |
+| `windowId` | the active window | `rename_window`, `resize_window`, `select_layout`, `set_synchronize_panes` |
 
 `call_read_tools_batch` runs any of: `capture_pane`, `capture_since`, `find_pane_by_position`, `get_pane_info`, `get_server_info`, `get_session_info`, `get_tmux_variables`, `get_window_info`, `list_panes`, `list_sessions`, `list_windows`, `search_panes`, `show_environment`, `show_hooks`, `show_option`, `snapshot_pane`.
 

@@ -238,7 +238,10 @@ internal sealed class CapabilityTools
     public Task<CaptureResult> CapturePaneAsync(
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
         [Description("Include scrollback.")] bool includeHistory = false,
-        [Description("Maximum returned lines.")] int? maxLines = null,
+        [Description(
+            "Maximum returned lines, newest kept. Omit for the server default, 500 unless "
+            + "LIBTMUX_MCP_MAX_LINES sets another.")]
+        int? maxLines = null,
         [Description("Rejoin tmux-wrapped lines.")] bool joinWrappedLines = false,
         CancellationToken cancellationToken = default) =>
         _read.CapturePaneAsync(
@@ -247,14 +250,23 @@ internal sealed class CapabilityTools
 
     public Task<TailResult> CaptureSinceAsync(
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
-        [Description("The opaque cursor returned by the previous call.")] string? cursor = null,
-        [Description("Maximum returned lines.")] int? maxLines = null,
+        [Description(
+            "The opaque cursor returned by the previous call. Omit to start from what is "
+            + "on screen now.")]
+        string? cursor = null,
+        [Description(
+            "Maximum returned lines, newest kept. Omit for the server default, 500 unless "
+            + "LIBTMUX_MCP_MAX_LINES sets another.")]
+        int? maxLines = null,
         CancellationToken cancellationToken = default) =>
         _read.TailPaneAsync(paneId, cursor, maxLines, cancellationToken: cancellationToken);
 
     public Task<PaneSnapshot> SnapshotPaneAsync(
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
-        [Description("Maximum returned lines.")] int? maxLines = null,
+        [Description(
+            "Maximum returned lines, newest kept. Omit for the server default, 500 unless "
+            + "LIBTMUX_MCP_MAX_LINES sets another.")]
+        int? maxLines = null,
         CancellationToken cancellationToken = default) =>
         _read.SnapshotPaneAsync(paneId, maxLines, cancellationToken: cancellationToken);
 
@@ -307,16 +319,20 @@ internal sealed class CapabilityTools
         [Description(
             "Linear-time regular expressions that end the wait successfully: .NET "
             + "syntax without lookarounds, backreferences or atomic groups. Only output "
-            + "arriving after this call counts; text already on screen never matches. "
+            + "arriving after this call counts; text already on screen never matches. Omit "
+            + "to return on any new output. "
             + "Across both pattern lists: at most 32 entries and 16384 UTF-8 bytes; each "
             + "entry is at most 999 UTF-8 bytes.")]
         IReadOnlyList<string>? patterns = null,
         [Description(
             "Linear-time regular expressions that stop the wait, in the same subset as "
-            + "patterns. Across both pattern lists: at most 32 entries and 16384 UTF-8 "
-            + "bytes; each entry is at most 999 UTF-8 bytes.")]
+            + "patterns. Omit for none. Across both pattern lists: at most 32 entries and "
+            + "16384 UTF-8 bytes; each entry is at most 999 UTF-8 bytes.")]
         IReadOnlyList<string>? stopPatterns = null,
-        [Description("Requested timeout in seconds.")] double? timeoutSeconds = null,
+        [Description(
+            "Seconds to wait, lowered to the server's ceiling. Omit to wait the whole "
+            + "ceiling, 30 unless LIBTMUX_MCP_WAIT_MAX_SECONDS sets another.")]
+        double? timeoutSeconds = null,
         [Description("Ignore case.")] bool ignoreCase = true,
         CancellationToken cancellationToken = default) =>
         _read.WaitForTextAsync(
@@ -328,7 +344,8 @@ internal sealed class CapabilityTools
             "Variable names such as session_name, without #{...}. Between 1 and 64 "
             + "names, each at most 64 letters, digits and underscores.")]
         IReadOnlyList<string> names,
-        [Description("A pane id used as the lookup context.")] string? paneId = null,
+        [Description("A pane id used as the lookup context. Omit for the active pane.")]
+        string? paneId = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(names);
@@ -361,7 +378,8 @@ internal sealed class CapabilityTools
     public Task<IReadOnlyList<OptionEntry>> ShowOptionAsync(
         [Description("The option name.")] string name,
         [Description("Server, Session, Window, or Pane.")] OptionScope scope = OptionScope.Pane,
-        [Description("The pane whose scope is read.")] string? paneId = null,
+        [Description("The pane whose scope is read. Omit for the active pane.")]
+        string? paneId = null,
         CancellationToken cancellationToken = default) =>
         _read.ShowOptionsAsync(name, scope, paneId, cancellationToken: cancellationToken);
 
@@ -377,7 +395,8 @@ internal sealed class CapabilityTools
 
     public Task<IReadOnlyList<HookEntry>> ShowHooksAsync(
         [Description("Server, Session, Window, or Pane.")] OptionScope scope = OptionScope.Session,
-        [Description("The pane whose scope is read.")] string? paneId = null,
+        [Description("The pane whose scope is read. Omit for the active pane.")]
+        string? paneId = null,
         CancellationToken cancellationToken = default) =>
         _read.ShowHooksAsync(scope, paneId, cancellationToken: cancellationToken);
 
@@ -630,14 +649,14 @@ internal sealed class CapabilityTools
 
     public Task<ActionResult> RenameSessionAsync(
         [Description("The new session name.")] string name,
-        [Description("A session id or name.")] string? session = null,
+        [Description("A session id or name. Omit for the first session.")] string? session = null,
         CancellationToken cancellationToken = default) =>
         _write.RenameSessionAsync(
             LiteralTmuxFormat(name)!, session, cancellationToken: cancellationToken);
 
     public Task<ActionResult> RenameWindowAsync(
         [Description("The new window name.")] string name,
-        [Description("A window id.")] string? windowId = null,
+        [Description("A window id. Omit for the active window.")] string? windowId = null,
         CancellationToken cancellationToken = default) =>
         _write.RenameWindowAsync(
             LiteralTmuxFormat(name)!, windowId, cancellationToken: cancellationToken);
@@ -654,14 +673,17 @@ internal sealed class CapabilityTools
 
     public Task<ActionResult> SelectLayoutAsync(
         [Description("A window id. Omit for the active window.")] string? windowId = null,
-        [Description("A supported layout name or layout string.")] string? layout = null,
+        [Description(
+            "A supported layout name or layout string. Omit to reapply the window's last "
+            + "preset layout, if it has had one.")]
+        string? layout = null,
         CancellationToken cancellationToken = default) =>
         _write.SelectLayoutAsync(windowId, layout, cancellationToken: cancellationToken);
 
     public async Task<ActionResult> ResizeWindowAsync(
         [Description("A window id. Omit for the active window.")] string? windowId = null,
-        [Description("Columns.")] int? width = null,
-        [Description("Rows.")] int? height = null,
+        [Description("Columns. Omit to keep the current width.")] int? width = null,
+        [Description("Rows. Omit to keep the current height.")] int? height = null,
         CancellationToken cancellationToken = default)
     {
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
@@ -680,8 +702,8 @@ internal sealed class CapabilityTools
 
     public Task<ActionResult> ResizePaneAsync(
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
-        [Description("Columns.")] int? width = null,
-        [Description("Rows.")] int? height = null,
+        [Description("Columns. Omit to keep the current width.")] int? width = null,
+        [Description("Rows. Omit to keep the current height.")] int? height = null,
         [Description("Zoom the pane.")] bool zoom = false,
         CancellationToken cancellationToken = default) =>
         _write.ResizePaneAsync(paneId, width, height, zoom, cancellationToken: cancellationToken);
@@ -690,7 +712,8 @@ internal sealed class CapabilityTools
         [Description("The window id to move.")] string windowId,
         [Description("The destination window index, or empty for the next free index.")]
         string destination = "",
-        [Description("The destination session id or name.")] string? session = null,
+        [Description("The destination session id or name. Omit to stay in the window's session.")]
+        string? session = null,
         [Description(
             "Kill the window already at that index and take its place. Needs the same "
             + "authority as kill_window, because that is what it does to it.")]
@@ -857,7 +880,10 @@ internal sealed class CapabilityTools
 
     public Task<ChannelWaitResult> WaitForChannelAsync(
         [Description("The tmux wait-for channel.")] string channel,
-        [Description("Requested timeout in seconds.")] double? timeoutSeconds = null,
+        [Description(
+            "Seconds to wait, lowered to the server's ceiling. Omit to wait the whole "
+            + "ceiling, 30 unless LIBTMUX_MCP_WAIT_MAX_SECONDS sets another.")]
+        double? timeoutSeconds = null,
         CancellationToken cancellationToken = default) =>
         _write.WaitForChannelAsync(channel, timeoutSeconds, cancellationToken: cancellationToken);
 
@@ -892,7 +918,8 @@ internal sealed class CapabilityTools
         string name,
         [Description("The value: a whole number, a word such as on, or a colour.")] string value,
         [Description("Server, Session, Window, or Pane.")] OptionScope scope = OptionScope.Session,
-        [Description("The pane whose scope is written.")] string? paneId = null,
+        [Description("The pane whose scope is written. Omit for the active pane.")]
+        string? paneId = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(name);
@@ -958,19 +985,27 @@ internal sealed class CapabilityTools
     }
 
     public Task<ActionResult> CreateSessionAsync(
-        [Description("The session name.")] string? name = null,
-        [Description("The literal starting directory.")] string? startDirectory = null,
-        [Description("Columns.")] int? width = null,
-        [Description("Rows.")] int? height = null,
+        [Description("The session name. Omit and tmux names it with a number.")]
+        string? name = null,
+        [Description(
+            "The literal starting directory. Omit for the MCP server's own working "
+            + "directory.")]
+        string? startDirectory = null,
+        [Description("Columns. Omit for tmux's default of 80.")] int? width = null,
+        [Description("Rows. Omit for tmux's default of 24.")] int? height = null,
         CancellationToken cancellationToken = default) =>
         _write.CreateSessionAsync(
             LiteralTmuxFormat(name), LiteralTmuxFormat(startDirectory), width, height,
             cancellationToken: cancellationToken);
 
     public Task<ActionResult> CreateWindowAsync(
-        [Description("A session id or name.")] string? session = null,
-        [Description("The window name.")] string? name = null,
-        [Description("The literal starting directory.")] string? startDirectory = null,
+        [Description("A session id or name. Omit for the first session.")] string? session = null,
+        [Description("The window name. Omit and tmux names it after the program it runs.")]
+        string? name = null,
+        [Description(
+            "The literal starting directory. Omit for the MCP server's own working "
+            + "directory.")]
+        string? startDirectory = null,
         CancellationToken cancellationToken = default) =>
         _write.CreateWindowAsync(
             session, LiteralTmuxFormat(name), LiteralTmuxFormat(startDirectory),
@@ -979,8 +1014,12 @@ internal sealed class CapabilityTools
     public Task<ActionResult> SplitWindowAsync(
         [Description("The pane to split. Omit for the active pane.")] string? paneId = null,
         [Description("Below, Above, Left, or Right.")] PaneDirection direction = PaneDirection.Below,
-        [Description("The literal starting directory.")] string? startDirectory = null,
-        [Description("Percentage of the space for the new pane.")] int? percentage = null,
+        [Description(
+            "The literal starting directory. Omit for the MCP server's own working "
+            + "directory.")]
+        string? startDirectory = null,
+        [Description("Percentage of the space for the new pane. Omit for half.")]
+        int? percentage = null,
         CancellationToken cancellationToken = default) =>
         _write.SplitPaneAsync(
             paneId, direction, LiteralTmuxFormat(startDirectory), percentage,
@@ -988,7 +1027,10 @@ internal sealed class CapabilityTools
 
     public async Task<ActionResult> RespawnPaneAsync(
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
-        [Description("The literal starting directory.")] string? startDirectory = null,
+        [Description(
+            "The literal starting directory. Omit for the directory the pane started in "
+            + "before.")]
+        string? startDirectory = null,
         [Description("Kill the existing pane process first.")] bool killExistingProcess = false,
         CancellationToken cancellationToken = default)
     {
@@ -1012,8 +1054,14 @@ internal sealed class CapabilityTools
     public async Task<RunResult> RunShellCommandAsync(
         [Description("The shell command.")] string command,
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
-        [Description("Requested timeout in seconds.")] double? timeoutSeconds = null,
-        [Description("Maximum returned lines.")] int? maxLines = null,
+        [Description(
+            "Seconds to wait, lowered to the server's ceiling. Omit to wait the whole "
+            + "ceiling, 30 unless LIBTMUX_MCP_WAIT_MAX_SECONDS sets another.")]
+        double? timeoutSeconds = null,
+        [Description(
+            "Maximum returned lines, newest kept. Omit for the server default, 500 unless "
+            + "LIBTMUX_MCP_MAX_LINES sets another.")]
+        int? maxLines = null,
         [Description("Keep the command out of shell history on a best-effort basis.")]
         bool suppressHistory = false,
         CancellationToken cancellationToken = default)

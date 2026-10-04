@@ -186,7 +186,12 @@ def _omitted(tools: list[dict]) -> list[tuple[str, str, list[str]]]:
             )
             if sentence is not None:
                 meaning = sentence.removeprefix("Omit ").removesuffix(".")
-                meaning = meaning.removeprefix("for ")
+                # "Omit for the active pane", "Omit to keep ...", "Omit and tmux ...":
+                # the table's column already says "when omitted".
+                for joiner in ("for ", "to ", "and "):
+                    if meaning.startswith(joiner):
+                        meaning = meaning.removeprefix(joiner)
+                        break
                 meanings.setdefault((name, meaning), []).append(tool["name"])
     return sorted((name, meaning, names) for (name, meaning), names in meanings.items())
 

@@ -177,6 +177,21 @@ public sealed class McpProtocolTests
             Assert.False(string.IsNullOrWhiteSpace(tool.ProtocolTool.Description));
             Assert.False(tool.ProtocolTool.InputSchema.GetProperty("properties")
                 .TryGetProperty("socketName", out _));
+
+            // A parameter that may be left out says what leaving it out does;
+            // docs/mcp/tools.md builds its omitted-parameter table from these.
+            foreach (JsonProperty parameter in tool.ProtocolTool.InputSchema
+                .GetProperty("properties").EnumerateObject())
+            {
+                bool nullable = parameter.Value.TryGetProperty("type", out JsonElement type)
+                    && type.ValueKind == JsonValueKind.Array
+                    && type.EnumerateArray().Any(each => each.GetString() == "null");
+                Assert.True(
+                    !nullable
+                    || parameter.Value.GetProperty("description").GetString()!
+                        .Contains("Omit ", StringComparison.Ordinal),
+                    $"{tool.Name}.{parameter.Name} does not say what omitting it does.");
+            }
         });
 
         JsonElement searchPattern = tools.Single(tool => tool.Name == "search_panes")
