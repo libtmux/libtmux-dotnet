@@ -170,10 +170,10 @@ contains can end on the shell's echo before the command runs; use
 exits during it or a full-screen program takes over, raises
 `TmuxPaneException` on a pane whose program had already exited, and sleeps on
 the pane's own output through a control client rather than polling. A wait
-attaches that client and reads the pane through it, which costs about one more
-tmux process than reading the screen once; for a series of waits on one
+attaches that client and reads the pane through it, which costs a few
+milliseconds more than reading the screen once; for a series of waits on one
 session, `use! _ = Session.holdWaitClient ct session` keeps the client attached
-so each wait skips that. Read output already there with `Pane.capture`, and
+so each wait skips that and costs about what one read does. Read output already there with `Pane.capture`, and
 wait for output still to come; the
 [wait latency benchmark](../benchmarks/README.md#f-wait-latency) measures each.
 
