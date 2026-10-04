@@ -26,7 +26,25 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxObjectNotFoundException`tmux reports no such pane.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L188)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L194)
+
+<a name="kill"></a>
+
+#### <code><span>Window.kill&#32;<span>cancellationToken&#32;window</span></span></code>
+
+Kills the window, with its panes.
+
+The core&#39;s <code>Window.KillAsync</code> without <code>allExcept</code>.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**window**: <code>Window</code>
+
+Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L202)
 
 <a name="panes"></a>
 
@@ -42,7 +60,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&
 
 `IncompleteSnapshotException` The window was not read through a server.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L185)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L191)
 
 <a name="placementKey"></a>
 
@@ -58,4 +76,40 @@ Returns: <code><a href="../reference/libtmux-fsharp-windowplacementkey.md">Windo
 
 `IncompleteSnapshotException` The placement was not captured.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L183)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L189)
+
+<a name="rename"></a>
+
+#### <code><span>Window.rename&#32;<span>cancellationToken&#32;name&#32;window</span></span></code>
+
+Renames the window and returns a handle carrying the new name.
+
+tmux expands the name as a format, so a <code>#</code> in it does not survive verbatim.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**name**: <code>string</code>
+
+**window**: <code>Window</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L197)
+
+<a name="select"></a>
+
+#### <code><span>Window.select&#32;<span>cancellationToken&#32;window</span></span></code>
+
+Makes the window its session's current window, and returns a handle carrying the state afterwards.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**window**: <code>Window</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L200)

@@ -47,6 +47,24 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L178)
 
+<a name="kill"></a>
+
+#### <code><span>Session.kill&#32;<span>cancellationToken&#32;session</span></span></code>
+
+Kills the session, with its windows and panes.
+
+The core&#39;s <code>Session.KillAsync</code> with its other options left off.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**session**: <code>Session</code>
+
+Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L184)
+
 <a name="panes"></a>
 
 #### <code><span>Session.panes&#32;<span>session</span></span></code>
@@ -62,6 +80,26 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&
 `IncompleteSnapshotException` The session was not read through a server.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L172)
+
+<a name="rename"></a>
+
+#### <code><span>Session.rename&#32;<span>cancellationToken&#32;name&#32;session</span></span></code>
+
+Renames the session and returns a handle carrying the new name.
+
+tmux expands the name as a format, so a <code>#</code> in it does not survive verbatim.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**name**: <code>string</code>
+
+**session**: <code>Session</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Session&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L181)
 
 <a name="windows"></a>
 

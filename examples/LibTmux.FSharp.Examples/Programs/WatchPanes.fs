@@ -56,8 +56,8 @@ let runAsync () =
 
         // Each pane's end arrives as PaneWatch.Gone, and the stream ends
         // once both are gone.
-        do! build.KillAsync(cancellationToken = token)
-        do! test.KillAsync(cancellationToken = token)
+        do! build |> Pane.kill token
+        do! test |> Pane.kill token
 
         let! ended =
             client

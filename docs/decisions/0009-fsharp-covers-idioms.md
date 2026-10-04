@@ -6,6 +6,13 @@ Accepted for the prerelease line. The session builder, typed chains and
 per-handle timeout it declined are superseded by
 [ADR 0010](0010-fsharp-builds-sessions-and-chains.md).
 
+Revisited on 2026-10-04 for kill, rename and select, which the F# samples
+called more than any other core operation. `KillAsync` and `Pane.SelectAsync`
+take optional parameters before the token, so every F# call named it, and
+the handles rename and select return read naturally at the end of a pipe.
+`Session`, `Window` and `Pane` gain `kill`, `rename` and `select` where tmux
+has them; resizing, moving and the rest still go through the core.
+
 ## Context
 
 The JVM ports generate their Kotlin and Scala coverage from the Java

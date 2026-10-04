@@ -59,9 +59,9 @@ program's. The MCP server reads the socket once, when it starts.
 | `get_tmux_variables` | `pane.DisplayMessageAsync` with a `DisplayMessageRequest` whose `Format` names them and `ReturnText` is true |
 | `show_environment`, `show_hooks` | `server.Environment` or `session.Environment`, and the `Hooks` of any level |
 | `create_session`, `create_window` | `Server.newSession` with a `SessionSpec`, and `session.CreateWindowAsync` |
-| `rename_session`, `rename_window`, `set_pane_title` | `session.RenameAsync`, `window.RenameAsync`, `pane.SetTitleAsync` |
-| `kill_session`, `kill_window`, `kill_pane` | `KillAsync` on the session, window or pane |
-| `select_window`, `select_pane` | `window.SelectAsync`, `pane.SelectAsync` |
+| `rename_session`, `rename_window`, `set_pane_title` | `Session.rename`, `Window.rename`, `pane.SetTitleAsync` |
+| `kill_session`, `kill_window`, `kill_pane` | `Session.kill`, `Window.kill`, `Pane.kill` |
+| `select_window`, `select_pane` | `Window.select`, `Pane.select` |
 | `move_window`, `swap_pane` | `window.MoveAsync`, `pane.SwapAsync` |
 | `resize_window`, `resize_pane`, `select_layout` | `window.ResizeAsync`, `pane.ResizeAsync`, `window.SelectLayoutAsync` |
 | `respawn_pane`, `clear_pane_scrollback` | `pane.RespawnAsync`, `pane.ClearHistoryAsync` |

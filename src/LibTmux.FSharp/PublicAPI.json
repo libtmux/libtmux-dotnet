@@ -2215,6 +2215,42 @@
       "returnType": "System.Threading.Tasks.Task<Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option>"
     },
     {
+      "id": "M:LibTmux.FSharp.Pane.kill(System.Threading.CancellationToken,LibTmux.Pane)",
+      "package": "LibTmux.FSharp",
+      "name": "kill",
+      "declaringType": "T:LibTmux.FSharp.Pane",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val kill: cancellationToken: System.Threading.CancellationToken -> pane: LibTmux.Pane -> System.Threading.Tasks.Task",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Pane -> System.Threading.Tasks.Task"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "kill",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task"
+    },
+    {
       "id": "M:LibTmux.FSharp.Pane.pressKey(System.Threading.CancellationToken,System.String,LibTmux.Pane)",
       "package": "LibTmux.FSharp",
       "name": "pressKey",
@@ -2345,6 +2381,42 @@
       "compiledName": "run",
       "genericParameters": [],
       "returnType": "System.Threading.Tasks.Task<LibTmux.PaneRunResult>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Pane.select(System.Threading.CancellationToken,LibTmux.Pane)",
+      "package": "LibTmux.FSharp",
+      "name": "select",
+      "declaringType": "T:LibTmux.FSharp.Pane",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val select: cancellationToken: System.Threading.CancellationToken -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.Pane>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.Pane>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "select",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.Pane>"
     },
     {
       "id": "M:LibTmux.FSharp.Pane.sendAndWait(System.Threading.CancellationToken,System.TimeSpan,System.String,System.String,LibTmux.Pane)",
@@ -3849,6 +3921,42 @@
       "returnType": "System.Threading.Tasks.Task<System.IAsyncDisposable>"
     },
     {
+      "id": "M:LibTmux.FSharp.Session.kill(System.Threading.CancellationToken,LibTmux.Session)",
+      "package": "LibTmux.FSharp",
+      "name": "kill",
+      "declaringType": "T:LibTmux.FSharp.Session",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val kill: cancellationToken: System.Threading.CancellationToken -> session: LibTmux.Session -> System.Threading.Tasks.Task",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Session -> System.Threading.Tasks.Task"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.Session"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "kill",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task"
+    },
+    {
       "id": "M:LibTmux.FSharp.Session.panes(LibTmux.Session)",
       "package": "LibTmux.FSharp",
       "name": "panes",
@@ -3877,6 +3985,48 @@
       "compiledName": "panes",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Query<LibTmux.Pane>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Session.rename(System.Threading.CancellationToken,System.String,LibTmux.Session)",
+      "package": "LibTmux.FSharp",
+      "name": "rename",
+      "declaringType": "T:LibTmux.FSharp.Session",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val rename: cancellationToken: System.Threading.CancellationToken -> name: Microsoft.FSharp.Core.string -> session: LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.Session>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.string -> LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.Session>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "name",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.Session"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "rename",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.Session>"
     },
     {
       "id": "M:LibTmux.FSharp.Session.windows(LibTmux.Session)",
@@ -4246,6 +4396,42 @@
       "returnType": "System.Threading.Tasks.Task<LibTmux.Pane>"
     },
     {
+      "id": "M:LibTmux.FSharp.Window.kill(System.Threading.CancellationToken,LibTmux.Window)",
+      "package": "LibTmux.FSharp",
+      "name": "kill",
+      "declaringType": "T:LibTmux.FSharp.Window",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val kill: cancellationToken: System.Threading.CancellationToken -> window: LibTmux.Window -> System.Threading.Tasks.Task",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Window -> System.Threading.Tasks.Task"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "window",
+          "optional": false,
+          "type": "LibTmux.Window"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "kill",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task"
+    },
+    {
       "id": "M:LibTmux.FSharp.Window.panes(LibTmux.Window)",
       "package": "LibTmux.FSharp",
       "name": "panes",
@@ -4304,6 +4490,84 @@
       "compiledName": "placementKey",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.WindowPlacementKey"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Window.rename(System.Threading.CancellationToken,System.String,LibTmux.Window)",
+      "package": "LibTmux.FSharp",
+      "name": "rename",
+      "declaringType": "T:LibTmux.FSharp.Window",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val rename: cancellationToken: System.Threading.CancellationToken -> name: Microsoft.FSharp.Core.string -> window: LibTmux.Window -> System.Threading.Tasks.Task<LibTmux.Window>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.string -> LibTmux.Window -> System.Threading.Tasks.Task<LibTmux.Window>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "name",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "window",
+          "optional": false,
+          "type": "LibTmux.Window"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "rename",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.Window>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Window.select(System.Threading.CancellationToken,LibTmux.Window)",
+      "package": "LibTmux.FSharp",
+      "name": "select",
+      "declaringType": "T:LibTmux.FSharp.Window",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val select: cancellationToken: System.Threading.CancellationToken -> window: LibTmux.Window -> System.Threading.Tasks.Task<LibTmux.Window>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Window -> System.Threading.Tasks.Task<LibTmux.Window>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "window",
+          "optional": false,
+          "type": "LibTmux.Window"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "select",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.Window>"
     },
     {
       "id": "M:LibTmux.FSharp.WindowSpec.ToString",

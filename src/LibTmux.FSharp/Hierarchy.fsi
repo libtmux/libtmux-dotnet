@@ -120,6 +120,14 @@ module Session =
     /// </remarks>
     val holdWaitClient: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<IAsyncDisposable>
 
+    /// <summary>Renames the session and returns a handle carrying the new name.</summary>
+    /// <remarks>tmux expands the name as a format, so a <c>#</c> in it does not survive verbatim.</remarks>
+    val rename: cancellationToken: CancellationToken -> name: string -> session: LibTmux.Session -> Task<LibTmux.Session>
+
+    /// <summary>Kills the session, with its windows and panes.</summary>
+    /// <remarks>The core's <c>Session.KillAsync</c> with its other options left off.</remarks>
+    val kill: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task
+
 /// <summary>Identifies window placements and starts queries confined to one window.</summary>
 [<RequireQualifiedAccess>]
 module Window =
@@ -135,6 +143,17 @@ module Window =
     /// <remarks>The core's <c>Window.GetActivePaneAsync</c>.</remarks>
     /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux reports no such pane.</exception>
     val activePane: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<LibTmux.Pane>
+
+    /// <summary>Renames the window and returns a handle carrying the new name.</summary>
+    /// <remarks>tmux expands the name as a format, so a <c>#</c> in it does not survive verbatim.</remarks>
+    val rename: cancellationToken: CancellationToken -> name: string -> window: LibTmux.Window -> Task<LibTmux.Window>
+
+    /// <summary>Makes the window its session's current window, and returns a handle carrying the state afterwards.</summary>
+    val select: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<LibTmux.Window>
+
+    /// <summary>Kills the window, with its panes.</summary>
+    /// <remarks>The core's <c>Window.KillAsync</c> without <c>allExcept</c>.</remarks>
+    val kill: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task
 
 /// <summary>Reads captured pane fields and starts explicit pane operations.</summary>
 [<RequireQualifiedAccess>]
@@ -293,6 +312,14 @@ module Pane =
     /// </remarks>
     val split:
         cancellationToken: CancellationToken -> request: SplitPaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>
+
+    /// <summary>Makes the pane its window's active pane, and returns a handle carrying the state afterwards.</summary>
+    /// <remarks>The core's <c>Pane.SelectAsync</c> without a request; pass one to it to move by direction or keep the window's last pane.</remarks>
+    val select: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task<LibTmux.Pane>
+
+    /// <summary>Kills the pane and the program in it.</summary>
+    /// <remarks>The core's <c>Pane.KillAsync</c> without <c>allExcept</c>.</remarks>
+    val kill: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task
 
 /// <summary>Reads and writes options through keys that know their value's type.</summary>
 /// <remarks>

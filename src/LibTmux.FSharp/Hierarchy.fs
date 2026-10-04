@@ -178,6 +178,12 @@ module Session =
     let holdWaitClient (cancellationToken: CancellationToken) (session: LibTmux.Session) =
         session.HoldWaitClientAsync(cancellationToken)
 
+    let rename (cancellationToken: CancellationToken) (name: string) (session: LibTmux.Session) =
+        session.RenameAsync(name, cancellationToken)
+
+    let kill (cancellationToken: CancellationToken) (session: LibTmux.Session) =
+        session.KillAsync(cancellationToken = cancellationToken)
+
 [<RequireQualifiedAccess>]
 module Window =
     let placementKey window = Placement.key window
@@ -187,6 +193,14 @@ module Window =
 
     let activePane (cancellationToken: CancellationToken) (window: LibTmux.Window) =
         window.GetActivePaneAsync(cancellationToken)
+
+    let rename (cancellationToken: CancellationToken) (name: string) (window: LibTmux.Window) =
+        window.RenameAsync(name, cancellationToken)
+
+    let select (cancellationToken: CancellationToken) (window: LibTmux.Window) = window.SelectAsync(cancellationToken)
+
+    let kill (cancellationToken: CancellationToken) (window: LibTmux.Window) =
+        window.KillAsync(cancellationToken = cancellationToken)
 
 [<RequireQualifiedAccess>]
 module Pane =
@@ -254,6 +268,12 @@ module Pane =
 
     let split (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
         pane.SplitAsync(request, cancellationToken)
+
+    let select (cancellationToken: CancellationToken) (pane: LibTmux.Pane) =
+        pane.SelectAsync(cancellationToken = cancellationToken)
+
+    let kill (cancellationToken: CancellationToken) (pane: LibTmux.Pane) =
+        pane.KillAsync(cancellationToken = cancellationToken)
 
 [<RequireQualifiedAccess>]
 module Options =

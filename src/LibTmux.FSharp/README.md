@@ -121,6 +121,9 @@ targets `net8.0` and `net10.0`.
 | Need | F# call | Returns |
 | --- | --- | --- |
 | Split a pane | `Pane.split ct request pane` | the new `Pane` |
+| Rename a session or window | `Window.rename ct name window` | a handle with the new name |
+| Make a window or pane current | `Window.select ct window`, `Pane.select ct pane` | a handle with the state afterwards |
+| Kill a session, window or pane | `Pane.kill ct pane` | `Task` |
 | Create a session running one command | `Server.newSession ct (SessionSpec.running name command) server` | `Session` |
 | Create a session with windows | `Server.newSession ct spec server` | `Session` |
 | Several commands, one tmux call | `Chain.start server \|> … \|> Chain.run ct` | `TmuxCommandResult` |

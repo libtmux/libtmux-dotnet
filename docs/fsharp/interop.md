@@ -322,7 +322,7 @@ let exerciseWindowInputAsync (cancellationToken: CancellationToken) (session: Se
         do! pane |> Pane.sendKeys cancellationToken literal
         do! pane |> Pane.sendKeys cancellationToken keyName
         do! pane |> Pane.sendKeys cancellationToken textThenEnter
-        do! window.KillAsync(cancellationToken = cancellationToken)
+        do! window |> Window.kill cancellationToken
 
         let arguments (request: SendKeysRequest) =
             [

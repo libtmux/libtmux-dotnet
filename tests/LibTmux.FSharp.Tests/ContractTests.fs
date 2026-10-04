@@ -374,6 +374,51 @@ module ContractTests =
             Assert.Equal(0, mutations)
         }
 
+    [<Fact>]
+    let ``kill sends one command for the handle it is given`` () =
+        task {
+            let sent = Collections.Concurrent.ConcurrentQueue<string list>()
+
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-kill"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                        let arguments = request.LogicalArguments |> Seq.toArray
+
+                        if arguments = [| "-V" |] then
+                            versionReply arguments
+                        else
+                            // Entity commands follow the server generation guard.
+                            sent.Enqueue(arguments |> Array.skip (arguments.Length - 3) |> List.ofArray)
+                            let generation = Encoding.UTF8.GetBytes("17:31\n")
+
+                            Task.FromResult(
+                                TmuxCommandResult(
+                                    arguments,
+                                    0,
+                                    ReadOnlyMemory<byte>(generation),
+                                    ReadOnlyMemory<byte>.Empty,
+                                    [| "17:31" |],
+                                    [||]
+                                )
+                            ))
+                )
+
+            let generation = ServerGeneration(17, 31)
+            let server = LibTmux.Server(connection, generation, "tmux 3.7")
+            let fields () = Dictionary<string, string>()
+            let token = TestContext.Current.CancellationToken
+
+            do! LibTmux.Pane(server, connection, generation, PaneId 4, fields ()) |> Pane.kill token
+            do! LibTmux.Window(server, connection, generation, WindowId 3, fields ()) |> Window.kill token
+            do! LibTmux.Session(server, connection, generation, SessionId 2, fields ()) |> Session.kill token
+
+            Assert.Equal<string list list>(
+                [ [ "kill-pane"; "-t"; "%4" ]; [ "kill-window"; "-t"; "@3" ]; [ "kill-session"; "-t"; "$2" ] ],
+                sent |> List.ofSeq
+            )
+        }
+
 module PaneRunTests =
     let private describe result =
         match result with

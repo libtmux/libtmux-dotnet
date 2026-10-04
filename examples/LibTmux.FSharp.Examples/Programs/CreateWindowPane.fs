@@ -23,7 +23,10 @@ let runAsync () =
             )
 
         use! window =
-            session.Value.CreateOwnedWindowAsync(NewWindowRequest(Name = "editor", Command = "/bin/cat"), token)
+            session.Value.CreateOwnedWindowAsync(
+                NewWindowRequest(Name = "editor", Command = "/bin/cat", Attach = false),
+                token
+            )
 
         let! panes = window.Value.GetPanesAsync(token)
         let original = panes |> Seq.exactlyOne
@@ -32,13 +35,22 @@ let runAsync () =
             original
             |> Pane.split token (SplitPaneRequest(Direction = PaneDirection.Right, Command = "/bin/cat"))
 
+        // Renaming and selecting return a handle carrying the state afterwards.
+        let! notes = window.Value |> Window.rename token "notes"
+        let wasCurrent = notes.Active
+        let! current = notes |> Window.select token
+        let! focused = original |> Pane.select token
+        do! added |> Pane.kill token
+
         let server = owned.Value
         let! windows = server |> Server.windows |> Query.list token
         let! allPanes = server |> Server.panes |> Query.list token
 
         printfn "Created session demo and window editor."
-        printfn "Windows: %d; panes: %d" windows.Count allPanes.Count
         printfn "The split made a new pane: %b" (added.Id <> original.Id)
+        printfn "Renamed to %s; current before select: %b, after: %b" current.Name wasCurrent current.Active
+        printfn "First pane active again: %b" focused.Active
+        printfn "Windows: %d; panes after the kill: %d" windows.Count allPanes.Count
     }
 
 runAsync().GetAwaiter().GetResult()
