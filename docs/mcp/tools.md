@@ -199,7 +199,7 @@ Each tool's output schema describes its result; these are its fields.
 | `split_window` | `changed`, `paneId`, `windowId`, `sessionId` |
 | `swap_pane` | `changed`, `paneId`, `windowId`, `sessionId` |
 | `wait_for_channel` | `changed`, `channel`, `signalled`, `elapsedSeconds`, `effectiveTimeoutSeconds` |
-| `wait_for_text` | `paneId`, `outcome`, `matchedPattern`, `tail` (`lines`, `truncated`, `droppedLines`, `droppedBytes`), `elapsedSeconds`, `effectiveTimeoutSeconds` |
+| `wait_for_text` | `paneId`, `outcome`, `matchedPattern`, `tail` (`lines`, `truncated`, `droppedLines`, `droppedBytes`), `elapsedSeconds`, `effectiveTimeoutSeconds`, `pollingFallback`, `eventsDropped`, `linesMissed`, `anchorLost` |
 
 ## Resources
 
