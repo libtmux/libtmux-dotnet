@@ -201,12 +201,12 @@ internal static class PaneRunner
                 bool paneExited = end == RunEnd.PaneExited;
 
                 elapsed.Stop();
-                int? status = end != RunEnd.Signalled
+                int? status = end != RunEnd.Completed
                     ? null
                     : await sequence
                         .ObserveAsync(() => ReadStatusAsync(pane, token, cancellationToken))
                         .ConfigureAwait(false);
-                if (end == RunEnd.Signalled && status is null)
+                if (end == RunEnd.Completed && status is null)
                 {
                     throw new LibTmuxException(
                         "The command completed, but tmux did not return its authenticated "
@@ -214,7 +214,7 @@ internal static class PaneRunner
                         TmuxDispatchState.Dispatched);
                 }
 
-                completionAuthenticated = end == RunEnd.Signalled;
+                completionAuthenticated = end == RunEnd.Completed;
                 PaneRead? read = paneExited
                     ? await ReadAfterExitAsync(pane, baseline, fail, cancellationToken).ConfigureAwait(false)
                     : await sequence
@@ -991,17 +991,18 @@ internal static class PaneRunner
 
     private enum RunEnd
     {
-        Signalled,
+        Completed,
         TimedOut,
         PaneExited,
     }
 
-    /// <summary>Waits for the run's signal, or for the pane's program to exit first.</summary>
+    /// <summary>Waits for the run's signal, or for the run to be seen to end without one.</summary>
     /// <remarks>
-    /// A program that exits mid-run never signals, so the pane is checked on
-    /// a lengthening interval rather than waited on to the end of the budget.
-    /// The check is the one that follows a timed-out run, and the open wait
-    /// stays owned for that follower to withdraw.
+    /// A program that exits mid-run never signals, and a wrapper hung up with
+    /// its shell can record the status but die before signalling. So the run
+    /// is checked on a lengthening interval rather than waited on to the end
+    /// of the budget. The check is the one that follows a timed-out run, and
+    /// the open wait stays owned for that follower to withdraw.
     /// </remarks>
     private static async Task<RunEnd> AwaitRunEndAsync(
         Server server,
@@ -1020,26 +1021,37 @@ internal static class PaneRunner
             progress,
             elapsed,
             attempt.Token);
-        Task<bool> exited = PaneExitedAsync(server, pane, token, daemonProcessStart, attempt.Token);
-        bool paneExited = await Task.WhenAny(signalled, exited).ConfigureAwait(false) == exited
-            && exited.IsCompletedSuccessfully
-            && exited.Result;
+        Task<RunEnd?> watched = WatchRunAsync(server, pane, token, daemonProcessStart, attempt.Token);
+        await Task.WhenAny(signalled, watched).ConfigureAwait(false);
+        if (!watched.IsCompletedSuccessfully || watched.Result is not RunEnd seen)
+        {
+            // The signal came first, or the watch gave up: the signal decides.
+            try
+            {
+                return await signalled.ConfigureAwait(false) ? RunEnd.Completed : RunEnd.TimedOut;
+            }
+            finally
+            {
+                await attempt.CancelAsync().ConfigureAwait(false);
+            }
+        }
+
         await attempt.CancelAsync().ConfigureAwait(false);
         try
         {
             if (await signalled.ConfigureAwait(false))
             {
-                return RunEnd.Signalled;
+                return RunEnd.Completed;
             }
         }
-        catch (OperationCanceledException) when (paneExited && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
         }
 
-        return paneExited ? RunEnd.PaneExited : RunEnd.TimedOut;
+        return seen;
     }
 
-    private static async Task<bool> PaneExitedAsync(
+    private static async Task<RunEnd?> WatchRunAsync(
         Server server,
         Pane pane,
         RunToken token,
@@ -1052,12 +1064,15 @@ internal static class PaneRunner
             await Task.Delay(probe, cancellationToken).ConfigureAwait(false);
             switch (await ObserveRetainedRunAsync(server, pane, token, daemonProcessStart).ConfigureAwait(false))
             {
+                case RetainedRunObservation.Completed:
+                    return RunEnd.Completed;
+
                 case RetainedRunObservation.PaneEnded:
-                    return true;
+                    return RunEnd.PaneExited;
 
                 // The run's own wait fails on a server that has gone.
                 case RetainedRunObservation.ServerEnded:
-                    return false;
+                    return null;
             }
 
             probe = probe * 2 < RetainedRunLongestProbe ? probe * 2 : RetainedRunLongestProbe;

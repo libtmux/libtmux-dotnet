@@ -1674,7 +1674,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task A_process_wide_run_reservation_refuses_a_competing_run()
     {
-        await using var firstFixture = new ToolFixture { BlockFirstWait = true };
+        await using var firstFixture = new ToolFixture { BlockFirstWait = true, StatusValue = null };
         await using var secondFixture = new ToolFixture();
         Task<RunResult> first = firstFixture.Capabilities.RunShellCommandAsync(
             "sleep 1",
@@ -1695,6 +1695,7 @@ public sealed class WriteToolsExecutionSafetyTests
         }
         finally
         {
+            firstFixture.PublishStatus("0");
             firstFixture.ReleaseFirstWait();
             _ = await first;
         }
@@ -1703,7 +1704,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task An_active_run_refuses_other_pane_input_paths()
     {
-        await using var owner = new ToolFixture { BlockFirstWait = true };
+        await using var owner = new ToolFixture { BlockFirstWait = true, StatusValue = null };
         await using var writer = new ToolFixture();
         Task<RunResult> running = owner.Capabilities.RunShellCommandAsync(
             "sleep 1",
@@ -1733,6 +1734,7 @@ public sealed class WriteToolsExecutionSafetyTests
         }
         finally
         {
+            owner.PublishStatus("0");
             owner.ReleaseFirstWait();
             _ = await running;
         }
@@ -1937,6 +1939,24 @@ public sealed class WriteToolsExecutionSafetyTests
 
         Assert.True(timedOut.TimedOut);
         await AssertReservedUntilCompletionAsync(owner, contender);
+    }
+
+    // A wrapper hung up with its shell can record the status and die before
+    // signalling. The run ends on the recorded status, not at its timeout.
+    [Fact]
+    public async Task A_run_whose_signal_is_lost_ends_on_its_recorded_status()
+    {
+        await using var fixture = new ToolFixture { TimeoutFirstWait = true };
+
+        RunResult result = await fixture.Capabilities
+            .RunShellCommandAsync(
+                "echo once",
+                "%1",
+                timeoutSeconds: 20,
+                cancellationToken: TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.Equal((0, false), (result.ExitStatus, result.TimedOut));
     }
 
     [Fact]
