@@ -10,10 +10,10 @@ internal static class WorkspaceYamlParser
     internal const int MaximumCharacters = 1_048_576;
 
     private static readonly string[] RootKeys =
-        ["session_name", "start_directory", "options", "windows", "environment", "shell_command_before", "before_script"];
+        ["session_name", "start_directory", "options", "global_options", "windows", "environment", "shell_command_before", "before_script"];
 
     private static readonly string[] WindowKeys =
-        ["window_name", "window_index", "start_directory", "layout", "focus", "options", "panes", "environment", "shell_command_before"];
+        ["window_name", "window_index", "start_directory", "layout", "focus", "options", "options_after", "panes", "environment", "shell_command_before"];
 
     private static readonly string[] PaneKeys =
         ["shell_command", "start_directory", "focus", "options", "environment", "shell_command_before", "enter"];
@@ -57,7 +57,8 @@ internal static class WorkspaceYamlParser
                     "start_directory"),
                 options: ReadOptions(root, "options", "options", sourceLocations),
                 windows: ReadWindows(root, sourceLocations),
-                beforeScript: ReadBeforeScript(root));
+                beforeScript: ReadBeforeScript(root),
+                globalOptions: ReadOptions(root, "global_options", "global_options", sourceLocations));
             return new WorkspaceFile(
                 declaration,
                 ReadOptions(root, "environment", "environment", sourceLocations),
@@ -107,7 +108,8 @@ internal static class WorkspaceYamlParser
                 focus: ReadOptionalBoolean(values, "focus", $"{path}.focus"),
                 options: ReadOptions(values, "options", $"{path}.options", sourceLocations),
                 panes: ReadPanes(values, path, sourceLocations),
-                windowIndex: ReadOptionalWindowIndex(values, $"{path}.window_index"))
+                windowIndex: ReadOptionalWindowIndex(values, $"{path}.window_index"),
+                optionsAfter: ReadOptions(values, "options_after", $"{path}.options_after", sourceLocations))
                 .WithDefaults(
                     environment: ReadOptions(values, "environment", $"{path}.environment", sourceLocations),
                     beforeCommands: ReadCommands(values, path, sourceLocations, "shell_command_before"));

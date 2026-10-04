@@ -16,7 +16,7 @@ public enum WorkspaceExistingSession
     Error,
     /// <summary>Returns the inspected session without changing it.</summary>
     Reuse,
-    /// <summary>Adds the declared windows without changing existing children or session options.</summary>
+    /// <summary>Adds the declared windows without changing existing children or local session options.</summary>
     Append,
     /// <summary>Replaces only the inspected session, preserving the daemon with a temporary session.</summary>
     Replace,
@@ -51,7 +51,7 @@ public sealed class WorkspacePlanOptions
     public TimeSpan ReadinessTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
     /// <summary>Gets whether failure removes journal-proven created resources.</summary>
-    /// <remarks>Shell commands and host effects are never reversed.</remarks>
+    /// <remarks>Shell commands, host effects and global option changes are never reversed.</remarks>
     public bool CompensateOnFailure { get; init; }
 
     /// <summary>Gets whether a declared before_script may run on the host.</summary>

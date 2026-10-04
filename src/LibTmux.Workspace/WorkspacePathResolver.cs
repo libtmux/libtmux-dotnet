@@ -38,11 +38,12 @@ internal static class WorkspacePathResolver
 
             windows[windowIndex] = new WorkspaceWindow(
                 window.WindowName, windowDirectory, window.Layout, window.Focus, ExpandOptions(window.Options, inputs), panes,
-                window.WindowIndex)
+                window.WindowIndex, ExpandOptions(window.OptionsAfter, inputs))
                 .WithDefaults(environment: window.Environment, beforeCommands: window.BeforeCommands);
         }
 
-        WorkspaceFile resolved = new(workspace.SessionName, directory, ExpandOptions(workspace.Options, inputs), windows, workspace.BeforeScript)
+        WorkspaceFile resolved = new(workspace.SessionName, directory, ExpandOptions(workspace.Options, inputs), windows,
+            workspace.BeforeScript, ExpandOptions(workspace.GlobalOptions, inputs))
         { DirectoriesAreResolved = true, DocumentDirectory = documentDirectory };
         return new WorkspaceFile(resolved, workspace.Environment, null, workspace.BeforeCommands, workspace.SourceLocations);
 

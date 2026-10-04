@@ -9,6 +9,54 @@ namespace LibTmux.IntegrationTests;
 public sealed class WorkspaceApplyTests
 {
     [UnixFact]
+    public async Task Window_option_staging_preserves_geometry_and_isolates_startup_input()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(Options(), token);
+        string nonce = $"workspace-options-{Guid.NewGuid():N}";
+        string endpoint = $"{ShellQuote(scope.Server.ConnectionOptions.TmuxBinaryPath)} -L {ShellQuote(scope.Server.ConnectionOptions.SocketName!)}";
+        string receiver = $"stty -echo; {endpoint} wait-for -S \"$LIBTMUX_WORKSPACE_READY\"; "
+            + "while IFS= read -r line; do printf '%s\\n' \"$line\"; "
+            + $"if [ \"$line\" = BARRIER ]; then {endpoint} wait-for -S \"{nonce}-$TMUX_PANE\"; fi; done";
+        string document = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            session_name = "staged",
+            global_options = new Dictionary<string, string> { ["default-shell"] = "/bin/sh", ["default-command"] = receiver },
+            windows = new[]
+            {
+                new
+                {
+                    layout = "main-horizontal",
+                    options = new Dictionary<string, string> { ["main-pane-height"] = "5" },
+                    options_after = new Dictionary<string, string> { ["synchronize-panes"] = "on" },
+                    panes = new[] { new { shell_command = "LEFT" }, new { shell_command = "RIGHT" } },
+                },
+            },
+        });
+        WorkspaceBuilder builder = new(scope.Server);
+        WorkspacePlan plan = await builder.PlanAsync(WorkspaceFile.Parse(document), new()
+        {
+            Readiness = WorkspaceReadiness.Cooperative,
+            ReadinessTimeout = TimeSpan.FromSeconds(1),
+        }, token);
+        WorkspaceResult result = await builder.ApplyAsync(plan, token);
+        IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
+        Assert.Equal(5, panes[0].Height);
+        Assert.Equal("on", Assert.Single(await result.Windows[0].Options.GetAsync(new("synchronize-panes"), token)).Value.Raw);
+        await using TmuxWaitChannel left = scope.Server.OpenWaitChannel($"{nonce}-{panes[0].Id}");
+        await using TmuxWaitChannel right = scope.Server.OpenWaitChannel($"{nonce}-{panes[1].Id}");
+        await panes[0].SendKeysAsync(new() { Text = "BARRIER", Literal = true, Enter = true }, token);
+        Assert.True(await left.WaitAsync(TimeSpan.FromSeconds(1), token));
+        Assert.True(await right.WaitAsync(TimeSpan.FromSeconds(1), token));
+        IReadOnlyList<string> leftText = await panes[0].CaptureAsync(cancellationToken: token);
+        IReadOnlyList<string> rightText = await panes[1].CaptureAsync(cancellationToken: token);
+        Assert.Contains("LEFT", leftText);
+        Assert.DoesNotContain("RIGHT", leftText);
+        Assert.Contains("RIGHT", rightText);
+        Assert.DoesNotContain("LEFT", rightText);
+    }
+
+    [UnixFact]
     public async Task Application_uses_reviewed_actions_and_native_created_identities()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -50,8 +98,15 @@ public sealed class WorkspaceApplyTests
         await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(Options(), token);
         Session existing = await scope.Server.CreateSessionAsync(new() { Name = "planned", Command = "exec /bin/cat" }, token);
         Window original = (await existing.GetWindowsAsync(token)).Single();
-        WorkspaceFile workspace = new("planned", windows:
-        [new WorkspaceWindow(panes: [new WorkspacePane(options: new Dictionary<string, string> { ["libtmux-invalid-option"] = "fail" })])]);
+        WorkspaceFile workspace = WorkspaceFile.Parse("""
+            session_name: planned
+            global_options:
+              '@workspace-global': kept
+            windows:
+              - panes:
+                  - options:
+                      libtmux-invalid-option: fail
+            """);
         WorkspaceBuilder builder = new(scope.Server);
         WorkspacePlan plan = await builder.PlanAsync(workspace, new()
         {
@@ -65,12 +120,16 @@ public sealed class WorkspaceApplyTests
         Assert.Equal(original.Id, (await existing.GetWindowsAsync(token)).Single().Id);
         Assert.Equal(plan.Actions, failure.Journal.Select(outcome => outcome.Action));
         Assert.Contains(failure.Journal, outcome => outcome.Action.Kind == WorkspaceActionKind.CreateWindow && outcome.State == WorkspaceActionState.Completed);
-        WorkspaceActionOutcome rejected = Assert.Single(failure.Journal, outcome => outcome.Action.Kind == WorkspaceActionKind.SetOption);
+        WorkspaceActionOutcome rejected = Assert.Single(failure.Journal, outcome => outcome.Action.Kind == WorkspaceActionKind.SetOption
+            && outcome.State == WorkspaceActionState.Failed);
         Assert.Equal(WorkspaceActionState.Failed, rejected.State);
         Assert.Equal(TmuxDispatchState.Dispatched, rejected.Dispatch);
         Assert.Same(failure.InnerException, rejected.Failure);
         Assert.NotEqual(TmuxDispatchState.NotDispatched, failure.Dispatch);
         Assert.Equal(WorkspaceActionState.Completed, Assert.Single(failure.CompensationJournal).State);
+        Assert.Equal("kept", Assert.Single(await existing.Options.GetAsync(
+            new("@workspace-global") { Scope = OptionScope.Session, Global = true }, token)).Value.Raw);
+        Assert.DoesNotContain(failure.CompensationJournal, outcome => outcome.Action.Kind == WorkspaceActionKind.SetOption);
     }
 
     [Theory(Skip = "Requires a Unix process environment.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]

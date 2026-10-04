@@ -101,13 +101,47 @@ that tmux would otherwise interpret as formats or styles.
 
 Directory expansion accepts `$NAME` and `${NAME}` from the `variables` argument.
 A leading `~` requires an absolute `HOME` value in that map; `$$` means a literal
-dollar sign. Unknown directory variables fail. At session, window and pane scope,
-option values also expand supplied variables; unknown option variables remain
-literal so values such as `exec $SHELL` still reach tmux unchanged. The resolver
-does not read process environment variables. Commands, names and environment
-values remain literal.
+dollar sign. Unknown directory variables fail. All option values, including
+`global_options` and `options_after`, also expand supplied variables. Unknown
+option variables remain literal so values such as `exec $SHELL` still reach
+tmux unchanged. The resolver does not read process environment variables.
+Commands, names and environment values remain literal.
 Building an unresolved declaration passes directory strings to tmux unchanged,
 including native tmux formats. Session and window names are literal.
+
+## Set options at the right stage
+
+Session `options` and root `global_options` are applied before creating the
+declared windows. Window `options` are applied before startup input and further
+splits, so geometry options are available when the final layout is selected.
+Window `options_after` are applied after all pane input and the final layout:
+
+```yaml
+session_name: workers
+global_options:
+  default-shell: /bin/sh
+windows:
+  - window_name: workers
+    layout: main-horizontal
+    options:
+      main-pane-height: 5
+    options_after:
+      synchronize-panes: on
+    panes:
+      - shell_command: echo left
+      - shell_command: echo right
+```
+
+The first pane gets the requested main height, and synchronized input starts
+after each pane has received its own startup commands. This orders input; it
+does not wait for those commands to finish. `WorkspaceFile.GlobalOptions` and
+`WorkspaceWindow.OptionsAfter` expose the same read-only maps in C#.
+
+Global options change defaults on the selected daemon and can affect other
+sessions that inherit them. Plans expose these as `SetOptionRequest` actions
+with `Global = true`; inspect them before application. `Append` also applies
+declared global options, while `Reuse` leaves them untouched. Compensation
+does not restore global values after failure.
 
 ## Environment and commands
 
@@ -162,7 +196,7 @@ contain NUL. Invalid declarations fail before dispatch.
 |---|---|
 | `ExistingSession = Error` (default) | Refuse a conflicting session. |
 | `ExistingSession = Reuse` | Return the inspected session without changing it. |
-| `ExistingSession = Append` | Add windows while preserving existing children and session options. |
+| `ExistingSession = Append` | Add windows while preserving existing children and local session options; apply declared global options. |
 | `ExistingSession = Replace` | Replace the inspected session while preserving its daemon. |
 | `Readiness = Immediate` (default) | Send each command as literal input, pressing Enter according to its effective inherited state. |
 | `Readiness = Cooperative` | Wait for startup to signal its per-pane channel before sending commands. |
@@ -230,13 +264,15 @@ without an application journal.
 
 `CompensateOnFailure = true` requests cleanup of resources proven to have been
 created by this application. Cleanup has its own bounded `CleanupTimeout`.
-It does not reverse shell commands or host effects, and uncertain creations
-are never guessed from names. Readiness channels and temporary replacement
-keepalives are cleaned regardless of the compensation policy.
+It does not reverse shell commands, host effects or global option changes.
+Uncertain creations are never guessed from names. Readiness channels and
+temporary replacement keepalives are cleaned regardless of the compensation
+policy.
 
 tmux starts a session's first pane before session options can be set. The
-builder therefore creates one transient bootstrap window, applies the options,
-creates the described first window under them, and removes the bootstrap.
+builder therefore creates one transient bootstrap window, applies session and
+global options, creates the described first window under them, and removes
+the bootstrap.
 tmux hooks can observe that extra window lifecycle. A missing session name or
 empty window list raises `WorkspaceFormatException` before creating anything.
 
@@ -276,7 +312,8 @@ the layout text does not establish a mapping from old panes to new processes.
 ## What is in scope
 
 This reads a closed tmuxp subset: session name, start directory, options at
-session/window/pane scope, windows, window indexes, panes, layouts, focus,
+session/window/pane scope, root `global_options`, window `options_after`,
+windows, window indexes, panes, layouts, focus,
 environment, and scalar or ordered `shell_command` and `shell_command_before`
 values. `before_script` runs on the host only when the plan enables
 `AllowHostScripts`. Resolve the declaration against its document directory

@@ -4,6 +4,20 @@ namespace LibTmux.IntegrationTests;
 
 public sealed class WorkspaceFileTests
 {
+    [Theory]
+    [InlineData("global_options: {'@global': value}\nwindows: [{}]\n", true)]
+    [InlineData("{\"global_options\":{\"@global\":\"value\"},\"windows\":[{}]}", true)]
+    [InlineData("windows:\n  - options_after: {synchronize-panes: 'on'}\n", false)]
+    [InlineData("{\"windows\":[{\"options_after\":{\"synchronize-panes\":\"on\"}}]}", false)]
+    public void Tmuxp_global_and_post_construction_options_parse_without_execution(string declaration, bool global)
+    {
+        WorkspaceFile parsed = WorkspaceFile.Parse(declaration).WithDefaults().Resolve(Path.GetTempPath());
+
+        WorkspaceWindow window = Assert.Single(parsed.Windows);
+        Assert.Equal(global ? "value" : "on", global
+            ? parsed.GlobalOptions["@global"] : window.OptionsAfter["synchronize-panes"]);
+    }
+
     [Fact]
     public void Window_index_survives_parse_defaults_and_resolution()
     {
@@ -70,10 +84,14 @@ public sealed class WorkspaceFileTests
             options:
               '@${TAG}': '${TAG}'
               default-command: 'exec $SHELL'
+            global_options:
+              '@${TAG}': '$TAG/$$TAG/${UNKNOWN}'
             windows:
               - window_name: '${TAG}'
                 options:
                   main-pane-height: '${MAIN_PANE_HEIGHT}'
+                options_after:
+                  '@${TAG}': '$TAG/$$TAG/${UNKNOWN}'
                 panes:
                   - shell_command: 'printf ${TAG}'
                     options:
@@ -89,12 +107,16 @@ public sealed class WorkspaceFileTests
         Assert.Equal("review", resolved.Options["@${TAG}"]);
         Assert.Equal("exec $SHELL", resolved.Options["default-command"]);
         Assert.Equal("8", resolved.Windows[0].Options["main-pane-height"]);
+        Assert.Equal("review/$TAG/${UNKNOWN}", resolved.GlobalOptions["@${TAG}"]);
+        Assert.Equal("review/$TAG/${UNKNOWN}", resolved.Windows[0].OptionsAfter["@${TAG}"]);
         Assert.Equal("review/$TAG/${UNKNOWN}", resolved.Windows[0].Panes[0].Options["@pane"]);
         Assert.Equal("${TAG}", resolved.SessionName);
         Assert.Equal("${TAG}", resolved.Environment["TAG_ENV"]);
         Assert.Equal("${TAG}", resolved.Windows[0].WindowName);
         Assert.Equal("printf ${TAG}", Assert.Single(resolved.Windows[0].Panes[0].ShellCommands));
         Assert.Equal("${TAG}", declaration.Options["@${TAG}"]);
+        Assert.Equal("$TAG/$$TAG/${UNKNOWN}", declaration.GlobalOptions["@${TAG}"]);
+        Assert.Equal("$TAG/$$TAG/${UNKNOWN}", declaration.Windows[0].OptionsAfter["@${TAG}"]);
     }
 
     [Fact]
@@ -266,27 +288,35 @@ public sealed class WorkspaceFileTests
             start_directory: ./src
             options:
               status: 'off'
+            global_options:
+              repeat-time: 493
             windows:
               - window_name: editor
                 focus: true
+                options_after:
+                  synchronize-panes: 'on'
                 panes:
                   - shell_command: ['printf hello', '']
                     start_directory: ../tests
             """);
         WorkspaceFile json = WorkspaceFile.Parse("""
             {"session_name":"project", "start_directory":"./src",
-             "options":{"status":"off"}, "windows":[
-               {"window_name":"editor", "focus":true, "panes":[
+             "options":{"status":"off"}, "global_options":{"repeat-time":493}, "windows":[
+               {"window_name":"editor", "focus":true, "options_after":{"synchronize-panes":"on"}, "panes":[
                  {"shell_command":["printf hello", ""], "start_directory":"../tests"}]}]}
             """);
 
         Assert.Equal(yaml.SessionName, json.SessionName);
         Assert.Equal(yaml.StartDirectory, json.StartDirectory);
         Assert.Equal(yaml.Options, json.Options);
+        Assert.Equal("493", yaml.GlobalOptions["repeat-time"]);
+        Assert.Equal(yaml.GlobalOptions, json.GlobalOptions);
         WorkspaceWindow expected = Assert.Single(yaml.Windows);
         WorkspaceWindow actual = Assert.Single(json.Windows);
         Assert.Equal(expected.WindowName, actual.WindowName);
         Assert.Equal(expected.Focus, actual.Focus);
+        Assert.Equal("on", expected.OptionsAfter["synchronize-panes"]);
+        Assert.Equal(expected.OptionsAfter, actual.OptionsAfter);
         Assert.Equal(Assert.Single(expected.Panes).ShellCommands, Assert.Single(actual.Panes).ShellCommands);
         Assert.Equal(expected.Panes[0].StartDirectory, actual.Panes[0].StartDirectory);
     }
@@ -301,6 +331,8 @@ public sealed class WorkspaceFileTests
             "session_name: wrong-panes\nwindows:\n  - panes: one\n",
             "session_name: null-panes\nwindows:\n  - panes: null\n",
             "session_name: wrong-options\noptions:\n  - one\n",
+            "global_options: {status: [one]}\n",
+            "windows:\n  - options_after: {synchronize-panes: [one]}\n",
             "session_name: wrong-focus\nwindows:\n  - focus: perhaps\n",
             "session_name: wrong-command\nwindows:\n  - panes:\n      - shell_command:\n          command: one\n",
         };
@@ -536,14 +568,20 @@ public sealed class WorkspaceFileTests
     {
         List<string> commands = ["echo one"];
         Dictionary<string, string> options = new() { ["base-index"] = "1" };
+        Dictionary<string, string> globals = new() { ["@global"] = "original" };
+        Dictionary<string, string> after = new() { ["@after"] = "original" };
         Dictionary<string, string> environment = new() { ["MODE"] = "original" };
         List<string> before = ["echo before"];
         List<WorkspacePane> panes = [new WorkspacePane(commands).WithDefaults(environment, before)];
-        List<WorkspaceWindow> windows = [new WorkspaceWindow(options: options, panes: panes).WithDefaults(environment, before)];
-        WorkspaceFile workspace = new WorkspaceFile(options: options, windows: windows).WithDefaults(environment, before);
+        List<WorkspaceWindow> windows = [new WorkspaceWindow(options: options, panes: panes, optionsAfter: after)
+            .WithDefaults(environment, before)];
+        WorkspaceFile workspace = new WorkspaceFile(options: options, windows: windows, globalOptions: globals)
+            .WithDefaults(environment, before);
 
         commands[0] = "echo changed";
         options["base-index"] = "2";
+        globals["@global"] = "changed";
+        after["@after"] = "changed";
         panes.Clear();
         windows.Clear();
         environment["MODE"] = "changed";
@@ -558,5 +596,10 @@ public sealed class WorkspaceFileTests
         Assert.Equal(["echo before"], workspace.ShellCommandsBefore);
         Assert.Equal(["echo before"], workspace.Windows[0].ShellCommandsBefore);
         Assert.Equal(["echo before"], workspace.Windows[0].Panes[0].ShellCommandsBefore);
+        WorkspaceFile resolved = workspace.Resolve(Path.GetTempPath()).WithDefaults();
+        Assert.Equal("original", resolved.GlobalOptions["@global"]);
+        Assert.Equal("original", resolved.Windows[0].OptionsAfter["@after"]);
+        Assert.Throws<NotSupportedException>(() => ((IDictionary<string, string>)resolved.GlobalOptions).Clear());
+        Assert.Throws<NotSupportedException>(() => ((IDictionary<string, string>)resolved.Windows[0].OptionsAfter).Clear());
     }
 }

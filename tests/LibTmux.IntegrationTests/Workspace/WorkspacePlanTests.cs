@@ -8,6 +8,84 @@ namespace LibTmux.IntegrationTests;
 [UnsupportedOSPlatform("windows")]
 public sealed class WorkspacePlanTests
 {
+    [UnixFact]
+    public async Task Window_options_precede_startup_commands_and_layout()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(Options(), token);
+        WorkspaceFile workspace = new("staged", windows:
+        [new WorkspaceWindow(layout: "main-horizontal", options: new Dictionary<string, string>
+        {
+            ["main-pane-height"] = "5",
+        }, panes: [new WorkspacePane(["left"]), new WorkspacePane(["right"])])]);
+        WorkspacePlan plan = await new WorkspaceBuilder(scope.Server).PlanAsync(workspace, cancellationToken: token);
+        WorkspaceAction[] actions = [.. plan.Actions];
+        int option = Array.FindIndex(actions, action => action is WorkspaceAction<SetOptionRequest> setting
+            && setting.Request.Name == "main-pane-height");
+        int capture = Array.FindIndex(actions, action => action.Kind == WorkspaceActionKind.CaptureFirstPane);
+        int send = Array.FindIndex(actions, action => action.Kind == WorkspaceActionKind.SendText);
+        int split = Array.FindIndex(actions, action => action.Kind == WorkspaceActionKind.SplitPane);
+        int layout = Array.FindIndex(actions, action => action.Kind == WorkspaceActionKind.SelectLayout);
+
+        Assert.True(capture < option && option < send && option < split && option < layout,
+            $"Window option at {option} must follow capture {capture} and precede input {send}, split {split}, layout {layout}.");
+    }
+
+    [Theory(Skip = "Requires a Unix process environment.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(WorkspaceExistingSession.Error)]
+    [InlineData(WorkspaceExistingSession.Append)]
+    [InlineData(WorkspaceExistingSession.Replace)]
+    [InlineData(WorkspaceExistingSession.Reuse)]
+    public async Task Global_and_post_construction_options_are_explicit_reviewed_effects(WorkspaceExistingSession policy)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(Options(), token);
+        Session borrowed = await scope.Server.CreateSessionAsync(new()
+        {
+            Name = policy == WorkspaceExistingSession.Error ? "borrowed" : "staged",
+            Command = "exec /bin/cat",
+        }, token);
+        await borrowed.Options.SetAsync(new("@workspace-global", "original") { Scope = OptionScope.Session, Global = true }, token);
+        WorkspaceFile workspace = WorkspaceFile.Parse("""
+            session_name: staged
+            global_options:
+              '@workspace-global': changed
+            windows:
+              - layout: main-horizontal
+                options:
+                  main-pane-height: 5
+                options_after:
+                  synchronize-panes: on
+                panes: [left, right]
+            """).WithDefaults().Resolve(Path.GetTempPath());
+        WorkspacePlan plan = await new WorkspaceBuilder(scope.Server).PlanAsync(workspace, new()
+        {
+            ExistingSession = policy,
+            CompensateOnFailure = true,
+        }, token);
+
+        Assert.Equal("original", Assert.Single(await borrowed.Options.GetAsync(
+            new("@workspace-global") { Scope = OptionScope.Session, Global = true }, token)).Value.Raw);
+        Assert.DoesNotContain(plan.CompensationActions, action => action.Kind == WorkspaceActionKind.SetOption);
+        if (policy == WorkspaceExistingSession.Reuse)
+        {
+            Assert.Equal(WorkspaceActionKind.ReuseSession, Assert.Single(plan.Actions).Kind);
+            return;
+        }
+        WorkspaceAction[] actions = [.. plan.Actions];
+        int global = Array.FindIndex(actions, action => action is WorkspaceAction<SetOptionRequest> setting
+            && setting.Request.Name == "@workspace-global");
+        WorkspaceAction<SetOptionRequest> globalAction = Assert.IsType<WorkspaceAction<SetOptionRequest>>(actions[global]);
+        Assert.True(globalAction.Request.Global);
+        Assert.Equal(OptionScope.Session, globalAction.Request.Scope);
+        Assert.Equal("session", globalAction.Target);
+        Assert.True(global < Array.FindIndex(actions, action => action.Kind == WorkspaceActionKind.CreateWindow));
+        int after = Array.FindIndex(actions, action => action is WorkspaceAction<SetOptionRequest> setting
+            && setting.Request.Name == "synchronize-panes");
+        Assert.True(after > Array.FindLastIndex(actions, action => action.Kind == WorkspaceActionKind.SendText));
+        Assert.True(after > Array.FindIndex(actions, action => action.Kind == WorkspaceActionKind.SelectLayout));
+    }
+
     [Theory]
     [InlineData("bad:name")]
     [InlineData("bad.name")]
@@ -60,6 +138,29 @@ public sealed class WorkspacePlanTests
 
         Assert.Contains("session_name", failure.Message, StringComparison.Ordinal);
         Assert.Contains("line 1, column 15", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("session_name: bad-options\nglobal_options:\n  '@global': '${VALUE}'\nwindows: [{}]\n",
+        "global_options.@global", "line 3, column 14")]
+    [InlineData("{\"session_name\":\"bad-options\",\"global_options\":{\"@global\":\"${VALUE}\"},\"windows\":[{}]}",
+        "global_options.@global", "line 1, column 59")]
+    [InlineData("session_name: bad-options\nwindows:\n  - options_after:\n      '@after': '${VALUE}'\n",
+        "windows[0].options_after.@after", "line 4, column 17")]
+    [InlineData("{\"session_name\":\"bad-options\",\"windows\":[{\"options_after\":{\"@after\":\"${VALUE}\"}}]}",
+        "windows[0].options_after.@after", "line 1, column 69")]
+    public void Resolved_global_and_post_construction_options_retain_validation_locations(
+        string document, string path, string location)
+    {
+        WorkspaceFile declaration = WorkspaceFile.Parse(document).WithDefaults().Resolve(Path.GetTempPath(),
+            new Dictionary<string, string> { ["VALUE"] = "bad\0value" });
+
+        WorkspaceFormatException failure = Assert.Throws<WorkspaceFormatException>(
+            () => WorkspaceBuilder.Validate(declaration));
+
+        Assert.Contains(path, failure.Message, StringComparison.Ordinal);
+        Assert.Contains("NUL", failure.Message, StringComparison.Ordinal);
+        Assert.Contains(location, failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]

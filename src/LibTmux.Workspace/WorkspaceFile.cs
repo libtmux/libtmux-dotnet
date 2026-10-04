@@ -105,6 +105,7 @@ public sealed class WorkspaceWindow
     private readonly ReadOnlyCollection<string> _shellCommandsBefore;
 
     private readonly ReadOnlyDictionary<string, string> _options;
+    private readonly ReadOnlyDictionary<string, string> _optionsAfter;
     private readonly ReadOnlyCollection<WorkspacePane> _panes;
 
     /// <summary>Initializes a window description.</summary>
@@ -112,9 +113,10 @@ public sealed class WorkspaceWindow
     /// <param name="startDirectory">The directory its panes start in.</param>
     /// <param name="layout">The layout to apply after creating its panes.</param>
     /// <param name="focus">Whether the window is left selected.</param>
-    /// <param name="options">The window options to set.</param>
+    /// <param name="options">The window options to set before pane commands and splits.</param>
     /// <param name="panes">The panes to create, in order.</param>
     /// <param name="windowIndex">The session-relative window index, or null for the next free index.</param>
+    /// <param name="optionsAfter">The window options to set after pane commands and the final layout.</param>
     public WorkspaceWindow(
         string? windowName = null,
         string? startDirectory = null,
@@ -122,7 +124,8 @@ public sealed class WorkspaceWindow
         bool focus = false,
         IReadOnlyDictionary<string, string>? options = null,
         IReadOnlyList<WorkspacePane>? panes = null,
-        int? windowIndex = null)
+        int? windowIndex = null,
+        IReadOnlyDictionary<string, string>? optionsAfter = null)
     {
         if (windowIndex < 0)
             throw new ArgumentOutOfRangeException(nameof(windowIndex), "The window index must be nonnegative.");
@@ -132,6 +135,7 @@ public sealed class WorkspaceWindow
         Focus = focus;
         WindowIndex = windowIndex;
         _options = WorkspaceCollections.Copy(options, nameof(options));
+        _optionsAfter = WorkspaceCollections.Copy(optionsAfter, nameof(optionsAfter));
         _panes = WorkspaceCollections.Copy(panes, nameof(panes));
         _beforeCommands = WorkspaceCollections.Copy<WorkspaceCommand>(null, nameof(BeforeCommands));
         _shellCommandsBefore = WorkspaceCollections.CommandText(_beforeCommands);
@@ -143,7 +147,7 @@ public sealed class WorkspaceWindow
         IReadOnlyList<string>? shellCommandsBefore,
         IReadOnlyList<WorkspaceCommand>? beforeCommands)
         : this(source.WindowName, source.StartDirectory, source.Layout, source.Focus, source.Options, source.Panes,
-            source.WindowIndex)
+            source.WindowIndex, source.OptionsAfter)
     {
         _environment = WorkspaceCollections.CopyEnvironment(environment, nameof(environment));
         _beforeCommands = WorkspaceCollections.CopyCommands(
@@ -189,8 +193,11 @@ public sealed class WorkspaceWindow
     /// <summary>Gets whether the window is left selected.</summary>
     public bool Focus { get; }
 
-    /// <summary>Gets the window options to set.</summary>
+    /// <summary>Gets the window options to set before pane commands and splits.</summary>
     public IReadOnlyDictionary<string, string> Options => _options;
+
+    /// <summary>Gets the window options to set after pane commands and the final layout.</summary>
+    public IReadOnlyDictionary<string, string> OptionsAfter => _optionsAfter;
 
     /// <summary>Gets the panes to create, in order.</summary>
     public IReadOnlyList<WorkspacePane> Panes => _panes;
@@ -208,6 +215,7 @@ public sealed class WorkspaceFile
     private readonly ReadOnlyCollection<string> _shellCommandsBefore;
 
     private readonly ReadOnlyDictionary<string, string> _options;
+    private readonly ReadOnlyDictionary<string, string> _globalOptions;
     private readonly ReadOnlyCollection<WorkspaceWindow> _windows;
 
     /// <summary>Initializes a workspace description.</summary>
@@ -216,13 +224,15 @@ public sealed class WorkspaceFile
     /// <param name="options">The session options to set.</param>
     /// <param name="windows">The windows to create, in order.</param>
     /// <param name="beforeScript">The host command retained for explicitly enabled execution.</param>
+    /// <param name="globalOptions">The global session options to set before creating the declared windows.</param>
     /// <exception cref="ArgumentException">The host command is blank or contains NUL.</exception>
     public WorkspaceFile(
         string? sessionName = null,
         string? startDirectory = null,
         IReadOnlyDictionary<string, string>? options = null,
         IReadOnlyList<WorkspaceWindow>? windows = null,
-        string? beforeScript = null)
+        string? beforeScript = null,
+        IReadOnlyDictionary<string, string>? globalOptions = null)
     {
         if (beforeScript is not null && (string.IsNullOrWhiteSpace(beforeScript) || beforeScript.Contains('\0')))
         {
@@ -233,6 +243,7 @@ public sealed class WorkspaceFile
         StartDirectory = startDirectory;
         BeforeScript = beforeScript;
         _options = WorkspaceCollections.Copy(options, nameof(options));
+        _globalOptions = WorkspaceCollections.Copy(globalOptions, nameof(globalOptions));
         _windows = WorkspaceCollections.Copy(windows, nameof(windows));
         _beforeCommands = WorkspaceCollections.Copy<WorkspaceCommand>(null, nameof(BeforeCommands));
         _shellCommandsBefore = WorkspaceCollections.CommandText(_beforeCommands);
@@ -244,7 +255,8 @@ public sealed class WorkspaceFile
         IReadOnlyList<string>? shellCommandsBefore,
         IReadOnlyList<WorkspaceCommand>? beforeCommands,
         FrozenDictionary<string, (long Line, long Column)>? sourceLocations = null)
-        : this(source.SessionName, source.StartDirectory, source.Options, source.Windows, source.BeforeScript)
+        : this(source.SessionName, source.StartDirectory, source.Options, source.Windows, source.BeforeScript,
+            source.GlobalOptions)
     {
         _environment = WorkspaceCollections.CopyEnvironment(environment, nameof(environment));
         _beforeCommands = WorkspaceCollections.CopyCommands(
@@ -286,6 +298,10 @@ public sealed class WorkspaceFile
 
     /// <summary>Gets the session options to set.</summary>
     public IReadOnlyDictionary<string, string> Options => _options;
+
+    /// <summary>Gets the global session options to set before creating the declared windows.</summary>
+    /// <remarks>These can affect other sessions that inherit them and are not reversed by compensation.</remarks>
+    public IReadOnlyDictionary<string, string> GlobalOptions => _globalOptions;
 
     /// <summary>Gets the windows to create, in order.</summary>
     public IReadOnlyList<WorkspaceWindow> Windows => _windows;

@@ -116,6 +116,11 @@ public sealed partial class WorkspaceBuilder
                     actions.Add(new WorkspaceAction<SetOptionRequest>(WorkspaceActionKind.SetOption, "session", new(name, value)));
                 }
             }
+            foreach ((string name, string value) in workspace.GlobalOptions)
+            {
+                actions.Add(new WorkspaceAction<SetOptionRequest>(WorkspaceActionKind.SetOption, "session",
+                    new(name, value) { Scope = OptionScope.Session, Global = true }));
+            }
 
             for (int index = 0; index < workspace.Windows.Count; index++)
             {
@@ -200,6 +205,8 @@ public sealed partial class WorkspaceBuilder
                 actions.Add(new(WorkspaceActionKind.CaptureFirstPane, paneTarget, windowTarget));
                 if (policy.CompensateOnFailure)
                     compensation.Insert(0, new(WorkspaceActionKind.UnlinkWindow, windowTarget));
+                foreach ((string name, string value) in window.Options)
+                    actions.Add(new WorkspaceAction<SetOptionRequest>(WorkspaceActionKind.SetOption, windowTarget, new(name, value)));
             }
             else
             {
@@ -230,7 +237,7 @@ public sealed partial class WorkspaceBuilder
         }
         if (!string.IsNullOrWhiteSpace(window.Layout))
             actions.Add(new WorkspaceAction<SelectLayoutRequest>(WorkspaceActionKind.SelectLayout, windowTarget, new() { Layout = window.Layout }));
-        foreach ((string name, string value) in window.Options)
+        foreach ((string name, string value) in window.OptionsAfter)
             actions.Add(new WorkspaceAction<SetOptionRequest>(WorkspaceActionKind.SetOption, windowTarget, new(name, value)));
         for (int index = window.Panes.Count - 1; index >= 0; index--)
         {
@@ -247,6 +254,7 @@ public sealed partial class WorkspaceBuilder
         ValidateText(workspace, workspace.SessionName, "session_name");
         ValidateText(workspace, workspace.StartDirectory, "start_directory");
         ValidateOptions(workspace, workspace.Options, "options");
+        ValidateOptions(workspace, workspace.GlobalOptions, "global_options");
         ValidateCommands(workspace, workspace.BeforeCommands, "shell_command_before");
         HashSet<int> requestedIndexes = [];
         for (int windowIndex = 0; windowIndex < workspace.Windows.Count; windowIndex++)
@@ -268,6 +276,7 @@ public sealed partial class WorkspaceBuilder
                     $"Workspace path '{path}': Layout '{window.Layout}' is unknown, ambiguous, malformed, or has fewer cells than panes.");
             }
             ValidateOptions(workspace, window.Options, $"{windowPath}.options");
+            ValidateOptions(workspace, window.OptionsAfter, $"{windowPath}.options_after");
             ValidateEnvironment(workspace, window.Environment, options, $"{windowPath}.environment");
             ValidateCommands(workspace, window.BeforeCommands, $"{windowPath}.shell_command_before");
             for (int paneIndex = 0; paneIndex < window.Panes.Count; paneIndex++)
