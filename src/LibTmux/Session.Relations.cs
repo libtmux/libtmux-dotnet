@@ -169,6 +169,27 @@ public sealed partial class Session
         return [.. rows.Select(row => RelationReader.ToPane(owner, row))];
     }
 
+    /// <summary>Reads from tmux the pane this session shows: its current window's active pane.</summary>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>The pane tmux reports.</returns>
+    /// <remarks>Asks tmux now, where <see cref="ActivePane" /> holds what a capture saw.</remarks>
+    /// <exception cref="TmuxObjectNotFoundException">tmux reports no such pane.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<Pane> GetActivePaneAsync(CancellationToken cancellationToken = default)
+    {
+        Server owner = RequireOwner("active pane");
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
+            await RelationReader.ListAsync(
+                    owner,
+                    "list-panes",
+                    ["-s", "-t", _id.ToString(), "-f", "#{&&:#{window_active},#{pane_active}}"],
+                    cancellationToken)
+                .ConfigureAwait(false);
+        return rows.Count == 1
+            ? RelationReader.ToPane(owner, rows[0])
+            : throw new TmuxObjectNotFoundException($"Session {_id} has no active pane.", _id.ToString());
+    }
+
     internal Session WithCaptured(
         CapturedRelation<Window> windows,
         CapturedRelation<Pane> panes,

@@ -405,6 +405,7 @@ modes differ.
 | `LibTmux.Session.FindWindowAsync(LibTmux.WindowId,System.Threading.CancellationToken)` | Reads one of this session's windows by identifier. |
 | `LibTmux.Session.FindWindowAsync(System.String,System.Threading.CancellationToken)` | Reads one of this session's windows by target. |
 | `LibTmux.Session.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Threading.CancellationToken)` | Returns the session holding the pane this process runs in. |
+| `LibTmux.Session.GetActivePaneAsync(System.Threading.CancellationToken)` | Reads from tmux the pane this session shows: its current window's active pane. |
 | `LibTmux.Session.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.Session.GetPanesAsync(System.Threading.CancellationToken)` | Reads this session's panes from tmux. |
 | `LibTmux.Session.GetWindowAsync(LibTmux.WindowId,System.Threading.CancellationToken)` | Reads one window in this session, throwing when it is absent. |
@@ -573,6 +574,7 @@ modes differ.
 | `LibTmux.Window.ExecuteCommandAsync(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.Threading.CancellationToken)` | Executes one raw tmux command against this window. |
 | `LibTmux.Window.FindPaneAsync(System.String,System.Threading.CancellationToken)` | Reads one pane in this window. |
 | `LibTmux.Window.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Threading.CancellationToken)` | Returns the window holding the pane this process runs in. |
+| `LibTmux.Window.GetActivePaneAsync(System.Threading.CancellationToken)` | Reads from tmux this window's active pane. |
 | `LibTmux.Window.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.Window.GetLinkedSessionsAsync(System.Threading.CancellationToken)` | Reads every session this window is linked into. |
 | `LibTmux.Window.GetPaneAsync(System.String,System.Threading.CancellationToken)` | Reads one pane in this window, throwing when it is absent. |

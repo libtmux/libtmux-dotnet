@@ -1082,6 +1082,7 @@ LibTmux.Session.ExecuteCommandAsync(System.Collections.Generic.IReadOnlyList<str
 LibTmux.Session.FindWindowAsync(LibTmux.WindowId id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Window?>!
 LibTmux.Session.FindWindowAsync(string! target, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Window?>!
 LibTmux.Session.Generation.get -> LibTmux.ServerGeneration
+LibTmux.Session.GetActivePaneAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Session.GetPanesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Pane!>!>!
 LibTmux.Session.GetWindowAsync(LibTmux.WindowId id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Window!>!
 LibTmux.Session.GetWindowAsync(string! target, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Window!>!
@@ -1557,6 +1558,7 @@ LibTmux.Window.Flags.get -> string!
 LibTmux.Window.Generation.get -> LibTmux.ServerGeneration
 LibTmux.Window.GetLinkedSessionsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Session!>!>!
 LibTmux.Window.GetPaneAsync(string! target, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
+LibTmux.Window.GetActivePaneAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Pane!>!>!
 LibTmux.Window.Height.get -> int
 LibTmux.Window.Hooks.get -> LibTmux.TmuxHooks!
