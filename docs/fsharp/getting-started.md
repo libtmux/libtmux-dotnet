@@ -200,7 +200,8 @@ A run cancelled once its command was sent may still be running, so it raises
 what `TmuxFailure.MayHaveRun` matches rather than an
 `OperationCanceledException`. A cancelled task loses that: `Async.AwaitTask`
 and `Task.Wait` raise a bare `TaskCanceledException` in its place, where a
-failed task keeps its exception. One handler covers both:
+failed task keeps its exception inside an `AggregateException`, which the
+`TmuxFailure` patterns look through. One handler covers both:
 
 <!-- fsharp-snippet: RunCancellation -->
 ```fsharp
@@ -223,10 +224,11 @@ let runTestsAsync (cancellationToken: CancellationToken) (pane: Pane) =
             | PaneRun.TimedOut -> return "still running after five minutes"
         with
         // Cancelled or lost once the command was sent: it may be running.
-        // Matched first, because it also matches a tmux client cancelled
-        // after it started, which is an OperationCanceledException.
+        // A tmux client cancelled mid-call matches too, even before the
+        // command went, erring towards "may have run". That cancellation
+        // is an OperationCanceledException, so this case comes first.
         | TmuxFailure.MayHaveRun _ -> return "may have run; read the pane before trying again"
-        // Cancelled before anything reached the pane: nothing ran.
+        // Cancelled between tmux calls, before the command was sent.
         | :? OperationCanceledException -> return "cancelled before it was sent"
     }
 ```
