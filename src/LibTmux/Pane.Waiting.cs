@@ -78,11 +78,14 @@ public sealed partial class Pane
     /// <remarks>
     /// <see cref="SendKeysAndWaitAsync" /> with <see cref="SendTextAsync" />'s
     /// keys: the screen before the line is typed never ends the wait, and the
-    /// line's echo is discounted.
+    /// line's echo is discounted. The typed line may be at most 65536 UTF-8
+    /// bytes so echo projection fits within the wait's work budget.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="line" /> is null.</exception>
-    /// <exception cref="ArgumentException">The text is empty or spans lines.</exception>
+    /// <exception cref="ArgumentException">The match text is empty or spans lines, or the typed line exceeds 65536 UTF-8 bytes.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
+    /// <exception cref="IOException">Echo projection exceeds its bounded work.</exception>
+    /// <exception cref="RegexMatchTimeoutException">Echo matching exceeds its finite regex time.</exception>
     /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane changed during every read until the timeout, so nothing was sent.</exception>
     /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="LibTmuxException">
@@ -130,10 +133,15 @@ public sealed partial class Pane
     /// A typed line the pane wrapped onto a second row is still recognised.
     /// Like <see cref="WaitForTextAsync(PaneWaitRequest, CancellationToken)" />,
     /// the wait sleeps on the pane's output through a control-mode client.
+    /// Typed literal text may be at most 65536 UTF-8 bytes; ordinary
+    /// <see cref="SendKeysAsync(SendKeysRequest, CancellationToken)" /> has no
+    /// echo-projection limit.
     /// </para>
     /// </remarks>
-    /// <exception cref="ArgumentException">The request has no patterns; the echo alone would answer it.</exception>
+    /// <exception cref="ArgumentException">The request has no patterns or typed literal text exceeds 65536 UTF-8 bytes.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
+    /// <exception cref="IOException">Echo projection exceeds its bounded work.</exception>
+    /// <exception cref="RegexMatchTimeoutException">Echo matching exceeds its finite regex time.</exception>
     /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane changed during every read until the timeout, so nothing was sent.</exception>
     /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="LibTmuxException">
@@ -155,12 +163,11 @@ public sealed partial class Pane
         }
 
         string? typed = PlainText(keys);
-        Func<IReadOnlyList<string>, IReadOnlyList<string>>? withoutEcho =
-            typed is { Length: > 0 } ? PaneText.TypedEchoRemover(typed) : null;
         return await PaneTextWaiter.WaitAsync(
-            PaneActivityHub.Shared, this, options, withoutEcho, withoutEcho,
+            PaneActivityHub.Shared, this, options, matchLines: null, tailLines: null,
             progress: null, cancellationToken: cancellationToken,
-            afterEntry: token => SendKeysAsync(keys, token)).ConfigureAwait(false);
+            afterEntry: token => SendKeysAsync(keys, token),
+            typedEcho: typed).ConfigureAwait(false);
     }
 
     /// <summary>Waits until a condition holds over the rows the pane shows.</summary>

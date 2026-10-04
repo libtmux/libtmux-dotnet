@@ -428,42 +428,164 @@ internal static partial class PaneText
     /// identical to a typed line is removed with it.
     /// </para>
     /// </remarks>
-    internal static Func<IReadOnlyList<string>, IReadOnlyList<string>> TypedEchoRemover(string typed)
+    internal static Func<IReadOnlyList<string>, IReadOnlyList<string>> TypedEchoRemover(string typed) =>
+        new TypedEchoProjection(typed, null, CancellationToken.None).Project;
+
+    internal sealed class TypedEchoProjection
     {
-        (string Line, Regex Occurrence)[] lines =
-        [
-            .. typed.Split(['\r', '\n'])
+        internal const int MaximumTypedBytes = 64 * 1024;
+        private const int MaximumProjectionWork = 4 * PaneWaitRequest.MaximumMatchWorkBytes;
+        private static readonly TimeSpan MaximumRegexTime = TimeSpan.FromSeconds(1);
+        private readonly string[] lines;
+        private readonly CancellationToken cancellationToken;
+        private readonly Func<TimeSpan>? remainingBudget;
+        private int work;
+
+        internal TypedEchoProjection(
+            string typed,
+            Func<TimeSpan>? remainingBudget,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(typed);
+            this.cancellationToken = cancellationToken;
+            this.remainingBudget = remainingBudget;
+            Check();
+            if (typed.Length > MaximumTypedBytes
+                || Encoding.UTF8.GetByteCount(typed) > MaximumTypedBytes)
+            {
+                throw new ArgumentException(
+                    $"Typed echo text exceeds {MaximumTypedBytes} UTF-8 bytes.", nameof(typed));
+            }
+
+            lines = typed.Split(['\r', '\n'])
                 .Select(line => line.TrimEnd(' '))
                 .Where(line => line.Length > 0)
-                .Select(line => (line, WrappedOccurrence(line))),
-        ];
-        return rows =>
+                .ToArray();
+            Check();
+        }
+
+        internal IReadOnlyList<string>? LastInput { get; private set; }
+
+        internal IReadOnlyList<string> LastCompleted { get; private set; } = [];
+
+        internal IReadOnlyList<string> Project(IReadOnlyList<string> rows)
         {
+            ArgumentNullException.ThrowIfNull(rows);
+            Check();
             if (rows.Count == 0)
             {
+                LastInput = rows;
+                LastCompleted = rows;
                 return rows;
             }
 
+            int bytes = 0;
+            for (int index = 0; index < rows.Count; index++)
+            {
+                Check();
+                int separator = index == 0 ? 0 : 1;
+                if (separator > PaneWaitRequest.MaximumMatchWorkBytes - bytes)
+                {
+                    throw new PaneTextWaiter.MatchWorkExceededException();
+                }
+
+                bytes += separator;
+                int lineBytes = Encoding.UTF8.GetByteCount(rows[index]);
+                if (lineBytes > PaneWaitRequest.MaximumMatchWorkBytes - bytes)
+                {
+                    throw new PaneTextWaiter.MatchWorkExceededException();
+                }
+
+                bytes += lineBytes;
+            }
+
             string text = string.Join('\n', rows);
-            foreach ((string line, Regex occurrence) in lines)
+            Check();
+            foreach (string line in lines)
             {
-                text = WithoutWrapped(text, line, occurrence);
+                Check();
+                if (line.Length - line.AsSpan().Count(' ') <= text.Length)
+                {
+                    text = WithoutWrapped(text, line, this, ref work);
+                }
             }
 
-            foreach ((string line, _) in lines)
+            foreach (string line in lines)
             {
-                text = WithoutEchoInProgress(text, line);
+                text = WithoutEchoInProgress(text, line, this, ref work);
             }
 
-            return text.Split('\n');
-        };
+            Check();
+            string[] projected = text.Split('\n');
+            LastInput = rows;
+            LastCompleted = projected;
+            return projected;
+        }
+
+        internal void Charge(ref int work, int amount = 1)
+        {
+            if (amount > MaximumProjectionWork - work)
+            {
+                throw new ProjectionWorkExceededException();
+            }
+
+            work += amount;
+            if ((work & 1023) < amount)
+            {
+                Check();
+            }
+        }
+
+        internal Regex Occurrence(string pattern, Regex? previous)
+        {
+            Check();
+            TimeSpan available = remainingBudget?.Invoke() ?? MaximumRegexTime;
+            if (available <= TimeSpan.Zero)
+            {
+                throw new ProjectionDeadlineException();
+            }
+
+            if (previous is not null && previous.MatchTimeout <= available)
+            {
+                return previous;
+            }
+
+            long timeoutTicks = Math.Min(MaximumRegexTime.Ticks, available.Ticks);
+            // Keep a little of the deadline for cancellation and result capture.
+            timeoutTicks = Math.Max(1, timeoutTicks - Math.Max(1, timeoutTicks / 10));
+            Regex occurrence = new(
+                pattern, RegexOptions.CultureInvariant, TimeSpan.FromTicks(timeoutTicks));
+            Check();
+            return occurrence;
+        }
+
+        internal void Check()
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (remainingBudget is not null && remainingBudget() <= TimeSpan.Zero)
+            {
+                throw new ProjectionDeadlineException();
+            }
+        }
+
+        internal sealed class ProjectionDeadlineException()
+            : TimeoutException("Typed echo projection exceeded the pane wait deadline.");
+
+        internal sealed class ProjectionWorkExceededException()
+            : IOException("Typed echo projection exceeded its bounded work budget.");
     }
 
-    private static string WithoutWrapped(string text, string line, Regex occurrence)
+    private static string WithoutWrapped(
+        string text,
+        string line,
+        TypedEchoProjection projection,
+        ref int work)
     {
         StringBuilder? result = null;
         int cursor = 0;
-        Match match = occurrence.Match(text);
+        string pattern = WrappedOccurrence(line, projection, ref work);
+        Regex? occurrence = null;
+        Match match = NextWrappedMatch(text, pattern, 0, projection, ref occurrence, ref work);
         while (match.Success)
         {
             int end = match.Index + match.Length;
@@ -474,91 +596,296 @@ internal static partial class PaneText
                 result ??= new StringBuilder(text.Length);
                 result.Append(text, cursor, match.Index - cursor).Append('\n', match.ValueSpan.Count('\n'));
                 cursor = end;
-                match = occurrence.Match(text, end);
+                match = NextWrappedMatch(text, pattern, end, projection, ref occurrence, ref work);
             }
             else
             {
-                match = occurrence.Match(text, match.Index + 1);
+                match = NextWrappedMatch(text, pattern, match.Index + 1, projection,
+                    ref occurrence, ref work);
             }
         }
 
         return result is null ? text : result.Append(text, cursor, text.Length - cursor).ToString();
     }
 
-    // The longest start of the line that ends the text, past trailing spaces
-    // and blank rows, is the part the shell has echoed so far.
-    private static string WithoutEchoInProgress(string text, string line)
+    private static Match NextWrappedMatch(
+        string text,
+        string pattern,
+        int start,
+        TypedEchoProjection projection,
+        ref Regex? occurrence,
+        ref int work)
+    {
+        projection.Charge(ref work, Math.Min(1024, text.Length - start + 1));
+        occurrence = projection.Occurrence(pattern, occurrence);
+        Match found = occurrence.Match(text, start);
+        projection.Check();
+        return found;
+    }
+
+    // Each rendered row consumes a literal suffix of a typed prefix. Compare
+    // all candidate prefixes to that row in one Z pass, then apply the exact
+    // space skip tmux makes at a row break.
+    private static string WithoutEchoInProgress(
+        string text,
+        string line,
+        TypedEchoProjection projection,
+        ref int work)
     {
         int end = text.Length;
         while (end > 0 && text[end - 1] is ' ' or '\n')
         {
+            projection.Charge(ref work);
             end--;
         }
 
-        for (int length = line.Length - 1; length > 0; length--)
+        if (end == 0 || line.Length < 2)
         {
-            int start = StartOfWrapped(text, end, line, length);
-            if (start >= 0 && (start == 0 || !IsWordChar(text[start - 1]) || !IsWordChar(line[0])))
+            return text;
+        }
+
+        int visibleCharacters = 0;
+        for (int index = 0; index < end; index++)
+        {
+            projection.Charge(ref work);
+            if (text[index] != '\n')
             {
-                int breaks = text.AsSpan(start, end - start).Count('\n');
-                return string.Concat(text.AsSpan(0, start), new string('\n', breaks), text.AsSpan(end));
+                visibleCharacters++;
             }
         }
 
-        return text;
-    }
-
-    // Reads backwards from end for the line's first length characters, across
-    // row breaks and the spaces a wrapped row loses; -1 when they are not there.
-    private static int StartOfWrapped(string text, int end, string line, int length)
-    {
-        int at = end - 1;
-        int typed = length - 1;
-        while (typed >= 0 && line[typed] == ' ')
+        int[] previousNonSpace = new int[line.Length];
+        int preceding = -1;
+        for (int index = 0; index < line.Length; index++)
         {
-            typed--;
+            projection.Charge(ref work);
+            if (line[index] != ' ')
+            {
+                preceding = index;
+            }
+
+            previousNonSpace[index] = preceding;
         }
 
-        while (typed >= 0)
+        int[] current = new int[line.Length];
+        int[] next = new int[line.Length];
+        List<int> active = [];
+        List<int> nextActive = [];
+        int bestLength = 0;
+        int bestStart = -1;
+
+        void Record(int length, int start)
         {
-            if (at < 0)
+            if (length > bestLength
+                && (start == 0 || !IsWordChar(text[start - 1]) || !IsWordChar(line[0])))
             {
-                return -1;
+                bestLength = length;
+                bestStart = start;
+            }
+        }
+
+        void AddNext(int position, int length)
+        {
+            if (length <= bestLength)
+            {
+                return;
             }
 
-            if (text[at] == line[typed])
+            if (next[position] == 0)
             {
-                at--;
-                typed--;
+                nextActive.Add(position);
             }
-            else if (text[at] == '\n')
+
+            next[position] = Math.Max(next[position], length);
+        }
+
+        void Advance()
+        {
+            foreach (int position in active)
             {
-                at--;
-                while (typed >= 0 && line[typed] == ' ')
-                {
-                    typed--;
-                }
+                current[position] = 0;
+            }
+
+            (current, next) = (next, current);
+            (active, nextActive) = (nextActive, active);
+            nextActive.Clear();
+        }
+
+        int requiredCharacters = 0;
+        for (int length = 1; length < line.Length; length++)
+        {
+            projection.Charge(ref work);
+            if (line[length - 1] != ' ')
+            {
+                requiredCharacters++;
+            }
+
+            if (requiredCharacters > visibleCharacters)
+            {
+                break;
+            }
+
+            int position = previousNonSpace[length - 1];
+            if (position < 0)
+            {
+                Record(length, end);
             }
             else
             {
-                return -1;
+                if (current[position] == 0)
+                {
+                    active.Add(position);
+                }
+
+                current[position] = length;
             }
         }
 
-        return at + 1;
+        int segmentEnd = end - 1;
+        while (active.Count > 0 && segmentEnd >= 0 && bestLength < line.Length - 1)
+        {
+            projection.Check();
+            int separator = text.LastIndexOf('\n', segmentEnd);
+            int segmentStart = separator + 1;
+            int segmentLength = segmentEnd - segmentStart + 1;
+            if (segmentLength > 0)
+            {
+                int maximumPosition = active.Max();
+                int comparedLength = Math.Min(segmentLength, maximumPosition + 1);
+                int[] lcp = ReversedSegmentLcp(
+                    text, segmentEnd, comparedLength, line, maximumPosition,
+                    projection, ref work);
+                foreach (int position in active)
+                {
+                    projection.Charge(ref work);
+                    int length = current[position];
+                    if (length <= bestLength)
+                    {
+                        continue;
+                    }
+
+                    int matched = lcp[comparedLength + 1 + maximumPosition - position];
+                    if (matched < Math.Min(position + 1, segmentLength))
+                    {
+                        continue;
+                    }
+
+                    if (position + 1 <= segmentLength)
+                    {
+                        Record(length, segmentEnd - position);
+                    }
+                    else
+                    {
+                        AddNext(position - segmentLength, length);
+                    }
+                }
+
+                Advance();
+            }
+
+            if (separator < 0 || active.Count == 0)
+            {
+                break;
+            }
+
+            foreach (int position in active)
+            {
+                projection.Charge(ref work);
+                int length = current[position];
+                if (length <= bestLength)
+                {
+                    continue;
+                }
+
+                int beforeSpaces = previousNonSpace[position];
+                if (beforeSpaces < 0)
+                {
+                    Record(length, separator);
+                }
+                else
+                {
+                    AddNext(beforeSpaces, length);
+                }
+            }
+
+            Advance();
+            segmentEnd = separator - 1;
+            while (segmentEnd >= 0 && text[segmentEnd] == '\n')
+            {
+                projection.Charge(ref work);
+                segmentEnd--;
+            }
+        }
+
+        if (bestStart < 0)
+        {
+            return text;
+        }
+
+        int breaks = text.AsSpan(bestStart, end - bestStart).Count('\n');
+        return string.Concat(text.AsSpan(0, bestStart), new string('\n', breaks), text.AsSpan(end));
+    }
+
+    private static int[] ReversedSegmentLcp(
+        string text,
+        int segmentEnd,
+        int segmentLength,
+        string line,
+        int maximumPosition,
+        TypedEchoProjection projection,
+        ref int work)
+    {
+        int total = segmentLength + maximumPosition + 2;
+        int[] z = new int[total];
+        int ValueAt(int index) => index < segmentLength
+            ? text[segmentEnd - index]
+            : index == segmentLength
+                ? -1
+                : line[maximumPosition - (index - segmentLength - 1)];
+
+        int left = 0;
+        int right = 0;
+        for (int index = 1; index < total; index++)
+        {
+            projection.Charge(ref work);
+            if (index <= right)
+            {
+                z[index] = Math.Min(right - index + 1, z[index - left]);
+            }
+
+            while (index + z[index] < total
+                && ValueAt(z[index]) == ValueAt(index + z[index]))
+            {
+                projection.Charge(ref work);
+                z[index]++;
+            }
+
+            if (index + z[index] - 1 > right)
+            {
+                left = index;
+                right = index + z[index] - 1;
+            }
+        }
+
+        return z;
     }
 
     // Each character may be followed by a wrap; a run of spaces may be cut
     // short by one, since tmux drops the spaces a wrapped row ends with.
-    private static Regex WrappedOccurrence(string line)
+    private static string WrappedOccurrence(
+        string line,
+        TypedEchoProjection projection,
+        ref int work)
     {
         StringBuilder pattern = new(line.Length * 4);
         for (int index = 0; index < line.Length; index++)
         {
+            projection.Charge(ref work);
             if (line[index] == ' ')
             {
                 while (index + 1 < line.Length && line[index + 1] == ' ')
                 {
+                    projection.Charge(ref work);
                     index++;
                 }
 
@@ -570,7 +897,8 @@ internal static partial class PaneText
             }
         }
 
-        return new Regex(pattern.ToString(), RegexOptions.CultureInvariant);
+        projection.Check();
+        return pattern.ToString();
     }
 
     /// <summary>Matches the channel and option names a run leaves behind.</summary>

@@ -23,6 +23,7 @@ internal static class PaneTextWaiter
         CancellationToken cancellationToken,
         Func<CancellationToken, Task>? afterEntry = null,
         TimeProvider? finalTimerProvider = null,
+        string? typedEcho = null,
         bool readThroughControl = true)
     {
         ArgumentNullException.ThrowIfNull(activity);
@@ -37,6 +38,7 @@ internal static class PaneTextWaiter
         using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken, activity.LifetimeToken, deadline.Token);
         CancellationToken token = linked.Token;
+        PaneText.TypedEchoProjection? typedProjection = null;
         IAsyncDisposable? lease = null;
         bool pollingFallback = false;
         bool linesMissed = false;
@@ -46,7 +48,14 @@ internal static class PaneTextWaiter
         string? confirmedPattern = null;
         PaneWaitResult DeadlineResult()
         {
-            IReadOnlyList<string> projected = tailLines?.Invoke(lastTail) ?? lastTail;
+            IReadOnlyList<string> projected = typedProjection is null
+                ? tailLines?.Invoke(lastTail) ?? lastTail
+                : typedProjection.LastCompleted;
+            if (typedProjection is not null
+                && !ReferenceEquals(lastTail, typedProjection.LastInput))
+            {
+                linesMissed = true;
+            }
             BoundedTail bounded = BoundTail(projected, options.TailLines, options.MaxOutputBytes);
             long dropped = lease is null ? 0 : PaneActivityHub.EventsDropped(lease);
             return new PaneWaitResult(
@@ -67,6 +76,14 @@ internal static class PaneTextWaiter
 
         try
         {
+            if (typedEcho is { Length: > 0 })
+            {
+                typedProjection = new PaneText.TypedEchoProjection(
+                    typedEcho, () => options.Timeout - elapsed.Elapsed, token);
+                matchLines = typedProjection.Project;
+                tailLines = typedProjection.Project;
+            }
+
             try
             {
                 lease = await activity.WatchAsync(pane, options.AllowPollingFallback, token)
@@ -147,7 +164,8 @@ internal static class PaneTextWaiter
                     return [];
                 }
 
-                IReadOnlyList<string> projected = ProjectMatch(read.Lines);
+                IReadOnlyList<string> projected = read.Lines.Count == 0
+                    && typedProjection is not null ? read.Lines : ProjectMatch(read.Lines);
                 if (projected.Count != read.RowPositions.Count)
                 {
                     triggerBaseline = null;
@@ -711,7 +729,29 @@ internal static class PaneTextWaiter
         {
             return DeadlineResult();
         }
-        catch (RegexMatchTimeoutException) when (elapsed.Elapsed >= options.Timeout
+        catch (RegexMatchTimeoutException) when ((elapsed.Elapsed >= options.Timeout
+            || confirmedOutcome is not null && typedProjection is not null)
+            && !cancellationToken.IsCancellationRequested
+            && !activity.LifetimeToken.IsCancellationRequested)
+        {
+            return DeadlineResult();
+        }
+        catch (PaneText.TypedEchoProjection.ProjectionDeadlineException) when (
+            !cancellationToken.IsCancellationRequested
+            && !activity.LifetimeToken.IsCancellationRequested)
+        {
+            return DeadlineResult();
+        }
+        catch (MatchWorkExceededException) when ((elapsed.Elapsed >= options.Timeout
+            || confirmedOutcome is not null && typedProjection is not null)
+            && !cancellationToken.IsCancellationRequested
+            && !activity.LifetimeToken.IsCancellationRequested)
+        {
+            return DeadlineResult();
+        }
+        catch (PaneText.TypedEchoProjection.ProjectionWorkExceededException) when (
+            (elapsed.Elapsed >= options.Timeout
+                || confirmedOutcome is not null && typedProjection is not null)
             && !cancellationToken.IsCancellationRequested
             && !activity.LifetimeToken.IsCancellationRequested)
         {

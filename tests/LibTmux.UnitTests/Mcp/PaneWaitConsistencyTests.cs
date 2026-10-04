@@ -339,6 +339,37 @@ public sealed class PaneWaitConsistencyTests
     }
 
     [Fact]
+    public async Task A_confirmed_trigger_match_survives_final_echo_projection_budget_failure()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new()
+        {
+            Output = "baseline",
+            Unstable = false,
+            ChangeOutputAfterCaptureNumber = 2,
+            OutputAfterCapture = new string('x', PaneWaitRequest.MaximumMatchWorkBytes + 1),
+        };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+
+        PaneWaitResult result = await PaneTextWaiter.WaitAsync(
+            observer, pane, PaneWaitRequest.FromTextPatterns(["ready"]).Snapshot(),
+            null, null, null, token, afterEntry: _ =>
+            {
+                fixture.Output = "ready";
+                fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "ready"));
+                return Task.CompletedTask;
+            }, typedEcho: "sent");
+
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
+        Assert.Equal("ready", result.Pattern);
+        Assert.Contains("ready", result.Tail);
+        Assert.True(result.LinesMissed);
+    }
+
+    [Fact]
     public async Task Mcp_wait_gives_an_existing_stop_pattern_priority()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
