@@ -548,7 +548,8 @@ module FailureTests =
                 Assert.ThrowsAsync<ArgumentException>(fun () ->
                     Server.newSession CancellationToken.None windowEnvironment server :> Task)
 
-            // A size tmux would refuse is refused before the session exists.
+            // A size outside the documented range is refused before the session exists;
+            // tmux itself refuses a share over 100 and clamps a split of no cells.
             for size in [ SplitSize.Cells 0; SplitSize.Percent 101 ] do
                 let sized =
                     { SessionSpec.named "dev" with
