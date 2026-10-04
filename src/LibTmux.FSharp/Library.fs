@@ -98,6 +98,19 @@ module PaneWait =
             )
 
 [<RequireQualifiedAccess>]
+module PaneWatch =
+    let (|Output|Paused|Continued|Dropped|Gone|Exited|) (event: TmuxEvent) =
+        match event with
+        | :? TmuxOutputEvent as output -> Output output
+        | :? TmuxPanePausedEvent as paused -> Paused paused.PaneId
+        | :? TmuxPaneContinuedEvent as continued -> Continued continued.PaneId
+        | :? TmuxEventsDroppedEvent as dropped -> Dropped dropped
+        | :? TmuxPaneGoneEvent as gone -> Gone gone.PaneId
+        | :? TmuxExitEvent as exit -> Exited(Option.ofObj exit.Reason)
+        | other ->
+            raise (ArgumentOutOfRangeException(nameof event, box other, "The event is not one a pane watch yields."))
+
+[<RequireQualifiedAccess>]
 module Retry =
     let private retrying
         (cancellationToken: CancellationToken)

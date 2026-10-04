@@ -165,7 +165,7 @@ Streams one pane&#39;s output from a borrowed control client.
  <code>TmuxPanePausedEvent</code> and <code>TmuxPaneContinuedEvent</code> bracket output
  a slow reader missed. It reads the client&#39;s single event stream, so other
  events are consumed and dropped; follow several panes through one client
- with <code>watchPanes</code>.
+ with <code>watchPanes</code>. Match what it yields with <code>PaneWatch</code>.
  </p><p class='fsdocs-para'>
  tmux discards output it has not yet sent once a pane&#39;s program exits,
  so the last lines of a program that exits at once may never arrive.
@@ -197,7 +197,8 @@ Each output event names its pane. Each pane confirmed gone is reported by
  a <code>TmuxPaneGoneEvent</code> after the output buffered before it went,
  unless the client ends first, and the stream ends once every pane is gone,
  or with <code>TmuxExitEvent</code> when the client ends. Events after that stay
- unread for the client&#39;s next reader.
+ unread for the client&#39;s next reader. Match what it yields with
+ <code>PaneWatch</code>.
 
 **Parameters:**
 

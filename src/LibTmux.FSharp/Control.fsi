@@ -63,7 +63,7 @@ module Control =
     /// <c>TmuxPanePausedEvent</c> and <c>TmuxPaneContinuedEvent</c> bracket output
     /// a slow reader missed. It reads the client's single event stream, so other
     /// events are consumed and dropped; follow several panes through one client
-    /// with <c>watchPanes</c>.
+    /// with <c>watchPanes</c>. Match what it yields with <c>PaneWatch</c>.
     /// </para>
     /// <para>
     /// tmux discards output it has not yet sent once a pane's program exits,
@@ -82,7 +82,8 @@ module Control =
     /// a <c>TmuxPaneGoneEvent</c> after the output buffered before it went,
     /// unless the client ends first, and the stream ends once every pane is gone,
     /// or with <c>TmuxExitEvent</c> when the client ends. Events after that stay
-    /// unread for the client's next reader.
+    /// unread for the client's next reader. Match what it yields with
+    /// <c>PaneWatch</c>.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The list is empty, or a pane is not in the session the client is attached to.</exception>
     /// <exception cref="T:System.InvalidOperationException">A pane's window left the client's session while it was watched.</exception>

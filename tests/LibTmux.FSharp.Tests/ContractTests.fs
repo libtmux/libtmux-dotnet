@@ -430,6 +430,64 @@ module PaneWaitTests =
         for outcome in Enum.GetValues<PaneWaitOutcome>() do
             wait outcome "pattern" |> ignore
 
+module PaneWatchTests =
+    let private describe event =
+        match event with
+        | PaneWatch.Output output -> "output " + output.Data
+        | PaneWatch.Paused pane -> "paused " + pane.ToString()
+        | PaneWatch.Continued pane -> "continued " + pane.ToString()
+        | PaneWatch.Dropped loss -> "dropped " + loss.Count.ToString()
+        | PaneWatch.Gone pane -> "gone " + pane.ToString()
+        | PaneWatch.Exited reason -> "exited " + defaultArg reason "silently"
+
+    [<Fact>]
+    let ``every event a pane watch yields has one pattern`` () =
+        let pane = PaneId 3
+
+        Assert.Equal<string list>(
+            [
+                "output hi"
+                "paused %3"
+                "continued %3"
+                "dropped 2"
+                "gone %3"
+                "exited silently"
+                "exited detached"
+            ],
+            [
+                describe (TmuxOutputEvent(pane, "hi"))
+                describe (TmuxPanePausedEvent pane)
+                describe (TmuxPaneContinuedEvent pane)
+                describe (TmuxEventsDroppedEvent(2L, 5L))
+                describe (TmuxPaneGoneEvent pane)
+                describe (TmuxExitEvent null)
+                describe (TmuxExitEvent "detached")
+            ]
+        )
+
+        // A watch never yields a notification, so matching one is a mistake.
+        Assert.Throws<ArgumentOutOfRangeException>(fun () ->
+            describe (TmuxNotificationEvent("window-add", [| "@1" |])) |> ignore)
+        |> ignore
+
+        // An event type the core adds later fails here until it has a case, or
+        // is shown never to reach a pane watch.
+        Assert.Equal<string array>(
+            [|
+                "TmuxEventsDroppedEvent"
+                "TmuxExitEvent"
+                "TmuxNotificationEvent"
+                "TmuxOutputEvent"
+                "TmuxPaneContinuedEvent"
+                "TmuxPaneGoneEvent"
+                "TmuxPanePausedEvent"
+            |],
+            typeof<TmuxEvent>.Assembly.GetTypes()
+            |> Array.filter (fun kind -> kind.IsSubclassOf typeof<TmuxEvent> && not kind.IsAbstract)
+            |> Array.map (fun kind -> kind.Name)
+            |> Array.sort
+        )
+
 module FailureTests =
     let private failure dispatch =
         LibTmuxException("tmux failed", (dispatch: TmuxDispatchState)) :> exn

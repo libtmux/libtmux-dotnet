@@ -128,6 +128,7 @@ targets `net8.0` and `net10.0`.
 | A whole object graph | `Server.capture ct depth server` | snapshot `Server` |
 | Live server state | `Mirror.start ct session` | `ServerMirror` |
 | Events as they happen | `Control.withSession ct work server` | cold `IAsyncEnumerable` streams |
+| One pane's output as it prints | `Control.watchPane pane client`; `Control.watchPanes` for several | events; match `PaneWatch` |
 | An assistant on the same tmux | the `LibTmux.Mcp` server | [MCP guide](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) |
 
 ### Recover

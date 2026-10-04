@@ -24,7 +24,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | Split panes and find the active one | [`Pane.split`](#pane), [`Session.activePane`](#session), [`Window.activePane`](#window) | [Session](#session), [Window](#window), [WindowPlacementKey](#windowplacementkey) |
 | Type into a pane | [`Pane.sendLine`](#pane), [`Pane.sendKeys`](#pane), [`Pane.pressKey`](#pane) | [Pane](#pane), [Chain](#chain) |
 | Wait, run and read results | [`Pane.sendAndWait`](#pane), [`Pane.waitForText`](#pane), [`Pane.run`](#pane), [`Pane.capture`](#pane) | [PaneWait](#panewait), [PaneRun](#panerun) |
-| Stream events | [`Control.withSession`](#control), [`Control.watchPane`](#control), [`Control.watchPanes`](#control), [`Control.foldWhile`](#control) | [Control](#control), [StreamStep](#streamstep) |
+| Stream events | [`Control.withSession`](#control), [`Control.watchPane`](#control), [`Control.watchPanes`](#control), [`Control.foldWhile`](#control) | [Control](#control), [StreamStep](#streamstep), [PaneWatch](#panewatch) |
 | Live state and snapshots | [`Mirror.start`](#mirror), [`Mirror.tryWaitUntil`](#mirror), [`Server.capture`](#server) | [Mirror](#mirror), [Snapshot](#snapshot), [CaptureState](#capturestate) |
 | Failures and retries | [`Retry.ifNotSent`](#retry), [`Retry.ifNotSentAfter`](#retry) | [TmuxFailure](#tmuxfailure), [Retry](#retry) |
 
@@ -205,6 +205,13 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 |---|---|
 | `module PaneWait` | Recognises how a wait on a pane's output ended. |
 | `val (|Found|Printed|Stopped|TimedOut|Ended|) : result: PaneWaitResult -> Choice<unit,unit,string,unit,unit>` | Tells how a wait ended, one case per kind of ending, so a match that leaves one out draws a warning. |
+
+## PaneWatch
+
+| Signature | Summary |
+|---|---|
+| `module PaneWatch` | Recognises what a pane watch yields. |
+| `val (|Output|Paused|Continued|Dropped|Gone|Exited|) : event: TmuxEvent -> Choice<TmuxOutputEvent,PaneId,PaneId,TmuxEventsDroppedEvent,PaneId,string option>` | Tells what Control.watchPane or Control.watchPanes yielded, one case per kind of event, so a match that leaves one out draws a warning. |
 
 ## Query
 

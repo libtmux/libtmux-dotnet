@@ -40,7 +40,7 @@ let runAsync () =
                 (fun (printed: Map<string, string>) event ->
                     task {
                         match event with
-                        | :? TmuxOutputEvent as output ->
+                        | PaneWatch.Output output ->
                             let pane = output.PaneId.ToString()
                             let sofar = printed |> Map.tryFind pane |> Option.defaultValue ""
                             let printed = printed |> Map.add pane (sofar + output.Data)
@@ -53,7 +53,7 @@ let runAsync () =
                     })
                 Map.empty
 
-        // Each pane's end arrives as TmuxPaneGoneEvent, and the stream ends
+        // Each pane's end arrives as PaneWatch.Gone, and the stream ends
         // once both are gone.
         do! build.KillAsync(cancellationToken = token)
         do! test.KillAsync(cancellationToken = token)
@@ -66,7 +66,7 @@ let runAsync () =
                 (fun ended event ->
                     task {
                         match event with
-                        | :? TmuxPaneGoneEvent as gone -> return StreamStep.Continue(ended @ [ gone.PaneId ])
+                        | PaneWatch.Gone pane -> return StreamStep.Continue(ended @ [ pane ])
                         | _ -> return StreamStep.Continue ended
                     })
                 []

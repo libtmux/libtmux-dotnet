@@ -24,7 +24,9 @@ client open. Any `IAsyncEnumerable` library composes the same streams;
 `TaskSeq<'T>` in FSharp.Control.TaskSeq is the same type.
 
 `Control.watchPane` narrows a client's stream to one pane's output, and ends
-with `TmuxPaneGoneEvent` once the pane is confirmed gone:
+once the pane is confirmed gone. `PaneWatch` names the six things a watch
+yields, so a match that leaves one out, such as a `Dropped` loss report, draws
+a compiler warning:
 
 <!-- fsharp-snippet: WatchPaneOutput run -->
 ```fsharp run
@@ -46,16 +48,20 @@ let readPaneUntilAsync
         (fun output event ->
             task {
                 match event with
-                | :? TmuxOutputEvent as printed ->
+                | PaneWatch.Output printed ->
                     let output = output + printed.Data
 
                     if output.Contains(marker, StringComparison.Ordinal) then
                         return StreamStep.Stop output
                     else
                         return StreamStep.Continue output
-                | :? TmuxPaneGoneEvent
-                | :? TmuxExitEvent -> return StreamStep.Stop output
-                | _ -> return StreamStep.Continue output
+                // Output tmux held back or the buffer dropped never arrives;
+                // capture the pane to read what the screen shows instead.
+                | PaneWatch.Paused _
+                | PaneWatch.Continued _
+                | PaneWatch.Dropped _ -> return StreamStep.Continue output
+                | PaneWatch.Gone _
+                | PaneWatch.Exited _ -> return StreamStep.Stop output
             })
         ""
 ```
@@ -63,7 +69,7 @@ let readPaneUntilAsync
 
 A client has one event stream, so watching two panes with `Control.watchPane`
 takes two clients. `Control.watchPanes` follows several through one: each
-output event names its pane, each pane's end arrives as `TmuxPaneGoneEvent`
+output event names its pane, each pane's end arrives as `PaneWatch.Gone`
 after the output buffered before it went, and the stream ends once every pane
 is gone. This complete program follows two panes, then their ends:
 
@@ -110,7 +116,7 @@ let runAsync () =
                 (fun (printed: Map<string, string>) event ->
                     task {
                         match event with
-                        | :? TmuxOutputEvent as output ->
+                        | PaneWatch.Output output ->
                             let pane = output.PaneId.ToString()
                             let sofar = printed |> Map.tryFind pane |> Option.defaultValue ""
                             let printed = printed |> Map.add pane (sofar + output.Data)
@@ -123,7 +129,7 @@ let runAsync () =
                     })
                 Map.empty
 
-        // Each pane's end arrives as TmuxPaneGoneEvent, and the stream ends
+        // Each pane's end arrives as PaneWatch.Gone, and the stream ends
         // once both are gone.
         do! build.KillAsync(cancellationToken = token)
         do! test.KillAsync(cancellationToken = token)
@@ -136,7 +142,7 @@ let runAsync () =
                 (fun ended event ->
                     task {
                         match event with
-                        | :? TmuxPaneGoneEvent as gone -> return StreamStep.Continue(ended @ [ gone.PaneId ])
+                        | PaneWatch.Gone pane -> return StreamStep.Continue(ended @ [ pane ])
                         | _ -> return StreamStep.Continue ended
                     })
                 []

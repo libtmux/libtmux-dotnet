@@ -173,7 +173,7 @@ FSHARP_TASKS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
      ("PaneWait", "PaneRun")),
     ("Stream events",
      ("Control.withSession", "Control.watchPane", "Control.watchPanes", "Control.foldWhile"),
-     ("Control", "StreamStep")),
+     ("Control", "StreamStep", "PaneWatch")),
     ("Live state and snapshots", ("Mirror.start", "Mirror.tryWaitUntil", "Server.capture"),
      ("Mirror", "Snapshot", "CaptureState")),
     ("Failures and retries", ("Retry.ifNotSent", "Retry.ifNotSentAfter"), ("TmuxFailure", "Retry")),

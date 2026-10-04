@@ -94,6 +94,22 @@ module PaneWait =
     /// <exception cref="T:System.ArgumentOutOfRangeException">The outcome is not one this facade knows.</exception>
     val (|Found|Printed|Stopped|TimedOut|Ended|): result: PaneWaitResult -> Choice<unit, unit, string, unit, unit>
 
+/// <summary>Recognises what a pane watch yields.</summary>
+[<RequireQualifiedAccess>]
+module PaneWatch =
+    /// <summary>Tells what <c>Control.watchPane</c> or <c>Control.watchPanes</c> yielded, one case per kind of event, so a match that leaves one out draws a warning.</summary>
+    /// <remarks>
+    /// <c>Output</c>: text a watched pane printed, carried as its event.
+    /// <c>Paused</c>: tmux stopped sending that pane's output, so what it prints until <c>Continued</c> never arrives; capture the pane to read its screen.
+    /// <c>Continued</c>: tmux resumed sending that pane's output.
+    /// <c>Dropped</c>: a full buffer discarded events, carried as the loss report.
+    /// <c>Gone</c>: a watched pane is gone; the watch ends once every pane is.
+    /// <c>Exited</c>: the control client ended, with tmux's reason when it gave one; the watch ends.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">The event is not one a pane watch yields.</exception>
+    val (|Output|Paused|Continued|Dropped|Gone|Exited|):
+        event: TmuxEvent -> Choice<TmuxOutputEvent, PaneId, PaneId, TmuxEventsDroppedEvent, PaneId, string option>
+
 /// <summary>Runs an operation again only when tmux never saw it.</summary>
 [<RequireQualifiedAccess>]
 module Retry =

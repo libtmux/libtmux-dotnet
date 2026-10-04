@@ -2833,6 +2833,36 @@
       "returnType": "Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.string,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>"
     },
     {
+      "id": "M:LibTmux.FSharp.PaneWatch.|Output|Paused|Continued|Dropped|Gone|Exited|(LibTmux.TmuxEvent)",
+      "package": "LibTmux.FSharp",
+      "name": "(|Output|Paused|Continued|Dropped|Gone|Exited|)",
+      "declaringType": "T:LibTmux.FSharp.PaneWatch",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val (|Output|Paused|Continued|Dropped|Gone|Exited|) : event: LibTmux.TmuxEvent -> Microsoft.FSharp.Core.Choice<LibTmux.TmuxOutputEvent,LibTmux.PaneId,LibTmux.PaneId,LibTmux.TmuxEventsDroppedEvent,LibTmux.PaneId,Microsoft.FSharp.Core.string Microsoft.FSharp.Core.option>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.TmuxEvent -> Microsoft.FSharp.Core.Choice<LibTmux.TmuxOutputEvent,LibTmux.PaneId,LibTmux.PaneId,LibTmux.TmuxEventsDroppedEvent,LibTmux.PaneId,Microsoft.FSharp.Core.string Microsoft.FSharp.Core.option>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "event",
+          "optional": false,
+          "type": "LibTmux.TmuxEvent"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "|Output|Paused|Continued|Dropped|Gone|Exited|",
+      "genericParameters": [],
+      "returnType": "Microsoft.FSharp.Core.Choice<LibTmux.TmuxOutputEvent,LibTmux.PaneId,LibTmux.PaneId,LibTmux.TmuxEventsDroppedEvent,LibTmux.PaneId,Microsoft.FSharp.Core.string Microsoft.FSharp.Core.option>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Query.atMostOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})",
       "package": "LibTmux.FSharp",
       "name": "atMostOne",
@@ -6004,6 +6034,33 @@
       "interfaces": [],
       "exposedTypes": [
         "LibTmux.FSharp.PaneWait"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
+    },
+    {
+      "id": "T:LibTmux.FSharp.PaneWatch",
+      "package": "LibTmux.FSharp",
+      "name": "PaneWatch",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.PaneWatch",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.PaneWatch"
       ],
       "attributes": [
         {
