@@ -186,7 +186,7 @@ def _omitted(tools: list[dict]) -> list[tuple[str, str, list[str]]]:
             )
             if sentence is not None:
                 meaning = sentence.removeprefix("Omit ").removesuffix(".")
-                # "Omit for the active pane", "Omit to keep ...", "Omit and tmux ...":
+                # "Omit for the first session", "Omit to keep ...", "Omit and tmux ...":
                 # the table's column already says "when omitted".
                 for joiner in ("for ", "to ", "and "):
                     if meaning.startswith(joiner):

@@ -89,7 +89,9 @@ internal sealed partial class WriteTools
             "The shell command to run, at most LIBTMUX_MCP_MAX_BYTES UTF-8 bytes. "
             + "Put longer scripts in a file and run that file.")]
         string command,
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description(
             "Seconds to wait. Lowered to the server's ceiling; read "

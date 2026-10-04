@@ -25,7 +25,7 @@ internal static class TmuxTargets
 {
     /// <summary>Finds the pane a caller named, or the active one.</summary>
     /// <param name="server">The server to look in.</param>
-    /// <param name="paneId">A pane identifier such as <c>%1</c>, or null for the active pane.</param>
+    /// <param name="paneId">A pane identifier such as <c>%1</c>, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="cancellationToken">Cancels the tmux query.</param>
     /// <returns>The pane.</returns>
     internal static async Task<Pane> PaneAsync(
@@ -72,7 +72,7 @@ internal static class TmuxTargets
 
     /// <summary>Finds the window a caller named, or the active one.</summary>
     /// <param name="server">The server to look in.</param>
-    /// <param name="windowId">A window identifier such as <c>@1</c>, or null for the active window.</param>
+    /// <param name="windowId">A window identifier such as <c>@1</c>, or null for the caller's window or the one the first session shows.</param>
     /// <param name="cancellationToken">Cancels the tmux query.</param>
     /// <returns>The window.</returns>
     internal static async Task<Window> WindowAsync(
@@ -203,13 +203,16 @@ internal static class TmuxTargets
         }
     }
 
-    /// <summary>Finds the active pane of the server's first session.</summary>
+    /// <summary>Finds the pane the server's first session shows.</summary>
     /// <param name="server">The server to look in.</param>
     /// <param name="cancellationToken">Cancels the tmux query.</param>
     /// <returns>The pane.</returns>
     /// <remarks>
     /// The caller's own pane wins when this process runs in one: a tool called
-    /// with no target most often means "here".
+    /// with no target most often means "here". Otherwise the pane must be
+    /// active in an active window: tmux marks one pane active in every
+    /// window, so a session's first window lists an active pane even while
+    /// a later window is the one shown.
     /// </remarks>
     internal static async Task<Pane> ActivePaneAsync(
         Server server,
@@ -231,7 +234,8 @@ internal static class TmuxTargets
 
         foreach (Pane pane in panes)
         {
-            if (FormatFields.Flag(pane.RawFormatFields, "pane_active"))
+            if (FormatFields.Flag(pane.RawFormatFields, "window_active")
+                && FormatFields.Flag(pane.RawFormatFields, "pane_active"))
             {
                 return pane;
             }

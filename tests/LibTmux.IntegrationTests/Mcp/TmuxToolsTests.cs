@@ -53,6 +53,30 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task An_omitted_target_is_what_the_first_session_shows()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        // tmux marks one pane active in every window, so the first window's
+        // pane still reads as active, and lists first, once a later one shows.
+        ActionResult window = await mcp.Capabilities.CreateWindowAsync(
+            scope.Session.Id.ToString(), cancellationToken: token);
+        ActionResult split = await mcp.Capabilities.SplitWindowAsync(
+            window.PaneId, cancellationToken: token);
+        _ = await mcp.Capabilities.SelectWindowAsync(window.WindowId!, token);
+        _ = await mcp.Capabilities.SelectPaneAsync(split.PaneId!, token);
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+
+        Assert.Equal(split.PaneId, (await TmuxTargets.PaneAsync(server, null, token)).Id.ToString());
+        Assert.Equal(window.WindowId, (await TmuxTargets.WindowAsync(server, null, token)).Id.ToString());
+    }
+
+    [UnixFact]
     public async Task A_synchronized_cohort_reports_configured_membership()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

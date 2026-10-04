@@ -35,7 +35,9 @@ internal sealed partial class ReadTools
         + "guessing from text. Omit patterns to wait for any new output at all. "
         + "Never poll capture_pane in a loop; this call does the waiting.")]
     public async Task<WaitResult> WaitForTextAsync(
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description(
             "Regular expressions to wait for. A pattern already on screen when this is "

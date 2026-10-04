@@ -43,7 +43,9 @@ internal sealed partial class WriteTools
     public async Task<ActionResult> SendKeysAsync(
         [Description("The text to type, or a key name such as C-c when literal is false.")]
         string keys,
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description("Press Enter after the keys.")] bool enter = false,
         [Description(
@@ -173,7 +175,9 @@ internal sealed partial class WriteTools
             "The keystrokes to send, in order: 1–64 steps, with no null step or keys. "
             + "Combined text is limited to min(LIBTMUX_MCP_MAX_BYTES, 65536) UTF-8 bytes.")]
         IReadOnlyList<KeyStep> steps,
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description("The tmux socket to use. Omit for the default server.")]
         string? socketName = null,
@@ -314,7 +318,9 @@ internal sealed partial class WriteTools
         + "if cleanup fails, the completed-paste result identifies what remains.")]
     public async Task<ActionResult> PasteTextAsync(
         [Description("The text to paste.")] string text,
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description(
             "Tell the program the text was pasted, not typed. Keep this on for "

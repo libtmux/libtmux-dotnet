@@ -25,7 +25,9 @@ internal sealed partial class ReadTools
         string? name = null,
         [Description("Which level to read: Server, Session, Window or Pane.")]
         OptionScope scope = OptionScope.Pane,
-        [Description("The pane whose scope to read, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane whose scope to read, such as %1. Omit for this server's own pane, or "
+            + "else the one the first session shows.")]
         string? paneId = null,
         [Description("The tmux socket to read. Omit for the default server.")]
         string? socketName = null,
@@ -155,7 +157,9 @@ internal sealed partial class ReadTools
     public async Task<IReadOnlyList<HookEntry>> ShowHooksAsync(
         [Description("Which level to read: Server, Session, Window or Pane.")]
         OptionScope scope = OptionScope.Session,
-        [Description("The pane whose scope to read, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane whose scope to read, such as %1. Omit for this server's own pane, or "
+            + "else the one the first session shows.")]
         string? paneId = null,
         [Description("The tmux socket to read. Omit for the default server.")]
         string? socketName = null,

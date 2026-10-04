@@ -24,7 +24,9 @@ internal sealed partial class ReadTools
         + "list_panes: it is one round trip and the cursor is guaranteed to "
         + "describe the text returned with it.")]
     public async Task<PaneSnapshot> SnapshotPaneAsync(
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description("The most lines to return, newest kept. Omit for the server default.")]
         int? maxLines = null,
@@ -79,7 +81,9 @@ internal sealed partial class ReadTools
         + "To watch a pane across several turns, use capture_since instead — it "
         + "returns only what is new.")]
     public async Task<CaptureResult> CapturePaneAsync(
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description("Read scrollback as well as the visible screen.")]
         bool includeHistory = false,
@@ -127,7 +131,9 @@ internal sealed partial class ReadTools
         + "tenth read costs what the first did, where re-capturing the pane would "
         + "return everything again. Call with no cursor to start watching from now.")]
     public async Task<TailResult> TailPaneAsync(
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description("The cursor from the previous call. Omit to start from what is on screen now.")]
         string? cursor = null,

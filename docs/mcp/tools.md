@@ -130,7 +130,7 @@ An omitted parameter means:
 | `name` | every name with hasValue instead of values | `show_environment` |
 | `name` | tmux names it after the program it runs | `create_window` |
 | `name` | tmux names it with a number | `create_session` |
-| `paneId` | the active pane | `capture_pane`, `capture_since`, `clear_pane_scrollback`, `get_tmux_variables`, `paste_text`, `resize_pane`, `respawn_pane`, `run_shell_command`, `send_keys`, `set_pane_title`, `show_hooks`, `show_option`, `snapshot_pane`, `split_window`, `wait_for_text` |
+| `paneId` | this server's own pane, or else the one the first session shows | `capture_pane`, `capture_since`, `clear_pane_scrollback`, `get_tmux_variables`, `paste_text`, `resize_pane`, `respawn_pane`, `run_shell_command`, `send_keys`, `set_pane_title`, `show_hooks`, `show_option`, `snapshot_pane`, `split_window`, `wait_for_text` |
 | `patterns` | return on any new output | `wait_for_text` |
 | `percentage` | half | `split_window` |
 | `session` | every session | `list_panes`, `list_windows`, `search_panes` |
@@ -144,7 +144,7 @@ An omitted parameter means:
 | `width` | keep the current width | `resize_pane`, `resize_window` |
 | `width` | tmux's default of 80 | `create_session` |
 | `windowId` | every window | `list_panes` |
-| `windowId` | the active window | `rename_window`, `resize_window`, `select_layout`, `set_synchronize_panes` |
+| `windowId` | this server's own window, or else the one the first session shows | `rename_window`, `resize_window`, `select_layout`, `set_synchronize_panes` |
 
 `call_read_tools_batch` runs any of: `capture_pane`, `capture_since`, `find_pane_by_position`, `get_pane_info`, `get_server_info`, `get_session_info`, `get_tmux_variables`, `get_window_info`, `list_panes`, `list_sessions`, `list_windows`, `search_panes`, `show_environment`, `show_hooks`, `show_option`, `snapshot_pane`.
 
