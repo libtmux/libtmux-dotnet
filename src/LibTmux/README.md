@@ -31,8 +31,10 @@ nothing for it.
 using LibTmux;
 
 Server server = await Server.ConnectAsync();
-Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
-Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
+NewSessionRequest sessionRequest = new() { Name = "build" };
+Session session = await server.CreateSessionAsync(sessionRequest);
+NewWindowRequest windowRequest = new() { Name = "tests" };
+Window window = await session.CreateWindowAsync(windowRequest);
 Pane pane = (await window.GetPanesAsync())[0];
 
 await pane.SendTextAsync("dotnet test");
@@ -91,12 +93,14 @@ whole distribution with the tmux, host and date that produced it:
 
 ```csharp run
 // One command, a typed object back.
-Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
+NewWindowRequest request = new() { Name = "build" };
+Window built = await session.CreateWindowAsync(request, ct);
 ```
 
 ```csharp run
 // One client, held open, streaming what tmux does on its own.
-await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
+await using IControlModeSession control =
+    await server.EnterControlModeAsync(cancellationToken: ct);
 IReadOnlyList<string> reply = await control.SendAsync(
     TmuxCommand.Create("list-windows"),
     ct);
@@ -133,7 +137,8 @@ foreach (Window each in await session.GetWindowsAsync(ct))
 {
     foreach (Pane every in await each.GetPanesAsync(ct))
     {
-        Console.WriteLine($"{each.Name} {every.Index} {every.Width}x{every.Height}");
+        Console.WriteLine(
+            $"{each.Name} {every.Index} {every.Width}x{every.Height}");
     }
 }
 ```
@@ -188,10 +193,13 @@ Asking tmux again is `RefreshAsync`. A whole hierarchy in one acquisition is
 ```csharp run
 Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, ct);
 SnapshotMetadata acquired = snapshot.SnapshotMetadata!;
-Console.WriteLine($"{acquired.Depth}: {acquired.Elapsed} on {acquired.Generation}");
+Console.WriteLine(
+    $"{acquired.Depth}: {acquired.Elapsed} on {acquired.Generation}");
 foreach (Pane member in snapshot.Panes)
 {
-    Console.WriteLine($"{member.Session.Name}/{member.Window.Index}: {member.CurrentCommand}");
+    Console.WriteLine(
+        $"{member.Session.Name}/{member.Window.Index}: "
+        + member.CurrentCommand);
 }
 ```
 
@@ -323,7 +331,9 @@ await pane.EnterAsync(ct);
 // tmux accepts a command before the shell has finished it, so the result is
 // waited for rather than assumed.
 string output = await TmuxWait.UntilAsync(
-    async token => string.Join('\n', await pane.CaptureAsync(cancellationToken: token)),
+    async token => string.Join(
+        '\n',
+        await pane.CaptureAsync(cancellationToken: token)),
     text => text.Contains("hello-from-libtmux", StringComparison.Ordinal),
     TimeSpan.FromSeconds(10),
     TimeSpan.FromMilliseconds(20));
@@ -332,7 +342,9 @@ string output = await TmuxWait.UntilAsync(
 ## Splitting and resizing
 
 ```csharp run
-Pane split = await pane.SplitAsync(new SplitPaneRequest { Direction = PaneDirection.Below }, ct);
+Pane split = await pane.SplitAsync(
+    new SplitPaneRequest { Direction = PaneDirection.Below },
+    ct);
 await split.SetHeightAsync(10, ct);
 ```
 
@@ -342,7 +354,9 @@ tmux has no types, so a value carries the text it reported alongside the
 readings that text supports:
 
 ```csharp run
-await window.Options.SetAsync(new SetOptionRequest("automatic-rename", "off"), ct);
+await window.Options.SetAsync(
+    new SetOptionRequest("automatic-rename", "off"),
+    ct);
 TmuxOption option = (await window.Options.GetAsync(
     new GetOptionRequest("automatic-rename"), ct))[0];
 
@@ -475,7 +489,8 @@ is sent and `TmuxVersionTooLowException` says which version would be needed.
 ```csharp run
 // The materialized handle records the verified client executable version.
 TmuxVersion? version = server.Version;
-Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVersion.Parse("3.4"))}");
+bool recent = version?.IsAtLeast(TmuxVersion.Parse("3.4")) ?? false;
+Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={recent}");
 ```
 
 ## Testing your own code
@@ -493,7 +508,8 @@ $ dotnet package add LibTmux.Testing --prerelease
 using LibTmux.Testing;
 
 TmuxTestFactory factory = new();
-await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync();
+await using TemporaryHierarchyScope scope =
+    await factory.CreateHierarchyAsync();
 
 await scope.Pane.SendTextAsync("echo hello");
 ```
@@ -509,7 +525,8 @@ Commands sent through a control-mode client, including the reads a pane wait
 makes through one, are not:
 
 ```csharp
-Server logged = await Server.ConnectAsync(new ServerConnectionOptions { Logger = logger });
+Server logged = await Server.ConnectAsync(
+    new ServerConnectionOptions { Logger = logger });
 ```
 
 Commands are recorded at `Debug` and failures at `Error`, with stable scalar
@@ -541,7 +558,8 @@ Server audited = await Server.ConnectAsync(
         Interceptor = async (invocation, next, token) =>
         {
             TmuxCommandResult result = await next(token);
-            Console.WriteLine($"{string.Join(' ', invocation.Arguments)} → {result.ExitCode}");
+            string arguments = string.Join(' ', invocation.Arguments);
+            Console.WriteLine($"{arguments} → {result.ExitCode}");
             return result;
         },
     },
@@ -584,11 +602,13 @@ command never reached tmux. Every failure says which it was, so the decision is
 an exception filter rather than a guess:
 
 ```csharp run
+NewSessionRequest request = new() { Name = "build" };
 try
 {
-    await server.CreateSessionAsync(new NewSessionRequest { Name = "build" }, ct);
+    await server.CreateSessionAsync(request, ct);
 }
-catch (LibTmuxException error) when (error.Dispatch == TmuxDispatchState.NotDispatched)
+catch (LibTmuxException error)
+    when (error.Dispatch == TmuxDispatchState.NotDispatched)
 {
     // tmux was never started, so nothing happened and this can be sent again.
     Console.WriteLine($"safe to retry: {error.Dispatch}");
