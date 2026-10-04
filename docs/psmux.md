@@ -211,20 +211,30 @@ gone. The optional WSL arguments make the same native PowerShell process keep
 the server alive while both native .NET and WSL .NET query it:
 
 ```console
-$ & '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\eng\psmux\Invoke-PsmuxSmoke.ps1' `
-    -PsmuxPath 'C:\Tools\psmux-v3.3.8\psmux.exe' `
-    -ExpectedSha256 '54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d' `
-    -DataDirectory 'C:\Users\me\AppData\Local\Temp\libtmux-psmux-smoke-01a00fd3' `
-    -NamespaceName 'libtmux_smoke_01a00fd3' `
-    -DotnetPath 'C:\Program Files\dotnet\dotnet.exe' `
-    -TestAssembly '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\tests\LibTmux.UnitTests\bin\Release\net10.0\LibTmux.UnitTests.dll' `
-    -ExampleAssembly '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\examples\LibTmux.Examples\bin\Release\net10.0\LibTmux.Examples.dll' `
-    -PackageConsumerAssembly '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\tests\LibTmux.PackageConsumer\bin\Release\net10.0\LibTmux.PackageConsumer.dll' `
-    -TargetFramework 'net10.0' `
-    -RunWslSmoke `
-    -WslDistribution '<distribution>' `
-    -WslRepository '/home/<user>/libtmux-dotnet' `
-    -WslDotnetPath '/home/<user>/.config/mise/dotnet-root/dotnet'
+PS> & {
+    $repo = '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet'
+    $net = 'bin\Release\net10.0'
+    $sha = '54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d'
+    $tests = "$repo\tests"
+    $examples = "$repo\examples"
+    $temp = 'C:\Users\me\AppData\Local\Temp'
+    & "$repo\eng\psmux\Invoke-PsmuxSmoke.ps1" `
+        -PsmuxPath 'C:\Tools\psmux-v3.3.8\psmux.exe' `
+        -ExpectedSha256 $sha `
+        -DataDirectory "$temp\libtmux-psmux-smoke-01a00fd3" `
+        -NamespaceName 'libtmux_smoke_01a00fd3' `
+        -DotnetPath 'C:\Program Files\dotnet\dotnet.exe' `
+        -TestAssembly "$tests\LibTmux.UnitTests\$net\LibTmux.UnitTests.dll" `
+        -ExampleAssembly `
+            "$examples\LibTmux.Examples\$net\LibTmux.Examples.dll" `
+        -PackageConsumerAssembly `
+            "$tests\LibTmux.PackageConsumer\$net\LibTmux.PackageConsumer.dll" `
+        -TargetFramework 'net10.0' `
+        -RunWslSmoke `
+        -WslDistribution '<distribution>' `
+        -WslRepository '/home/<user>/libtmux-dotnet' `
+        -WslDotnetPath '/home/<user>/.config/mise/dotnet-root/dotnet'
+}
 ```
 
 Before its first psmux launch, the harness verifies the SHA and embedded audited
@@ -234,12 +244,13 @@ warm helpers disabled, starts
 exactly one `powershell.exe` session, writes `héllo-雪-😀`, and waits for that
 text to be capturable. Each native and optional WSL leg must pass the focused
 public-facade test, run the checked-in example, and query through the packed
-NuGet consumer. Repeat the build and harness with `net8.0` paths to cover both
-target frameworks. Finally, the harness re-resolves the session ID and
-generation it recorded after creation, refuses to kill a changed or unknown
-identity, removes only its fresh owned directory, and restores the process
-environment and console encoding. It never calls `kill-server` or touches the
-default namespace. A failing cleanup is a failing harness run.
+NuGet consumer. Repeat the build and harness with `$net` set to
+`bin\Release\net8.0` to cover both target frameworks. Finally, the harness
+re-resolves the session ID and generation it recorded after creation, refuses to
+kill a changed or unknown identity, removes only its fresh owned directory, and
+restores the process environment and console encoding. It never calls
+`kill-server` or touches the default namespace. A failing cleanup is a failing
+harness run.
 
 The WSL leg uses the `/mnt/c/...` executable path while retaining a
 Windows-absolute `PSMUX_DATA_DIR`. LibTmux owns and canonicalizes `WSLENV`,
