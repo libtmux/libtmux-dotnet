@@ -51,7 +51,7 @@ let runAsync () =
 
         let! screen = pane |> Pane.capture token (CapturePaneRequest())
 
-        // One case for each way a wait can end; leaving one out draws a warning.
+        // One case for each way a wait can end; leaving one out warns.
         let describe wait =
             match wait with
             | PaneWait.Found -> "found"
