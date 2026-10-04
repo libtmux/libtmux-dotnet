@@ -83,7 +83,8 @@ internal sealed partial class WriteTools
         + "cd and export do not persist. Output starts at an authenticated position "
         + "captured before dispatch; check linesMissed and anchorLost. If it may "
         + "outlast the timeout, run it through a client-managed MCP task. A timed-out "
-        + "command MAY STILL BE RUNNING; inspect it and do not retry it.")]
+        + "command MAY STILL BE RUNNING; inspect it and do not retry it. paneExited "
+        + "means the pane's shell exited first, ending the call early.")]
     public Task<RunResult> RunAsync(
         [Description(
             "The shell command to run, at most LIBTMUX_MCP_MAX_BYTES UTF-8 bytes. "
@@ -240,7 +241,8 @@ internal sealed partial class WriteTools
                     budget.TotalSeconds,
                     outcome.LinesMissed,
                     outcome.AnchorLost,
-                    outcome.Started),
+                    outcome.Started,
+                    outcome.PaneExited),
                 "command result");
         }
         finally

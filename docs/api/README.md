@@ -879,6 +879,7 @@ modes differ.
 | `LibTmux.PaneRunResult.ExitStatus` | The command's exit status, or null when it had not finished. |
 | `LibTmux.PaneRunResult.LinesMissed` | Whether scrollback dropped output before it was read; then holds only what the pane still showed. |
 | `LibTmux.PaneRunResult.Output` | The lines the command printed. |
+| `LibTmux.PaneRunResult.PaneExited` | Gets whether the pane's program exited before the command reported its status. |
 | `LibTmux.PaneRunResult.Started` | Whether the pane's shell ran the command at all. |
 | `LibTmux.PaneRunResult.Succeeded` | Gets whether the command finished with exit status 0. |
 | `LibTmux.PaneRunResult.TimedOut` | Whether the time allowed ran out first; the command may still be running. |

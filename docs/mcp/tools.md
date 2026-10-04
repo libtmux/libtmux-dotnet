@@ -180,7 +180,7 @@ Each tool's output schema describes its result; these are its fields.
 | `resize_pane` | `changed`, `paneId`, `windowId`, `sessionId` |
 | `resize_window` | `changed`, `paneId`, `windowId`, `sessionId` |
 | `respawn_pane` | `changed`, `paneId`, `windowId`, `sessionId` |
-| `run_shell_command` | `paneId`, `exitStatus`, `timedOut`, `output` (`lines`, `truncated`, `droppedLines`, `droppedBytes`), `elapsedSeconds`, `effectiveTimeoutSeconds`, `linesMissed`, `anchorLost`, `started` |
+| `run_shell_command` | `paneId`, `exitStatus`, `timedOut`, `output` (`lines`, `truncated`, `droppedLines`, `droppedBytes`), `elapsedSeconds`, `effectiveTimeoutSeconds`, `linesMissed`, `anchorLost`, `started`, `paneExited` |
 | `search_panes` | `pattern`, `panesSearched`, `panes`[] (`paneId`, `windowId`, `sessionId`, `matches`), `truncated` |
 | `select_layout` | `changed`, `paneId`, `windowId`, `sessionId` |
 | `select_pane` | `changed`, `paneId`, `windowId`, `sessionId` |

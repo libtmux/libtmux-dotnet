@@ -671,6 +671,8 @@ LibTmux.PaneRunResult.LinesMissed.get -> bool
 LibTmux.PaneRunResult.LinesMissed.init -> void
 LibTmux.PaneRunResult.Output.get -> System.Collections.Generic.IReadOnlyList<string!>!
 LibTmux.PaneRunResult.Output.init -> void
+LibTmux.PaneRunResult.PaneExited.get -> bool
+LibTmux.PaneRunResult.PaneExited.init -> void
 LibTmux.PaneRunResult.PaneRunResult(int? ExitStatus, bool TimedOut, System.Collections.Generic.IReadOnlyList<string!>! Output, System.TimeSpan Elapsed, bool Started, bool LinesMissed) -> void
 LibTmux.PaneRunResult.Started.get -> bool
 LibTmux.PaneRunResult.Started.init -> void

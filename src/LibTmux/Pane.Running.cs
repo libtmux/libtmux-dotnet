@@ -102,6 +102,9 @@ public sealed partial class Pane
             outcome.Output,
             outcome.Elapsed,
             outcome.Started,
-            outcome.LinesMissed);
+            outcome.LinesMissed)
+        {
+            PaneExited = outcome.PaneExited,
+        };
     }
 }

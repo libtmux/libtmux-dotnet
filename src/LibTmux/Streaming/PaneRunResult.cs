@@ -20,4 +20,13 @@ public sealed record PaneRunResult(
 {
     /// <summary>Gets whether the command finished with exit status 0.</summary>
     public bool Succeeded => ExitStatus == 0;
+
+    /// <summary>Gets whether the pane's program exited before the command reported its status.</summary>
+    /// <remarks>
+    /// The run ends within seconds of the exit rather than at its timeout.
+    /// <see cref="ExitStatus" /> is then null, and <see cref="Output" /> holds
+    /// what the pane still showed, including any line tmux writes for a dead
+    /// pane, or nothing when tmux closed the pane.
+    /// </remarks>
+    public bool PaneExited { get; init; }
 }

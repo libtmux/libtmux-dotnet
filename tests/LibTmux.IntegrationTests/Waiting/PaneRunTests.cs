@@ -96,6 +96,31 @@ public sealed class PaneRunTests
         await released.Task.WaitAsync(Allowed, token);
     }
 
+    // A program that exits mid-run never signals the run, which ends within
+    // seconds rather than at its timeout. A pane tmux keeps still shows what
+    // the command printed; one tmux closes leaves nothing to read.
+    [UnixFact]
+    public async Task A_run_ends_soon_after_its_panes_program_exits()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Pane closing = await NewPaneAsync(raw, ["/bin/sh"], token);
+        Pane kept = await NewPaneAsync(raw, ["/bin/sh"], token);
+        await raw.ExecuteAsync(["set-option", "-p", "-t", kept.Id.ToString(), "remain-on-exit", "on"], token);
+        TimeSpan generous = TimeSpan.FromSeconds(60);
+
+        PaneRunResult closed = await closing.RunAsync("kill -9 $$", generous, token);
+        PaneRunResult dead = await kept.RunAsync("printf 'before\\n'; kill -9 $$", generous, token);
+
+        Assert.Equal((true, null, false), (closed.PaneExited, closed.ExitStatus, closed.TimedOut));
+        Assert.Empty(closed.Output);
+        Assert.Equal((true, null, false), (dead.PaneExited, dead.ExitStatus, dead.TimedOut));
+        Assert.Contains("before", dead.Output);
+        Assert.True(
+            closed.Elapsed < TimeSpan.FromSeconds(15) && dead.Elapsed < TimeSpan.FromSeconds(15),
+            $"The runs ended after {closed.Elapsed} and {dead.Elapsed}.");
+    }
+
     [UnixFact]
     public async Task A_pane_not_at_a_shell_is_refused_before_anything_is_sent()
     {

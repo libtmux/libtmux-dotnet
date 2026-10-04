@@ -152,6 +152,10 @@ public sealed record ChannelWaitResult(
 /// prompt. The usual "it may still be running" does not apply; inspect the pane
 /// before retrying.
 /// </param>
+/// <param name="PaneExited">
+/// Whether the pane's program exited before the command reported its status.
+/// The run ends then rather than at its timeout, with no exit status.
+/// </param>
 public sealed record RunResult(
     string PaneId,
     int? ExitStatus,
@@ -161,7 +165,8 @@ public sealed record RunResult(
     double EffectiveTimeoutSeconds,
     bool LinesMissed = false,
     bool AnchorLost = false,
-    bool Started = true);
+    bool Started = true,
+    bool PaneExited = false);
 
 /// <summary>One pane whose text matched a search.</summary>
 /// <param name="PaneId">The pane that matched.</param>
