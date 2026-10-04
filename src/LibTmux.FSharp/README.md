@@ -90,7 +90,8 @@ targets `net8.0` and `net10.0`.
 
 | Need | F# call | Returns |
 | --- | --- | --- |
-| List and filter | `Server.panes server \|> Query.where filter \|> Query.list ct`; `Session.panes`, `Window.panes` for one scope | `IReadOnlyList<Pane>` |
+| List and filter | `Server.panes server \|> Query.where filter \|> Query.list ct` | `IReadOnlyList<Pane>` |
+| One session's or window's panes | `Session.panes session \|> Query.list ct`; `Window.panes` alike | `IReadOnlyList<Pane>` |
 | Panes showing some text | `Server.panes server \|> Query.showing search \|> Query.list ct` | `IReadOnlyList<Pane>` |
 | Exactly one match | `Query.exactlyOne ct query`; `Query.tryExactlyOne` under NativeAOT | `Result<'T, CardinalityError>`; `'T option` |
 | Find, or create when absent | `Query.atMostOne ct query` | `'T option`; several raise |
