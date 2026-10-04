@@ -10,20 +10,20 @@ from typing into the same pane.
 
 Connect once at startup and share the handle; it is immutable, and every task
 may call through it at once ([what calls share](concurrency.md)). Give it a
-logger, and bound every command it sends, so a tmux that stops answering
-fails a call rather than holding it:
+logger through the options' `Logger`, and bound every command it sends, so a
+tmux that stops answering fails a call rather than holding it:
 
 <!-- fsharp-snippet: ServiceHandle -->
 ```fsharp
 open System
 open System.Threading
-open Microsoft.Extensions.Logging
 open LibTmux
 open LibTmux.FSharp
 
-let connectForServiceAsync (logger: ILogger) (stopping: CancellationToken) =
+// The options name the socket and carry the service's logger, as in
+// ServerConnectionOptions(SocketName = "build", Logger = logger).
+let connectForServiceAsync (stopping: CancellationToken) (options: ServerConnectionOptions) =
     task {
-        let options = ServerConnectionOptions(SocketName = "build", Logger = logger)
         let! server = options |> Server.connect stopping
 
         // Every command through this handle, and the sessions, windows and

@@ -677,13 +677,13 @@ module internal GuideSnippets =
     // fsharp-snippet: ServiceHandle
     open System
     open System.Threading
-    open Microsoft.Extensions.Logging
     open LibTmux
     open LibTmux.FSharp
 
-    let connectForServiceAsync (logger: ILogger) (stopping: CancellationToken) =
+    // The options name the socket and carry the service's logger, as in
+    // ServerConnectionOptions(SocketName = "build", Logger = logger).
+    let connectForServiceAsync (stopping: CancellationToken) (options: ServerConnectionOptions) =
         task {
-            let options = ServerConnectionOptions(SocketName = "build", Logger = logger)
             let! server = options |> Server.connect stopping
 
             // Every command through this handle, and the sessions, windows and
