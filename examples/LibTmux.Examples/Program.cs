@@ -23,14 +23,16 @@ internal static class Program
         bool smoke = args is ["--smoke"];
         if (args.Length != 0 && !smoke)
         {
-            Console.Error.WriteLine("Usage: LibTmux.Examples [--smoke | --psmux].");
+            Console.Error.WriteLine(
+                "Usage: LibTmux.Examples [--smoke | --psmux].");
             return 2;
         }
 
         if (OperatingSystem.IsWindows())
         {
             Console.Error.WriteLine(
-                "The ordinary examples require tmux on Linux or macOS; use --psmux for the Windows query preview.");
+                "The ordinary examples require tmux on Linux or macOS; "
+                + "use --psmux for the Windows query preview.");
             return 1;
         }
 
@@ -41,18 +43,22 @@ internal static class Program
     private static async Task<int> RunTmuxExamplesAsync(bool smoke)
     {
         int failed = 0;
-        foreach (ExampleCase example in ExampleCase.Discover().Take(smoke ? 1 : int.MaxValue))
+        IEnumerable<ExampleCase> examples = ExampleCase.Discover()
+            .Take(smoke ? 1 : int.MaxValue);
+        foreach (ExampleCase example in examples)
         {
             Console.WriteLine();
-            Console.WriteLine($"── {example.Topic}.{example.Id} — {example.Title}");
+            Console.WriteLine(
+                $"── {example.Topic}.{example.Id} — {example.Title}");
             long started = Stopwatch.GetTimestamp();
             try
             {
                 await example.RunAsync();
-                Console.WriteLine(
-                    $"   ok ({Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0} ms)");
+                TimeSpan elapsed = Stopwatch.GetElapsedTime(started);
+                Console.WriteLine($"   ok ({elapsed.TotalMilliseconds:F0} ms)");
             }
-            catch (Exception failure) when (failure is not OperationCanceledException)
+            catch (Exception failure)
+                when (failure is not OperationCanceledException)
             {
                 failed++;
                 Console.Error.WriteLine($"   failed: {failure.Message}");
