@@ -1,3 +1,4 @@
+using System.Net;
 using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text;
@@ -47,6 +48,17 @@ public sealed class ReadmeExampleTests
     private static readonly Regex Fence = new(
         @"^```csharp(?<run> run)?\r?$\n(?<body>.*?)^```\r?$",
         RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.Compiled);
+
+    /// <summary>An XML documentation code block, with its comment markers.</summary>
+    private static readonly Regex XmlCode = new(
+        @"^[ \t]*///[ \t]*<code>[ \t]*\r?$\n(?<body>(?:[ \t]*///.*\r?\n)*?)"
+        + @"[ \t]*///[ \t]*</code>",
+        RegexOptions.Multiline | RegexOptions.Compiled);
+
+    /// <summary>Any opening of an XML documentation code element.</summary>
+    private static readonly Regex XmlCodeOpener = new(
+        @"^[ \t]*///.*<code[\s>/]",
+        RegexOptions.Multiline | RegexOptions.Compiled);
 
     /// <summary>A file-level using is not a statement, and the harness adds its own.</summary>
     private static readonly Regex UsingDirective = new(
@@ -170,7 +182,54 @@ public sealed class ReadmeExampleTests
             }
         }
 
+        ReadXmlCode(root, examples);
         return examples;
+    }
+
+    /// <summary>
+    /// Adds every <c>&lt;code&gt;</c> block in the library's XML documentation.
+    /// </summary>
+    /// <remarks>
+    /// A block written in another shape would be skipped without a word, so
+    /// the number of openers must equal the number of blocks read.
+    /// </remarks>
+    private static void ReadXmlCode(string root, List<Example> examples)
+    {
+        int openers = 0;
+        int ordinal = 0;
+        string source = Path.Join(root, "src");
+        foreach (string path in Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories))
+        {
+            string relative = Path.GetRelativePath(root, path).Replace('\\', '/');
+            if (relative.Contains("/obj/", StringComparison.Ordinal)
+                || relative.Contains("/bin/", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string text = File.ReadAllText(path);
+            openers += XmlCodeOpener.Count(text);
+            foreach (Match match in XmlCode.Matches(text))
+            {
+                ordinal++;
+                string body = string.Join(
+                    "\n",
+                    match.Groups["body"].Value
+                        .Split('\n')
+                        .Select(line => Regex.Replace(line.TrimEnd('\r'), @"^[ \t]*/// ?", string.Empty)));
+                examples.Add(new Example(
+                    relative,
+                    ordinal,
+                    $"Block{examples.Count}",
+                    false,
+                    WebUtility.HtmlDecode(body).TrimEnd()));
+            }
+        }
+
+        Assert.True(
+            openers == ordinal,
+            $"{openers} <code> openers in src but {ordinal} blocks were read. "
+            + "Write each as <code> and </code> on lines of their own.");
     }
 
     /// <summary>Compiles every example into one assembly.</summary>
