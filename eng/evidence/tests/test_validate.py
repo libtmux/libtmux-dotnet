@@ -49,6 +49,96 @@ TRANSITION_TMUX_SOURCE_COMMIT = "7" * 40
 EVALUATED_COMMIT_TREE = "e" * 40
 CAPABILITY_COHORT = "0001"
 CLOSURE_COHORT = "closure"
+INTEGRATION_PROJECT = "tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj"
+MIRROR_REFRESH_SKIP = (
+    "LibTmux.IntegrationTests.Snapshots.ServerMirrorTests."
+    "A_change_tmux_does_not_announce_is_seen_within_the_refresh_interval"
+)
+
+
+@pytest.mark.parametrize(
+    ("version", "framework", "project", "names", "total", "exit_code", "accepted"),
+    [
+        ("3.3a", "net8.0", INTEGRATION_PROJECT, [MIRROR_REFRESH_SKIP], 2, 0, True),
+        ("3.3a", "net10.0", INTEGRATION_PROJECT, [MIRROR_REFRESH_SKIP], 2, 0, True),
+        ("3.2a", "net8.0", INTEGRATION_PROJECT, [MIRROR_REFRESH_SKIP], 2, 0, False),
+        ("3.3a", "net9.0", INTEGRATION_PROJECT, [MIRROR_REFRESH_SKIP], 2, 0, False),
+        ("3.3a", "net8.0", "other.csproj", [MIRROR_REFRESH_SKIP], 2, 0, False),
+        ("3.3a", "net8.0", INTEGRATION_PROJECT, ["OtherTest"], 2, 0, False),
+        ("3.3a", "net8.0", INTEGRATION_PROJECT, [MIRROR_REFRESH_SKIP, "OtherTest"], 3, 0, False),
+        ("3.3a", "net8.0", INTEGRATION_PROJECT, [], 2, 0, False),
+        ("3.3a", "net8.0", INTEGRATION_PROJECT, [MIRROR_REFRESH_SKIP], 1, 0, False),
+        ("3.3a", "net8.0", INTEGRATION_PROJECT, [MIRROR_REFRESH_SKIP], 2, 1, False),
+        ("3.7c", "net10.0", INTEGRATION_PROJECT, [], 1, 0, True),
+    ],
+    ids=[
+        "allowed-net8", "allowed-net10", "wrong-version", "wrong-framework",
+        "wrong-project", "wrong-name", "extra-skip", "missing-expected-skip",
+        "all-skipped", "failed-run", "ordinary-no-skips",
+    ],
+)
+def test_matrix_runner_admits_only_the_named_tmux_3_3a_mirror_skip(
+    tmp_path: pathlib.Path,
+    version: str,
+    framework: str,
+    project: str,
+    names: list[str],
+    total: int,
+    exit_code: int,
+    accepted: bool,
+) -> None:
+    """A version exception must not turn other skipped or empty lanes green."""
+    script = pathlib.Path(__file__).parents[2] / "tmux" / "run-matrix.sh"
+    source = script.read_text(encoding="utf-8")
+    run_one = source[source.index("run_one() {"):source.index("\nrun_version() {")]
+    output = tmp_path / "runner-output.txt"
+    output.write_text(
+        "\n".join([
+            *(f"skipped {name}" for name in names),
+            f"  See the tracked condition for {MIRROR_REFRESH_SKIP}.",
+            f"total: {total}", f"skipped: {len(names)}", "",
+        ]),
+        encoding="utf-8",
+    )
+    mise = tmp_path / "mise"
+    mise.write_text(
+        '#!/bin/sh\ncat "$MATRIX_FAKE_OUTPUT"\nexit "$MATRIX_FAKE_EXIT"\n',
+        encoding="utf-8",
+    )
+    mise.chmod(0o755)
+    recorded = tmp_path / "result.txt"
+    failure = tmp_path / "failure.txt"
+    completed = subprocess.run(
+        [
+            "bash", "-c",
+            "set -eu\ncandidate=\nTRANSITION_TMUX_BINARY=\n"
+            "TRANSITION_TMUX_SOURCE_COMMIT=\nPROJECT=$MATRIX_FAKE_PROJECT\n"
+            'record_result() { printf "%s\\n" "$3" > "$MATRIX_RECORDED_RESULT"; }\n'
+            'keep_failure_output() { mv -- "$1" "$MATRIX_FAILURE_OUTPUT"; }\n'
+            + run_one + '\nrun_one "$@"\n',
+            "matrix-skip-test", version, framework, str(tmp_path / "tmux"),
+            version, COMMIT, "false",
+        ],
+        env={
+            **os.environ,
+            "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+            "TMPDIR": str(tmp_path),
+            "MATRIX_FAKE_OUTPUT": str(output),
+            "MATRIX_FAKE_EXIT": str(exit_code),
+            "MATRIX_FAKE_PROJECT": project,
+            "MATRIX_RECORDED_RESULT": str(recorded),
+            "MATRIX_FAILURE_OUTPUT": str(failure),
+        },
+        capture_output=True,
+        text=True,
+        timeout=1,
+        check=False,
+    )
+
+    assert completed.returncode == (0 if accepted else 1), completed.stdout + completed.stderr
+    assert recorded.read_text().strip() == ("passed" if accepted else "failed")
+    if not accepted:
+        assert failure.read_bytes() == output.read_bytes()
 
 
 def _seed_tmux_build_cache(root: pathlib.Path, version: str) -> str:
@@ -155,7 +245,18 @@ def _fake_matrix_environment(
         '"${LIBTMUX_TRANSITION_TMUX_3_7-}" '
         '"${LIBTMUX_TRANSITION_TMUX_3_7_SOURCE_COMMIT-}" '
         '"$*" >> "$MATRIX_LOG"\n'
-        "    printf '%s\\n' 'total: 1' 'skipped: 0'\n"
+        "    mirror_skip=\n"
+        '    if [ "${LIBTMUX_EXPECTED_TMUX_VERSION-}" = 3.3a ]; then\n'
+        '        case " $* " in\n'
+        '            *" --filter-method "*) ;;\n'
+        f'            *" --project {INTEGRATION_PROJECT} "*) mirror_skip=1 ;;\n'
+        "        esac\n"
+        "    fi\n"
+        '    if [ -n "$mirror_skip" ]; then\n'
+        f"        printf '%s\\n' 'skipped {MIRROR_REFRESH_SKIP}' 'total: 2' 'skipped: 1'\n"
+        "    else\n"
+        "        printf '%s\\n' 'total: 1' 'skipped: 0'\n"
+        "    fi\n"
         "fi\n",
         encoding="utf-8",
     )
