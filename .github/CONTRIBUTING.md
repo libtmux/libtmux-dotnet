@@ -304,6 +304,19 @@ Check F# source, signatures and scripts:
 $ mise exec -- dotnet fantomas check src examples tests eng
 ```
 
+Check that example code and the code in READMEs and docs stays within 80
+columns. [WRITING.md](WRITING.md#examples) says which lines count and
+`.github/example-width.toml` lists the files and the few lines allowed to stay
+wider. The self-test proves the checker can fail:
+
+```console
+$ python3 eng/docs/check_example_width.py --self-test
+```
+
+```console
+$ python3 eng/docs/check_example_width.py
+```
+
 The F# formatting, unit and packed-consumer steps run in `dotnet.build`, a
 required predecessor of `dotnet.gate`. Workflow policy rejects skipped or
 non-failing versions of those steps.
