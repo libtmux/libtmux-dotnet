@@ -80,6 +80,39 @@ public sealed class PaneWaitTests
         Assert.Equal(0, Volatile.Read(ref reads));
     }
 
+    // Within a tenth of history-limit, a read finds its place by the row the
+    // cursor was on. That row is a bare prompt the next command rewrites, and
+    // the fresh prompt below it hashes the same.
+    [UnixFact]
+    public async Task A_wait_sees_new_output_once_history_nears_its_limit()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sh"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+
+        // 1,830 lines put history past 1,800 of tmux's default 2,000.
+        await pane.SendTextAsync("seq 1 1830", cancellationToken: token);
+        PaneWaitResult filled = await pane.WaitUntilAsync(
+            rows => rows.Any(row => row == "1830"), Arrival, token);
+        Assert.True(filled.Found, "seq never finished printing");
+
+        PaneWaitResult result = await pane.SendTextAndWaitAsync(
+            "printf '%s-done\\n' near", "near-done", Arrival, token);
+
+        Assert.True(result.Found, $"The wait ended {result.Outcome}.");
+    }
+
     [UnixFact]
     public async Task Text_already_showing_answers_at_once_and_absent_text_times_out()
     {

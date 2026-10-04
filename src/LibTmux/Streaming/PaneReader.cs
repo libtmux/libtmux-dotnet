@@ -441,8 +441,12 @@ internal static class PaneReader
             return null;
         }
 
+        // Rows only move up: tmux frees history from the top and appends below,
+        // so the anchor cannot sit lower than it did. A row further down that
+        // hashes the same is a different row, such as a fresh prompt below the
+        // one a command was typed into.
         int? match = null;
-        for (int index = 0; index + fingerprintLength <= rows.Count; index++)
+        for (int index = 0; index + fingerprintLength <= rows.Count && index <= cursor.AnchorAbsolute; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!string.Equals(
