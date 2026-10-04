@@ -487,11 +487,8 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
 
             if (run is not null)
             {
-                StopSignaling();
-                await DisposeRunAsync(run).ConfigureAwait(false);
-                await run.Pump.ConfigureAwait(false);
+                await RetireAsync(run).ConfigureAwait(false);
             }
-
         }
 
         private async Task PumpAsync(WatchRun run)
@@ -564,6 +561,26 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             finally
             {
                 _gate.Release();
+            }
+        }
+
+        // A client that ended on its own, such as on a line over its limits,
+        // fails its disposal. That must not fail the wait releasing it, nor
+        // stop the hub disposing its other clients, so the failure is logged.
+        private async Task RetireAsync(WatchRun run)
+        {
+            StopSignaling();
+            await ObserveCleanupAsync(run).ConfigureAwait(false);
+            try
+            {
+                await run.Pump.ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                if (hub._logger is not null)
+                {
+                    LogControlClientCleanupFailed(hub._logger, error, key.SessionId);
+                }
             }
         }
 
@@ -640,23 +657,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             hub.RemoveWatch(key, this);
             if (run is not null)
             {
-                StopSignaling();
-
-                // A client that ended on its own, such as on a line over its
-                // limits, must not turn the result of the wait releasing it
-                // into a failure; its cleanup failure is logged instead.
-                await ObserveCleanupAsync(run).ConfigureAwait(false);
-                try
-                {
-                    await run.Pump.ConfigureAwait(false);
-                }
-                catch (Exception error)
-                {
-                    if (hub._logger is not null)
-                    {
-                        LogControlClientCleanupFailed(hub._logger, error, key.SessionId);
-                    }
-                }
+                await RetireAsync(run).ConfigureAwait(false);
             }
         }
 

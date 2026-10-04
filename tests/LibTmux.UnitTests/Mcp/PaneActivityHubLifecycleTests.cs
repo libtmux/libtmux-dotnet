@@ -338,6 +338,24 @@ public sealed class PaneActivityHubLifecycleTests
         Assert.True(failing.Disposed);
     }
 
+    // One client failing its disposal must not leave the hub's other clients
+    // attached when the hub is disposed.
+    [Fact]
+    public async Task Disposing_the_hub_disposes_every_client_when_one_fails()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        PaneActivityHub hub = new();
+        FailingDisposalSession failing = new();
+        FakeControlModeSession healthy = new();
+        _ = await hub.WatchAsync("$1", _ => Task.FromResult<IControlModeSession>(failing), token);
+        _ = await hub.WatchAsync("$2", _ => Task.FromResult<IControlModeSession>(healthy), token);
+
+        await hub.DisposeAsync();
+
+        Assert.True(failing.Disposed);
+        Assert.Equal(1, healthy.DisposeCalls);
+    }
+
     private sealed class FailingDisposalSession : IControlModeSession
     {
         private readonly Channel<TmuxEvent> _events = Channel.CreateUnbounded<TmuxEvent>();
