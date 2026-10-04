@@ -169,7 +169,11 @@ contains can end on the shell's echo before the command runs; use
 `Pane.sendAndWait` instead. Every wait also ends early when the pane's program
 exits during it or a full-screen program takes over, raises
 `TmuxPaneException` on a pane whose program had already exited, and sleeps on
-the pane's own output through a control client rather than polling.
+the pane's own output through a control client rather than polling. Attaching
+that client costs a wait about 15 ms more than reading the screen once, so read
+output that is already there with `Pane.capture`, and wait for output still to
+come; the [wait latency benchmark](../benchmarks/README.md#f-wait-latency)
+measures both.
 
 `Pane.run` needs the pane at a prompt of `sh`, `ash`, `bash`, `dash`, `zsh` or
 a Korn shell; fish, PowerShell and a REPL are refused. It runs the command in a
