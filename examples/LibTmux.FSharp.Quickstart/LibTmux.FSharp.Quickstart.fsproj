@@ -6,7 +6,8 @@
          it on both frameworks against freshly packed packages. -->
     <UsePackageReferences>false</UsePackageReferences>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
-    <TargetFrameworks Condition="'$(UsePackageReferences)' != 'true'">net10.0</TargetFrameworks>
+    <TargetFrameworks
+      Condition="'$(UsePackageReferences)' != 'true'">net10.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
@@ -20,10 +21,12 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(UsePackageReferences)' == 'true'">
-    <PackageReference Include="LibTmux.FSharp" Version="[$(LibTmuxPackageVersion)]" />
+    <PackageReference Include="LibTmux.FSharp"
+                      Version="[$(LibTmuxPackageVersion)]" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(UsePackageReferences)' != 'true'">
-    <ProjectReference Include="../../src/LibTmux.FSharp/LibTmux.FSharp.fsproj" />
+    <ProjectReference
+      Include="../../src/LibTmux.FSharp/LibTmux.FSharp.fsproj" />
   </ItemGroup>
 </Project>
