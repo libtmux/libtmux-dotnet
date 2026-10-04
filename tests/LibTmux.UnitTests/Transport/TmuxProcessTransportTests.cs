@@ -274,7 +274,7 @@ public sealed class TmuxProcessTransportTests
     [UnixFact]
     public async Task Post_start_cancellation_throws_TmuxOperationCanceledException_with_true_execution_risk_and_client_pid()
     {
-        var process = FakeProcessHandle.Running(7048, [], []);
+        var process = FakeProcessHandle.Running(7048, [], [], rejectAdditionalExitWaits: true);
         var transport = CreateTransport(process);
         using var cancellation = new CancellationTokenSource();
         Task<TmuxCommandResult> execution = transport.ExecuteAsync(
@@ -327,7 +327,8 @@ public sealed class TmuxProcessTransportTests
             new MemoryStream([], writable: false),
             new MemoryStream([], writable: false),
             killFailure: cleanupFailure,
-            exitWhenKillThrows: true);
+            exitWhenKillThrows: true,
+            rejectAdditionalExitWaits: true);
         var transport = CreateTransport(process);
         using var cancellation = new CancellationTokenSource();
         Task<TmuxCommandResult> execution = transport.ExecuteAsync(
@@ -520,7 +521,7 @@ public sealed class TmuxProcessTransportTests
                 TestContext.Current.CancellationToken));
 
         Assert.True(process.WasKilled);
-        Assert.True(process.WaitCallCount >= 2);
+        Assert.True(process.HasExited);
         Assert.Contains(acquisitionFailure.Message, FlattenMessages(error));
     }
 
@@ -545,7 +546,7 @@ public sealed class TmuxProcessTransportTests
         string messages = FlattenMessages(error);
 
         Assert.True(process.WasKilled);
-        Assert.True(process.WaitCallCount >= 2);
+        Assert.True(process.HasExited);
         Assert.Contains(firstPumpFailure.Message, messages);
         Assert.Contains(secondPumpFailure.Message, messages);
         Assert.Contains(killFailure.Message, messages);
@@ -890,6 +891,7 @@ public sealed class TmuxProcessTransportTests
         private readonly Action? _onExitCode;
         private readonly Exception? _exitCodeFailure;
         private readonly Exception? _standardOutputFailure;
+        private readonly bool _rejectAdditionalExitWaits;
         private readonly int _exitCode;
         private readonly Stream _standardError;
         private readonly Stream _standardOutput;
@@ -907,7 +909,8 @@ public sealed class TmuxProcessTransportTests
             bool exitBeforeKill = false,
             Action? onKill = null,
             Action? onExitCode = null,
-            Exception? exitCodeFailure = null)
+            Exception? exitCodeFailure = null,
+            bool rejectAdditionalExitWaits = false)
         {
             Id = id;
             _standardOutput = standardOutput;
@@ -921,6 +924,7 @@ public sealed class TmuxProcessTransportTests
             _onKill = onKill;
             _onExitCode = onExitCode;
             _exitCodeFailure = exitCodeFailure;
+            _rejectAdditionalExitWaits = rejectAdditionalExitWaits;
             if (completed)
             {
                 _exit.SetResult();
@@ -995,7 +999,8 @@ public sealed class TmuxProcessTransportTests
             byte[] standardError,
             Exception? killFailure = null,
             Exception? standardOutputFailure = null,
-            bool exitBeforeKill = false) =>
+            bool exitBeforeKill = false,
+            bool rejectAdditionalExitWaits = false) =>
             new(
                 id,
                 new MemoryStream(standardOutput, writable: false),
@@ -1004,7 +1009,8 @@ public sealed class TmuxProcessTransportTests
                 completed: false,
                 killFailure,
                 standardOutputFailure,
-                exitBeforeKill: exitBeforeKill);
+                exitBeforeKill: exitBeforeKill,
+                rejectAdditionalExitWaits: rejectAdditionalExitWaits);
 
         internal static FakeProcessHandle RunningWithStreams(
             int id,
@@ -1013,7 +1019,8 @@ public sealed class TmuxProcessTransportTests
             Exception? killFailure = null,
             ManualResetEventSlim? killGate = null,
             bool exitWhenKillThrows = false,
-            Action? onKill = null) =>
+            Action? onKill = null,
+            bool rejectAdditionalExitWaits = false) =>
             new(
                 id,
                 standardOutput,
@@ -1023,7 +1030,8 @@ public sealed class TmuxProcessTransportTests
                 killFailure,
                 killGate: killGate,
                 exitWhenKillThrows: exitWhenKillThrows,
-                onKill: onKill);
+                onKill: onKill,
+                rejectAdditionalExitWaits: rejectAdditionalExitWaits);
 
         public void Kill()
         {
@@ -1051,6 +1059,11 @@ public sealed class TmuxProcessTransportTests
         public async Task WaitForExitAsync(CancellationToken cancellationToken = default)
         {
             WaitCallCount++;
+            if (_rejectAdditionalExitWaits && WaitCallCount > 1)
+            {
+                throw new IOException("A competing process exit wait lost its notification.");
+            }
+
             Started.TrySetResult();
             await _exit.Task.WaitAsync(cancellationToken);
         }

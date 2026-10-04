@@ -135,7 +135,9 @@ internal sealed class TmuxProcessTransport
             Task<byte[]>? stderr = null;
             try
             {
-                wait = process.WaitForExitAsync(cancellationToken);
+                // Concurrent Process.Exited handler updates can lose notifications.
+                // Keep one native exit wait alive through cancellation and cleanup.
+                wait = process.WaitForExitAsync(CancellationToken.None);
                 stdout = ReadBoundedAsync(process.StandardOutput, outputLifetime.Token);
                 stderr = ReadBoundedAsync(process.StandardError, outputLifetime.Token);
                 await AwaitProcessAndPumpsAsync(
@@ -166,6 +168,7 @@ internal sealed class TmuxProcessTransport
                 {
                     await CleanupAsync(
                             process,
+                            wait,
                             outputLifetime,
                             primaryFailure: error,
                             primaryOperation: null,
@@ -201,6 +204,7 @@ internal sealed class TmuxProcessTransport
                 {
                     await CleanupAsync(
                             process,
+                            wait,
                             outputLifetime,
                             primaryFailure,
                             primaryOperation,
@@ -317,6 +321,7 @@ internal sealed class TmuxProcessTransport
 
     private async Task CleanupAsync(
         ITmuxProcessHandle process,
+        Task? exitWait,
         CancellationTokenSource outputLifetime,
         Exception primaryFailure,
         Task? primaryOperation,
@@ -336,8 +341,7 @@ internal sealed class TmuxProcessTransport
             {
             }
         });
-        Task reap = Task.Run(
-            async () => await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false));
+        Task reap = exitWait ?? Task.Run(() => process.WaitForExitAsync(CancellationToken.None));
         Task[] operations =
         [
             kill,
