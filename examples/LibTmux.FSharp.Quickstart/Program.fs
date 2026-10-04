@@ -18,7 +18,7 @@ let runAsync () =
 
         use! owned = options |> Server.createOwned token
 
-        // One session whose window runs a plain shell, whatever the user's login shell is.
+        // One session whose window runs a plain shell, not the login shell.
         let! session =
             owned.Value
             |> Server.newSession token (SessionSpec.running "build" "/bin/sh")
@@ -51,7 +51,8 @@ let runAsync () =
         | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
         | PaneRun.TimedOut -> printfn "run: still running"
 
-        // List and filter: tmux narrows the listing, then every row is rechecked.
+        // List and filter: tmux narrows the listing, then each row is
+        // rechecked.
         let! found =
             owned.Value
             |> Server.sessions
