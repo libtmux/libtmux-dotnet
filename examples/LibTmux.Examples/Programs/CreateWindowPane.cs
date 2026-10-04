@@ -6,7 +6,8 @@ using LibTmux;
 
 if (OperatingSystem.IsWindows())
 {
-    throw new PlatformNotSupportedException("This example requires tmux on Linux or macOS.");
+    throw new PlatformNotSupportedException(
+        "This example requires tmux on Linux or macOS.");
 }
 
 using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(10));
@@ -21,20 +22,31 @@ ServerConnectionOptions options = new()
 };
 
 // The outer server scope owns everything created directly inside this daemon.
-await using OwnedServerScope owned = await Server.CreateOwnedAsync(options, token);
-Session session = await owned.Value.CreateSessionAsync(
-    new NewSessionRequest { Name = "demo", WindowName = "shell", Command = "/bin/cat" }, token);
-Window window = await session.CreateWindowAsync(
-    new NewWindowRequest { Name = "editor", Command = "/bin/cat" }, token);
+await using OwnedServerScope owned =
+    await Server.CreateOwnedAsync(options, token);
+NewSessionRequest request = new()
+{
+    Name = "demo",
+    WindowName = "shell",
+    Command = "/bin/cat",
+};
+Session session = await owned.Value.CreateSessionAsync(request, token);
+NewWindowRequest editor = new() { Name = "editor", Command = "/bin/cat" };
+Window window = await session.CreateWindowAsync(editor, token);
 Pane original = (await window.GetPanesAsync(token)).Single();
-Pane added = await original.SplitAsync(
-    new SplitPaneRequest { Direction = PaneDirection.Right, Command = "/bin/cat" }, token);
+SplitPaneRequest split = new()
+{
+    Direction = PaneDirection.Right,
+    Command = "/bin/cat",
+};
+Pane added = await original.SplitAsync(split, token);
 
 IReadOnlyList<Window> windows = await session.GetWindowsAsync(token);
 IReadOnlyList<Pane> panes = await session.GetPanesAsync(token);
 if (windows.Count != 2 || panes.Count != 3 || added.Id == original.Id)
 {
-    throw new InvalidOperationException("Expected two windows and three distinct panes.");
+    throw new InvalidOperationException(
+        "Expected two windows and three distinct panes.");
 }
 
 Console.WriteLine($"Created session {session.Name} and window {window.Name}.");
