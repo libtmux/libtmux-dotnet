@@ -50,7 +50,10 @@ internal sealed class RawTmuxTestContext : IAsyncDisposable
         try
         {
             RawTmuxResult result = await context.ExecuteAsync(
-                ["new-session", "-d", "-s", sessionName, "-x", "80", "-y", "24"],
+                // A named window never renames itself. Without -n tmux turns
+                // automatic-rename on for it, and the name then changes as the
+                // shell starts, between two reads a test expected to agree.
+                ["new-session", "-d", "-s", sessionName, "-n", "main", "-x", "80", "-y", "24"],
                 cancellationToken);
             if (result.ExitCode != 0)
             {
