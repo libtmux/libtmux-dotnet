@@ -6,7 +6,8 @@ the client exit. It is what every typed method on `Server`, `Session`,
 
 <!-- snippet: CreateWindow -->
 ```csharp
-Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
+NewWindowRequest request = new() { Name = "build" };
+Window window = await session.CreateWindowAsync(request, ct);
 Console.WriteLine($"{window.Id} {window.Index}:{window.Name}");
 ```
 <!-- endsnippet -->
