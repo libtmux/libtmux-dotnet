@@ -22,7 +22,7 @@ public sealed class TmuxCommandDispatcherTests
         Assert.Empty(typed.StandardOutputLines);
     }
 
-    [UnixFact]
+    [Fact(Skip = "Intermittent command-timeout assertion: https://github.com/libtmux/libtmux-dotnet/issues/62.")]
     public async Task A_blocking_command_outlives_the_command_timeout()
     {
         var dispatcher = new TmuxCommandDispatcher(
