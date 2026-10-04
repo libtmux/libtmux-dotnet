@@ -180,10 +180,11 @@ def verify(root: pathlib.Path) -> list[str]:
     )
 
     quickstart = required_step("dotnet", "build", "fsharp-readme-quickstart")
+    quickstart_run = quickstart.get("run", "")
     require(
-        "python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart"
-        in quickstart.get("run", ""),
-        "dotnet.build.fsharp-readme-quickstart must compare its output with the README",
+        "python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart" in quickstart_run
+        and quickstart_run.count("-p:UsePackageReferences=true") >= 3,
+        "dotnet.build.fsharp-readme-quickstart must compare the packed program's output with the README",
     )
 
     sdk8 = required_step("dotnet", "build", "fsharp-sdk8-consumer")

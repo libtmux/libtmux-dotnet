@@ -281,13 +281,12 @@ from reading the screen. The listing reaches tmux as a filter, so tmux returns
 only the sessions that match.
 
 The [quickstart source](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.FSharp.Quickstart/Program.fs)
-is the published block. CI restores only `LibTmux.FSharp` as a direct package
-reference from freshly packed artifacts, runs this program against real tmux
-on both target frameworks, and compares what it prints with the block above.
-To build that project from a checkout, pack first and restore with an empty
-package cache, as [CONTRIBUTING](https://github.com/libtmux/libtmux-dotnet/blob/master/.github/CONTRIBUTING.md)
-shows: it compiles against the packages the checkout would publish, and an
-older pack of the same version fails with missing functions.
+is the published block. From a checkout,
+`dotnet run --project examples/LibTmux.FSharp.Quickstart` runs it against the
+source. CI instead passes `-p:UsePackageReferences=true`, restores only
+`LibTmux.FSharp` from freshly packed artifacts, runs the program against real
+tmux on both target frameworks, and compares what it prints with the block
+above.
 
 ## Existing tmux
 

@@ -1,7 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- From a checkout it builds against the source, on one framework so
+         that dotnet run asks for none. CI sets UsePackageReferences to run
+         it on both frameworks against freshly packed packages. -->
+    <UsePackageReferences>false</UsePackageReferences>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(UsePackageReferences)' != 'true'">net10.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
@@ -12,6 +17,13 @@
 
   <ItemGroup>
     <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsePackageReferences)' == 'true'">
     <PackageReference Include="LibTmux.FSharp" Version="[$(LibTmuxPackageVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsePackageReferences)' != 'true'">
+    <ProjectReference Include="../../src/LibTmux.FSharp/LibTmux.FSharp.fsproj" />
   </ItemGroup>
 </Project>
