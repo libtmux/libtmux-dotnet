@@ -11,7 +11,15 @@ called more than any other core operation. `KillAsync` and `Pane.SelectAsync`
 take optional parameters before the token, so every F# call named it, and
 the handles rename and select return read naturally at the end of a pipe.
 `Session`, `Window` and `Pane` gain `kill`, `rename` and `select` where tmux
-has them; resizing, moving and the rest still go through the core.
+has them.
+
+Revisited again the same day, because reviewers kept finding the two calling
+styles side by side in one pipeline. The threshold is now the MCP server's
+tool list: every session, window and pane operation an assistant is given has
+an F# function too, so `Pane.setTitle`, `resize`, `swap`, `respawn` and
+`clearHistory`, `Window.selectLayout`, `resize` and `move`, and
+`Session.newWindow` join them. Configuration, hooks, buffers, formats and
+`wait-for` channels still go through the core.
 
 ## Context
 

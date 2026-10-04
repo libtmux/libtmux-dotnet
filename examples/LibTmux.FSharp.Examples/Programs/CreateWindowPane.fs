@@ -40,6 +40,8 @@ let runAsync () =
         let wasCurrent = notes.Active
         let! current = notes |> Window.select token
         let! focused = original |> Pane.select token
+        let! _ = current |> Window.selectLayout token "even-horizontal"
+        let! titled = focused |> Pane.setTitle token "editor"
         do! added |> Pane.kill token
 
         let server = owned.Value
@@ -49,7 +51,7 @@ let runAsync () =
         printfn "Created session demo and window editor."
         printfn "The split made a new pane: %b" (added.Id <> original.Id)
         printfn "Renamed to %s; current before select: %b, after: %b" current.Name wasCurrent current.Active
-        printfn "First pane active again: %b" focused.Active
+        printfn "First pane active again: %b; titled %s" focused.Active titled.Title
         printfn "Windows: %d; panes after the kill: %d" windows.Count allPanes.Count
     }
 

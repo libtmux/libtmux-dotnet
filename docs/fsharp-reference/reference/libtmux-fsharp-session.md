@@ -65,6 +65,26 @@ Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L184)
 
+<a name="newWindow"></a>
+
+#### <code><span>Session.newWindow&#32;<span>cancellationToken&#32;request&#32;session</span></span></code>
+
+Creates a window in the session as the request describes, and returns it.
+
+The core&#39;s <code>Session.CreateWindowAsync</code>; cancellation can leave the window created.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**request**: <code>NewWindowRequest</code>
+
+**session**: <code>Session</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L187)
+
 <a name="panes"></a>
 
 #### <code><span>Session.panes&#32;<span>session</span></span></code>

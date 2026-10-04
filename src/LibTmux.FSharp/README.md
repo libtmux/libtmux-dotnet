@@ -124,6 +124,9 @@ targets `net8.0` and `net10.0`.
 | Rename a session or window | `Window.rename ct name window` | a handle with the new name |
 | Make a window or pane current | `Window.select ct window`, `Pane.select ct pane` | a handle with the state afterwards |
 | Kill a session, window or pane | `Pane.kill ct pane` | `Task` |
+| Arrange, resize or move a window | `Window.selectLayout ct layout window`, `Window.resize ct request window`, `Window.move ct request window` | a handle with the state afterwards |
+| Title, resize, swap, respawn or clear a pane | `Pane.setTitle ct title pane`, `Pane.resize`, `Pane.swap`, `Pane.respawn`, `Pane.clearHistory` | the handle, or `Task` |
+| Add a window to a session | `Session.newWindow ct request session` | the new `Window` |
 | Create a session running one command | `Server.newSession ct (SessionSpec.running name command) server` | `Session` |
 | Create a session with windows | `Server.newSession ct spec server` | `Session` |
 | Several commands, one tmux call | `Chain.start server \|> … \|> Chain.run ct` | `TmuxCommandResult` |

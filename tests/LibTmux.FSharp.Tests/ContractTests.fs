@@ -375,7 +375,7 @@ module ContractTests =
         }
 
     [<Fact>]
-    let ``kill sends one command for the handle it is given`` () =
+    let ``pane, window and session functions send the command they name`` () =
         task {
             let sent = Collections.Concurrent.ConcurrentQueue<string list>()
 
@@ -388,8 +388,9 @@ module ContractTests =
                         if arguments = [| "-V" |] then
                             versionReply arguments
                         else
-                            // Entity commands follow the server generation guard.
-                            sent.Enqueue(arguments |> Array.skip (arguments.Length - 3) |> List.ofArray)
+                            // Entity commands follow the server generation guard's.
+                            let guard = Array.LastIndexOf(arguments, ";")
+                            sent.Enqueue(arguments |> Array.skip (guard + 1) |> List.ofArray)
                             let generation = Encoding.UTF8.GetBytes("17:31\n")
 
                             Task.FromResult(
@@ -421,13 +422,19 @@ module ContractTests =
                 LibTmux.Session(server, connection, generation, SessionId 2, fields ())
                 |> Session.kill token
 
-            Assert.Equal<string list list>(
+            let pane = LibTmux.Pane(server, connection, generation, PaneId 5, fields ())
+            do! pane |> Pane.clearHistory token
+            do! pane |> Pane.respawn token (RespawnRequest(KillExistingProcess = true))
+
+            Assert.Equal<string list>(
                 [
-                    [ "kill-pane"; "-t"; "%4" ]
-                    [ "kill-window"; "-t"; "@3" ]
-                    [ "kill-session"; "-t"; "$2" ]
+                    "kill-pane -t %4"
+                    "kill-window -t @3"
+                    "kill-session -t $2"
+                    "clear-history -t %5"
+                    "respawn-pane -t %5 -k"
                 ],
-                sent |> List.ofSeq
+                sent |> Seq.map (String.concat " ") |> List.ofSeq
             )
         }
 

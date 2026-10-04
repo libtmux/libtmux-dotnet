@@ -129,6 +129,14 @@ module Session =
     /// <remarks>The core's <c>Session.KillAsync</c> with its other options left off.</remarks>
     val kill: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task
 
+    /// <summary>Creates a window in the session as the request describes, and returns it.</summary>
+    /// <remarks>The core's <c>Session.CreateWindowAsync</c>; cancellation can leave the window created.</remarks>
+    val newWindow:
+        cancellationToken: CancellationToken ->
+        request: NewWindowRequest ->
+        session: LibTmux.Session ->
+            Task<LibTmux.Window>
+
 /// <summary>Identifies window placements and starts queries confined to one window.</summary>
 [<RequireQualifiedAccess>]
 module Window =
@@ -155,6 +163,26 @@ module Window =
     /// <summary>Kills the window, with its panes.</summary>
     /// <remarks>The core's <c>Window.KillAsync</c> without <c>allExcept</c>.</remarks>
     val kill: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task
+
+    /// <summary>Arranges the window's panes in a layout, such as <c>even-horizontal</c> or <c>tiled</c>, and returns a handle carrying the state afterwards.</summary>
+    /// <remarks>The core's <c>Window.SelectLayoutAsync</c> with a named layout; pass a request to it to cycle layouts instead.</remarks>
+    /// <exception cref="T:LibTmux.TmuxWindowException">tmux may not recognise the layout, so it is refused before anything is sent.</exception>
+    val selectLayout:
+        cancellationToken: CancellationToken -> layout: string -> window: LibTmux.Window -> Task<LibTmux.Window>
+
+    /// <summary>Resizes the window as the request says, and returns a handle carrying the state afterwards.</summary>
+    val resize:
+        cancellationToken: CancellationToken ->
+        request: ResizeWindowRequest ->
+        window: LibTmux.Window ->
+            Task<LibTmux.Window>
+
+    /// <summary>Moves the window as the request says, and returns a handle carrying the state afterwards.</summary>
+    val move:
+        cancellationToken: CancellationToken ->
+        request: MoveWindowRequest ->
+        window: LibTmux.Window ->
+            Task<LibTmux.Window>
 
 /// <summary>Reads captured pane fields and starts explicit pane operations.</summary>
 [<RequireQualifiedAccess>]
@@ -321,6 +349,26 @@ module Pane =
     /// <summary>Kills the pane and the program in it.</summary>
     /// <remarks>The core's <c>Pane.KillAsync</c> without <c>allExcept</c>.</remarks>
     val kill: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Sets the pane's title and returns a handle carrying it.</summary>
+    val setTitle: cancellationToken: CancellationToken -> title: string -> pane: LibTmux.Pane -> Task<LibTmux.Pane>
+
+    /// <summary>Resizes the pane as the request says, and returns a handle carrying the state afterwards.</summary>
+    val resize:
+        cancellationToken: CancellationToken -> request: ResizePaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>
+
+    /// <summary>Swaps the pane with another, as the request names it.</summary>
+    val swap: cancellationToken: CancellationToken -> request: SwapPaneRequest -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Starts the pane's program again as the request says.</summary>
+    /// <remarks>
+    /// The core's <c>Pane.RespawnAsync</c>. tmux refuses a pane whose program is still running unless
+    /// <c>KillExistingProcess</c> is set, which kills that program first.
+    /// </remarks>
+    val respawn: cancellationToken: CancellationToken -> request: RespawnRequest -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Clears the pane's scrollback history; what the screen shows stays.</summary>
+    val clearHistory: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task
 
 /// <summary>Reads and writes options through keys that know their value's type.</summary>
 /// <remarks>

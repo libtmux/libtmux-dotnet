@@ -184,6 +184,9 @@ module Session =
     let kill (cancellationToken: CancellationToken) (session: LibTmux.Session) =
         session.KillAsync(cancellationToken = cancellationToken)
 
+    let newWindow (cancellationToken: CancellationToken) (request: NewWindowRequest) (session: LibTmux.Session) =
+        session.CreateWindowAsync(request, cancellationToken)
+
 [<RequireQualifiedAccess>]
 module Window =
     let placementKey window = Placement.key window
@@ -201,6 +204,15 @@ module Window =
 
     let kill (cancellationToken: CancellationToken) (window: LibTmux.Window) =
         window.KillAsync(cancellationToken = cancellationToken)
+
+    let selectLayout (cancellationToken: CancellationToken) (layout: string) (window: LibTmux.Window) =
+        window.SelectLayoutAsync(SelectLayoutRequest(Layout = layout), cancellationToken)
+
+    let resize (cancellationToken: CancellationToken) (request: ResizeWindowRequest) (window: LibTmux.Window) =
+        window.ResizeAsync(request, cancellationToken)
+
+    let move (cancellationToken: CancellationToken) (request: MoveWindowRequest) (window: LibTmux.Window) =
+        window.MoveAsync(request, cancellationToken)
 
 [<RequireQualifiedAccess>]
 module Pane =
@@ -274,6 +286,21 @@ module Pane =
 
     let kill (cancellationToken: CancellationToken) (pane: LibTmux.Pane) =
         pane.KillAsync(cancellationToken = cancellationToken)
+
+    let setTitle (cancellationToken: CancellationToken) (title: string) (pane: LibTmux.Pane) =
+        pane.SetTitleAsync(title, cancellationToken)
+
+    let resize (cancellationToken: CancellationToken) (request: ResizePaneRequest) (pane: LibTmux.Pane) =
+        pane.ResizeAsync(request, cancellationToken)
+
+    let swap (cancellationToken: CancellationToken) (request: SwapPaneRequest) (pane: LibTmux.Pane) =
+        pane.SwapAsync(request, cancellationToken)
+
+    let respawn (cancellationToken: CancellationToken) (request: RespawnRequest) (pane: LibTmux.Pane) =
+        pane.RespawnAsync(request, cancellationToken)
+
+    let clearHistory (cancellationToken: CancellationToken) (pane: LibTmux.Pane) =
+        pane.ClearHistoryAsync(cancellationToken = cancellationToken)
 
 [<RequireQualifiedAccess>]
 module Options =

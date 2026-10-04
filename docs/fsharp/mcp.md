@@ -58,13 +58,13 @@ program's. The MCP server reads the socket once, when it starts.
 | `get_server_info` | `server.IsAliveAsync` and `server.Version` |
 | `get_tmux_variables` | `pane.DisplayMessageAsync` with a `DisplayMessageRequest` whose `Format` names them and `ReturnText` is true |
 | `show_environment`, `show_hooks` | `server.Environment` or `session.Environment`, and the `Hooks` of any level |
-| `create_session`, `create_window` | `Server.newSession` with a `SessionSpec`, and `session.CreateWindowAsync` |
-| `rename_session`, `rename_window`, `set_pane_title` | `Session.rename`, `Window.rename`, `pane.SetTitleAsync` |
+| `create_session`, `create_window` | `Server.newSession` with a `SessionSpec`, and `Session.newWindow` |
+| `rename_session`, `rename_window`, `set_pane_title` | `Session.rename`, `Window.rename`, `Pane.setTitle` |
 | `kill_session`, `kill_window`, `kill_pane` | `Session.kill`, `Window.kill`, `Pane.kill` |
 | `select_window`, `select_pane` | `Window.select`, `Pane.select` |
-| `move_window`, `swap_pane` | `window.MoveAsync`, `pane.SwapAsync` |
-| `resize_window`, `resize_pane`, `select_layout` | `window.ResizeAsync`, `pane.ResizeAsync`, `window.SelectLayoutAsync` |
-| `respawn_pane`, `clear_pane_scrollback` | `pane.RespawnAsync`, `pane.ClearHistoryAsync` |
+| `move_window`, `swap_pane` | `Window.move`, `Pane.swap` |
+| `resize_window`, `resize_pane`, `select_layout` | `Window.resize`, `Pane.resize`, `Window.selectLayout` |
+| `respawn_pane`, `clear_pane_scrollback` | `Pane.respawn`, `Pane.clearHistory` |
 | `paste_text` | `server.Buffers.SetAsync`, then `pane.PasteBufferAsync`; or `Pane.sendText` to type it instead |
 | `send_keys_batch` | `Pane.sendKeys` and `Pane.sendLine` in sequence, or `Chain.add` with each `SendKeysRequest`'s `ToCommand pane` to send them in one tmux call |
 | `wait_for_channel`, `signal_channel` | `server.OpenWaitChannel`, and `server.WaitForAsync` with `TmuxWaitMode.Signal` |

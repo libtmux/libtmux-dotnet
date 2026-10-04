@@ -148,12 +148,15 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 |---|---|
 | `module Pane` | Reads captured pane fields and starts explicit pane operations. |
 | `val capture: cancellationToken: CancellationToken -> request: CapturePaneRequest -> pane: LibTmux.Pane -> Task<IReadOnlyList<string>>` | Captures pane contents using the supplied core request. |
+| `val clearHistory: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task` | Clears the pane's scrollback history; what the screen shows stays. |
 | `val currentCommand: pane: LibTmux.Pane -> string option` | Reads the captured command name, preserving an empty string. |
 | `val currentPath: pane: LibTmux.Pane -> string option` | Reads the captured working directory, preserving an empty string. |
 | `val findOnScreen: cancellationToken: CancellationToken -> search: ScreenSearch -> pane: LibTmux.Pane -> Task<int option>` | Returns the first visible row showing the text, counted from 1, or None. |
 | `val kill: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task` | Kills the pane and the program in it. |
 | `val pressKey: cancellationToken: CancellationToken -> key: string -> pane: LibTmux.Pane -> Task` | Presses one key by its tmux name, such as Enter, C-c or Up. |
 | `val readSince: cancellationToken: CancellationToken -> position: PaneOutputPosition option -> pane: LibTmux.Pane -> Task<PaneOutputSince>` | Reads what the pane printed since a position, and where this read finished. |
+| `val resize: cancellationToken: CancellationToken -> request: ResizePaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>` | Resizes the pane as the request says, and returns a handle carrying the state afterwards. |
+| `val respawn: cancellationToken: CancellationToken -> request: RespawnRequest -> pane: LibTmux.Pane -> Task` | Starts the pane's program again as the request says. |
 | `val run: cancellationToken: CancellationToken -> timeout: TimeSpan -> command: string -> pane: LibTmux.Pane -> Task<PaneRunResult>` | Runs a shell command in the pane and waits for its exit status and output. |
 | `val select: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task<LibTmux.Pane>` | Makes the pane its window's active pane, and returns a handle carrying the state afterwards. |
 | `val sendAndWait: cancellationToken: CancellationToken -> timeout: TimeSpan -> line: string -> text: string -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Types a line, presses Enter, and waits for a later line to contain the text. |
@@ -161,7 +164,9 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val sendKeys: cancellationToken: CancellationToken -> request: SendKeysRequest -> pane: LibTmux.Pane -> Task` | Sends text or key names according to the request's literal and Enter settings. |
 | `val sendLine: cancellationToken: CancellationToken -> line: string -> pane: LibTmux.Pane -> Task` | Types a line into the pane as literal text, then presses Enter. |
 | `val sendText: cancellationToken: CancellationToken -> text: string -> pane: LibTmux.Pane -> Task` | Types text into the pane literally, without pressing Enter. |
+| `val setTitle: cancellationToken: CancellationToken -> title: string -> pane: LibTmux.Pane -> Task<LibTmux.Pane>` | Sets the pane's title and returns a handle carrying it. |
 | `val split: cancellationToken: CancellationToken -> request: SplitPaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>` | Splits the pane and returns the new pane handle. |
+| `val swap: cancellationToken: CancellationToken -> request: SwapPaneRequest -> pane: LibTmux.Pane -> Task` | Swaps the pane with another, as the request names it. |
 | `val waitFor: cancellationToken: CancellationToken -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Waits as the request describes: patterns, stop patterns, or any output. |
 | `val waitForText: cancellationToken: CancellationToken -> timeout: TimeSpan -> text: string -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Waits for a line the pane prints to contain the text. |
 | `val waitUntil: cancellationToken: CancellationToken -> timeout: TimeSpan -> condition: (IReadOnlyList<string> -> bool) -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Waits until a condition holds over the rows the pane shows, top to bottom. |
@@ -288,6 +293,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val activePane: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<LibTmux.Pane>` | Reads from tmux the pane the session shows: its current window's active pane. |
 | `val holdWaitClient: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<IAsyncDisposable>` | Keeps the control client that waits on the session's panes use attached until the handle is disposed. |
 | `val kill: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task` | Kills the session, with its windows and panes. |
+| `val newWindow: cancellationToken: CancellationToken -> request: NewWindowRequest -> session: LibTmux.Session -> Task<LibTmux.Window>` | Creates a window in the session as the request describes, and returns it. |
 | `val panes: session: LibTmux.Session -> Query<LibTmux.Pane>` | Queries the panes of every window in a session. |
 | `val rename: cancellationToken: CancellationToken -> name: string -> session: LibTmux.Session -> Task<LibTmux.Session>` | Renames the session and returns a handle carrying the new name. |
 | `val windows: session: LibTmux.Session -> Query<LibTmux.Window>` | Queries the window placements in a session. |
@@ -380,10 +386,13 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `module Window` | Identifies window placements and starts queries confined to one window. |
 | `val activePane: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<LibTmux.Pane>` | Reads from tmux the window's active pane. |
 | `val kill: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task` | Kills the window, with its panes. |
+| `val move: cancellationToken: CancellationToken -> request: MoveWindowRequest -> window: LibTmux.Window -> Task<LibTmux.Window>` | Moves the window as the request says, and returns a handle carrying the state afterwards. |
 | `val panes: window: LibTmux.Window -> Query<LibTmux.Pane>` | Queries the panes in a window. |
 | `val placementKey: window: LibTmux.Window -> WindowPlacementKey` | Returns a comparable key including the captured session and window index. |
 | `val rename: cancellationToken: CancellationToken -> name: string -> window: LibTmux.Window -> Task<LibTmux.Window>` | Renames the window and returns a handle carrying the new name. |
+| `val resize: cancellationToken: CancellationToken -> request: ResizeWindowRequest -> window: LibTmux.Window -> Task<LibTmux.Window>` | Resizes the window as the request says, and returns a handle carrying the state afterwards. |
 | `val select: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<LibTmux.Window>` | Makes the window its session's current window, and returns a handle carrying the state afterwards. |
+| `val selectLayout: cancellationToken: CancellationToken -> layout: string -> window: LibTmux.Window -> Task<LibTmux.Window>` | Arranges the window's panes in a layout, such as even-horizontal or tiled, and returns a handle carrying the state afterwards. |
 
 ## WindowFields
 

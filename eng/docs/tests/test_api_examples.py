@@ -36,7 +36,7 @@ def test_native_manifest_covers_every_complete_program(example_tree):
     fsharp = [entry for entry in manifest["examples"] if entry["profile"] == "fsharp"]
     csharp = [entry for entry in manifest["examples"] if entry["profile"] == "csharp"]
     assert len(fsharp) == 14
-    assert len({target for entry in fsharp for target in entry["targets"]}) == 54
+    assert len({target for entry in fsharp for target in entry["targets"]}) == 56
     assert len(csharp) == 7
     assert len({target for entry in csharp for target in entry["targets"]}) == 33
 

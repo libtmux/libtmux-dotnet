@@ -118,7 +118,7 @@
       "id": "fsharp-CreateWindowPane",
       "profile": "fsharp",
       "title": "Create, rename, select and kill windows and panes",
-      "description": "Create owned session and window scopes with the core LibTmux API, split a pane with Pane.split, then rename and select the window, select the first pane again and kill the split with the F# helpers. Renaming and selecting return a handle carrying the state afterwards. Disposing the owned window also stops its panes. For F# session descriptions, use Server.newSession with SessionSpec.",
+      "description": "Create owned session and window scopes with the core LibTmux API, split a pane with Pane.split, then rename and select the window, select the first pane again, arrange the window, title the pane and kill the split with the F# helpers. Renaming and selecting return a handle carrying the state afterwards. Disposing the owned window also stops its panes. For F# session descriptions, use Server.newSession with SessionSpec.",
       "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/CreateWindowPane.fs",
       "targets": [
         "T:LibTmux.FSharp.Server",
@@ -126,9 +126,11 @@
         "M:LibTmux.FSharp.Window.rename(System.Threading.CancellationToken,System.String,LibTmux.Window)",
         "M:LibTmux.FSharp.Window.select(System.Threading.CancellationToken,LibTmux.Window)",
         "M:LibTmux.FSharp.Pane.select(System.Threading.CancellationToken,LibTmux.Pane)",
-        "M:LibTmux.FSharp.Pane.kill(System.Threading.CancellationToken,LibTmux.Pane)"
+        "M:LibTmux.FSharp.Pane.kill(System.Threading.CancellationToken,LibTmux.Pane)",
+        "M:LibTmux.FSharp.Window.selectLayout(System.Threading.CancellationToken,System.String,LibTmux.Window)",
+        "M:LibTmux.FSharp.Pane.setTitle(System.Threading.CancellationToken,System.String,LibTmux.Pane)"
       ],
-      "output": "Created session demo and window editor.\nThe split made a new pane: true\nRenamed to notes; current before select: false, after: true\nFirst pane active again: true\nWindows: 2; panes after the kill: 2\n"
+      "output": "Created session demo and window editor.\nThe split made a new pane: true\nRenamed to notes; current before select: false, after: true\nFirst pane active again: true; titled editor\nWindows: 2; panes after the kill: 2\n"
     },
     {
       "id": "fsharp-InputCapture",
