@@ -55,6 +55,7 @@ let runAsync () =
 
         match listing with
         | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
+        | PaneRun.Ended -> printfn "run: the shell exited first"
         | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
         | PaneRun.TimedOut -> printfn "run: still running"
 

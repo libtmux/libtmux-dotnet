@@ -2755,19 +2755,19 @@
       "returnType": "System.Threading.Tasks.Task<LibTmux.PaneWaitResult>"
     },
     {
-      "id": "M:LibTmux.FSharp.PaneRun.|Exited|NotStarted|TimedOut|(LibTmux.PaneRunResult)",
+      "id": "M:LibTmux.FSharp.PaneRun.|Exited|Ended|NotStarted|TimedOut|(LibTmux.PaneRunResult)",
       "package": "LibTmux.FSharp",
-      "name": "(|Exited|NotStarted|TimedOut|)",
+      "name": "(|Exited|Ended|NotStarted|TimedOut|)",
       "declaringType": "T:LibTmux.FSharp.PaneRun",
       "visibility": "public",
       "kind": "member",
-      "signature": "val (|Exited|NotStarted|TimedOut|) : result: LibTmux.PaneRunResult -> Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.int,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>",
+      "signature": "val (|Exited|Ended|NotStarted|TimedOut|) : result: LibTmux.PaneRunResult -> Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.int,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>",
       "language": "F#",
       "implicitDeclaration": false,
       "accessor": false,
       "interfaces": [],
       "exposedTypes": [
-        "LibTmux.PaneRunResult -> Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.int,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>"
+        "LibTmux.PaneRunResult -> Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.int,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>"
       ],
       "attributes": [],
       "parameters": [
@@ -2780,9 +2780,9 @@
       "argumentGroups": [
         1
       ],
-      "compiledName": "|Exited|NotStarted|TimedOut|",
+      "compiledName": "|Exited|Ended|NotStarted|TimedOut|",
       "genericParameters": [],
-      "returnType": "Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.int,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>"
+      "returnType": "Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.int,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>"
     },
     {
       "id": "M:LibTmux.FSharp.PaneWait.|Found|Printed|Stopped|TimedOut|Ended|(LibTmux.PaneWaitResult)",

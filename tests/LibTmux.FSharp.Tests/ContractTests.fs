@@ -378,6 +378,7 @@ module PaneRunTests =
     let private describe result =
         match result with
         | PaneRun.Exited status -> "exited " + string status
+        | PaneRun.Ended -> "ended"
         | PaneRun.NotStarted -> "not started"
         | PaneRun.TimedOut -> "timed out"
 
@@ -387,6 +388,9 @@ module PaneRunTests =
             PaneRunResult(status, timedOut, [], TimeSpan.Zero, started, false)
 
         Assert.Equal("exited 3", describe (run (Nullable 3) false true))
+        Assert.Equal("ended", describe (PaneRunResult(Nullable(), false, [], TimeSpan.Zero, true, false, PaneExited = true)))
+        // The shell's exit decides, whether or not the command was seen to begin.
+        Assert.Equal("ended", describe (PaneRunResult(Nullable(), false, [], TimeSpan.Zero, false, false, PaneExited = true)))
         Assert.Equal("timed out", describe (run (Nullable()) true true))
         Assert.Equal("not started", describe (run (Nullable()) false false))
         // A run typed into something other than a shell also waits out its time.

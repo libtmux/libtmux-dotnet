@@ -56,6 +56,7 @@ module internal GuideSnippets =
 
                 match listing with
                 | PaneRun.Exited status -> return Some(ready.Found, status, listing.Output)
+                | PaneRun.Ended
                 | PaneRun.NotStarted
                 | PaneRun.TimedOut -> return None
         }
@@ -460,6 +461,7 @@ module internal GuideSnippets =
                 match result with
                 | PaneRun.Exited 0 -> return "passed"
                 | PaneRun.Exited status -> return $"failed with status {status}"
+                | PaneRun.Ended -> return "the shell exited before the tests finished"
                 | PaneRun.NotStarted -> return "the shell was not at a prompt"
                 | PaneRun.TimedOut -> return "still running after five minutes"
             with

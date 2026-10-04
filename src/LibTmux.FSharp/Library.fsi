@@ -74,11 +74,12 @@ module PaneRun =
     /// <summary>Tells how a run ended, one case per kind of ending, so a match that leaves one out draws a warning.</summary>
     /// <remarks>
     /// <c>Exited</c>: the command exited, carried as its exit status.
+    /// <c>Ended</c>: the pane's program exited before the command reported its status, and the run ended then.
     /// <c>NotStarted</c>: the pane's shell never ran it, such as when the pane was not at a prompt.
     /// <c>TimedOut</c>: the time allowed ran out first; the command may still be running.
     /// </remarks>
     /// <exception cref="T:System.ArgumentOutOfRangeException">The result has none of these endings.</exception>
-    val (|Exited|NotStarted|TimedOut|): result: PaneRunResult -> Choice<int, unit, unit>
+    val (|Exited|Ended|NotStarted|TimedOut|): result: PaneRunResult -> Choice<int, unit, unit, unit>
 
 /// <summary>Recognises how a wait on a pane's output ended.</summary>
 [<RequireQualifiedAccess>]

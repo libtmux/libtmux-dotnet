@@ -57,6 +57,7 @@ let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
 
             match listing with
             | PaneRun.Exited status -> return Some(ready.Found, status, listing.Output)
+            | PaneRun.Ended
             | PaneRun.NotStarted
             | PaneRun.TimedOut -> return None
     }
@@ -69,7 +70,8 @@ line, then waits for a later line to contain the text; the screen before it and
 the line's own echo do not count. It sleeps on the pane's output instead of
 polling, and ends early if the program exits while it waits. `Pane.run` returns
 the lines the command printed, and `PaneRun` tells a command that exited,
-with its status, from one that never started or ran out of time. `server` comes from `Server.createOwned`, which the
+with its status, from one whose shell exited first, one that never started,
+and one that ran out of time. `server` comes from `Server.createOwned`, which the
 quick start below uses to run these steps on an isolated server. Pass a server
 from `Server.connect` only with care: the sample types into the first shell it
 finds, and on a tmux already running that may be the terminal you are reading.
@@ -230,6 +232,7 @@ let runAsync () =
 
         match result with
         | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq result.Output)
+        | PaneRun.Ended -> printfn "run: the shell exited first"
         | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
         | PaneRun.TimedOut -> printfn "run: still running"
 

@@ -121,6 +121,7 @@ let runAsync () =
 
         match listing with
         | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
+        | PaneRun.Ended -> printfn "run: the shell exited first"
         | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
         | PaneRun.TimedOut -> printfn "run: still running"
 
@@ -191,7 +192,7 @@ How each call reports what can go wrong:
 | --- | --- | --- | --- |
 | The time ran out | `PaneWait.TimedOut` | `PaneRun.TimedOut`; the command may still be running | — |
 | The token was cancelled | `OperationCanceledException` | `LibTmuxException`, matched by `TmuxFailure.MayHaveRun`, once the command was sent | `OperationCanceledException` |
-| The pane's program exits during the call | `PaneWait.Ended` | `PaneRun.TimedOut` once the time runs out | reads the pane as it stands |
+| The pane's program exits during the call | `PaneWait.Ended` | `PaneRun.Ended`, within seconds | reads the pane as it stands |
 | The program had already exited | `TmuxPaneException` | `TmuxPaneException` | `TmuxPaneException` on a read without a position |
 | tmux no longer has the pane | `TmuxObjectNotFoundException` | `TmuxObjectNotFoundException` | `TmuxObjectNotFoundException` |
 
@@ -217,6 +218,7 @@ let runTestsAsync (cancellationToken: CancellationToken) (pane: Pane) =
             match result with
             | PaneRun.Exited 0 -> return "passed"
             | PaneRun.Exited status -> return $"failed with status {status}"
+            | PaneRun.Ended -> return "the shell exited before the tests finished"
             | PaneRun.NotStarted -> return "the shell was not at a prompt"
             | PaneRun.TimedOut -> return "still running after five minutes"
         with

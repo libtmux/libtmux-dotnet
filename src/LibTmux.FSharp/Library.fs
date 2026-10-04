@@ -74,9 +74,10 @@ module TmuxFailure =
 
 [<RequireQualifiedAccess>]
 module PaneRun =
-    let (|Exited|NotStarted|TimedOut|) (result: PaneRunResult) =
+    let (|Exited|Ended|NotStarted|TimedOut|) (result: PaneRunResult) =
         match Option.ofNullable result.ExitStatus with
         | Some status -> Exited status
+        | None when result.PaneExited -> Ended
         | None when not result.Started -> NotStarted
         | None when result.TimedOut -> TimedOut
         | None ->
