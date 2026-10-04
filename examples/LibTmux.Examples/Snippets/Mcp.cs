@@ -7,20 +7,28 @@ using ModelContextProtocol.Protocol;
 
 namespace LibTmux.Examples.Snippets;
 
-/// <summary>Using the capability-model MCP server from a .NET application.</summary>
+/// <summary>
+/// Using the capability-model MCP server from a .NET application.
+/// </summary>
 [UnsupportedOSPlatform("windows")]
 public static class Mcp
 {
-    /// <summary>Starts the server with one frozen socket and tool selection.</summary>
+    /// <summary>
+    /// Starts the server with one frozen socket and tool selection.
+    /// </summary>
     [Example("Connect to a selected tmux MCP surface")]
-    public static async Task ConnectToSelectedSurface(Server server, CancellationToken ct)
+    public static async Task ConnectToSelectedSurface(
+        Server server,
+        CancellationToken ct)
     {
         #region ConnectToSelectedSurface
         Dictionary<string, string?> environment =
             StdioClientTransportOptions.GetDefaultEnvironmentVariables();
         environment["LIBTMUX_SOCKET"] = server.ConnectionOptions.SocketName;
-        environment["TMUX_TMPDIR"] = Environment.GetEnvironmentVariable("TMUX_TMPDIR");
-        environment["DOTNET_ROOT"] = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        foreach (string name in new[] { "TMUX_TMPDIR", "DOTNET_ROOT" })
+        {
+            environment[name] = Environment.GetEnvironmentVariable(name);
+        }
         environment["LIBTMUX_TOOLSETS"] = "inspect,manage,execute";
         environment["LIBTMUX_EXCLUDE_TOOLS"] = "run_shell_command";
 
@@ -40,26 +48,37 @@ public static class Mcp
         await client.DisposeAsync();
     }
 
-    /// <summary>Reads the exact capability rows frozen for this process.</summary>
+    /// <summary>
+    /// Reads the exact capability rows frozen for this process.
+    /// </summary>
     [Example("Read the static capability report")]
-    public static async Task ReadCapabilities(McpClient client, CancellationToken ct)
+    public static async Task ReadCapabilities(
+        McpClient client,
+        CancellationToken ct)
     {
         #region ReadCapabilities
         ReadResourceResult resource = await client.ReadResourceAsync(
             "tmux://capabilities",
             cancellationToken: ct);
-        TextResourceContents content = (TextResourceContents)resource.Contents.Single();
+        TextResourceContents content =
+            (TextResourceContents)resource.Contents.Single();
         using JsonDocument report = JsonDocument.Parse(content.Text);
 
-        Console.WriteLine(
-            $"{report.RootElement.GetProperty("toolCount").GetInt32()} tools on "
-            + report.RootElement.GetProperty("socket").GetProperty("selector").GetString());
+        JsonElement root = report.RootElement;
+        int toolCount = root.GetProperty("toolCount").GetInt32();
+        JsonElement socket = root.GetProperty("socket");
+        string? selector = socket.GetProperty("selector").GetString();
+        Console.WriteLine($"{toolCount} tools on {selector}");
         #endregion
     }
 
-    /// <summary>Calls the typed inspect aggregate without widening its authority.</summary>
+    /// <summary>
+    /// Calls the typed inspect aggregate without widening its authority.
+    /// </summary>
     [Example("Read several tmux facts in one bounded call")]
-    public static async Task ReadSeveralFacts(McpClient client, CancellationToken ct)
+    public static async Task ReadSeveralFacts(
+        McpClient client,
+        CancellationToken ct)
     {
         #region ReadSeveralFacts
         CallToolResult result = await client.CallToolAsync(
@@ -76,11 +95,14 @@ public static class Mcp
             cancellationToken: ct);
 
         JsonElement structured = (JsonElement)result.StructuredContent!;
-        Console.WriteLine($"{structured.GetProperty("succeeded").GetInt32()} reads succeeded");
+        int succeeded = structured.GetProperty("succeeded").GetInt32();
+        Console.WriteLine($"{succeeded} reads succeeded");
         #endregion
     }
 
-    /// <summary>Runs a command and reads the status the shell actually returned.</summary>
+    /// <summary>
+    /// Runs a command and reads the status the shell actually returned.
+    /// </summary>
     [Example("Run a command and get its real exit status")]
     public static async Task RunAndReadExitStatus(
         McpClient client,
@@ -115,9 +137,13 @@ public static class Mcp
         CancellationToken ct)
     {
         string paneId = pane.Id.ToString();
-        await pane.SendKeysAsync(
-            new SendKeysRequest { Text = "sleep 1; printf 'a new line\\n'", Enter = true, Literal = true },
-            ct);
+        SendKeysRequest request = new()
+        {
+            Text = "sleep 1; printf 'a new line\\n'",
+            Enter = true,
+            Literal = true,
+        };
+        await pane.SendKeysAsync(request, ct);
 
         #region ReadOnlyWhatIsNew
         CallToolResult first = await client.CallToolAsync(
@@ -145,12 +171,15 @@ public static class Mcp
             },
             cancellationToken: ct);
         JsonElement nextCapture = (JsonElement)next.StructuredContent!;
-        int lineCount = nextCapture.GetProperty("content").GetProperty("lines").GetArrayLength();
+        JsonElement newest = nextCapture.GetProperty("content");
+        int lineCount = newest.GetProperty("lines").GetArrayLength();
         Console.WriteLine($"{lineCount} new lines");
         #endregion
     }
 
-    /// <summary>Keeps a long answer inside a budget without hiding the loss.</summary>
+    /// <summary>
+    /// Keeps a long answer inside a budget without hiding the loss.
+    /// </summary>
     [Example("Keep the newest lines and report what was dropped")]
     public static async Task KeepTheNewestLines(
         McpClient client,
@@ -178,17 +207,22 @@ public static class Mcp
             },
             cancellationToken: ct);
 
-        JsonElement content = ((JsonElement)result.StructuredContent!).GetProperty("content");
-        foreach (JsonElement line in content.GetProperty("lines").EnumerateArray())
+        JsonElement structured = (JsonElement)result.StructuredContent!;
+        JsonElement content = structured.GetProperty("content");
+        JsonElement kept = content.GetProperty("lines");
+        foreach (JsonElement line in kept.EnumerateArray())
         {
             Console.WriteLine(line.GetString());
         }
 
-        Console.WriteLine($"dropped {content.GetProperty("droppedLines")} earlier lines");
+        Console.WriteLine(
+            $"dropped {content.GetProperty("droppedLines")} earlier lines");
         #endregion
     }
 
-    /// <summary>Offers the tmux tools from an assistant host you already run.</summary>
+    /// <summary>
+    /// Offers the tmux tools from an assistant host you already run.
+    /// </summary>
     [Example("Host the tmux tools inside your own MCP server")]
     public static Task HostTheToolsYourself(Server server, CancellationToken ct)
     {

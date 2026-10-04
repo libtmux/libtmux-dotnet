@@ -31,8 +31,10 @@ using ModelContextProtocol.Client;
 Dictionary<string, string?> environment =
     StdioClientTransportOptions.GetDefaultEnvironmentVariables();
 environment["LIBTMUX_SOCKET"] = server.ConnectionOptions.SocketName;
-environment["TMUX_TMPDIR"] = Environment.GetEnvironmentVariable("TMUX_TMPDIR");
-environment["DOTNET_ROOT"] = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+foreach (string name in new[] { "TMUX_TMPDIR", "DOTNET_ROOT" })
+{
+    environment[name] = Environment.GetEnvironmentVariable(name);
+}
 environment["LIBTMUX_TOOLSETS"] = "inspect,manage,execute";
 environment["LIBTMUX_EXCLUDE_TOOLS"] = "run_shell_command";
 
@@ -242,13 +244,16 @@ CallToolResult result = await client.CallToolAsync(
     },
     cancellationToken: ct);
 
-JsonElement content = ((JsonElement)result.StructuredContent!).GetProperty("content");
-foreach (JsonElement line in content.GetProperty("lines").EnumerateArray())
+JsonElement structured = (JsonElement)result.StructuredContent!;
+JsonElement content = structured.GetProperty("content");
+JsonElement kept = content.GetProperty("lines");
+foreach (JsonElement line in kept.EnumerateArray())
 {
     Console.WriteLine(line.GetString());
 }
 
-Console.WriteLine($"dropped {content.GetProperty("droppedLines")} earlier lines");
+Console.WriteLine(
+    $"dropped {content.GetProperty("droppedLines")} earlier lines");
 ```
 <!-- endsnippet -->
 
@@ -304,7 +309,8 @@ CallToolResult next = await client.CallToolAsync(
     },
     cancellationToken: ct);
 JsonElement nextCapture = (JsonElement)next.StructuredContent!;
-int lineCount = nextCapture.GetProperty("content").GetProperty("lines").GetArrayLength();
+JsonElement newest = nextCapture.GetProperty("content");
+int lineCount = newest.GetProperty("lines").GetArrayLength();
 Console.WriteLine($"{lineCount} new lines");
 ```
 <!-- endsnippet -->
@@ -408,7 +414,8 @@ CallToolResult result = await client.CallToolAsync(
     cancellationToken: ct);
 
 JsonElement structured = (JsonElement)result.StructuredContent!;
-Console.WriteLine($"{structured.GetProperty("succeeded").GetInt32()} reads succeeded");
+int succeeded = structured.GetProperty("succeeded").GetInt32();
+Console.WriteLine($"{succeeded} reads succeeded");
 ```
 <!-- endsnippet -->
 
@@ -456,12 +463,15 @@ tools.
 ReadResourceResult resource = await client.ReadResourceAsync(
     "tmux://capabilities",
     cancellationToken: ct);
-TextResourceContents content = (TextResourceContents)resource.Contents.Single();
+TextResourceContents content =
+    (TextResourceContents)resource.Contents.Single();
 using JsonDocument report = JsonDocument.Parse(content.Text);
 
-Console.WriteLine(
-    $"{report.RootElement.GetProperty("toolCount").GetInt32()} tools on "
-    + report.RootElement.GetProperty("socket").GetProperty("selector").GetString());
+JsonElement root = report.RootElement;
+int toolCount = root.GetProperty("toolCount").GetInt32();
+JsonElement socket = root.GetProperty("socket");
+string? selector = socket.GetProperty("selector").GetString();
+Console.WriteLine($"{toolCount} tools on {selector}");
 ```
 <!-- endsnippet -->
 
