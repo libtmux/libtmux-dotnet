@@ -138,9 +138,10 @@ public sealed class PaneWaitTests
         await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.RunAsync("true", Arrival, token));
     }
 
-    // A character with combining marks stacked on it takes up to 21 bytes in
+    // A character with combining marks stacked on it takes up to 32 bytes in
     // one cell, so a wide row of them is longer than a control client accepts
-    // in a line; read through the client, it would end it.
+    // in a line; read through the client, it would end it. 2,450 cells of 31
+    // bytes make a 75,950-byte row.
     [UnixFact]
     public async Task A_wide_row_of_combining_marks_leaves_the_held_client_running()
     {
@@ -148,7 +149,7 @@ public sealed class PaneWaitTests
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         string name = raw.SessionName + "-wide";
         RawTmuxResult created = await raw.ExecuteAsync(
-            ["new-session", "-d", "-P", "-F", "#{pane_id}", "-s", name, "-x", "4000", "-y", "12", "sh"],
+            ["new-session", "-d", "-P", "-F", "#{pane_id}", "-s", name, "-x", "2500", "-y", "12", "sh"],
             token);
         Server server = await Server.ConnectAsync(
             new ServerConnectionOptions
@@ -167,7 +168,7 @@ public sealed class PaneWaitTests
         {
             string[] held = await ControlClientsAsync();
             PaneWaitResult result = await pane.SendTextAndWaitAsync(
-                "i=0; while [ $i -lt 3900 ]; do printf 'e\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201'; i=$((i+1)); done; printf '\\n%s-done\\n' wide",
+                "i=0; while [ $i -lt 2450 ]; do printf 'e\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201'; i=$((i+1)); done; printf '\\n%s-done\\n' wide",
                 "wide-done",
                 TimeSpan.FromSeconds(20),
                 token);

@@ -55,12 +55,13 @@ internal static class PaneReader
     private const int StableReadAttempts = 3;
 
     // Well inside a control client's default block limits of 4,096 lines and
-    // 4 MiB, and its 64 KiB line limit, even if every cell takes the 21 bytes
-    // tmux allows one: a character with combining marks stacked on it.
+    // 4 MiB, and its 64 KiB line limit, even if every cell takes the most
+    // bytes tmux keeps in one: UTF8_SIZE, 32, a character with combining marks
+    // stacked on it. 64 KiB holds a row of 2,048 such cells.
     private const int ControlCaptureRows = 1_024;
     private const long ControlCaptureBytes = 2 * 1024 * 1024;
-    private const int ControlCaptureColumns = 3_000;
-    private const int MostBytesPerCell = 21;
+    private const int ControlCaptureColumns = 2_000;
+    private const int MostBytesPerCell = 32;
 
     /// <summary>Describes a read failure without naming any caller's tools.</summary>
     internal static Exception Failure(PaneReadFailure failure, Pane pane) => new TmuxPaneException(
@@ -220,7 +221,9 @@ internal static class PaneReader
             {
                 // Rows only move down when a narrower pane rewraps those above
                 // the anchor, so the anchor is sought no lower than it was
-                // while the width holds.
+                // while the width holds. After a change of width the search
+                // is unbounded, and a single lower row matching a rewritten
+                // anchor can still be taken for it.
                 int highest = cursor.PaneWidth > 0 && cursor.PaneWidth == before.PaneWidth
                     ? cursor.AnchorAbsolute
                     : int.MaxValue;
