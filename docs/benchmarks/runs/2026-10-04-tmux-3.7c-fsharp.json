@@ -1,8 +1,8 @@
 {
   "schema": "libtmux-fsharp-benchmark-record-v1",
   "collected": "2026-10-04",
-  "libraryVersion": "v0.0.0-alpha.18-143-g039f9e5",
-  "commit": "039f9e514fd03cb2196331dd4571e331fd4b040e",
+  "libraryVersion": "v0.0.0-alpha.18-162-gf06f670",
+  "commit": "f06f670b505345950e35f9606f73e27f55ee2636",
   "tmuxVersion": "3.7c",
   "host": {
     "os": "Linux Ubuntu 24.04.5 LTS (Noble Numbat)",
@@ -13,9 +13,9 @@
     "governor": null,
     "cpusAvailable": 4,
     "loadAverage": [
-      0.95,
-      1.15,
-      0.84
+      1.28,
+      1.28,
+      0.93
     ]
   },
   "classes": [
@@ -26,45 +26,45 @@
           "method": "CSharp",
           "parameters": "HasPath=False",
           "allocated_bytes": 0,
-          "samples": 50,
-          "min_ns": 3.8344068080186844,
-          "median_ns": 3.8526384197175503,
-          "mean_ns": 3.8666194391250612,
-          "p95_ns": 3.9285628754645585,
-          "max_ns": 3.94545928388834
+          "samples": 43,
+          "min_ns": 3.841948702931404,
+          "median_ns": 3.8510199040174484,
+          "mean_ns": 3.8515012307569036,
+          "p95_ns": 3.86275322586298,
+          "max_ns": 3.866096615791321
         },
         {
           "method": "FSharp",
           "parameters": "HasPath=False",
           "allocated_bytes": 0,
-          "samples": 43,
-          "min_ns": 3.8645250871777534,
-          "median_ns": 3.878261499106884,
-          "mean_ns": 3.879183070430922,
-          "p95_ns": 3.891431215405464,
-          "max_ns": 3.9027505815029144
+          "samples": 44,
+          "min_ns": 3.8726833686232567,
+          "median_ns": 3.883005067706108,
+          "mean_ns": 3.884389300068671,
+          "p95_ns": 3.898877812922001,
+          "max_ns": 3.903585024178028
         },
         {
           "method": "CSharp",
           "parameters": "HasPath=True",
           "allocated_bytes": 0,
-          "samples": 47,
-          "min_ns": 3.9295244365930557,
-          "median_ns": 3.9381788447499275,
-          "mean_ns": 3.941169432978681,
-          "p95_ns": 3.959475690126419,
-          "max_ns": 3.966053254902363
+          "samples": 44,
+          "min_ns": 3.9368386790156364,
+          "median_ns": 3.944031171500683,
+          "mean_ns": 3.951893673871051,
+          "p95_ns": 3.995964451134205,
+          "max_ns": 3.997560702264309
         },
         {
           "method": "FSharp",
           "parameters": "HasPath=True",
           "allocated_bytes": 24,
           "samples": 50,
-          "min_ns": 9.299002587795258,
-          "median_ns": 9.390635564923286,
-          "mean_ns": 9.385909993350506,
-          "p95_ns": 9.509933648258448,
-          "max_ns": 9.544840455055237
+          "min_ns": 9.569014221429825,
+          "median_ns": 9.780965097248554,
+          "mean_ns": 9.8106481346488,
+          "p95_ns": 10.078155685961246,
+          "max_ns": 10.216139569878578
         }
       ]
     },
@@ -75,23 +75,23 @@
           "method": "CSharpConsume",
           "parameters": "",
           "allocated_bytes": 7792,
-          "samples": 17,
-          "min_ns": 1338.3199775942123,
-          "median_ns": 1342.5285066407516,
-          "mean_ns": 1343.4910726195242,
-          "p95_ns": 1352.281200734262,
-          "max_ns": 1355.8593024511392
+          "samples": 20,
+          "min_ns": 1378.657299796403,
+          "median_ns": 1410.4500834181654,
+          "mean_ns": 1414.1688224606946,
+          "p95_ns": 1451.3436153291484,
+          "max_ns": 1458.2540365908833
         },
         {
           "method": "FSharpFold",
           "parameters": "",
           "allocated_bytes": 8160,
-          "samples": 19,
-          "min_ns": 2131.879740561972,
-          "median_ns": 2156.7235390449923,
-          "mean_ns": 2155.979423352598,
-          "p95_ns": 2172.6725564557833,
-          "max_ns": 2174.3865281847957
+          "samples": 20,
+          "min_ns": 2246.7371064060803,
+          "median_ns": 2285.595785830619,
+          "mean_ns": 2287.2672989051757,
+          "p95_ns": 2329.44764296055,
+          "max_ns": 2331.9773231089393
         }
       ]
     },
@@ -101,46 +101,46 @@
         {
           "method": "CaptureSnapshot",
           "parameters": "Sessions=1",
-          "allocated_bytes": 2386489,
-          "samples": 19,
-          "min_ns": 11460374.866666667,
-          "median_ns": 12721927.866666667,
-          "mean_ns": 12581431.4877193,
-          "p95_ns": 13425037.613333333,
-          "max_ns": 13818398.333333334
+          "allocated_bytes": 2351864,
+          "samples": 20,
+          "min_ns": 11482459.785714285,
+          "median_ns": 13183625.82142857,
+          "mean_ns": 13029440.407142857,
+          "p95_ns": 14088663.95357143,
+          "max_ns": 14608556
         },
         {
           "method": "RenameUntilSeen",
           "parameters": "Sessions=1",
-          "allocated_bytes": 3013837,
+          "allocated_bytes": 3013641,
           "samples": 20,
-          "min_ns": 14338100.916666666,
-          "median_ns": 16748188.25,
-          "mean_ns": 16304810.533333335,
-          "p95_ns": 17997762.85,
-          "max_ns": 18252450.25
+          "min_ns": 14385974.636363637,
+          "median_ns": 16861417.045454547,
+          "mean_ns": 16925096.977272727,
+          "p95_ns": 18757167.595454544,
+          "max_ns": 19573410.272727273
         },
         {
           "method": "CaptureSnapshot",
           "parameters": "Sessions=16",
-          "allocated_bytes": 18196274,
-          "samples": 20,
-          "min_ns": 45012647,
-          "median_ns": 51552931.75,
-          "mean_ns": 52782561.15,
-          "p95_ns": 59823763.6625,
-          "max_ns": 64598533.25
+          "allocated_bytes": 17937240,
+          "samples": 19,
+          "min_ns": 47149955.5,
+          "median_ns": 55950069.75,
+          "mean_ns": 55715664.65789474,
+          "p95_ns": 67909997.325,
+          "max_ns": 68166297.75
         },
         {
           "method": "RenameUntilSeen",
           "parameters": "Sessions=16",
-          "allocated_bytes": 20801492,
-          "samples": 20,
-          "min_ns": 50465956.75,
-          "median_ns": 56313719.75,
-          "mean_ns": 58283565.0375,
-          "p95_ns": 67813506.5,
-          "max_ns": 70833086.25
+          "allocated_bytes": 20860678,
+          "samples": 18,
+          "min_ns": 52712975.75,
+          "median_ns": 57142130.25,
+          "mean_ns": 60543095.0,
+          "p95_ns": 76509991.925,
+          "max_ns": 82283433.75
         }
       ]
     },
@@ -150,46 +150,46 @@
         {
           "method": "ReadEvents",
           "parameters": "Lines=1000",
-          "allocated_bytes": 689869,
+          "allocated_bytes": 688933,
           "samples": 20,
-          "min_ns": 6093133.625,
-          "median_ns": 6386059.21875,
-          "mean_ns": 6420849.2984375,
-          "p95_ns": 6778058.4109375,
-          "max_ns": 6874205.625
+          "min_ns": 6181262.703125,
+          "median_ns": 6641885.1875,
+          "mean_ns": 6621110.8484375,
+          "p95_ns": 6932548.771875001,
+          "max_ns": 7304335.546875
         },
         {
           "method": "WatchPane",
           "parameters": "Lines=1000",
-          "allocated_bytes": 695282,
+          "allocated_bytes": 696558,
           "samples": 20,
-          "min_ns": 6081430.84375,
-          "median_ns": 6514373.6875,
-          "mean_ns": 6573413.4671875,
-          "p95_ns": 7022522.0171875,
-          "max_ns": 7046522.90625
+          "min_ns": 6188027.5625,
+          "median_ns": 6689211.421875,
+          "mean_ns": 6684778.8015625,
+          "p95_ns": 7112279.0953125,
+          "max_ns": 7437179.71875
         },
         {
           "method": "ReadEvents",
           "parameters": "Lines=20000",
-          "allocated_bytes": 4699001,
-          "samples": 19,
-          "min_ns": 22835727,
-          "median_ns": 24365075.0,
-          "mean_ns": 27952485.10526316,
-          "p95_ns": 38628741.04285714,
-          "max_ns": 38772962.571428575
+          "allocated_bytes": 4688458,
+          "samples": 20,
+          "min_ns": 23788383.714285713,
+          "median_ns": 26881867.07142857,
+          "mean_ns": 31534479.907142855,
+          "p95_ns": 47976787.18571429,
+          "max_ns": 50728506.428571425
         },
         {
           "method": "WatchPane",
           "parameters": "Lines=20000",
-          "allocated_bytes": 4742454,
-          "samples": 18,
-          "min_ns": 23360267.25,
-          "median_ns": 24611689.9375,
-          "mean_ns": 26597030.409722224,
-          "p95_ns": 32880774.149999995,
-          "max_ns": 35830079.5
+          "allocated_bytes": 4731618,
+          "samples": 19,
+          "min_ns": 24032207.875,
+          "median_ns": 25836047.125,
+          "mean_ns": 28344590.17105263,
+          "p95_ns": 36292313.68749999,
+          "max_ns": 40381840
         }
       ]
     },
@@ -200,67 +200,67 @@
           "method": "FilterEvents",
           "parameters": "Panes=1",
           "allocated_bytes": 104,
-          "samples": 17,
-          "min_ns": 1436.2880547550433,
-          "median_ns": 1441.0800648414986,
-          "mean_ns": 1440.5497584336329,
-          "p95_ns": 1444.731037463977,
-          "max_ns": 1447.2611239193084
+          "samples": 18,
+          "min_ns": 1443.7502170892672,
+          "median_ns": 1445.9990122438348,
+          "mean_ns": 1446.3043921178908,
+          "p95_ns": 1448.912505065416,
+          "max_ns": 1449.394277526919
         },
         {
           "method": "WatchPanes",
           "parameters": "Panes=1",
           "allocated_bytes": 2536,
-          "samples": 17,
-          "min_ns": 5719.3462046394125,
-          "median_ns": 5738.539389067524,
-          "mean_ns": 5737.49956598395,
-          "p95_ns": 5751.977055581076,
-          "max_ns": 5754.298576022049
+          "samples": 19,
+          "min_ns": 5930.088334517045,
+          "median_ns": 5953.193803267045,
+          "mean_ns": 5950.946944776715,
+          "p95_ns": 5967.44482717803,
+          "max_ns": 5970.225260416667
         },
         {
           "method": "FilterEvents",
           "parameters": "Panes=2",
           "allocated_bytes": 104,
-          "samples": 18,
-          "min_ns": 1647.1014079398576,
-          "median_ns": 1649.363323496439,
-          "mean_ns": 1649.3446141629297,
-          "p95_ns": 1652.2950948793195,
-          "max_ns": 1652.3162341730415
+          "samples": 17,
+          "min_ns": 1560.6733855799373,
+          "median_ns": 1565.3053996865203,
+          "mean_ns": 1565.1563521113774,
+          "p95_ns": 1568.2682115987461,
+          "max_ns": 1570.7093965517242
         },
         {
           "method": "WatchPanes",
           "parameters": "Panes=2",
           "allocated_bytes": 2584,
-          "samples": 18,
-          "min_ns": 6777.135917030568,
-          "median_ns": 6801.8569186681225,
-          "mean_ns": 6810.769658236293,
-          "p95_ns": 6852.342364901747,
-          "max_ns": 6870.777667849345
+          "samples": 17,
+          "min_ns": 6929.688160456062,
+          "median_ns": 6968.246454393771,
+          "mean_ns": 6963.404252273768,
+          "p95_ns": 6974.317832313682,
+          "max_ns": 6978.063160456062
         },
         {
           "method": "FilterEvents",
           "parameters": "Panes=8",
           "allocated_bytes": 104,
-          "samples": 17,
-          "min_ns": 1640.530939911797,
-          "median_ns": 1643.1201764057332,
-          "mean_ns": 1643.309496400545,
-          "p95_ns": 1645.9767175441016,
-          "max_ns": 1648.4860201901874
+          "samples": 16,
+          "min_ns": 1720.9119596740782,
+          "median_ns": 1724.6023555102886,
+          "mean_ns": 1724.4171056095497,
+          "p95_ns": 1726.1907799337107,
+          "max_ns": 1726.3887153017538
         },
         {
           "method": "WatchPanes",
           "parameters": "Panes=8",
           "allocated_bytes": 3888,
-          "samples": 18,
-          "min_ns": 12247.325857843138,
-          "median_ns": 12282.836672794117,
-          "mean_ns": 12287.406828703703,
-          "p95_ns": 12331.077757352941,
-          "max_ns": 12366.254840686275
+          "samples": 19,
+          "min_ns": 12167.29793095005,
+          "median_ns": 12225.325783545544,
+          "mean_ns": 12220.70911193876,
+          "p95_ns": 12249.6729248286,
+          "max_ns": 12261.457272282076
         }
       ]
     },
@@ -270,101 +270,101 @@
         {
           "method": "CSharpConstruct",
           "parameters": "",
-          "allocated_bytes": 1392,
+          "allocated_bytes": 1400,
           "samples": 20,
-          "min_ns": 1340.34132219092,
-          "median_ns": 1354.465729629429,
-          "mean_ns": 1354.259425790985,
-          "p95_ns": 1367.13970297432,
-          "max_ns": 1370.701829829884
+          "min_ns": 1465.5624926694816,
+          "median_ns": 1475.871869868637,
+          "mean_ns": 1476.3151239590666,
+          "p95_ns": 1487.5872936459068,
+          "max_ns": 1494.0825049847526
         },
         {
           "method": "FSharpConstruct",
           "parameters": "",
           "allocated_bytes": 608,
           "samples": 20,
-          "min_ns": 225.56059781097662,
-          "median_ns": 229.27719944950047,
-          "mean_ns": 230.6428323849419,
-          "p95_ns": 237.7453592148431,
-          "max_ns": 242.32308136086448
+          "min_ns": 231.24774796732115,
+          "median_ns": 239.29544036500477,
+          "mean_ns": 238.81072481818006,
+          "p95_ns": 246.0157129243278,
+          "max_ns": 246.34898951001227
         },
         {
           "method": "CoreCompile",
           "parameters": "",
           "allocated_bytes": 864,
-          "samples": 17,
-          "min_ns": 271.1009183787405,
-          "median_ns": 271.903331565431,
-          "mean_ns": 272.35014958752595,
-          "p95_ns": 273.89419718624384,
-          "max_ns": 273.91614560071463
+          "samples": 19,
+          "min_ns": 245.76053221677614,
+          "median_ns": 250.89192075288236,
+          "mean_ns": 250.75670473499346,
+          "p95_ns": 255.8516387444685,
+          "max_ns": 256.09690830075607
         },
         {
           "method": "FSharpConstructAndCompile",
           "parameters": "",
           "allocated_bytes": 1496,
-          "samples": 17,
-          "min_ns": 517.0015688407312,
-          "median_ns": 525.8015834832448,
-          "mean_ns": 524.3696407170156,
-          "p95_ns": 529.6732815964523,
-          "max_ns": 532.3833305442831
+          "samples": 19,
+          "min_ns": 518.3576425948854,
+          "median_ns": 528.5477922341288,
+          "mean_ns": 527.4242738525112,
+          "p95_ns": 533.0022896832173,
+          "max_ns": 534.4928222260172
         },
         {
           "method": "FSharpCachedPredicate",
           "parameters": "",
           "allocated_bytes": 0,
-          "samples": 20,
-          "min_ns": 0.890366537373387,
-          "median_ns": 0.8949177860097075,
-          "mean_ns": 0.896458492765357,
-          "p95_ns": 0.9051823662888359,
-          "max_ns": 0.9061879916555925
+          "samples": 17,
+          "min_ns": 0.8885026322074533,
+          "median_ns": 0.8959209795422842,
+          "mean_ns": 0.8952206198157201,
+          "p95_ns": 0.8999003911256813,
+          "max_ns": 0.9015305474513164
         },
         {
           "method": "CoreMatching",
           "parameters": "",
           "allocated_bytes": 1544,
           "samples": 20,
-          "min_ns": 2177.704790274358,
-          "median_ns": 2204.1738865195216,
-          "mean_ns": 2203.4381974366866,
-          "p95_ns": 2214.873650743053,
-          "max_ns": 2217.1952383046078
+          "min_ns": 2199.085310622128,
+          "median_ns": 2206.8753700512552,
+          "mean_ns": 2207.7560268646166,
+          "p95_ns": 2218.1094898815836,
+          "max_ns": 2219.1103857370094
         },
         {
           "method": "FSharpMatching",
           "parameters": "",
           "allocated_bytes": 784,
-          "samples": 18,
-          "min_ns": 2446.7048502349257,
-          "median_ns": 2455.603740456147,
-          "mean_ns": 2455.3389739950408,
-          "p95_ns": 2462.7393971466327,
-          "max_ns": 2465.2648419146435
+          "samples": 19,
+          "min_ns": 2473.3712350894634,
+          "median_ns": 2486.9270253479126,
+          "mean_ns": 2486.098997462593,
+          "p95_ns": 2494.782647862823,
+          "max_ns": 2495.7661282306162
         },
         {
           "method": "CoreCachedPredicateMaterialize",
           "parameters": "",
           "allocated_bytes": 328,
           "samples": 18,
-          "min_ns": 2067.6646126760565,
-          "median_ns": 2071.121618682684,
-          "mean_ns": 2071.6451124229034,
-          "p95_ns": 2075.2719645816073,
-          "max_ns": 2076.6651512013254
+          "min_ns": 2040.4753254462094,
+          "median_ns": 2043.7502660880955,
+          "mean_ns": 2043.8275419373033,
+          "p95_ns": 2046.7346303422303,
+          "max_ns": 2048.603078434583
         },
         {
           "method": "FSharpCachedPredicateMaterialize",
           "parameters": "",
           "allocated_bytes": 392,
-          "samples": 16,
-          "min_ns": 2227.333260690035,
-          "median_ns": 2233.284536153423,
-          "mean_ns": 2234.4723099995413,
-          "p95_ns": 2242.9768306111214,
-          "max_ns": 2258.3953592402277
+          "samples": 18,
+          "min_ns": 2223.1851744186047,
+          "median_ns": 2228.680355545617,
+          "mean_ns": 2228.76121670642,
+          "p95_ns": 2232.024210084973,
+          "max_ns": 2232.8910219141326
         }
       ]
     },
@@ -374,68 +374,68 @@
         {
           "method": "FindTailPanes",
           "parameters": "Route=list-then-filter",
-          "allocated_bytes": 30483688,
+          "allocated_bytes": 31008424,
           "samples": 20,
-          "min_ns": 80869886,
-          "median_ns": 85885952.5,
-          "mean_ns": 90893228.05,
-          "p95_ns": 108481076.95,
-          "max_ns": 109585622
+          "min_ns": 81164607,
+          "median_ns": 89455874.5,
+          "mean_ns": 91073206.65,
+          "p95_ns": 104613486.45,
+          "max_ns": 114210889
         },
         {
           "method": "FindSessionsWithTail",
           "parameters": "Route=list-then-filter",
-          "allocated_bytes": 71152768,
+          "allocated_bytes": 68630680,
           "samples": 20,
-          "min_ns": 162493303,
-          "median_ns": 187069566.5,
-          "mean_ns": 193237993.25,
-          "p95_ns": 247514978.15,
-          "max_ns": 248686844
+          "min_ns": 167204185,
+          "median_ns": 189071734.0,
+          "mean_ns": 196701687.95,
+          "p95_ns": 239372902.55000004,
+          "max_ns": 278711596
         },
         {
           "method": "FindTailPanes",
           "parameters": "Route=pushdown",
-          "allocated_bytes": 1065784,
+          "allocated_bytes": 1065856,
           "samples": 20,
-          "min_ns": 10157615,
-          "median_ns": 10375606.5,
-          "mean_ns": 10741468.25,
-          "p95_ns": 13750424.1,
-          "max_ns": 13856009
+          "min_ns": 10252126,
+          "median_ns": 10488505.5,
+          "mean_ns": 11194818.6,
+          "p95_ns": 14529504.1,
+          "max_ns": 15256047
         },
         {
           "method": "FindSessionsWithTail",
           "parameters": "Route=pushdown",
-          "allocated_bytes": 6445696,
+          "allocated_bytes": 6445648,
           "samples": 20,
-          "min_ns": 38087500,
-          "median_ns": 39417870.5,
-          "mean_ns": 40984898.15,
-          "p95_ns": 45092476.80000001,
-          "max_ns": 57013206
+          "min_ns": 38828415,
+          "median_ns": 40546239.0,
+          "mean_ns": 42742407.2,
+          "p95_ns": 52633491.550000004,
+          "max_ns": 57261845
         },
         {
           "method": "FindTailPanes",
           "parameters": "Route=snapshot-then-filter",
-          "allocated_bytes": 69430976,
+          "allocated_bytes": 68059136,
           "samples": 20,
-          "min_ns": 166711897,
-          "median_ns": 178728132.0,
-          "mean_ns": 191884664.0,
-          "p95_ns": 233187411.60000002,
-          "max_ns": 253018521
+          "min_ns": 174009157,
+          "median_ns": 188863834.5,
+          "mean_ns": 201585465.5,
+          "p95_ns": 236931322.55,
+          "max_ns": 251313744
         },
         {
           "method": "FindSessionsWithTail",
           "parameters": "Route=snapshot-then-filter",
-          "allocated_bytes": 68483536,
+          "allocated_bytes": 68593368,
           "samples": 20,
-          "min_ns": 164859654,
-          "median_ns": 189263320.0,
-          "mean_ns": 197415318.25,
-          "p95_ns": 241665873.85,
-          "max_ns": 251871550
+          "min_ns": 165557791,
+          "median_ns": 187338697.5,
+          "mean_ns": 199961985.0,
+          "p95_ns": 246406558.85000002,
+          "max_ns": 276640610
         }
       ]
     },
@@ -447,22 +447,22 @@
           "parameters": "",
           "allocated_bytes": 4056,
           "samples": 50,
-          "min_ns": 2845.2619094848633,
-          "median_ns": 2877.913562774658,
-          "mean_ns": 2878.594516983032,
-          "p95_ns": 2922.757796859741,
-          "max_ns": 2928.780948638916
+          "min_ns": 2895.0153045654297,
+          "median_ns": 2929.7592391967773,
+          "mean_ns": 2930.9567130279543,
+          "p95_ns": 2963.3094034194946,
+          "max_ns": 2969.9171867370605
         },
         {
           "method": "FSharpCapture",
           "parameters": "",
           "allocated_bytes": 4056,
           "samples": 50,
-          "min_ns": 2966.806953430176,
-          "median_ns": 2989.5783920288086,
-          "mean_ns": 2996.562810897827,
-          "p95_ns": 3030.5934438705444,
-          "max_ns": 3036.0921478271484
+          "min_ns": 2919.0808486938477,
+          "median_ns": 2943.7883434295654,
+          "mean_ns": 2947.6141773986815,
+          "p95_ns": 2977.5894063949586,
+          "max_ns": 2987.260711669922
         }
       ]
     },
@@ -472,68 +472,90 @@
         {
           "method": "PollScreen",
           "parameters": "DelayMs=0",
-          "allocated_bytes": 745280,
+          "allocated_bytes": 745284,
           "samples": 20,
-          "min_ns": 5946526.734375,
-          "median_ns": 6233765.8125,
-          "mean_ns": 6267314.20625,
-          "p95_ns": 6531817.240625001,
-          "max_ns": 6668164.328125
+          "min_ns": 6032925,
+          "median_ns": 6322062.265625,
+          "mean_ns": 6314521.1859375,
+          "p95_ns": 6666631.9625,
+          "max_ns": 6801341.25
         },
         {
           "method": "WaitForOutput",
           "parameters": "DelayMs=0",
-          "allocated_bytes": 1048832,
+          "allocated_bytes": 1051525,
           "samples": 20,
-          "min_ns": 10606064.055555556,
-          "median_ns": 10933292.138888888,
-          "mean_ns": 10926523.08888889,
-          "p95_ns": 11137526.186111111,
-          "max_ns": 11157935.722222222
+          "min_ns": 10885427.5,
+          "median_ns": 11225990.444444444,
+          "mean_ns": 11266894.186111111,
+          "p95_ns": 11593827.3,
+          "max_ns": 11690255.888888888
+        },
+        {
+          "method": "RunCommand",
+          "parameters": "DelayMs=0",
+          "allocated_bytes": 3264412,
+          "samples": 19,
+          "min_ns": 32539431.333333332,
+          "median_ns": 34052619.166666664,
+          "mean_ns": 34004102.0877193,
+          "p95_ns": 35362982.25,
+          "max_ns": 35462902.5
         },
         {
           "method": "WaitHoldingClient",
           "parameters": "DelayMs=0",
-          "allocated_bytes": 2414080,
+          "allocated_bytes": 2412992,
           "samples": 20,
-          "min_ns": 5158767.166666667,
-          "median_ns": 5802396.395833334,
-          "mean_ns": 7296265.817708333,
-          "p95_ns": 10189129.420833334,
-          "max_ns": 10688590.416666666
+          "min_ns": 5303996.4375,
+          "median_ns": 5871408.78125,
+          "mean_ns": 7361851.110416668,
+          "p95_ns": 9864196.989583334,
+          "max_ns": 11629768.229166666
         },
         {
           "method": "PollScreen",
           "parameters": "DelayMs=250",
-          "allocated_bytes": 2027168,
+          "allocated_bytes": 2027064,
           "samples": 20,
-          "min_ns": 267666880,
-          "median_ns": 320341730.0,
-          "mean_ns": 299644351.6,
-          "p95_ns": 321265962.7,
-          "max_ns": 321603473
+          "min_ns": 268333563,
+          "median_ns": 322626119.0,
+          "mean_ns": 301668835.1,
+          "p95_ns": 323992204.7,
+          "max_ns": 324309955
         },
         {
           "method": "WaitForOutput",
           "parameters": "DelayMs=250",
-          "allocated_bytes": 1095656,
+          "allocated_bytes": 1098656,
           "samples": 20,
-          "min_ns": 261465933,
-          "median_ns": 281920999.0,
-          "mean_ns": 281930216.5,
-          "p95_ns": 301369537.8,
-          "max_ns": 302234794
+          "min_ns": 262260351,
+          "median_ns": 282685137.0,
+          "mean_ns": 282660062.55,
+          "p95_ns": 303005095.95,
+          "max_ns": 303209744
+        },
+        {
+          "method": "RunCommand",
+          "parameters": "DelayMs=250",
+          "allocated_bytes": 3254304,
+          "samples": 20,
+          "min_ns": 283846265,
+          "median_ns": 305640751.0,
+          "mean_ns": 304922664.1,
+          "p95_ns": 324532940.95,
+          "max_ns": 325149452
         },
         {
           "method": "WaitHoldingClient",
           "parameters": "DelayMs=250",
-          "allocated_bytes": 646400,
+          "allocated_bytes": 648800,
           "samples": 20,
-          "min_ns": 257326191,
-          "median_ns": 276847893.5,
-          "mean_ns": 277128779.05,
-          "p95_ns": 297450568.7,
-          "max_ns": 297465022
+          "min_ns": 257098781,
+          "median_ns": 277468915.0,
+          "mean_ns": 277617988.85,
+          "p95_ns": 297580332.55,
+          "max_ns": 297600293
         }
       ]
     }

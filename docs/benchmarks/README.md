@@ -260,8 +260,8 @@ process start under load.
 
 The [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md), from a GitHub
 runner with tmux 3.7c, keeps the order with tighter spreads: the pane query
-took 10.4 ms pushed down against 86 ms for a full listing and 179 ms for a
-snapshot, and the session query 39 ms against 187 ms and 189 ms. Its two
+took 10.5 ms pushed down against 90 ms for a full listing and 189 ms for a
+snapshot, and the session query 41 ms against 189 ms and 187 ms. Its two
 local session routes agree within 2%, where the workstation's differed by
 half.
 
@@ -295,10 +295,10 @@ once and sends no layout change, and against a real server that listing is
 one tmux round trip whatever the number of panes.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) the filter took
-1.4 to 1.7 µs for every count of panes, and the watch 5.7 µs for one pane,
-6.8 µs for two and 12.3 µs for eight. The watch passes on 32, 64 or 256 of
+1.4 to 1.7 µs for every count of panes, and the watch 6.0 µs for one pane,
+7.0 µs for two and 12.2 µs for eight. The watch passes on 32, 64 or 256 of
 the events where the filter only counts them, so its cost grows with what it
-yields: about 29 ns for each event, on top of a fixed 4.8 µs.
+yields: about 28 ns for each event, on top of a fixed 5.1 µs.
 
 ## F# pane flood
 
@@ -312,9 +312,9 @@ the [regression gate](#regression-gate) bounds the watch at 1.6 times reading
 by hand.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) reading 1,000
-lines took 6.39 ms by hand and 6.51 ms through the watch, 1.02 times, and
-20,000 lines 24.4 ms and 24.6 ms, 1.01 times. The two routes allocated within
-1% of each other, so the watch adds a filter, not a copy of the output.
+lines took 6.64 ms by hand and 6.69 ms through the watch, 1.01 times, and
+20,000 lines 26.9 ms and 25.8 ms, 0.96 times. The two routes allocated within
+2% of each other, so the watch adds a filter, not a copy of the output.
 
 ## F# wait latency
 
@@ -336,13 +336,14 @@ at every point of their interval, as they do against output nothing
 synchronizes with them.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md), output already
-printed took 6.2 ms by polling, 10.9 ms through a wait, and a median of 5.8 ms
-through a wait whose client was held. Delayed output took a median of 320 ms
-by polling, 282 ms through a wait and 277 ms with the client held; the waits
+printed took 6.3 ms by polling, 11.2 ms through a wait, and a median of 5.9 ms
+through a wait whose client was held. Delayed output took a median of 323 ms
+by polling, 283 ms through a wait and 277 ms with the client held; the waits
 started no tmux process while they slept, where the poll started one every
-50 ms. Read the screen once with `Pane.capture` when the output is already
-there, wait when it is still to come, and hold the client for a series of
-waits.
+50 ms. `Pane.run`, which also returns the exit status, took 34 ms for a
+command that printed at once and 306 ms for one that printed late. Read the
+screen once with `Pane.capture` when the output is already there, wait when
+it is still to come, and hold the client for a series of waits.
 
 ## F# live mirror
 
@@ -356,8 +357,8 @@ server. Setup fails unless the mirror publishes a renamed window, and the
 [regression gate](#regression-gate) bounds the rename at 1.65 captures.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) a rename seen
-through the mirror took 16.7 ms against 12.7 ms for a capture of one session,
-1.31 captures, and 56.3 ms against 51.6 ms for sixteen sessions, 1.09. The
+through the mirror took 16.9 ms against 13.2 ms for a capture of one session,
+1.28 captures, and 57.1 ms against 56 ms for sixteen sessions, 1.02. The
 capture allocated 2.4 MB for one session and 18 MB for sixteen, so a busy
 large server spends most of a mirror's cost on captures.
 
@@ -391,7 +392,7 @@ nothing. Four things are gated instead:
   are counted by the integration test above, not here.
 - The same workflow fails a run in which a rename seen through a mirror costs
   more than 1.65 snapshot captures of the same server. The workstation and
-  the hosted runner measured 1.09 to 1.35, since each rebuild is one capture;
+  the hosted runner measured 1.02 to 1.35, since each rebuild is one capture;
   a mirror made to capture twice per change measured 1.86 with sixteen
   sessions and 2.39 with one. Records made before the mirror benchmark carry no mirror
   class and pass this check.

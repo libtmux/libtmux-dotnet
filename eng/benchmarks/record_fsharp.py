@@ -192,7 +192,7 @@ PUSHDOWN_CLASS = "FSharpQueryPushdownBenchmarks"
 MINIMUM_SPEEDUP = 3.0
 
 # A mirror captures the server once per announcement, so a rename seen through
-# it costs little more than the capture alone: 1.09 to 1.35 times on the
+# it costs little more than the capture alone: 1.02 to 1.35 times on the
 # workstation and the hosted runner. A mirror made to capture twice per change
 # measured 1.86 with sixteen sessions and 2.39 with one.
 MIRROR_CLASS = "FSharpMirrorBenchmarks"
