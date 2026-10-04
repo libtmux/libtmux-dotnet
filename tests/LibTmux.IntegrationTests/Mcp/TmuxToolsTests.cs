@@ -97,6 +97,16 @@ public sealed class TmuxToolsTests
             first, cancellationToken: token);
         await mcp.Capabilities.SetSynchronizePanesAsync(true, cancellationToken: token);
 
+        // User prompt hooks can change the signed foreground command between preflights.
+        _ = await scope.Server.ExecuteCommandAsync(
+            ["set-option", "-g", "default-shell", "/bin/sh"], token);
+        foreach (string id in new[] { first, second.PaneId!, third.PaneId! })
+        {
+            _ = await scope.Server.ExecuteCommandAsync(
+                ["respawn-pane", "-k", "-t", id, "PS1='$ ' ENV= BASH_ENV= exec /bin/sh -i"],
+                token);
+        }
+
         await WaitForShellsAsync(mcp, token, first, second.PaneId!, third.PaneId!);
 
         PaneInputResult all = await mcp.Capabilities.SendKeysAsync(
