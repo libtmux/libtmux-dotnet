@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Numerics;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -623,9 +624,9 @@ internal static partial class PaneText
         return found;
     }
 
-    // Each rendered row consumes a literal suffix of a typed prefix. Compare
-    // all candidate prefixes to that row in one Z pass, then apply the exact
-    // space skip tmux makes at a row break.
+    // Prefix states advance together; a state records how many non-space
+    // characters were consumed. Spaces are literal unless a row break
+    // swallows the rest of their typed run.
     private static string WithoutEchoInProgress(
         string text,
         string line,
@@ -644,230 +645,252 @@ internal static partial class PaneText
             return text;
         }
 
-        int visibleCharacters = 0;
-        for (int index = 0; index < end; index++)
-        {
-            projection.Charge(ref work);
-            if (text[index] != '\n')
-            {
-                visibleCharacters++;
-            }
-        }
-
-        int[] previousNonSpace = new int[line.Length];
-        int preceding = -1;
-        for (int index = 0; index < line.Length; index++)
-        {
-            projection.Charge(ref work);
-            if (line[index] != ' ')
-            {
-                preceding = index;
-            }
-
-            previousNonSpace[index] = preceding;
-        }
-
-        int[] current = new int[line.Length];
-        int[] next = new int[line.Length];
-        List<int> active = [];
-        List<int> nextActive = [];
-        int bestLength = 0;
-        int bestStart = -1;
-
-        void Record(int length, int start)
-        {
-            if (length > bestLength
-                && (start == 0 || !IsWordChar(text[start - 1]) || !IsWordChar(line[0])))
-            {
-                bestLength = length;
-                bestStart = start;
-            }
-        }
-
-        void AddNext(int position, int length)
-        {
-            if (length <= bestLength)
-            {
-                return;
-            }
-
-            if (next[position] == 0)
-            {
-                nextActive.Add(position);
-            }
-
-            next[position] = Math.Max(next[position], length);
-        }
-
-        void Advance()
-        {
-            foreach (int position in active)
-            {
-                current[position] = 0;
-            }
-
-            (current, next) = (next, current);
-            (active, nextActive) = (nextActive, active);
-            nextActive.Clear();
-        }
-
-        int requiredCharacters = 0;
-        for (int length = 1; length < line.Length; length++)
-        {
-            projection.Charge(ref work);
-            if (line[length - 1] != ' ')
-            {
-                requiredCharacters++;
-            }
-
-            if (requiredCharacters > visibleCharacters)
-            {
-                break;
-            }
-
-            int position = previousNonSpace[length - 1];
-            if (position < 0)
-            {
-                Record(length, end);
-            }
-            else
-            {
-                if (current[position] == 0)
-                {
-                    active.Add(position);
-                }
-
-                current[position] = length;
-            }
-        }
-
-        int segmentEnd = end - 1;
-        while (active.Count > 0 && segmentEnd >= 0 && bestLength < line.Length - 1)
-        {
-            projection.Check();
-            int separator = text.LastIndexOf('\n', segmentEnd);
-            int segmentStart = separator + 1;
-            int segmentLength = segmentEnd - segmentStart + 1;
-            if (segmentLength > 0)
-            {
-                int maximumPosition = active.Max();
-                int comparedLength = Math.Min(segmentLength, maximumPosition + 1);
-                int[] lcp = ReversedSegmentLcp(
-                    text, segmentEnd, comparedLength, line, maximumPosition,
-                    projection, ref work);
-                foreach (int position in active)
-                {
-                    projection.Charge(ref work);
-                    int length = current[position];
-                    if (length <= bestLength)
-                    {
-                        continue;
-                    }
-
-                    int matched = lcp[comparedLength + 1 + maximumPosition - position];
-                    if (matched < Math.Min(position + 1, segmentLength))
-                    {
-                        continue;
-                    }
-
-                    if (position + 1 <= segmentLength)
-                    {
-                        Record(length, segmentEnd - position);
-                    }
-                    else
-                    {
-                        AddNext(position - segmentLength, length);
-                    }
-                }
-
-                Advance();
-            }
-
-            if (separator < 0 || active.Count == 0)
-            {
-                break;
-            }
-
-            foreach (int position in active)
-            {
-                projection.Charge(ref work);
-                int length = current[position];
-                if (length <= bestLength)
-                {
-                    continue;
-                }
-
-                int beforeSpaces = previousNonSpace[position];
-                if (beforeSpaces < 0)
-                {
-                    Record(length, separator);
-                }
-                else
-                {
-                    AddNext(beforeSpaces, length);
-                }
-            }
-
-            Advance();
-            segmentEnd = separator - 1;
-            while (segmentEnd >= 0 && text[segmentEnd] == '\n')
-            {
-                projection.Charge(ref work);
-                segmentEnd--;
-            }
-        }
-
-        if (bestStart < 0)
+        var matcher = new EchoPrefixMatcher(line, projection, ref work);
+        int start = matcher.FindStart(text, end, projection, ref work);
+        if (start < 0)
         {
             return text;
         }
 
-        int breaks = text.AsSpan(bestStart, end - bestStart).Count('\n');
-        return string.Concat(text.AsSpan(0, bestStart), new string('\n', breaks), text.AsSpan(end));
+        int breaks = text.AsSpan(start, end - start).Count('\n');
+        return string.Concat(text.AsSpan(0, start), new string('\n', breaks), text.AsSpan(end));
     }
 
-    private static int[] ReversedSegmentLcp(
+    private sealed class EchoPrefixMatcher
+    {
+        private readonly string line;
+        private readonly int[] positions;
+        private readonly int[] spaces;
+        private readonly int count;
+        private readonly Dictionary<(char Character, int Spaces, int Word), ulong> masks = [];
+        private ulong[] current;
+        private ulong[] next;
+        private List<int> active = [];
+        private List<int> nextActive = [];
+
+        internal EchoPrefixMatcher(string line, TypedEchoProjection projection, ref int work)
+        {
+            this.line = line;
+            positions = new int[line.Length];
+            spaces = new int[line.Length];
+            int gap = 0;
+            for (int index = 0; index < line.Length; index++)
+            {
+                projection.Charge(ref work);
+                if (line[index] == ' ')
+                {
+                    gap++;
+                }
+                else
+                {
+                    positions[count] = index;
+                    spaces[count] = gap;
+                    count++;
+                    gap = 0;
+                }
+            }
+
+            current = new ulong[(count + 63) / 64];
+            next = new ulong[current.Length];
+        }
+
+        internal int FindStart(string text, int end, TypedEchoProjection projection, ref int work)
+        {
+            if (count < 2)
+            {
+                return -1;
+            }
+
+            // A match at this upper bound settles every shorter candidate.
+            int possible = 0;
+            for (int index = 0; index < end && possible < count - 1; index++)
+            {
+                projection.Charge(ref work);
+                if (text[index] is not (' ' or '\n'))
+                {
+                    possible++;
+                }
+            }
+
+            int start = StartOfWrapped(text, end, line, positions[possible], projection, ref work);
+            if (start >= 0 && (start == 0 || !IsWordChar(text[start - 1]) || !IsWordChar(line[0])))
+            {
+                return start;
+            }
+
+            for (int index = 0; index < count - 1; index++)
+            {
+                projection.Charge(ref work);
+                int state = index + 1;
+                int word = state / 64;
+                ulong bit = 1UL << (state % 64);
+                char character = line[positions[index]];
+                AddMask((character, spaces[index], word), bit);
+                AddMask((character, -1, word), bit);
+            }
+
+            int gap = 0;
+            bool wrapped = false;
+            bool spacesBeforeWrap = false;
+            for (int index = 0; index < end; index++)
+            {
+                projection.Charge(ref work);
+                char character = text[index];
+                if (character == ' ')
+                {
+                    gap++;
+                    continue;
+                }
+
+                if (character == '\n')
+                {
+                    spacesBeforeWrap |= gap > 0;
+                    wrapped = true;
+                    gap = 0;
+                    continue;
+                }
+
+                if (!spacesBeforeWrap)
+                {
+                    foreach (int word in active)
+                    {
+                        projection.Charge(ref work);
+                        ulong bits = current[word];
+                        AdvanceWord(word, bits << 1, character, gap, wrapped, projection, ref work);
+                        AdvanceWord(word + 1, bits >> 63, character, gap, wrapped, projection, ref work);
+                    }
+                }
+
+                bool opens = spaces[0] > 0
+                    ? wrapped || gap >= spaces[0]
+                    : index == 0 || !IsWordChar(text[index - 1]) || !IsWordChar(line[0]);
+                if (character == line[positions[0]] && opens)
+                {
+                    AddNext(0, 2);
+                }
+
+                foreach (int word in active)
+                {
+                    current[word] = 0;
+                }
+
+                (current, next) = (next, current);
+                (active, nextActive) = (nextActive, active);
+                nextActive.Clear();
+                gap = 0;
+                wrapped = false;
+                spacesBeforeWrap = false;
+            }
+
+            int longest = 0;
+            foreach (int word in active)
+            {
+                projection.Charge(ref work);
+                longest = Math.Max(longest, word * 64 + 63 - BitOperations.LeadingZeroCount(current[word]));
+            }
+
+            return longest == 0 ? -1 : StartOfWrapped(text, end, line, positions[longest], projection, ref work);
+        }
+
+        private void AddMask((char Character, int Spaces, int Word) key, ulong bit) =>
+            masks[key] = masks.GetValueOrDefault(key) | bit;
+
+        private void AddNext(int word, ulong bits)
+        {
+            if (bits == 0)
+            {
+                return;
+            }
+
+            if (next[word] == 0)
+            {
+                nextActive.Add(word);
+            }
+
+            next[word] |= bits;
+        }
+
+        private void AdvanceWord(
+            int word,
+            ulong bits,
+            char character,
+            int gap,
+            bool wrapped,
+            TypedEchoProjection projection,
+            ref int work)
+        {
+            if (bits == 0)
+            {
+                return;
+            }
+
+            bits &= masks.GetValueOrDefault((character, wrapped ? -1 : gap, word));
+            if (wrapped && gap > 0)
+            {
+                ulong candidates = bits;
+                while (candidates != 0)
+                {
+                    projection.Charge(ref work);
+                    int bit = BitOperations.TrailingZeroCount(candidates);
+                    ulong flag = 1UL << bit;
+                    if (spaces[word * 64 + bit - 1] < gap)
+                    {
+                        bits &= ~flag;
+                    }
+
+                    candidates &= ~flag;
+                }
+            }
+
+            AddNext(word, bits);
+        }
+    }
+
+    private static int StartOfWrapped(
         string text,
-        int segmentEnd,
-        int segmentLength,
+        int end,
         string line,
-        int maximumPosition,
+        int length,
         TypedEchoProjection projection,
         ref int work)
     {
-        int total = segmentLength + maximumPosition + 2;
-        int[] z = new int[total];
-        int ValueAt(int index) => index < segmentLength
-            ? text[segmentEnd - index]
-            : index == segmentLength
-                ? -1
-                : line[maximumPosition - (index - segmentLength - 1)];
-
-        int left = 0;
-        int right = 0;
-        for (int index = 1; index < total; index++)
+        int at = end - 1;
+        int typed = length - 1;
+        while (typed >= 0 && line[typed] == ' ')
         {
             projection.Charge(ref work);
-            if (index <= right)
+            typed--;
+        }
+
+        while (typed >= 0)
+        {
+            projection.Charge(ref work);
+            if (at < 0)
             {
-                z[index] = Math.Min(right - index + 1, z[index - left]);
+                return -1;
             }
 
-            while (index + z[index] < total
-                && ValueAt(z[index]) == ValueAt(index + z[index]))
+            if (text[at] == line[typed])
             {
-                projection.Charge(ref work);
-                z[index]++;
+                at--;
+                typed--;
             }
-
-            if (index + z[index] - 1 > right)
+            else if (text[at] == '\n')
             {
-                left = index;
-                right = index + z[index] - 1;
+                at--;
+                while (typed >= 0 && line[typed] == ' ')
+                {
+                    projection.Charge(ref work);
+                    typed--;
+                }
+            }
+            else
+            {
+                return -1;
             }
         }
 
-        return z;
+        return at + 1;
     }
 
     // Each character may be followed by a wrap; a run of spaces may be cut

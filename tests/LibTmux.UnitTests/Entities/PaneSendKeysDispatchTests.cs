@@ -115,6 +115,16 @@ public sealed class PaneSendKeysDispatchTests
     }
 
     [Fact]
+    public void Admitted_64KiB_repeated_nonword_partial_echo_is_removed()
+    {
+        string typed = new('-', 65_536);
+
+        IReadOnlyList<string> projected = PaneText.TypedEchoRemover(typed)([typed[..^1]]);
+
+        Assert.Equal([""], projected);
+    }
+
+    [Fact]
     public void Admitted_long_typed_text_without_an_echo_keeps_the_screen()
     {
         string typed = "b" + new string('a', 65_535);
