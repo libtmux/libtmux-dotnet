@@ -673,3 +673,68 @@ module internal GuideSnippets =
                 |}
         }
     // endfsharp-snippet
+
+    // fsharp-snippet: ServiceHandle
+    open System
+    open System.Threading
+    open Microsoft.Extensions.Logging
+    open LibTmux
+    open LibTmux.FSharp
+
+    let connectForServiceAsync (logger: ILogger) (stopping: CancellationToken) =
+        task {
+            let options = ServerConnectionOptions(SocketName = "build", Logger = logger)
+            let! server = options |> Server.connect stopping
+
+            // Every command through this handle, and the sessions, windows and
+            // panes read from it, gives up after five seconds.
+            return server |> Server.within (TimeSpan.FromSeconds 5.)
+        }
+    // endfsharp-snippet
+
+    // fsharp-snippet: ServiceShutdown
+    open System
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let runJobAsync (log: string -> unit) (stopping: CancellationToken) (pane: Pane) (command: string) =
+        task {
+            try
+                let! result = pane |> Pane.run stopping (TimeSpan.FromMinutes 10.) command
+
+                match result with
+                | PaneRun.Exited status -> log $"exited {status}"
+                | PaneRun.Ended -> log "the shell exited; respawn the pane before the next job"
+                | PaneRun.NotStarted -> log "the pane was busy; nothing ran"
+                | PaneRun.TimedOut -> log "still running after ten minutes; left running"
+            with
+            // Stopping is not a failure, but a command already sent keeps
+            // running in its pane after this process exits.
+            | TmuxFailure.MayHaveRun _ when stopping.IsCancellationRequested ->
+                log $"stopped; the command may still be running in {pane.Id}"
+            | :? OperationCanceledException when stopping.IsCancellationRequested -> ()
+        }
+    // endfsharp-snippet
+
+    // fsharp-snippet: ServicePaneGate
+    open System.Collections.Concurrent
+    open System.Threading
+    open System.Threading.Tasks
+    open LibTmux
+
+    /// Lets one task at a time type into a pane, run in it, or wait on what it typed.
+    type PaneGate() =
+        let gates = ConcurrentDictionary<PaneId, SemaphoreSlim>()
+
+        member _.UseAsync(pane: Pane, cancellationToken: CancellationToken, work: unit -> Task<'T>) =
+            task {
+                let gate = gates.GetOrAdd(pane.Id, fun _ -> new SemaphoreSlim(1, 1))
+                do! gate.WaitAsync(cancellationToken)
+
+                try
+                    return! work ()
+                finally
+                    gate.Release() |> ignore
+            }
+    // endfsharp-snippet
