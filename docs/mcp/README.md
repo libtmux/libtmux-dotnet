@@ -17,7 +17,8 @@ advertises, so it cannot describe a surface that is not there. [The package
 README](../../src/LibTmux.Mcp/README.md) covers installing the server, pointing
 a client at it, and the environment variables that configure it. [The F#
 guide](../fsharp/mcp.md) pairs each tool with the `LibTmux.FSharp` call that
-does the same from a program, and runs the server beside one.
+does the same from a program, and shows how to point the server at that
+program's socket.
 
 A .NET client can start the tool with an explicit socket and a frozen surface.
 This example also disables inherited process environment so unrelated secrets
