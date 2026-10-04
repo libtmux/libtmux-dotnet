@@ -444,6 +444,33 @@ module internal GuideSnippets =
         }
     // endfsharp-snippet
 
+    // fsharp-snippet: RunCancellation
+    open System
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let runTestsAsync (cancellationToken: CancellationToken) (pane: Pane) =
+        task {
+            try
+                let! result =
+                    pane |> Pane.run cancellationToken (TimeSpan.FromMinutes 5.) "make test"
+
+                match result with
+                | PaneRun.Exited 0 -> return "passed"
+                | PaneRun.Exited status -> return $"failed with status {status}"
+                | PaneRun.TimedOut -> return "still running after five minutes"
+                | _ -> return "the shell was not at a prompt"
+            with
+            // Cancelled or lost once the command was sent: it may be running.
+            // Matched first, because that cancellation is also an
+            // OperationCanceledException.
+            | TmuxFailure.MayHaveRun _ -> return "may have run; read the pane before trying again"
+            // Cancelled before anything reached the pane: nothing ran.
+            | :? OperationCanceledException -> return "cancelled before it was sent"
+        }
+    // endfsharp-snippet
+
     // fsharp-snippet: TypedOptions
     open System.Threading
     open LibTmux
