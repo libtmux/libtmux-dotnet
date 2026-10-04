@@ -353,9 +353,9 @@ an agent a match.
 
 ## Markdown
 
-Wrap prose at 80 columns. Badges, table rows, fenced code, and a line
-dominated by a single URL are exempt — breaking those hurts more than the
-column costs.
+Wrap prose at 80 columns. Badges, table rows, and a line dominated by a
+single URL are exempt — breaking those hurts more than the column costs.
+Fenced code follows [Examples](#examples).
 
 No GitHub alert blocks. `> [!NOTE]`, `> [!WARNING]` and the rest render as
 literal text everywhere except GitHub, and this project's README is rendered
@@ -448,6 +448,98 @@ that only demonstrates a call shape does not need it.
 [`examples/README.md`](../examples/README.md) has the mechanism in full — the
 region markers, the `usings:` option, what each check fails on, and how to add
 an example.
+
+## Examples
+
+<!-- shared:examples -->
+
+An example is code written for a reader: a program under `examples/`, code in
+a doc comment or docstring, and every fenced block in a README or docs page.
+Shell blocks also follow [Code blocks](#code-blocks).
+
+The text between the shared markers is the same in every libtmux port.
+Change it in all of them together.
+
+### Width
+
+- **Examples stay within 80 columns.** They render in fixed-width boxes that
+  scroll sideways, and 80 columns fits a libtmux.org code block in a
+  laptop-width window. Comments inside examples wrap at 80 too.
+- **The width check enforces it.** It reads the tracked files that
+  `.github/example-width.toml` names and fails on a wider line. It measures
+  the whole source line, so code in a doc comment counts its indent and
+  comment marker. It skips output (a fence tagged `text`, and what a
+  `console` block prints), hidden setup lines, and a line that is only a URL;
+  an untagged fence counts as code.
+- **A line that must stay wider is listed there with its reason.** An entry
+  that no longer matches a line fails the check, so no stale entry stays.
+- **The formatter's width is the hard limit for all other source.** Example
+  directories set their formatter to 80 where the formatter takes a width.
+
+### Reaching 80
+
+- **Change the code, not the line breaks.** A formatter rejoins any line that
+  fits its width. Name a sub-expression, use a short example name, hide setup
+  the reader does not need, or print less.
+- **Break at the outermost level when a break is still needed:** after an
+  opening parenthesis with one argument per line, one call per line in a
+  chain, one field per line in a literal.
+- **Put a comment on its own line above the code it explains.** Never trail
+  one after code in an example, unless the repository's example runner reads
+  it there, as with an assertion marker.
+- **Break a long string at a word boundary,** never inside a tmux format
+  (`#{...}`) or an escape sequence; the joined text stays the same.
+- **Continue a long command in a `console` block the way its shell does:**
+  `\` after a `$ ` prompt, a backtick after `PS> `, one flag per continuation
+  line.
+
+### What never breaks
+
+- **Output a test compares.** Wrapping it changes what the test expects.
+- **A block copied from a source file.** Fix the width in the source and run
+  the sync command; never edit the copy.
+- **Marker lines and URLs,** which tools and readers take whole.
+
+<!-- /shared:examples -->
+
+### In this repository
+
+- **Hard limit:** Fantomas, configured by `max_line_length` in the
+  `[examples/**/*.{fs,fsx}]` section of `.editorconfig`, and in the
+  `FixtureTests.fs` section, whose snippet the F# testing page copies.
+  `dotnet format` does not wrap C#, so C# examples are held to the same
+  width by hand. The width check is `python3 eng/docs/check_example_width.py`.
+- **Not formatted:** C# examples, Markdown fences, XML `<code>` in doc
+  comments, and comments; hold them to that width by hand. A command typed at a
+  PowerShell prompt goes after `PS> ` and continues with a backtick; `$ ` and
+  `\` are for POSIX shells. To name a value in a PowerShell command, wrap the
+  block in `PS> & {` … `}` so it stays one command.
+- **Runs, compiles, exempt:** ```` ```csharp run ```` executes; plain
+  ```` ```csharp ```` compiles (`ReadmeExampleTests`, which also compiles every
+  XML `<code>` block). F# fences are type-checked by
+  `eng/LibTmux.Engineering/FSharpContract.fsx`, except `tested` ones, which
+  the F# tests compile and run. `<!-- fsharp-snippet: Name run -->` renders
+  the fence as ```` ```fsharp run ````, which marks it as one the example
+  program executes. Decision records are exempt.
+- **Compared output and copied blocks:** `<!-- fsharp-output: NAME -->` blocks
+  hold real program output and never wrap. After editing a `#region` or
+  `// fsharp-snippet:` span, run `uv run python eng/docs/sync_snippets.py` or
+  `uv run python eng/docs/sync_fsharp_snippets.py`.
+
+Bad, over 80:
+
+```csharp
+await using OwnedSessionScope session = await owned.Value.CreateOwnedSessionAsync(
+    new NewSessionRequest { Name = "demo", Command = "/bin/cat" }, token);
+```
+
+Good, the request named first:
+
+```csharp
+NewSessionRequest request = new() { Name = "demo", Command = "/bin/cat" };
+await using OwnedSessionScope session =
+    await owned.Value.CreateOwnedSessionAsync(request, token);
+```
 
 ## Error messages
 
