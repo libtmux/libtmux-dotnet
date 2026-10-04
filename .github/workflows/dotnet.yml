@@ -429,13 +429,12 @@ jobs:
             artifacts/api-inventory.json
           if-no-files-found: error
 
-  # macOS exercises the advertised platform but stays advisory; failures remain
-  # visible without making the primary Linux gate depend on hosted macOS.
+  # macOS exercises the advertised platform and gates, like Windows. The
+  # scheduled macos-stress workflow measures how stable it is.
   macos:
-    name: macos arm64 (advisory)
+    name: macos arm64
     runs-on: macos-latest
     timeout-minutes: 20
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -452,8 +451,8 @@ jobs:
           tmux -V
 
       - name: Restore
-        # Directory.Build.props enables locked mode in CI. This advisory macOS
-        # lane opts out; the required Linux lanes remain the lock-file gate.
+        # Directory.Build.props enables locked mode in CI. This macOS lane
+        # opts out; the Linux lanes remain the lock-file gate.
         run: dotnet restore LibTmux.slnx -p:RestoreLockedMode=false
 
       - name: Build
@@ -565,12 +564,12 @@ jobs:
   # require is a job that can fail without blocking anything.
   gate:
     name: gate
-    needs: [build, windows]
+    needs: [build, windows, macos]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Reject unsuccessful dependencies
         id: require-success
-        if: ${{ always() && (needs.build.result != 'success' || needs.windows.result != 'success') }}
+        if: ${{ always() && (needs.build.result != 'success' || needs.macos.result != 'success' || needs.windows.result != 'success') }}
         run: exit 1

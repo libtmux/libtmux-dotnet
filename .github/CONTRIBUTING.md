@@ -162,7 +162,8 @@ $ mise exec -- dotnet test \
 ## Checks that must pass
 
 [dotnet.yml](workflows/dotnet.yml) owns the primary Linux checks and the
-Windows build/unit lane. Its `gate` job requires both `build` and `windows`.
+Windows build lane and the macOS arm64 lane. Its `gate` job requires `build`,
+`macos` and `windows`.
 Aggregate jobs reject failed, cancelled, or skipped prerequisites.
 
 | Guarantee | Owner |
@@ -509,8 +510,8 @@ The `compatibility` job requires the producer and all supported lanes. Checks
 independent of tmux versions, including packaging and README compilation, run
 outside that matrix. The scheduled tmux-master lane remains advisory.
 
-`dotnet.yml` has an advisory macOS arm64 lane on master and manual dispatch.
-See [MACOS_CI.md](MACOS_CI.md). Text captured from a pane may wrap with the
+`dotnet.yml` has a macOS arm64 lane that runs on pull requests and gates. See
+[MACOS_CI.md](MACOS_CI.md). Text captured from a pane may wrap with the
 host's prompt width; assertions about typed text use `joinWrappedLines`.
 
 Action references are pinned to commits. CodeQL also runs on pull requests;
