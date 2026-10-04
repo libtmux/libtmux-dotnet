@@ -738,3 +738,31 @@ module internal GuideSnippets =
                     gate.Release() |> ignore
             }
     // endfsharp-snippet
+
+    // fsharp-snippet: AsyncRun
+    open System
+    open LibTmux
+    open LibTmux.FSharp
+
+    let runInAsync (pane: Pane) (command: string) =
+        async {
+            // Cancelling the workflow cancels a call only through the token
+            // the call was given, so pass the workflow's own.
+            let! cancellationToken = Async.CancellationToken
+
+            try
+                let! result =
+                    pane
+                    |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) command
+                    |> TmuxAsync.awaitTask
+
+                return
+                    match result with
+                    | PaneRun.Exited status -> $"exited {status}"
+                    | PaneRun.Ended -> "the shell exited first"
+                    | PaneRun.NotStarted -> "the shell was not at a prompt"
+                    | PaneRun.TimedOut -> "still running"
+            with TmuxFailure.MayHaveRun _ ->
+                return "may have run; read the pane before trying again"
+        }
+    // endfsharp-snippet

@@ -384,6 +384,21 @@ let private runAsync () =
             scope.Pane
             |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
+        // The async guide runs a command in a shell of its own.
+        let! shell =
+            scope.Pane
+            |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+
+        let! _ =
+            shell
+            |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
+
+        let! ran =
+            Async.StartAsTask(GuideSnippets.runInAsync shell "exit 3", cancellationToken = cancellationToken)
+
+        if ran <> "exited 3" then
+            failwithf "The async guide did not report the command's exit status: %s" ran
+
         let! watcher = scope.Session |> Control.enterSession cancellationToken
 
         let! watched =
