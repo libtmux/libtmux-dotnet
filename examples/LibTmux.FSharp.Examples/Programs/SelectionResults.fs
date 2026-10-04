@@ -17,10 +17,16 @@ let runAsync () =
         use! owned = options |> Server.createOwned token
 
         use! _demo =
-            owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/cat"), token)
+            owned.Value.CreateOwnedSessionAsync(
+                NewSessionRequest(Name = "demo", Command = "/bin/cat"),
+                token
+            )
 
         use! _worker =
-            owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "worker", Command = "/bin/cat"), token)
+            owned.Value.CreateOwnedSessionAsync(
+                NewSessionRequest(Name = "worker", Command = "/bin/cat"),
+                token
+            )
 
         let server = owned.Value
         let! sessions = server |> Server.sessions |> Query.list token
@@ -35,9 +41,17 @@ let runAsync () =
         let named name =
             sessions |> Seq.filter (fun session -> session.Name = name)
 
-        printfn "Sessions named demo: %s" (named "demo" |> Selection.exactlyOne |> describe)
-        printfn "Sessions named missing: %s" (named "missing" |> Selection.exactlyOne |> describe)
-        printfn "Every session: %s" (sessions |> Selection.exactlyOne |> describe)
+        printfn
+            "Sessions named demo: %s"
+            (named "demo" |> Selection.exactlyOne |> describe)
+
+        printfn
+            "Sessions named missing: %s"
+            (named "missing" |> Selection.exactlyOne |> describe)
+
+        printfn
+            "Every session: %s"
+            (sessions |> Selection.exactlyOne |> describe)
     }
 
 runAsync().GetAwaiter().GetResult()

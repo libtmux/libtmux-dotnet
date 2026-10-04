@@ -18,13 +18,21 @@ let runAsync () =
 
         use! session =
             owned.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "demo", WindowName = "shell", Command = "/bin/cat"),
+                NewSessionRequest(
+                    Name = "demo",
+                    WindowName = "shell",
+                    Command = "/bin/cat"
+                ),
                 token
             )
 
         use! window =
             session.Value.CreateOwnedWindowAsync(
-                NewWindowRequest(Name = "editor", Command = "/bin/cat", Attach = false),
+                NewWindowRequest(
+                    Name = "editor",
+                    Command = "/bin/cat",
+                    Attach = false
+                ),
                 token
             )
 
@@ -33,7 +41,12 @@ let runAsync () =
 
         let! added =
             original
-            |> Pane.split token (SplitPaneRequest(Direction = PaneDirection.Right, Command = "/bin/cat"))
+            |> Pane.split
+                token
+                (SplitPaneRequest(
+                    Direction = PaneDirection.Right,
+                    Command = "/bin/cat"
+                ))
 
         // Renaming and selecting return a handle carrying the state afterwards.
         let! notes = window.Value |> Window.rename token "notes"
@@ -50,9 +63,22 @@ let runAsync () =
 
         printfn "Created session demo and window editor."
         printfn "The split made a new pane: %b" (added.Id <> original.Id)
-        printfn "Renamed to %s; current before select: %b, after: %b" current.Name wasCurrent current.Active
-        printfn "First pane active again: %b; titled %s" focused.Active titled.Title
-        printfn "Windows: %d; panes after the kill: %d" windows.Count allPanes.Count
+
+        printfn
+            "Renamed to %s; current before select: %b, after: %b"
+            current.Name
+            wasCurrent
+            current.Active
+
+        printfn
+            "First pane active again: %b; titled %s"
+            focused.Active
+            titled.Title
+
+        printfn
+            "Windows: %d; panes after the kill: %d"
+            windows.Count
+            allPanes.Count
     }
 
 runAsync().GetAwaiter().GetResult()

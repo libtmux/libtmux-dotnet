@@ -19,7 +19,11 @@ let runAsync () =
 
         use! demo =
             owned.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "demo", WindowName = "shell", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "demo",
+                    WindowName = "shell",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
@@ -41,14 +45,30 @@ let runAsync () =
         let! missingSession =
             server |> Server.tryFindSession token (SessionId Int32.MaxValue)
 
-        let! missingWindow = server |> Server.tryFindWindow token (WindowId Int32.MaxValue)
-        let! missingPane = server |> Server.tryFindPane token (PaneId Int32.MaxValue)
-        let! missingClient = server |> Server.tryFindClient token (client.Name + "-missing")
+        let! missingWindow =
+            server |> Server.tryFindWindow token (WindowId Int32.MaxValue)
 
-        printfn "session: %A" (foundSession |> Option.map (fun found -> found.Name))
-        printfn "window: %A" (foundWindow |> Option.map (fun found -> found.Name))
-        printfn "pane: %A" (foundPane |> Option.map (fun found -> found.Id = pane.Id))
-        printfn "client: %A" (foundClient |> Option.map (fun found -> found.Name = client.Name))
+        let! missingPane =
+            server |> Server.tryFindPane token (PaneId Int32.MaxValue)
+
+        let! missingClient =
+            server |> Server.tryFindClient token (client.Name + "-missing")
+
+        printfn
+            "session: %A"
+            (foundSession |> Option.map (fun found -> found.Name))
+
+        printfn
+            "window: %A"
+            (foundWindow |> Option.map (fun found -> found.Name))
+
+        printfn
+            "pane: %A"
+            (foundPane |> Option.map (fun found -> found.Id = pane.Id))
+
+        printfn
+            "client: %A"
+            (foundClient |> Option.map (fun found -> found.Name = client.Name))
 
         printfn
             "missing: %A"

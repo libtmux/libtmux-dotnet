@@ -22,7 +22,10 @@ open LibTmux.FSharp
 
 // The options name the socket and carry the service's logger, as in
 // ServerConnectionOptions(SocketName = "build", Logger = logger).
-let connectForServiceAsync (stopping: CancellationToken) (options: ServerConnectionOptions) =
+let connectForServiceAsync
+    (stopping: CancellationToken)
+    (options: ServerConnectionOptions)
+    =
     task {
         let! server = options |> Server.connect stopping
 
@@ -57,22 +60,33 @@ open System.Threading
 open LibTmux
 open LibTmux.FSharp
 
-let runJobAsync (log: string -> unit) (stopping: CancellationToken) (pane: Pane) (command: string) =
+let runJobAsync
+    (log: string -> unit)
+    (stopping: CancellationToken)
+    (pane: Pane)
+    (command: string)
+    =
     task {
         try
-            let! result = pane |> Pane.run stopping (TimeSpan.FromMinutes 10.) command
+            let! result =
+                pane |> Pane.run stopping (TimeSpan.FromMinutes 10.) command
 
             match result with
             | PaneRun.Exited status -> log $"exited {status}"
-            | PaneRun.Ended -> log "the shell exited; respawn the pane before the next job"
+            | PaneRun.Ended ->
+                log "the shell exited; respawn the pane before the next job"
             | PaneRun.NotStarted -> log "the pane was busy; nothing ran"
-            | PaneRun.TimedOut -> log "still running after ten minutes; left running"
+            | PaneRun.TimedOut ->
+                log "still running after ten minutes; left running"
         with
         // Stopping is not a failure, but a command already sent keeps
         // running in its pane after this process exits.
         | TmuxFailure.MayHaveRun _ when stopping.IsCancellationRequested ->
             log $"stopped; the command may still be running in {pane.Id}"
-        | :? OperationCanceledException when stopping.IsCancellationRequested -> ()
+        | :? OperationCanceledException when
+            stopping.IsCancellationRequested
+            ->
+            ()
     }
 ```
 <!-- endfsharp-snippet -->
@@ -118,33 +132,57 @@ let runAsync () =
         let socket = "fsharp-failure-kinds-" + Guid.NewGuid().ToString("N")
 
         let options =
-            ServerConnectionOptions(SocketName = socket, ConfigurationFile = "/dev/null")
+            ServerConnectionOptions(
+                SocketName = socket,
+                ConfigurationFile = "/dev/null"
+            )
 
         use! owned = options |> Server.createOwned token
 
         let! session =
-            owned.Value |> Server.newSession token (SessionSpec.running "jobs" "/bin/sh")
+            owned.Value
+            |> Server.newSession token (SessionSpec.running "jobs" "/bin/sh")
 
         let! pane = session |> Session.activePane token
 
         let! _ =
-            pane |> Pane.sendAndWait token (TimeSpan.FromSeconds 5.) "echo ready" "ready"
+            pane
+            |> Pane.sendAndWait
+                token
+                (TimeSpan.FromSeconds 5.)
+                "echo ready"
+                "ready"
 
         // Typed options read back as the type they were written with.
-        do! session.Options |> Options.set token TmuxOptionKey.HistoryLimit 50_000
-        let! history = session.Options |> Options.get token TmuxOptionKey.HistoryLimit
+        do!
+            session.Options
+            |> Options.set token TmuxOptionKey.HistoryLimit 50_000
+
+        let! history =
+            session.Options |> Options.get token TmuxOptionKey.HistoryLimit
+
         printfn "history-limit: %d" history
 
         // No server listens on this socket, so no command reached one.
         let missing =
-            ServerConnectionOptions(SocketName = socket + "-none", ConfigurationFile = "/dev/null")
+            ServerConnectionOptions(
+                SocketName = socket + "-none",
+                ConfigurationFile = "/dev/null"
+            )
 
         let! notSent = kind (fun () -> missing |> Server.connect token :> Task)
         printfn "A server that is not running: %s" notSent
 
         // tmux ran the command and refused it.
         let refuse (cancellationToken: CancellationToken) =
-            task { do! session.Options |> Options.set cancellationToken TmuxOptionKey.HistoryLimit -1 }
+            task {
+                do!
+                    session.Options
+                    |> Options.set
+                        cancellationToken
+                        TmuxOptionKey.HistoryLimit
+                        -1
+            }
 
         let! ran = kind (fun () -> refuse token :> Task)
         printfn "A value tmux refuses: %s" ran
@@ -153,9 +191,15 @@ let runAsync () =
         use stop = CancellationTokenSource.CreateLinkedTokenSource(token)
 
         let running =
-            pane |> Pane.run stop.Token (TimeSpan.FromSeconds 10.) "echo started; sleep 5"
+            pane
+            |> Pane.run
+                stop.Token
+                (TimeSpan.FromSeconds 10.)
+                "echo started; sleep 5"
 
-        let! _ = pane |> Pane.waitForText token (TimeSpan.FromSeconds 5.) "started"
+        let! _ =
+            pane |> Pane.waitForText token (TimeSpan.FromSeconds 5.) "started"
+
         stop.Cancel()
         let! mayHaveRun = kind (fun () -> running :> Task)
 
@@ -163,21 +207,36 @@ let runAsync () =
 
         // Retry sends again only while nothing reached tmux, as while a
         // server is still starting.
-        let delays = [ TimeSpan.FromMilliseconds 10.; TimeSpan.FromMilliseconds 20. ]
+        let delays =
+            [ TimeSpan.FromMilliseconds 10.; TimeSpan.FromMilliseconds 20. ]
+
         let attempts = ref 0
 
-        let count (operation: CancellationToken -> Task<'T>) (cancellationToken: CancellationToken) =
+        let count
+            (operation: CancellationToken -> Task<'T>)
+            (cancellationToken: CancellationToken)
+            =
             attempts.Value <- attempts.Value + 1
             operation cancellationToken
 
         let! unsent =
-            kind (fun () -> Retry.ifNotSentAfter token delays (count (fun ct -> missing |> Server.connect ct)) :> Task)
+            kind (fun () ->
+                Retry.ifNotSentAfter
+                    token
+                    delays
+                    (count (fun ct -> missing |> Server.connect ct))
+                :> Task)
 
-        printfn "Retried while NotSent: %d attempts, then %s" attempts.Value unsent
+        printfn
+            "Retried while NotSent: %d attempts, then %s"
+            attempts.Value
+            unsent
+
         attempts.Value <- 0
 
         let! refused =
-            kind (fun () -> Retry.ifNotSentAfter token delays (count refuse) :> Task)
+            kind (fun () ->
+                Retry.ifNotSentAfter token delays (count refuse) :> Task)
 
         printfn "Retried after Ran: %d attempt, then %s" attempts.Value refused
     }
@@ -215,9 +274,16 @@ open LibTmux
 type PaneGate() =
     let gates = ConcurrentDictionary<PaneId, SemaphoreSlim>()
 
-    member _.UseAsync(pane: Pane, cancellationToken: CancellationToken, work: unit -> Task<'T>) =
+    member _.UseAsync
+        (
+            pane: Pane,
+            cancellationToken: CancellationToken,
+            work: unit -> Task<'T>
+        ) =
         task {
-            let gate = gates.GetOrAdd(pane.Id, fun _ -> new SemaphoreSlim(1, 1))
+            let gate =
+                gates.GetOrAdd(pane.Id, fun _ -> new SemaphoreSlim(1, 1))
+
             do! gate.WaitAsync(cancellationToken)
 
             try

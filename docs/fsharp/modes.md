@@ -24,7 +24,10 @@ open System.Threading
 open LibTmux
 open LibTmux.FSharp
 
-let readUntilTerminalAsync (cancellationToken: CancellationToken) (session: IControlModeSession) =
+let readUntilTerminalAsync
+    (cancellationToken: CancellationToken)
+    (session: IControlModeSession)
+    =
     session
     |> Control.events
     |> Control.foldWhile
@@ -35,14 +38,17 @@ let readUntilTerminalAsync (cancellationToken: CancellationToken) (session: ICon
 
                 match event with
                 | :? TmuxEventsDroppedEvent
-                | :? TmuxExitEvent -> return StreamStep.Stop(List.rev retained)
+                | :? TmuxExitEvent ->
+                    return StreamStep.Stop(List.rev retained)
                 | _ -> return StreamStep.Continue retained
             })
         []
 
 let observeUntilTerminalAsync cancellationToken server =
     server
-    |> Control.withSession cancellationToken (readUntilTerminalAsync cancellationToken)
+    |> Control.withSession
+        cancellationToken
+        (readUntilTerminalAsync cancellationToken)
 ```
 <!-- endfsharp-snippet -->
 
@@ -75,14 +81,21 @@ output.
 open System.Threading
 open LibTmux
 
-let readChainOutputAsync (cancellationToken: CancellationToken) (server: Server) =
+let readChainOutputAsync
+    (cancellationToken: CancellationToken)
+    (server: Server)
+    =
     task {
         // Each typed request becomes one command of the chain.
         let print text =
-            DisplayMessageRequest(Format = text, ReturnText = true).ToCommand(server)
+            DisplayMessageRequest(Format = text, ReturnText = true)
+                .ToCommand(server)
 
         let chain =
-            server.Chain().Then(print "fsharp-chain-first").Then(print "fsharp-chain-second")
+            server
+                .Chain()
+                .Then(print "fsharp-chain-first")
+                .Then(print "fsharp-chain-second")
 
         let! result = chain.ExecuteAsync(cancellationToken)
         return result.StandardOutputLines |> Seq.toList
@@ -123,7 +136,9 @@ let boundedMapAsync
     (inputs: 'Input list)
     =
     if maximumConcurrency < 1 then
-        invalidArg "maximumConcurrency" "Maximum concurrency must be positive."
+        invalidArg
+            "maximumConcurrency"
+            "Maximum concurrency must be positive."
 
     task {
         use gate = new SemaphoreSlim(maximumConcurrency)
@@ -144,11 +159,18 @@ let boundedMapAsync
         return indexed |> Array.sortBy fst |> Array.map snd |> Array.toList
     }
 
-let capturePanesBoundedAsync maximumConcurrency cancellationToken (panes: seq<Pane>) =
+let capturePanesBoundedAsync
+    maximumConcurrency
+    cancellationToken
+    (panes: seq<Pane>)
+    =
     panes
     |> Seq.toList
-    |> boundedMapAsync maximumConcurrency cancellationToken (fun token pane ->
-        pane |> Pane.capture token (CapturePaneRequest()))
+    |> boundedMapAsync
+        maximumConcurrency
+        cancellationToken
+        (fun token pane ->
+            pane |> Pane.capture token (CapturePaneRequest()))
 ```
 <!-- endfsharp-snippet -->
 

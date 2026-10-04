@@ -18,7 +18,8 @@ let runAsync () =
         use! owned = options |> Server.createOwned token
 
         let! session =
-            owned.Value |> Server.newSession token (SessionSpec.running "work" "/bin/sh")
+            owned.Value
+            |> Server.newSession token (SessionSpec.running "work" "/bin/sh")
 
         let! pane = session |> Session.activePane token
 
@@ -26,18 +27,27 @@ let runAsync () =
         // the line's own echo do not count.
         let! ready =
             pane
-            |> Pane.sendAndWait token (TimeSpan.FromSeconds 5.) "echo server ready" "server ready"
+            |> Pane.sendAndWait
+                token
+                (TimeSpan.FromSeconds 5.)
+                "echo server ready"
+                "server ready"
 
         // A condition sees every visible row each time the pane changes.
         do! pane |> Pane.sendLine token "seq 3"
 
         let! counted =
             pane
-            |> Pane.waitUntil token (TimeSpan.FromSeconds 5.) (fun rows -> rows |> Seq.exists ((=) "3"))
+            |> Pane.waitUntil token (TimeSpan.FromSeconds 5.) (fun rows ->
+                rows |> Seq.exists ((=) "3"))
 
         // Running a command waits for its exit status and returns its output.
         let! listing =
-            pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'a\\nb\\n'; exit 4"
+            pane
+            |> Pane.run
+                token
+                (TimeSpan.FromSeconds 10.)
+                "printf 'a\\nb\\n'; exit 4"
 
         let! screen = pane |> Pane.capture token (CapturePaneRequest())
 
@@ -54,12 +64,15 @@ let runAsync () =
         printfn "counted: %s" (describe counted)
 
         match listing with
-        | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
+        | PaneRun.Exited status ->
+            printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
         | PaneRun.Ended -> printfn "run: the shell exited first"
         | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
         | PaneRun.TimedOut -> printfn "run: still running"
 
-        printfn "screen shows the run: %b" (screen |> Seq.exists (fun row -> row = "a"))
+        printfn
+            "screen shows the run: %b"
+            (screen |> Seq.exists (fun row -> row = "a"))
     }
 
 runAsync().GetAwaiter().GetResult()

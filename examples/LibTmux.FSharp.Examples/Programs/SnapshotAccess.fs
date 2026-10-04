@@ -25,17 +25,29 @@ let runAsync () =
         let! server =
             task {
                 use! session =
-                    owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/cat"), token)
+                    owned.Value.CreateOwnedSessionAsync(
+                        NewSessionRequest(Name = "demo", Command = "/bin/cat"),
+                        token
+                    )
 
                 let server = owned.Value
-                printfn "Connected handle's sessions: %s" (describe server.Sessions)
 
-                let! captured = server |> Server.capture token SnapshotDepth.Panes
-                printfn "Captured handle's sessions: %s" (describe captured.Sessions)
+                printfn
+                    "Connected handle's sessions: %s"
+                    (describe server.Sessions)
+
+                let! captured =
+                    server |> Server.capture token SnapshotDepth.Panes
+
+                printfn
+                    "Captured handle's sessions: %s"
+                    (describe captured.Sessions)
 
                 match captured.Sessions |> Snapshot.relation with
                 | Captured sessions ->
-                    match (Seq.exactlyOne sessions).ActivePane |> Snapshot.value with
+                    match
+                        (Seq.exactlyOne sessions).ActivePane |> Snapshot.value
+                    with
                     | Captured pane ->
                         printfn
                             "Active pane reports a path: %b; a command: %b"
@@ -45,10 +57,15 @@ let runAsync () =
                 | Uncaptured _ -> ()
 
                 // Capturing returns a new handle; the one it was taken from is unchanged.
-                printfn "Original handle's sessions: %s" (describe server.Sessions)
+                printfn
+                    "Original handle's sessions: %s"
+                    (describe server.Sessions)
 
                 // Keep this private server alive after its only session is disposed.
-                do! server.Options |> Options.set token (TmuxOptionKey.Flag "exit-empty") false
+                do!
+                    server.Options
+                    |> Options.set token (TmuxOptionKey.Flag "exit-empty") false
+
                 return server
             }
 

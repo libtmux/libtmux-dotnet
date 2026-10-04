@@ -36,7 +36,10 @@ let runInAsync (pane: Pane) (command: string) =
         try
             let! result =
                 pane
-                |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) command
+                |> Pane.run
+                    cancellationToken
+                    (TimeSpan.FromSeconds 10.)
+                    command
                 |> TmuxAsync.awaitTask
 
             return
@@ -73,7 +76,10 @@ open System.Threading
 open LibTmux
 open LibTmux.FSharp
 
-let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server) =
+let readSessionNamesAsync
+    (cancellationToken: CancellationToken)
+    (server: Server)
+    =
     task {
         try
             // Runs again only when tmux never received the command, after
@@ -81,13 +87,18 @@ let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server
             let! sessions =
                 Retry.ifNotSentAfter
                     cancellationToken
-                    [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ]
+                    [
+                        TimeSpan.FromMilliseconds 100.
+                        TimeSpan.FromMilliseconds 400.
+                    ]
                     (fun token -> server.GetSessionsAsync(token))
 
             return Ok [ for session in sessions -> session.Name ]
         with
-        | TmuxFailure.Ran failure -> return Error $"tmux ran the command, then: {failure.Message}"
-        | TmuxFailure.MayHaveRun failure -> return Error $"tmux may have acted: {failure.Message}"
+        | TmuxFailure.Ran failure ->
+            return Error $"tmux ran the command, then: {failure.Message}"
+        | TmuxFailure.MayHaveRun failure ->
+            return Error $"tmux may have acted: {failure.Message}"
     }
 ```
 <!-- endfsharp-snippet -->
@@ -148,25 +159,38 @@ open System.Threading
 open LibTmux
 open LibTmux.FSharp
 
-let tuneAsync (cancellationToken: CancellationToken) (session: Session) (window: Window) =
+let tuneAsync
+    (cancellationToken: CancellationToken)
+    (session: Session)
+    (window: Window)
+    =
     task {
         do!
             session.Options
-            |> Options.set cancellationToken TmuxOptionKey.HistoryLimit 50_000
+            |> Options.set
+                cancellationToken
+                TmuxOptionKey.HistoryLimit
+                50_000
 
         do!
             session.Options
-            |> Options.set cancellationToken (TmuxOptionKey.Text "@stage") "build"
+            |> Options.set
+                cancellationToken
+                (TmuxOptionKey.Text "@stage")
+                "build"
 
         let! history =
-            session.Options |> Options.get cancellationToken TmuxOptionKey.HistoryLimit
+            session.Options
+            |> Options.get cancellationToken TmuxOptionKey.HistoryLimit
 
         let! stage =
-            session.Options |> Options.get cancellationToken (TmuxOptionKey.Text "@stage")
+            session.Options
+            |> Options.get cancellationToken (TmuxOptionKey.Text "@stage")
 
         // Never set on the window, so this is tmux's inherited default.
         let! renames =
-            window.Options |> Options.get cancellationToken TmuxOptionKey.AutomaticRename
+            window.Options
+            |> Options.get cancellationToken TmuxOptionKey.AutomaticRename
 
         return history, stage, renames
     }
@@ -187,58 +211,101 @@ open System.Collections.Generic
 open System.Threading
 open LibTmux
 
-let inspectCoreSettingsAsync (cancellationToken: CancellationToken) (server: Server) (session: Session) =
+let inspectCoreSettingsAsync
+    (cancellationToken: CancellationToken)
+    (server: Server)
+    (session: Session)
+    =
     task {
         // A global value, overridden locally, shows through again once the
         // local value is unset.
         let! _ =
-            session.Options.SetAsync(SetOptionRequest("status-keys", "vi", Global = true), cancellationToken)
+            session.Options.SetAsync(
+                SetOptionRequest("status-keys", "vi", Global = true),
+                cancellationToken
+            )
 
         let! _ =
-            session.Options.SetAsync(SetOptionRequest("status-keys", "emacs"), cancellationToken)
+            session.Options.SetAsync(
+                SetOptionRequest("status-keys", "emacs"),
+                cancellationToken
+            )
 
-        do! session.Options.UnsetAsync(UnsetOptionRequest("status-keys"), cancellationToken)
+        do!
+            session.Options.UnsetAsync(
+                UnsetOptionRequest("status-keys"),
+                cancellationToken
+            )
 
         let! statusKeys =
-            session.Options.GetAsync(GetOptionRequest("status-keys", IncludeInherited = true), cancellationToken)
+            session.Options.GetAsync(
+                GetOptionRequest("status-keys", IncludeInherited = true),
+                cancellationToken
+            )
 
         // An array option and a hook keep each entry's index.
         let! _ =
             server.Options.SetAsync(
-                SetOptionRequest("command-alias[40]", "fsharp-window=new-window"),
+                SetOptionRequest(
+                    "command-alias[40]",
+                    "fsharp-window=new-window"
+                ),
                 cancellationToken
             )
 
         let! aliases =
-            server.Options.GetAsync(GetOptionRequest("command-alias"), cancellationToken)
+            server.Options.GetAsync(
+                GetOptionRequest("command-alias"),
+                cancellationToken
+            )
 
         let entries = Dictionary<int, string>()
         entries[3] <- "display-message fsharp-hook"
 
         let! hook =
-            server.Hooks.SetAsync(SetHooksRequest("alert-bell", entries, ClearExisting = true), cancellationToken)
+            server.Hooks.SetAsync(
+                SetHooksRequest("alert-bell", entries, ClearExisting = true),
+                cancellationToken
+            )
 
         let! _ =
-            session.Environment.SetAsync("LIBTMUX_FSHARP_EXAMPLE", "ready", cancellationToken = cancellationToken)
+            session.Environment.SetAsync(
+                "LIBTMUX_FSHARP_EXAMPLE",
+                "ready",
+                cancellationToken = cancellationToken
+            )
 
         let! variable =
-            session.Environment.GetAsync("LIBTMUX_FSHARP_EXAMPLE", cancellationToken)
+            session.Environment.GetAsync(
+                "LIBTMUX_FSHARP_EXAMPLE",
+                cancellationToken
+            )
 
         let! rendered =
             server.DisplayMessageAsync(
-                DisplayMessageRequest(Format = "fsharp-#{pid}", ReturnText = true),
+                DisplayMessageRequest(
+                    Format = "fsharp-#{pid}",
+                    ReturnText = true
+                ),
                 cancellationToken
             )
 
         return
             {|
-                StatusKeys = [ for option in statusKeys -> option.Value.Raw, option.Inherited ]
+                StatusKeys =
+                    [
+                        for option in statusKeys ->
+                            option.Value.Raw, option.Inherited
+                    ]
                 Alias =
                     aliases
                     |> Seq.tryFind (fun alias -> alias.Index = Nullable 40)
                     |> Option.map (fun alias -> alias.Value.Raw)
                 HookIndexes = [ for value in hook.Values -> value.Index ]
-                Variable = variable |> Option.ofObj |> Option.map (fun entry -> entry.Value)
+                Variable =
+                    variable
+                    |> Option.ofObj
+                    |> Option.map (fun entry -> entry.Value)
                 Rendered = rendered |> Option.ofObj |> Option.map List.ofSeq
             |}
     }
@@ -271,36 +338,66 @@ let exerciseCoreOperationsAsync
         // then unlink it; the original placement stays.
         do!
             window.LinkAsync(
-                LinkWindowRequest(session.Id.ToString(), TargetIndex = "5", Detach = true),
+                LinkWindowRequest(
+                    session.Id.ToString(),
+                    TargetIndex = "5",
+                    Detach = true
+                ),
                 cancellationToken
             )
 
         let! placements = session.GetWindowsAsync(cancellationToken)
 
         let linked =
-            placements |> Seq.find (fun item -> item.Id = window.Id && item.Index = 5)
+            placements
+            |> Seq.find (fun item -> item.Id = window.Id && item.Index = 5)
 
         let! moved =
-            linked.MoveAsync(MoveWindowRequest(Destination = "3", NoSelect = true), cancellationToken)
+            linked.MoveAsync(
+                MoveWindowRequest(Destination = "3", NoSelect = true),
+                cancellationToken
+            )
 
         do! moved.UnlinkAsync(cancellationToken = cancellationToken)
         let! remaining = session.GetWindowsAsync(cancellationToken)
 
         // Layout and resize return the handle they changed.
-        let! split = window.SplitPaneAsync(cancellationToken = cancellationToken)
+        let! split =
+            window.SplitPaneAsync(cancellationToken = cancellationToken)
 
         let! laidOut =
-            window.SelectLayoutAsync(SelectLayoutRequest(Layout = "even-horizontal"), cancellationToken)
+            window.SelectLayoutAsync(
+                SelectLayoutRequest(Layout = "even-horizontal"),
+                cancellationToken
+            )
 
-        let! resized = split.ResizeAsync(ResizePaneRequest(Height = "10"), cancellationToken)
+        let! resized =
+            split.ResizeAsync(
+                ResizePaneRequest(Height = "10"),
+                cancellationToken
+            )
 
-        do! server.Buffers.SetAsync("fsharp-ready", "fsharp-guide", cancellationToken = cancellationToken)
-        let! contents = server.Buffers.GetAsync("fsharp-guide", cancellationToken)
+        do!
+            server.Buffers.SetAsync(
+                "fsharp-ready",
+                "fsharp-guide",
+                cancellationToken = cancellationToken
+            )
+
+        let! contents =
+            server.Buffers.GetAsync("fsharp-guide", cancellationToken)
+
         do! server.Buffers.DeleteAsync("fsharp-guide", cancellationToken)
 
         do! pane.EnterCopyModeAsync(cancellationToken = cancellationToken)
         let! copying = pane.RefreshAsync(cancellationToken)
-        do! pane.EnterCopyModeAsync(CopyModeRequest(Cancel = true), cancellationToken)
+
+        do!
+            pane.EnterCopyModeAsync(
+                CopyModeRequest(Cancel = true),
+                cancellationToken
+            )
+
         let! normal = pane.RefreshAsync(cancellationToken)
 
         return
@@ -332,11 +429,18 @@ open System.Threading
 open LibTmux
 open LibTmux.FSharp
 
-let exerciseWindowInputAsync (cancellationToken: CancellationToken) (session: Session) =
+let exerciseWindowInputAsync
+    (cancellationToken: CancellationToken)
+    (session: Session)
+    =
     task {
         let! window =
             session.CreateWindowAsync(
-                NewWindowRequest(Name = "fsharp-input", Command = "/bin/cat", Attach = false),
+                NewWindowRequest(
+                    Name = "fsharp-input",
+                    Command = "/bin/cat",
+                    Attach = false
+                ),
                 cancellationToken
             )
 
@@ -345,11 +449,18 @@ let exerciseWindowInputAsync (cancellationToken: CancellationToken) (session: Se
 
         // Literal text is typed as written; a key name is pressed. Text
         // followed by Enter is two commands: the text, then the key.
-        let literal = SendKeysRequest(Text = "Enter", Literal = true, Enter = false)
-        let keyName = SendKeysRequest(Text = "Enter", Literal = false, Enter = false)
+        let literal =
+            SendKeysRequest(Text = "Enter", Literal = true, Enter = false)
+
+        let keyName =
+            SendKeysRequest(Text = "Enter", Literal = false, Enter = false)
 
         let textThenEnter =
-            SendKeysRequest(Text = "fsharp-input", Literal = true, Enter = true)
+            SendKeysRequest(
+                Text = "fsharp-input",
+                Literal = true,
+                Enter = true
+            )
 
         do! pane |> Pane.sendKeys cancellationToken literal
         do! pane |> Pane.sendKeys cancellationToken keyName
@@ -358,7 +469,8 @@ let exerciseWindowInputAsync (cancellationToken: CancellationToken) (session: Se
 
         let arguments (request: SendKeysRequest) =
             [
-                for command in request.ToCommands(pane) -> List.ofSeq (command.ToArguments())
+                for command in request.ToCommands(pane) ->
+                    List.ofSeq (command.ToArguments())
             ]
 
         return
