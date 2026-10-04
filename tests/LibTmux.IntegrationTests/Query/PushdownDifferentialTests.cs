@@ -339,9 +339,14 @@ public sealed class PushdownDifferentialTests
         await ReportsAsync(raw, "flags:bell", "#{window_bell_flag}", token);
         await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "dead", "sh"], token);
         await raw.ExecuteAsync(["set-option", "-w", "-t", "flags:dead", "remain-on-exit", "on"], token);
-        await raw.ExecuteAsync(["set-hook", "-g", "pane-died", "wait-for -S died"], token);
-        await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:dead", "exit 3"], token);
-        await raw.ExecuteAsync(["wait-for", "died"], token);
+        string dead = System.Text.Encoding.UTF8.GetString(
+            (await raw.ExecuteAsync(["split-window", "-d", "-P", "-F", "#{pane_id}", "-t", "flags:dead", "exit 3"], token)).StandardOutput).Trim();
+
+        // tmux takes the exit status from SIGCHLD. Before 3.6, a tmux built
+        // with utempter can lose that signal while it removes the pane's utmp
+        // record, and collects the status only when another child exits, so
+        // each look runs one.
+        await ReportsAsync(raw, dead, "#{==:#{pane_dead_status},3}", token, ["run-shell", "true"]);
         Server server = await ConnectAsync(raw, token);
         Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
         Pane[] panes = [.. snapshot.Panes];
@@ -465,13 +470,23 @@ public sealed class PushdownDifferentialTests
 
     // Waits until tmux reports 1 for a format of a target, as it does once it
     // has read the pane output that sets it.
-    private static async Task ReportsAsync(RawTmuxTestContext raw, string target, string format, CancellationToken token)
+    private static async Task ReportsAsync(
+        RawTmuxTestContext raw,
+        string target,
+        string format,
+        CancellationToken token,
+        IReadOnlyList<string>? betweenLooks = null)
     {
         using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
         deadline.CancelAfter(TestBudget.Settle);
         while (System.Text.Encoding.UTF8.GetString(
             (await raw.ExecuteAsync(["display-message", "-p", "-t", target, format], deadline.Token)).StandardOutput).Trim() != "1")
         {
+            if (betweenLooks is not null)
+            {
+                await raw.ExecuteAsync(betweenLooks, deadline.Token);
+            }
+
             await Task.Delay(TimeSpan.FromMilliseconds(20), deadline.Token);
         }
     }
