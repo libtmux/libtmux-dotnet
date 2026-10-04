@@ -107,6 +107,7 @@ targets `net8.0` and `net10.0`.
 | Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane`; `Pane.sendAndWaitFor` for keys and patterns | `PaneWaitResult`; `.Found`, or match `PaneWait` |
 | Wait for output you did not type | `Pane.waitForText ct timeout text pane`; `Pane.waitFor` for patterns | `PaneWaitResult` |
 | Wait for a screen condition | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult` |
+| Many waits on one session | `use! _ = Session.holdWaitClient ct session` | `IAsyncDisposable`; each wait skips attaching a client |
 | Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult`; match `PaneRun.Exited` |
 | Read the screen | `Pane.capture ct request pane` | `IReadOnlyList<string>` |
 | Find text on one screen | `Pane.findOnScreen ct search pane` | row `int option` |

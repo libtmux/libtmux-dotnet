@@ -112,18 +112,40 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             .ConfigureAwait(false);
     }
 
-    private async Task<IControlModeSession> StartPaneSessionAsync(
+    /// <summary>Keeps a session's control client attached for the waits on its panes.</summary>
+    /// <param name="session">The session whose panes will be waited on.</param>
+    /// <param name="cancellationToken">Cancels attaching the client.</param>
+    /// <returns>A lease like a wait's; disposing it lets the client go once no wait needs it.</returns>
+    internal async Task<IAsyncDisposable> WatchAsync(Session session, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        SessionWatchKey key = SessionWatchKey.From(session);
+        return await WatchAsync(
+                key,
+                token => StartSessionAsync(
+                    start => session.Server.EnterControlModeAsync(key.SessionId, start),
+                    token),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private Task<IControlModeSession> StartPaneSessionAsync(
         Pane pane,
         string sessionId,
+        CancellationToken cancellationToken) =>
+        StartSessionAsync(
+            token => _startPaneSession is null
+                ? pane.Server.EnterControlModeAsync(sessionId, token)
+                : _startPaneSession(pane, token),
+            cancellationToken);
+
+    private static async Task<IControlModeSession> StartSessionAsync(
+        Func<CancellationToken, Task<IControlModeSession>> start,
         CancellationToken cancellationToken)
     {
         try
         {
-            return _startPaneSession is null
-                ? await pane.Server
-                    .EnterControlModeAsync(sessionId, cancellationToken)
-                    .ConfigureAwait(false)
-                : await _startPaneSession(pane, cancellationToken).ConfigureAwait(false);
+            return await start(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception error) when (error is Win32Exception
             or IOException
@@ -736,6 +758,9 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     {
         internal static SessionWatchKey From(Pane pane) =>
             new(pane.Server, pane.Generation, TestEndpoint: null, pane.Session.Id.ToString());
+
+        internal static SessionWatchKey From(Session session) =>
+            new(session.Server, session.Generation, TestEndpoint: null, session.Id.ToString());
 
         internal static SessionWatchKey ForTest(string endpointId, string sessionId) =>
             new(Server: null, Generation: null, endpointId, sessionId);

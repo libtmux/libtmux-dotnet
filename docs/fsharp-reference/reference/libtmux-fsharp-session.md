@@ -28,6 +28,25 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L175)
 
+<a name="holdWaitClient"></a>
+
+#### <code><span>Session.holdWaitClient&#32;<span>cancellationToken&#32;session</span></span></code>
+
+Keeps the control client that waits on the session&#39;s panes use attached until the handle is disposed.
+
+The core&#39;s <code>Session.HoldWaitClientAsync</code>. Each wait attaches a client and lets it go when it ends;
+ holding one across a series of waits saves that attach for each. Use it with <code>use!</code>.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**session**: <code>Session</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<a href="https://learn.microsoft.com/dotnet/api/system.iasyncdisposable">IAsyncDisposable</a>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L178)
+
 <a name="panes"></a>
 
 #### <code><span>Session.panes&#32;<span>session</span></span></code>

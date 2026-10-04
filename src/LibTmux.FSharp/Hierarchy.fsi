@@ -113,6 +113,13 @@ module Session =
     /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux reports no such pane.</exception>
     val activePane: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<LibTmux.Pane>
 
+    /// <summary>Keeps the control client that waits on the session's panes use attached until the handle is disposed.</summary>
+    /// <remarks>
+    /// The core's <c>Session.HoldWaitClientAsync</c>. Each wait attaches a client and lets it go when it ends;
+    /// holding one across a series of waits saves that attach for each. Use it with <c>use!</c>.
+    /// </remarks>
+    val holdWaitClient: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<IAsyncDisposable>
+
 /// <summary>Identifies window placements and starts queries confined to one window.</summary>
 [<RequireQualifiedAccess>]
 module Window =

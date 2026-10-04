@@ -175,6 +175,9 @@ module Session =
     let activePane (cancellationToken: CancellationToken) (session: LibTmux.Session) =
         session.GetActivePaneAsync(cancellationToken)
 
+    let holdWaitClient (cancellationToken: CancellationToken) (session: LibTmux.Session) =
+        session.HoldWaitClientAsync(cancellationToken)
+
 [<RequireQualifiedAccess>]
 module Window =
     let placementKey window = Placement.key window

@@ -411,6 +411,7 @@ modes differ.
 | `LibTmux.Session.GetWindowAsync(LibTmux.WindowId,System.Threading.CancellationToken)` | Reads one window in this session, throwing when it is absent. |
 | `LibTmux.Session.GetWindowAsync(System.String,System.Threading.CancellationToken)` | Reads one window in this session, throwing when it is absent. |
 | `LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)` | Reads this session's windows from tmux. |
+| `LibTmux.Session.HoldWaitClientAsync(System.Threading.CancellationToken)` | Keeps the control client that waits on this session's panes use attached until the handle is disposed. |
 | `LibTmux.Session.KillAsync(System.Boolean,System.Boolean,System.Boolean,System.Threading.CancellationToken)` | Stops this session. |
 | `LibTmux.Session.KillWindowAsync(System.String,System.Threading.CancellationToken)` | Stops one window in this session. |
 | `LibTmux.Session.LockAsync(System.Threading.CancellationToken)` | Locks this session. |

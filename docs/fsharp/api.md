@@ -284,6 +284,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 |---|---|
 | `module Session` | Starts queries confined to one session. |
 | `val activePane: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<LibTmux.Pane>` | Reads from tmux the pane the session shows: its current window's active pane. |
+| `val holdWaitClient: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<IAsyncDisposable>` | Keeps the control client that waits on the session's panes use attached until the handle is disposed. |
 | `val panes: session: LibTmux.Session -> Query<LibTmux.Pane>` | Queries the panes of every window in a session. |
 | `val windows: session: LibTmux.Session -> Query<LibTmux.Window>` | Queries the window placements in a session. |
 

@@ -114,6 +114,46 @@ public sealed class PaneWaitTests
     }
 
     [UnixFact]
+    public async Task A_held_wait_client_serves_a_series_of_waits_and_then_detaches()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sh"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+
+        async Task<string[]> ControlClientsAsync() =>
+            [.. (await server.GetClientsAsync(token)).Where(client => client.IsControlClient).Select(client => client.Name)];
+
+        string[] during = [];
+        await using (await pane.Session.HoldWaitClientAsync(token))
+        {
+            string[] held = await ControlClientsAsync();
+            foreach (string mark in new[] { "first", "second" })
+            {
+                PaneWaitResult result = await pane.SendTextAndWaitAsync(
+                    $"printf '%s-done\\n' {mark}", $"{mark}-done", Arrival, token);
+                Assert.True(result.Found, $"The {mark} wait ended {result.Outcome}.");
+                during = [.. during, .. await ControlClientsAsync()];
+            }
+
+            Assert.Single(held);
+            Assert.All(during, name => Assert.Equal(held[0], name));
+        }
+
+        Assert.Empty(await ControlClientsAsync());
+    }
+
+    [UnixFact]
     public async Task Text_already_showing_answers_at_once_and_absent_text_times_out()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

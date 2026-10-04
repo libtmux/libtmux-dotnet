@@ -3831,6 +3831,42 @@
       "returnType": "System.Threading.Tasks.Task<LibTmux.Pane>"
     },
     {
+      "id": "M:LibTmux.FSharp.Session.holdWaitClient(System.Threading.CancellationToken,LibTmux.Session)",
+      "package": "LibTmux.FSharp",
+      "name": "holdWaitClient",
+      "declaringType": "T:LibTmux.FSharp.Session",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val holdWaitClient: cancellationToken: System.Threading.CancellationToken -> session: LibTmux.Session -> System.Threading.Tasks.Task<System.IAsyncDisposable>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Session -> System.Threading.Tasks.Task<System.IAsyncDisposable>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.Session"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "holdWaitClient",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<System.IAsyncDisposable>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Session.panes(LibTmux.Session)",
       "package": "LibTmux.FSharp",
       "name": "panes",
