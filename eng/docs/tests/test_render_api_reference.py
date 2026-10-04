@@ -192,6 +192,9 @@ def test_fsharp_renderer_names_fields_and_folds_a_module_into_its_type() -> None
              "kind": "field", "signature": "string", "summary": "The session's name."},
             {"id": "T:LibTmux.FSharp.SessionSpecModule", "declaringType": "", "kind": "module",
              "signature": "SessionSpecModule", "summary": "Starts session descriptions."},
+            {"id": "M:LibTmux.FSharp.SessionSpecModule.named(System.String)",
+             "declaringType": "T:LibTmux.FSharp.SessionSpecModule", "kind": "member",
+             "signature": "val named: name: string -> SessionSpec", "summary": "Names a session."},
         ]
     )
 
