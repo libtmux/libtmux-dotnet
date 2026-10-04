@@ -141,8 +141,7 @@ targets `net8.0` and `net10.0`.
 ### Caveats
 
 - **Queries:** tmux narrows each listing where it can, and every row is
-  rechecked. `Query.atMostOne` and `Query.tryExactlyOne` publish under
-  NativeAOT; `Result` does not.
+  rechecked.
 - **Waits:** `Pane.sendAndWait` ignores the line's echo. Every wait ends early
   when the program exits, and raises `TmuxPaneException` if it already had.
   [Which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait)
