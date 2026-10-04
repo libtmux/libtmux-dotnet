@@ -67,7 +67,9 @@ public class FSharpWaitLatencyBenchmarks : IAsyncDisposable
             .ConfigureAwait(false);
         _pane = (await session.GetPanesAsync(cancellationToken).ConfigureAwait(false))[0];
 
-        if (!await PollScreen().ConfigureAwait(false) || !await WaitForOutput().ConfigureAwait(false))
+        if (!await PollScreen().ConfigureAwait(false)
+            || !await WaitForOutput().ConfigureAwait(false)
+            || !await RunCommand().ConfigureAwait(false))
         {
             throw new InvalidOperationException("A route ended without seeing the command's output.");
         }
@@ -120,6 +122,19 @@ public class FSharpWaitLatencyBenchmarks : IAsyncDisposable
             .sendAndWait(budget.Token, WaitBudget, Command(marker), marker, _pane)
             .ConfigureAwait(false);
         return result.Found;
+    }
+
+    /// <summary>Runs the command through <c>Pane.run</c>, which returns once it exits, with its status and output.</summary>
+    /// <returns>Whether the command's output came back with it.</returns>
+    [Benchmark]
+    public async Task<bool> RunCommand()
+    {
+        using var budget = new CancellationTokenSource(WaitBudget);
+        string marker = NextMarker();
+        PaneRunResult result = await LibTmux.FSharp.Pane
+            .run(budget.Token, WaitBudget, Command(marker), _pane)
+            .ConfigureAwait(false);
+        return result.ExitStatus == 0 && result.Output.Any(line => line.Contains(marker, StringComparison.Ordinal));
     }
 
     /// <summary>The same wait, while <c>Session.holdWaitClient</c> keeps its control client attached.</summary>
