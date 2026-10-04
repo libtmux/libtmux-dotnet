@@ -243,7 +243,9 @@ $ dotnet run \
 builds a server of 64 sessions with 4 windows each, where one pane in 64 runs
 `tail`, and finds those panes, and the sessions holding them, three ways: a
 query tmux narrows with `-f`, a full listing filtered locally, and a snapshot
-filtered locally. Every route must return the same objects before timing.
+filtered locally. Every route must return the same objects before timing. The
+full listing filtered locally is how Python libtmux filters: `server.panes`
+lists every pane, and `QueryList.filter` checks them in Python.
 
 In the [2026-10-03 record](runs/2026-10-03-tmux-3.7d-fsharp.md) the pane query
 took a median of 39 ms pushed down against 254 ms for a full listing and
@@ -256,9 +258,9 @@ process start under load.
 
 The [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md), from a GitHub
 runner with tmux 3.7c, keeps the order with tighter spreads: the pane query
-took 10.2 ms pushed down against 91 ms for a full listing and 188 ms for a
-snapshot, and the session query 39 ms against 184 ms and 178 ms. Its two
-local session routes agree within 4%, where the workstation's differed by
+took 10.4 ms pushed down against 86 ms for a full listing and 179 ms for a
+snapshot, and the session query 39 ms against 187 ms and 189 ms. Its two
+local session routes agree within 2%, where the workstation's differed by
 half.
 
 ```console
@@ -291,10 +293,10 @@ once and sends no layout change, and against a real server that listing is
 one tmux round trip whatever the number of panes.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) the filter took
-1.5 to 1.6 µs for every count of panes, and the watch 5.8 µs for one pane,
-6.7 µs for two and 12 µs for eight. The watch passes on 32, 64 or 256 of the
-events where the filter only counts them, so its cost grows with what it
-yields: about 28 ns for each event, on top of a fixed 4.9 µs.
+1.4 to 1.7 µs for every count of panes, and the watch 5.7 µs for one pane,
+6.8 µs for two and 12.3 µs for eight. The watch passes on 32, 64 or 256 of
+the events where the filter only counts them, so its cost grows with what it
+yields: about 29 ns for each event, on top of a fixed 4.8 µs.
 
 ## F# pane flood
 
@@ -308,8 +310,8 @@ the [regression gate](#regression-gate) bounds the watch at 1.6 times reading
 by hand.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) reading 1,000
-lines took 6.33 ms by hand and 6.45 ms through the watch, 1.02 times, and
-20,000 lines 25.8 ms and 25.6 ms, 0.99 times. The two routes allocated within
+lines took 6.39 ms by hand and 6.51 ms through the watch, 1.02 times, and
+20,000 lines 24.4 ms and 24.6 ms, 1.01 times. The two routes allocated within
 1% of each other, so the watch adds a filter, not a copy of the output.
 
 ## F# wait latency
@@ -317,25 +319,28 @@ lines took 6.33 ms by hand and 6.45 ms through the watch, 1.02 times, and
 [`FSharpWaitLatencyBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpWaitLatencyBenchmarks.cs)
 types a command into a shell and returns once its output is on the pane,
 printed at once or after 250 ms. `Pane.sendAndWait` sleeps on the pane's
-output through a control client it attaches for the wait. The baseline
+output through a control client it attaches for the wait, or through one
+`Session.holdWaitClient` keeps attached across waits. The baseline
 captures the screen every 50 ms until the output shows, as Python libtmux's
 `retry_until` does by default; Python libtmux has no wait of its own.
 
 A wait pays a fixed cost a poll does not: it attaches a control client before
-reading the screen, and reads the pane with three tmux commands each time it
-wakes. Output already printed is a poll's best case, found by its first
-capture. A poll pays instead for every interval the output takes: a capture,
+reading the screen, and reads the pane through that client, three round trips
+each time it wakes. Output already printed is a poll's best case, found by its
+first capture. A poll pays instead for every interval the output takes: a capture,
 which is a tmux process, every 50 ms, and up to 50 ms of latency after the
 output appears. Delayed output sleeps 250 to 290 ms in turn, so the polls land
 at every point of their interval, as they do against output nothing
 synchronizes with them.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md), output already
-printed took 6.1 ms by polling and 22.4 ms through the wait. Delayed output
-took a median of 320 ms by polling and 293 ms through the wait, which started
-no tmux process while it slept where the poll started one every 50 ms. Read
-the screen once with `Pane.capture` when the output is already there; wait
-when it is still to come.
+printed took 6.2 ms by polling, 10.9 ms through a wait, and a median of 5.8 ms
+through a wait whose client was held. Delayed output took a median of 320 ms
+by polling, 282 ms through a wait and 277 ms with the client held; the waits
+started no tmux process while they slept, where the poll started one every
+50 ms. Read the screen once with `Pane.capture` when the output is already
+there, wait when it is still to come, and hold the client for a series of
+waits.
 
 ## F# live mirror
 
@@ -349,8 +354,8 @@ server. Setup fails unless the mirror publishes a renamed window, and the
 [regression gate](#regression-gate) bounds the rename at 1.65 captures.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) a rename seen
-through the mirror took 15.9 ms against 12.7 ms for a capture of one session,
-1.25 captures, and 56.8 ms against 52.3 ms for sixteen sessions, 1.09. The
+through the mirror took 16.7 ms against 12.7 ms for a capture of one session,
+1.31 captures, and 56.3 ms against 51.6 ms for sixteen sessions, 1.09. The
 capture allocated 2.4 MB for one session and 18 MB for sixteen, so a busy
 large server spends most of a mirror's cost on captures.
 
