@@ -62,7 +62,7 @@ Moves the window as the request says, and returns a handle carrying the state af
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L214)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L215)
 
 <a name="panes"></a>
 
@@ -132,7 +132,7 @@ Resizes the window as the request says, and returns a handle carrying the state 
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L211)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L212)
 
 <a name="select"></a>
 
@@ -167,6 +167,8 @@ The core&#39;s <code>Window.SelectLayoutAsync</code> with a named layout; pass a
 **window**: <code>Window</code>
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
+
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The layout name is blank.
 
 `TmuxWindowException`tmux may not recognise the layout, so it is refused before anything is sent.
 

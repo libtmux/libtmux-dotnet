@@ -166,6 +166,7 @@ module Window =
 
     /// <summary>Arranges the window's panes in a layout, such as <c>even-horizontal</c> or <c>tiled</c>, and returns a handle carrying the state afterwards.</summary>
     /// <remarks>The core's <c>Window.SelectLayoutAsync</c> with a named layout; pass a request to it to cycle layouts instead.</remarks>
+    /// <exception cref="T:System.ArgumentException">The layout name is blank.</exception>
     /// <exception cref="T:LibTmux.TmuxWindowException">tmux may not recognise the layout, so it is refused before anything is sent.</exception>
     val selectLayout:
         cancellationToken: CancellationToken -> layout: string -> window: LibTmux.Window -> Task<LibTmux.Window>

@@ -623,8 +623,11 @@ module FailureTests =
                         return "may have run: " + error.GetType().Name
                 }
 
+            // Async.Catch keeps what was raised; a cancelled workflow escapes it.
             try
-                Async.RunSynchronously attempt
+                match Async.RunSynchronously(Async.Catch attempt) with
+                | Choice1Of2 outcome -> outcome
+                | Choice2Of2 error -> "raised " + error.GetType().Name
             with :? OperationCanceledException ->
                 "cancelled"
 
@@ -634,8 +637,26 @@ module FailureTests =
         )
 
         Assert.Equal("cancelled", describe (TmuxAsync.awaitTask (plain ()) |> Async.Ignore))
+
+        // Still running when awaited, as a real call is.
+        let later () : Task<int> =
+            task {
+                do! Task.Delay 20
+                return raise (TmuxOperationCanceledException("may have run", canceled.Token, true, 7))
+            }
+
+        Assert.Equal(
+            "may have run: TmuxOperationCanceledException",
+            describe (TmuxAsync.awaitTask (later ()) |> Async.Ignore)
+        )
+
+        // A client cancelled before it could act is an ordinary cancellation.
+        let unsent () : Task<int> =
+            task { return raise (TmuxOperationCanceledException("not sent", canceled.Token, false, 7)) }
+
+        Assert.Equal("cancelled", describe (TmuxAsync.awaitTask (unsent ()) |> Async.Ignore))
         Assert.Equal("may have run: LibTmuxException", describe (TmuxAsync.awaitUnitTask (failed ())))
-        Assert.Equal("cancelled", describe (Async.AwaitTask(kept ()) |> Async.Ignore))
+        Assert.Equal("raised TaskCanceledException", describe (Async.AwaitTask(kept ()) |> Async.Ignore))
 
     // Async.AwaitTask and Task.Wait wrap a failed task's exception; a match
     // that missed it would read a command that may have run as some other failure.

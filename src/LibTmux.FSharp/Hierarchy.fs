@@ -206,6 +206,7 @@ module Window =
         window.KillAsync(cancellationToken = cancellationToken)
 
     let selectLayout (cancellationToken: CancellationToken) (layout: string) (window: LibTmux.Window) =
+        ArgumentException.ThrowIfNullOrWhiteSpace layout
         window.SelectLayoutAsync(SelectLayoutRequest(Layout = layout), cancellationToken)
 
     let resize (cancellationToken: CancellationToken) (request: ResizeWindowRequest) (window: LibTmux.Window) =

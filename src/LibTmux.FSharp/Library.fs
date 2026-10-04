@@ -134,7 +134,8 @@ module TmuxAsync =
             try
                 Ok(result ())
             with
-            | :? TmuxOperationCanceledException as kept -> Error(Choice1Of2(kept :> exn))
+            | :? TmuxOperationCanceledException as kept when kept.CommandMayHaveExecuted ->
+                Error(Choice1Of2(kept :> exn))
             | :? OperationCanceledException as canceled -> Error(Choice2Of2 canceled)
             | failure -> Error(Choice1Of2 failure)
 

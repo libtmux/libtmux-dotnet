@@ -8,9 +8,9 @@ Awaits tasks in an <code>async</code> workflow without losing whether tmux may h
 
 <code>Async.AwaitTask</code> turns a <code>TmuxOperationCanceledException</code> into a bare
  <code>TaskCanceledException</code>, losing <code>CommandMayHaveExecuted</code>, and wraps a failure in an
- <code>AggregateException</code>. These raise a tmux client cancelled after it started as itself, so
- <code>TmuxFailure.MayHaveRun</code> matches it in <code>try ... with</code>; any other cancellation cancels the
- workflow, and a failure is raised as the task raised it.
+ <code>AggregateException</code>. These raise a tmux client cancelled after it may have acted as itself,
+ so <code>TmuxFailure.MayHaveRun</code> matches it in <code>try ... with</code>; any other cancellation cancels
+ the workflow, and a failure is raised as the task raised it.
 
 ### Functions and values
 
@@ -28,7 +28,7 @@ Returns: <code><span><a href="https://fsharp.github.io/fsharp-core-docs/referenc
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L146)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L147)
 
 <a name="awaitUnitTask"></a>
 
@@ -42,4 +42,4 @@ Awaits a task that returns nothing.
 
 Returns: <code><span><a href="https://fsharp.github.io/fsharp-core-docs/reference/fsharp-control-fsharpasync-1">Async</a>&lt;unit&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L157)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L158)

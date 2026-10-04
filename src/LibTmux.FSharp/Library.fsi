@@ -117,9 +117,9 @@ module PaneWatch =
 /// <remarks>
 /// <c>Async.AwaitTask</c> turns a <c>TmuxOperationCanceledException</c> into a bare
 /// <c>TaskCanceledException</c>, losing <c>CommandMayHaveExecuted</c>, and wraps a failure in an
-/// <c>AggregateException</c>. These raise a tmux client cancelled after it started as itself, so
-/// <c>TmuxFailure.MayHaveRun</c> matches it in <c>try ... with</c>; any other cancellation cancels the
-/// workflow, and a failure is raised as the task raised it.
+/// <c>AggregateException</c>. These raise a tmux client cancelled after it may have acted as itself,
+/// so <c>TmuxFailure.MayHaveRun</c> matches it in <c>try ... with</c>; any other cancellation cancels
+/// the workflow, and a failure is raised as the task raised it.
 /// </remarks>
 [<RequireQualifiedAccess>]
 module TmuxAsync =
