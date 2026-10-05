@@ -2,12 +2,12 @@
 <p align="center">
   <picture>
     <source srcset="assets/logo.svg" type="image/svg+xml">
-    <img src="assets/logo.png" width="128" height="128" alt="libtmux for C# / .NET">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for C#">
   </picture>
 </p>
 <!-- /libtmux-logo -->
 
-# libtmux for .NET
+# libtmux for C#
 
 [![LibTmux](https://img.shields.io/nuget/vpre/LibTmux?logo=nuget&label=LibTmux)](https://www.nuget.org/packages/LibTmux)
 [![downloads](https://img.shields.io/nuget/dt/LibTmux?logo=nuget&label=downloads)](https://www.nuget.org/packages/LibTmux)
@@ -15,7 +15,7 @@
 [![tmux 3.2a – 3.7c](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Drive [tmux](https://github.com/tmux/tmux) from .NET. Servers, sessions,
+Drive [tmux](https://github.com/tmux/tmux) from C#. Servers, sessions,
 windows, panes, clients, options, hooks and buffers, typed and asynchronous,
 for stable tmux **3.2a and newer** on **net8.0** and **net10.0**.
 
@@ -336,7 +336,7 @@ startup and reported through `tmux://capabilities`.
 
 ## Documentation
 
-- [Guides on libtmux.org](https://libtmux.org/en/dotnet/latest/) — tutorials, topics and the workspace command reference
+- [Guides on libtmux.org](https://libtmux.org/en/csharp/latest/) — tutorials, topics and the workspace command reference
 - [Choosing a mode](docs/modes/matrix.md) — the three dispatch modes, measured
 - [Windows psmux preview](docs/psmux.md) — what it reads, and what it refuses
 - [API reference](docs/api/README.md) — rendered from the doc comments
@@ -364,12 +364,12 @@ Please use the following BibTeX template to cite libtmux-dotnet in scientific di
 @misc{libtmux-dotnet,
    author = {Tony Narlock},
    year = {2026},
-   note = {https://libtmux.org/en/dotnet/},
-   title = {libtmux-dotnet: .NET wrapper for tmux}
+   note = {https://libtmux.org/en/csharp/},
+   title = {libtmux-dotnet: C\# wrapper for tmux}
 }
 ```
 
 ## License
 
 [MIT](LICENSE). Practical parity with Python
-[libtmux](https://github.com/tmux-python/libtmux), rewritten for .NET.
+[libtmux](https://github.com/tmux-python/libtmux), rewritten in C#.

@@ -176,9 +176,9 @@ exists:
 above the current directory.
 
 The format is tmuxp's, in YAML or JSON. The
-[configuration reference](https://libtmux.org/en/dotnet/latest/workspace/configuration/)
+[configuration reference](https://libtmux.org/en/csharp/latest/workspace/configuration/)
 covers every key, and the
-[example gallery](https://libtmux.org/en/dotnet/latest/workspace/examples/gallery/)
+[example gallery](https://libtmux.org/en/csharp/latest/workspace/examples/gallery/)
 has files to start from.
 
 ## Scripting
@@ -211,8 +211,8 @@ tmuxp.
 | 70 | An internal error; please report it |
 | 130 | Interrupted |
 
-The [output reference](https://libtmux.org/en/dotnet/latest/workspace/reference/output/)
-and [error codes](https://libtmux.org/en/dotnet/latest/workspace/reference/exit-codes/)
+The [output reference](https://libtmux.org/en/csharp/latest/workspace/reference/output/)
+and [error codes](https://libtmux.org/en/csharp/latest/workspace/reference/exit-codes/)
 document every field.
 
 ## Shell completion
@@ -257,13 +257,13 @@ Where it differs from tmuxp:
 - `shell`, plugins, and custom workspace builders run through tmuxp itself and
   need tmuxp 1.74.0.
 
-[Compatibility](https://libtmux.org/en/dotnet/latest/workspace/reference/compatibility/)
+[Compatibility](https://libtmux.org/en/csharp/latest/workspace/reference/compatibility/)
 records what is implemented so far and where it differs.
 
 ## Documentation
 
-- [Command reference](https://libtmux.org/en/dotnet/latest/workspace/cli/) — every command and option
-- [Installation walkthrough](https://libtmux.org/en/dotnet/latest/workspace/guides/installation/) — install, load, and capture on a private socket
+- [Command reference](https://libtmux.org/en/csharp/latest/workspace/cli/) — every command and option
+- [Installation walkthrough](https://libtmux.org/en/csharp/latest/workspace/guides/installation/) — install, load, and capture on a private socket
 - [Inspect a loaded session through MCP](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Mcp/README.md) — let an assistant read your panes
 - [LibTmux.Workspace](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Workspace/README.md) — build sessions from C# instead
 - [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/CHANGELOG.md)
