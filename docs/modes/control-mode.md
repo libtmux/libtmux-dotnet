@@ -50,29 +50,30 @@ the marker at execution time; the command's own echo cannot satisfy the wait.
 ```csharp
 using LibTmux;
 
-Server server = await Server.ConnectAsync(new ServerConnectionOptions
+string? tmux = Environment.GetEnvironmentVariable("LIBTMUX_TMUX");
+Server server = await Server.ConnectAsync(
+    new ServerConnectionOptions { TmuxBinaryPath = tmux ?? "tmux" });
+NewSessionRequest request = new()
 {
-    TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-});
-await using OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
-    new NewSessionRequest
-    {
-        Name = $"text-wait-{Guid.NewGuid():N}",
-        Command = "exec /bin/sh",
-    });
+    Name = $"text-wait-{Guid.NewGuid():N}",
+    Command = "exec /bin/sh",
+};
+await using OwnedSessionScope owned =
+    await server.CreateOwnedSessionAsync(request);
 Window window = (await owned.Value.GetWindowsAsync()).Single();
 Pane pane = (await window.GetPanesAsync()).Single();
 
+PaneWaitRequest ready = PaneWaitRequest.FromTextPatterns(
+    ["observer-ready"], simpleMatch: true);
 Task<PaneWaitResult> waiting = pane.WaitForTextAsync(
-    PaneWaitRequest.FromTextPatterns(["observer-ready"], simpleMatch: true)
-        with
-    { Timeout = TimeSpan.FromSeconds(5) });
+    ready with { Timeout = TimeSpan.FromSeconds(5) });
 await pane.SendTextAsync("printf 'observer-%s\\n' ready");
 PaneWaitResult result = await waiting;
 if (result.Outcome is not (PaneWaitOutcome.Matched
     or PaneWaitOutcome.PresentAtEntry))
 {
-    throw new InvalidOperationException($"Pane text wait ended: {result.Outcome}");
+    throw new InvalidOperationException(
+        $"Pane text wait ended: {result.Outcome}");
 }
 
 Console.WriteLine($"{result.Outcome}: {string.Join(' ', result.Tail)}");
