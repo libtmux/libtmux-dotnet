@@ -25,7 +25,7 @@ $ dotnet tool install --global LibTmux.Mcp --prerelease
 ## Point a client at it
 
 It speaks the protocol over standard input and output, which is how an MCP
-client starts it. [libtmux.org](https://libtmux.org/en/dotnet/latest/mcp/#install)
+client starts it. [libtmux.org](https://libtmux.org/en/csharp/latest/mcp/#install)
 has the exact snippet for Claude Code, Claude Desktop, Codex, Cursor, Gemini
 and other clients. For any client:
 

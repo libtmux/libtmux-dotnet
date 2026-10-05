@@ -6,6 +6,6 @@ authors:
   orcid: "https://orcid.org/0000-0002-2568-415X"
 title: "libtmux-dotnet"
 type: software
-url: "https://libtmux.org/en/dotnet/"
+url: "https://libtmux.org/en/csharp/"
 repository-code: "https://github.com/libtmux/libtmux-dotnet"
 license: MIT

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for looking. This repository is `libtmux` for .NET: a typed,
+Thanks for looking. This repository is `libtmux` for C#: a typed,
 asynchronous client for tmux, plus a query layer, a workspace builder, and an
 MCP server. The gates below are what a change has to pass.
 
