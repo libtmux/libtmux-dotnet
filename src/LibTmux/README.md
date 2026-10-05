@@ -302,7 +302,8 @@ if (run.ExitStatus != 0)
 
 if (!run.Output.Contains("hello-from-libtmux"))
 {
-    throw new InvalidOperationException("Command output was not observed in the pane.");
+    throw new InvalidOperationException(
+        "Command output was not observed in the pane.");
 }
 ```
 
@@ -417,11 +418,13 @@ inspected daemon version, then execute it for a fresh observation:
 Server inspected = await server.InspectAsync(ct)
     ?? throw new InvalidOperationException("The tmux daemon is absent.");
 QueryDocument predicate = QueryExtensions.Translate<Window>(
-    candidate => candidate.IsActive && candidate.Name.StartsWith("build", StringComparison.Ordinal));
+    candidate => candidate.IsActive
+        && candidate.Name.StartsWith("build", StringComparison.Ordinal));
 QueryPlan<Window> plan = predicate.Plan<Window>(inspected.DaemonVersion!.Value);
 QueryResult<Window> result = await plan.ExecuteAsync(inspected, ct);
 
-Console.WriteLine($"{result.Count} matches from {result.Snapshot.Windows.Count} placements");
+int placements = result.Snapshot.Windows.Count;
+Console.WriteLine($"{result.Count} matches from {placements} placements");
 foreach (string reason in plan.FallbackReasons)
 {
     Console.WriteLine(reason);
@@ -452,9 +455,12 @@ The document carries stable wire names: `Session.Name` is `session_name` and
 fields and wire operations without contacting tmux:
 
 ```csharp run
-foreach (QueryFieldDescriptor field in QueryFieldCatalog.GetFields(QueryTarget.Pane))
+IReadOnlyList<QueryFieldDescriptor> fields =
+    QueryFieldCatalog.GetFields(QueryTarget.Pane);
+foreach (QueryFieldDescriptor field in fields)
 {
-    Console.WriteLine($"{field.WireName}: {string.Join(", ", field.Operators)}");
+    string operators = string.Join(", ", field.Operators);
+    Console.WriteLine($"{field.WireName}: {operators}");
 }
 ```
 
