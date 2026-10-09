@@ -1116,7 +1116,7 @@ modes differ.
 | `LibTmux.ServerDiscoveryOptions.IncludeConfiguredRoots` | Gets whether discovery includes the current user's default, configured and selected socket directories. |
 | `LibTmux.ServerDiscoveryOptions.MaximumEntries` | Gets the maximum number of directory entries inspected across all roots. |
 | `LibTmux.ServerDiscoveryOptions.MaximumProbes` | Gets the maximum number of socket probes. |
-| `LibTmux.ServerDiscoveryOptions.MaximumRoots` | Gets the maximum number of roots inspected. |
+| `LibTmux.ServerDiscoveryOptions.MaximumRoots` | Gets the maximum number of input root entries inspected, including duplicates. |
 | `LibTmux.ServerDiscoveryOptions.ProbeTimeout` | Gets the maximum duration of one no-start probe. |
 | `LibTmux.ServerDiscoveryOptions.Roots` | Gets additional absolute directories whose immediate children are socket candidates. |
 | `LibTmux.ServerDiscoveryOptions.Timeout` | Gets the total discovery deadline, checked between filesystem operations and enforced during probes. |

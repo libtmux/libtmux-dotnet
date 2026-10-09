@@ -12,6 +12,20 @@ internal readonly record struct TmuxCreationReceipt(
 {
     internal const string Format = TmuxConnection.GenerationFormat + "\t#{session_id}\t#{window_id}\t#{pane_id}\t#{window_index}\t" + TmuxOwnershipIdentity.Format;
 
+    internal static bool TryParse(TmuxCommandResult result, out TmuxCreationReceipt receipt)
+    {
+        try
+        {
+            receipt = Parse(result);
+            return true;
+        }
+        catch (LibTmuxException)
+        {
+            receipt = default;
+            return false;
+        }
+    }
+
     internal static TmuxCreationReceipt Parse(TmuxCommandResult result)
     {
         if (result.StandardOutputLines.Count != 1)

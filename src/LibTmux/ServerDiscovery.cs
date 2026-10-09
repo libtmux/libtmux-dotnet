@@ -17,7 +17,7 @@ public sealed record ServerDiscoveryOptions
     /// <summary>Gets the connection settings used for probes, including executable and child environment.</summary>
     public ServerConnectionOptions Connection { get; init; } = new();
 
-    /// <summary>Gets the maximum number of roots inspected.</summary>
+    /// <summary>Gets the maximum number of input root entries inspected, including duplicates.</summary>
     public int MaximumRoots { get; init; } = 16;
 
     /// <summary>Gets the maximum number of directory entries inspected across all roots.</summary>
@@ -82,6 +82,7 @@ public sealed partial class Server
     /// <remarks>
     /// Scans immediate directory children, skips symlink roots and entries, and probes only sockets owned
     /// by the current Unix user. Duplicate daemon generations yield one handle and a diagnostic.
+    /// Root components resolve through the filesystem before enumeration; missing components are errors.
     /// No-start probes cannot create a daemon. Filesystem calls themselves are synchronous and may exceed
     /// the deadline on an unresponsive filesystem; subsequent work stops at the next boundary.
     /// </remarks>
@@ -110,29 +111,38 @@ public sealed partial class Server
         List<ServerDiscoveryDiagnostic> diagnostics = [];
         HashSet<ServerGeneration> generations = [];
         HashSet<string> seenPaths = new(StringComparer.Ordinal);
+        HashSet<string> seenRoots = new(StringComparer.Ordinal);
         int entries = 0;
         int probes = 0;
         int rootCount = 0;
         bool truncated = false;
         Stopwatch elapsed = Stopwatch.StartNew();
-        foreach (string root in roots.Distinct(StringComparer.Ordinal))
+        foreach (string root in roots)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (++rootCount > settings.MaximumRoots || elapsed.Elapsed >= settings.Timeout)
+            if (rootCount >= settings.MaximumRoots || elapsed.Elapsed >= settings.Timeout)
             {
                 Stop(root, "The root or total time bound was reached.");
                 break;
             }
+            rootCount++;
+            if (!seenRoots.Add(root))
+            {
+                diagnostics.Add(new(root, "duplicate", "The root was already inspected."));
+                continue;
+            }
             try
             {
                 TmuxConnectionEndpoint.ValidateSocketPath(root, nameof(settings.Roots));
-                if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
+                string? resolvedRoot = UnixSocketDirectory.ResolveDiscoveryRoot(root);
+                if (resolvedRoot is null)
                 {
                     diagnostics.Add(new(root, "skipped", "Symbolic-link roots are not followed."));
                     continue;
                 }
-                foreach (string candidate in Directory.EnumerateFileSystemEntries(root))
+                foreach (string entry in Directory.EnumerateFileSystemEntries(resolvedRoot))
                 {
+                    string candidate = Path.Combine(root, Path.GetFileName(entry));
                     cancellationToken.ThrowIfCancellationRequested();
                     if (entries >= settings.MaximumEntries || elapsed.Elapsed >= settings.Timeout)
                     {

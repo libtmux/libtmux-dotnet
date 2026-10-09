@@ -568,6 +568,37 @@ public sealed class CompositeMutationDispatchTests
         AssertPartialFailure(failure, typeof(TmuxCommandException));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Floating_pane_creation_rolls_back_a_receipt_from_a_failed_completed_result(bool fromWindow)
+    {
+        var destroyed = new List<string>();
+        Task<TmuxCommandResult> Execute(TmuxCommandRequest request, CancellationToken _)
+        {
+            if (request.LogicalArguments.Contains("new-pane", StringComparer.Ordinal))
+            {
+                TmuxCommandResult created = Success(request, "%2\n");
+                return Task.FromResult(new TmuxCommandResult(created.Arguments, 77, created.StandardOutput,
+                    Encoding.UTF8.GetBytes("failure after receipt\n"), created.StandardOutputLines, ["failure after receipt"]));
+            }
+            if (request.LogicalArguments.Contains("kill-pane", StringComparer.Ordinal))
+            {
+                destroyed.Add(request.LogicalArguments[^1]);
+            }
+            return Task.FromResult(Success(request));
+        }
+
+        Task<Pane> acquisition = fromWindow
+            ? CreateWindow(Execute).CreatePaneAsync(cancellationToken: TestContext.Current.CancellationToken)
+            : CreatePane(Execute).CreatePaneAsync(cancellationToken: TestContext.Current.CancellationToken);
+        LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() => acquisition);
+        AssertPartialFailure(failure, typeof(TmuxCommandException));
+        Assert.Equal(77, Assert.IsType<TmuxCommandException>(failure.InnerException).Result.ExitCode);
+        Assert.Null(OwnedScope.CleanupFailure(failure));
+        Assert.Equal(["%2"], destroyed);
+    }
+
     [Fact]
     public async Task Select_existing_returns_the_expanded_name_match_when_detached()
     {

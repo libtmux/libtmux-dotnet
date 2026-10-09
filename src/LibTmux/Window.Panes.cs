@@ -173,7 +173,13 @@ public sealed partial class Window
         var sequence = new TmuxMutationSequence();
         TmuxCommandResult result = await sequence.MutateAsync(
                 () => OwnedCleanup.DispatchCreationAsync(() => dispatcher.ExecuteAsync(arguments, acquisition.Token), arguments[0], acquisition.Token),
-                static value => TmuxCommandFailure.ThrowIfFailed(value, "split-window"))
+                static value =>
+                {
+                    if (value.StandardOutputLines.Count == 0 || !PaneId.TryParse(value.StandardOutputLines[0], out _))
+                    {
+                        TmuxCommandFailure.ThrowIfFailed(value, "split-window");
+                    }
+                })
             .ConfigureAwait(false);
         PaneId created = sequence.Observe(() =>
             result.StandardOutputLines.Count > 0
@@ -185,6 +191,7 @@ public sealed partial class Window
 
         return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
         {
+            TmuxCommandFailure.ThrowIfFailed(result, "split-window");
             cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<Pane> panes = await new Window(owner, owner.Connection!, _generation, _id, RawFormatFields).GetPanesAsync(cancellationToken).ConfigureAwait(false);
             Pane pane = panes.FirstOrDefault(pane => pane.Id == created)
@@ -270,7 +277,13 @@ public sealed partial class Window
         var sequence = new TmuxMutationSequence();
         TmuxCommandResult result = await sequence.MutateAsync(
                 () => OwnedCleanup.DispatchCreationAsync(() => dispatcher.ExecuteAsync(arguments, acquisition.Token), arguments[0], acquisition.Token),
-                static value => TmuxCommandFailure.ThrowIfFailed(value, "new-pane"))
+                static value =>
+                {
+                    if (value.StandardOutputLines.Count == 0 || !PaneId.TryParse(value.StandardOutputLines[0], out _))
+                    {
+                        TmuxCommandFailure.ThrowIfFailed(value, "new-pane");
+                    }
+                })
             .ConfigureAwait(false);
         PaneId created = sequence.Observe(() =>
             result.StandardOutputLines.Count > 0
@@ -282,6 +295,7 @@ public sealed partial class Window
 
         return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
         {
+            TmuxCommandFailure.ThrowIfFailed(result, "new-pane");
             cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<Pane> panes = await new Window(owner, owner.Connection!, _generation, _id, RawFormatFields).GetPanesAsync(cancellationToken).ConfigureAwait(false);
             Pane pane = panes.FirstOrDefault(pane => pane.Id == created)

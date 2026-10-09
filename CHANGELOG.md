@@ -26,9 +26,13 @@ version.
 
 ### Fixed
 
-- Creation rolls back known session, window and pane IDs after failed
-  readback or cancellation. `OwnedScope.CleanupFailure` and F#
+- Creation rolls back known session, window and pane IDs after a completed
+  command reports failure, failed readback or cancellation. Server startup
+  verifies its nonce before destroying the daemon after a failed result.
+  `OwnedScope.CleanupFailure` and F#
   `Control.cleanupFailure` expose rollback failures.
+- `Server.DiscoverAsync` resolves directory components through the filesystem
+  and reports truncation when duplicate root inputs consume the root bound.
 - Whole-server owners reject replacement daemons through the native
   generation guard before sending a kill command.
 

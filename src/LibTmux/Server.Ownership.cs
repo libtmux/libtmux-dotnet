@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 
@@ -42,11 +43,26 @@ public sealed partial class Server
             {
                 Name = "libtmux-start-" + Guid.NewGuid().ToString("N"),
             }, TmuxCreationReceipt.Format)], acquisition.Token), "new-session", acquisition.Token),
-            static value => TmuxCommandFailure.ThrowIfFailed(value, "new-session")).ConfigureAwait(false);
+            static value =>
+            {
+                if (!TmuxCreationReceipt.TryParse(value, out _))
+                {
+                    TmuxCommandFailure.ThrowIfFailed(value, "new-session");
+                }
+            }).ConfigureAwait(false);
         TmuxCreationReceipt receipt = sequence.Observe(() => TmuxCreationReceipt.Parse(result));
         connection = connection.WithOwnershipToken(receipt.OwnershipToken);
         var materialized = new Server(connection, receipt.Generation, connection.VerifiedRawVersion);
         OwnedServerScope? owner = null;
+        TmuxCommandException? creationFailure = null;
+        try
+        {
+            TmuxCommandFailure.ThrowIfFailed(result, "new-session");
+        }
+        catch (TmuxCommandException error)
+        {
+            creationFailure = error;
+        }
         try
         {
             TmuxCommandDispatcher dispatcher = connection.CreateEntityDispatcher(receipt.Generation);
@@ -56,7 +72,15 @@ public sealed partial class Server
             {
                 TmuxCommandFailure.ThrowIfFailed(startup, "startup ownership verification");
             }
-            if (startup.StandardOutputLines is not [string entry] || entry != marker + "=" + nonce)
+            if (startup.StandardOutputLines is [string entry] && entry == marker + "=" + nonce)
+            {
+                owner = new OwnedServerScope(materialized);
+            }
+            if (creationFailure is not null)
+            {
+                ExceptionDispatchInfo.Capture(creationFailure).Throw();
+            }
+            if (owner is null)
             {
                 await OwnedCleanup.DestroyAsync(materialized, receipt.Generation, "session", receipt.SessionId.ToString(), acquisition.Token)
                     .ConfigureAwait(false);
@@ -64,7 +88,6 @@ public sealed partial class Server
                 return new FoundOrCreated<Server>(materialized, null);
             }
 
-            owner = new OwnedServerScope(materialized);
             cancellationToken.ThrowIfCancellationRequested();
             TmuxCommandResult configured = await dispatcher.ExecuteAsync(["set-option", "-s", "exit-empty", "off"], cancellationToken)
                 .ConfigureAwait(false);
@@ -78,8 +101,17 @@ public sealed partial class Server
             cancellationToken.ThrowIfCancellationRequested();
             return new FoundOrCreated<Server>(materialized, owner);
         }
-        catch (Exception failure)
+        catch (Exception error)
         {
+            Exception failure = error;
+            if (creationFailure is not null)
+            {
+                failure = new LibTmuxException(TmuxMutationSequence.PartialFailureMessage, TmuxDispatchState.Unknown, creationFailure);
+                if (!ReferenceEquals(error, creationFailure))
+                {
+                    await OwnedScope.PreserveCleanupAsync(failure, () => Task.FromException(error)).ConfigureAwait(false);
+                }
+            }
             if (owner is not null)
             {
                 await OwnedScope.PreserveCleanupAsync(failure, () => owner.DisposeAsync().AsTask()).ConfigureAwait(false);
@@ -88,6 +120,10 @@ public sealed partial class Server
             {
                 await OwnedCleanup.RollbackAsync(failure, materialized, receipt.Generation, "session", receipt.SessionId.ToString())
                     .ConfigureAwait(false);
+            }
+            if (!ReferenceEquals(failure, error))
+            {
+                ExceptionDispatchInfo.Capture(failure).Throw();
             }
             throw;
         }

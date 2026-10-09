@@ -42,6 +42,32 @@ internal static partial class UnixSocketDirectory
         return (status.Mode & 0xF000) == 0xC000 && status.Uid == UserId;
     }
 
+    internal static string? ResolveDiscoveryRoot(string path)
+    {
+        string leaf = path.TrimEnd('/');
+        if (ReadStatus(leaf.Length == 0 ? "/" : leaf, out FileStatus status) != 0)
+        {
+            throw new IOException($"Cannot inspect discovery root '{path}'.", new Win32Exception(Marshal.GetLastPInvokeError()));
+        }
+        if ((status.Mode & 0xF000) == 0xA000)
+        {
+            return null;
+        }
+        nint resolved = ResolvePath(path, 0);
+        if (resolved == 0)
+        {
+            throw new IOException($"Cannot resolve discovery root '{path}'.", new Win32Exception(Marshal.GetLastPInvokeError()));
+        }
+        try
+        {
+            return Marshal.PtrToStringUTF8(resolved)!;
+        }
+        finally
+        {
+            Free(resolved);
+        }
+    }
+
     internal static bool IsPrivateDirectory(int mode, uint owner, uint user) =>
         (mode & 0xF000) == 0x4000 && owner == user && (mode & 7) == 0;
 
@@ -56,6 +82,12 @@ internal static partial class UnixSocketDirectory
 
     [LibraryImport("libc", EntryPoint = "getuid")]
     private static partial uint GetUserId();
+
+    [LibraryImport("libc", EntryPoint = "realpath", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
+    private static partial nint ResolvePath(string path, nint resolved);
+
+    [LibraryImport("libc", EntryPoint = "free")]
+    private static partial void Free(nint pointer);
 
     [LibraryImport("System.Native", EntryPoint = "SystemNative_MkDir", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
     private static partial int MakeDirectory(string path, int mode);

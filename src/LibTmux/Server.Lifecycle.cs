@@ -140,7 +140,8 @@ public sealed partial class Server
     /// <remarks>
     /// The returned session is bound to the creating daemon. Its child identifiers are
     /// creation-time facts, not a snapshot or a promise that the children still belong
-    /// to the session. Failed readback rolls back its known session ID against the creating daemon.
+    /// to the session. A failed command result with a valid receipt, or failed readback, rolls back
+    /// its known session ID against the creating daemon.
     /// An initial command without a valid receipt has an unknown outcome; inspect the endpoint before retrying.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
@@ -172,6 +173,10 @@ public sealed partial class Server
                 () => OwnedCleanup.DispatchCreationAsync(() => DispatchCreationAsync([.. BuildNewSessionArguments(options, TmuxCreationReceipt.Format)], acquisition.Token, options.ExpectedGeneration ?? (Connection!.OwnershipToken is null ? null : Generation)), "new-session", acquisition.Token),
                 value =>
                 {
+                    if (TmuxCreationReceipt.TryParse(value, out _))
+                    {
+                        return;
+                    }
                     if (value.ExitCode != 0
                         && options.Name is not null
                         && value.StandardErrorLines.Any(static line =>
@@ -189,6 +194,7 @@ public sealed partial class Server
         var accepted = new Server(Connection!.WithOwnershipToken(receipt.OwnershipToken), receipt.Generation, Connection.VerifiedRawVersion);
         return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
         {
+            TmuxCommandFailure.ThrowIfFailed(result, "new-session");
             cancellationToken.ThrowIfCancellationRequested();
             if (options.ExpectedGeneration is ServerGeneration expected && receipt.Generation != expected)
             {
