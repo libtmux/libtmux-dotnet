@@ -28,6 +28,11 @@ public sealed partial class Session
         CancellationToken cancellationToken = default)
     {
         var sequence = new TmuxMutationSequence();
+        if (request is { SelectExisting: true } or { KillExisting: true })
+        {
+            throw new ArgumentException("Owned creation cannot select or replace an existing window.", nameof(request));
+        }
+
         Window created = await sequence
             .MutateAsync(() => CreateWindowAsync(request, cancellationToken))
             .ConfigureAwait(false);
@@ -35,46 +40,27 @@ public sealed partial class Session
     }
 }
 
-/// <summary>Owns a window and stops it when disposed.</summary>
-public sealed class OwnedWindowScope : IAsyncDisposable
+/// <summary>Owns a window and destroys it when disposed.</summary>
+public sealed class OwnedWindowScope : IOwnedTmuxResource<Window>
 {
-    private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(5);
-    private int _disposed;
+    private readonly OwnedCleanup _cleanup;
 
-    internal OwnedWindowScope(Window value) => Value = value;
+    [UnsupportedOSPlatform("windows")]
+    internal OwnedWindowScope(Window value)
+    {
+        Value = value;
+        _cleanup = new OwnedCleanup(token => OwnedCleanup.DestroyAsync(value.Server, value.Generation, "window", value.Id.ToString(), token));
+    }
 
     /// <summary>Gets the owned window.</summary>
     public Window Value { get; }
 
-    /// <summary>Stops the owned window.</summary>
-    /// <returns>A task that completes once the window is gone.</returns>
-    /// <exception cref="LibTmuxException">The window could not be stopped.</exception>
+    /// <summary>Destroys the window with an independent five-second deadline.</summary>
+    /// <returns>The shared cleanup attempt.</returns>
+    /// <remarks>
+    /// Concurrent calls share an attempt. Failed cleanup is retryable and successful cleanup is idempotent.
+    /// Use <see cref="OwnedScope" /> to retain body and teardown failures together.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public async ValueTask DisposeAsync()
-    {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-        {
-            return;
-        }
-
-        // Teardown does not inherit the caller's token, because a canceled
-        // caller still needs its window gone; it bounds itself instead so a
-        // wedged socket cannot hang disposal forever.
-        using CancellationTokenSource cleanup = new(CleanupTimeout);
-        try
-        {
-            await Value.KillAsync(cancellationToken: cleanup.Token).ConfigureAwait(false);
-        }
-        catch (TmuxCommandException error) when (NamesAbsentWindow(error.Result))
-        {
-            // A window the server already dropped is the outcome that was asked
-            // for. Anything else is surfaced: disposal that quietly fails to
-            // clean up leaves a live window behind.
-        }
-    }
-
-    private static bool NamesAbsentWindow(TmuxCommandResult result) =>
-        result.StandardErrorLines.Any(static line =>
-            line.Contains("can't find window", StringComparison.Ordinal)
-            || line.Contains("no server running", StringComparison.Ordinal));
+    public ValueTask DisposeAsync() => _cleanup.DisposeAsync();
 }

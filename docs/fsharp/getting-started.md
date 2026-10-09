@@ -244,6 +244,13 @@ window, and splits each window's panes in order. A chain adds commands tmux
 runs together, each acting on what the one before made, and `Server.within`
 bounds every command a handle sends:
 
+`Server.withNewSession ct spec work server` scopes the same layout to a task
+callback. It removes the session after the callback finishes, including after
+failure or cancellation. Both creation functions roll back later layout
+failures once initial creation has returned a session ID. A failure in that
+initial call can leave its outcome unresolved. `Control.cleanupFailure`
+returns any teardown exception attached to the original failure.
+
 <!-- fsharp-snippet: BuildSession run -->
 ```fsharp run
 open System

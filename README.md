@@ -23,21 +23,27 @@ for stable tmux **3.2a and newer** on **net8.0** and **net10.0**.
 > settled, and any release may change or remove exported identifiers without a
 > deprecation period. Pin an exact version. Not recommended for production.
 
-<!-- snippet: ConnectAndBuild usings: LibTmux -->
+<!-- snippet: ConnectAndBuild usings: System, LibTmux -->
 ```csharp
+using System;
 using LibTmux;
 
-// Requires a tmux server already listening on this socket:
-// ConnectAsync() discovers one, it never starts one. With nothing
-// running yet, call Server.CreateOwnedAsync() instead.
-Server server = await Server.ConnectAsync();
-Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
-Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
-Pane pane = (await window.GetPanesAsync())[0];
-
-await pane.SendTextAsync("dotnet test");
+Server server = Server.Open();
+OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
+    new NewSessionRequest { Name = $"build-{Guid.NewGuid():N}" });
+await owned.UseAsync(async (session, token) =>
+{
+    Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" }, token);
+    Console.WriteLine($"Created {session.Id} / {window.Id}: {window.Name}");
+});
 ```
 <!-- endsnippet -->
+
+`Server.Open()` captures an endpoint without starting a daemon. Creating the
+session starts tmux when needed. `UseAsync` removes this session after success,
+failure or cancellation; the server handle itself is borrowed. The
+[complete C# program](examples/LibTmux.Quickstart/Program.cs) runs unchanged under
+an external test harness.
 
 ## Is this for you?
 
@@ -320,7 +326,7 @@ It exposes 45 tools selected from the unordered `inspect` (18), `manage` (14),
 `tmux://capabilities` resource. Existing and user-configured sockets omit
 teardown by default and expose 41. [The full reference](docs/mcp/tools.md) is
 generated from the server itself. Pin one socket for the process with
-`LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH`.
+`LIBTMUX_SOCKET_NAME` or `LIBTMUX_SOCKET_PATH`.
 
 What it is built around is that an assistant should never get stuck and never
 waste context. `run_shell_command` returns the shell's real exit status, and

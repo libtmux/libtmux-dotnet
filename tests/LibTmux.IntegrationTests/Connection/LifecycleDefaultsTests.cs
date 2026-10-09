@@ -1,0 +1,364 @@
+using System.Diagnostics;
+using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
+using LibTmux.IntegrationTests.Transport;
+using LibTmux.Internal;
+
+namespace LibTmux.IntegrationTests.Connection;
+
+[UnsupportedOSPlatform("windows")]
+[Collection("Process environment")]
+public sealed class LifecycleDefaultsTests
+{
+    private static CancellationToken Token => TestContext.Current.CancellationToken;
+    private static string Binary => Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "/usr/bin/tmux";
+
+    [UnixFact]
+    public async Task An_explicit_path_does_not_create_its_missing_parent()
+    {
+        string root = CreateRoot();
+        string missing = Path.Combine(root, "missing");
+        try
+        {
+            Server server = Server.Open(Options(root) with
+            {
+                SocketName = null,
+                SocketPath = Path.Combine(missing, "socket"),
+            });
+            await Assert.ThrowsAsync<TmuxCommandException>(() => server.StartServerAsync(Token));
+            Assert.False(Directory.Exists(missing));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task Named_endpoint_creates_only_the_uid_directory_and_accepts_group_permissions()
+    {
+        string root = CreateRoot();
+        string directory = Path.Combine(root, $"tmux-{UnixSocketDirectory.UserId}");
+        try
+        {
+            await using OwnedServerScope owned = await Server.CreateOwnedAsync(Options(root), Token);
+            Session session = await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "first" }, Token);
+            Assert.Equal((UnixFileMode)0x1C0, File.GetUnixFileMode(directory));
+            File.SetUnixFileMode(directory, (UnixFileMode)0x1F8);
+            Assert.True(await owned.Value.HasSessionAsync(session.Name, cancellationToken: Token));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task Missing_or_removed_root_fails_before_launch_and_never_recreates_parents()
+    {
+        string parent = CreateRoot();
+        string launched = Path.Combine(parent, "launched");
+        string executable = Path.Combine(parent, "tmux");
+        await File.WriteAllTextAsync(executable, $"#!/bin/sh\n: > '{launched}'\nexit 1\n", Token);
+        File.SetUnixFileMode(executable, (UnixFileMode)0x1C0);
+        try
+        {
+            foreach (bool existed in new[] { false, true })
+            {
+                string root = Path.Combine(parent, "missing");
+                if (existed)
+                {
+                    Directory.CreateDirectory(root);
+                }
+
+                Server server = Server.Open(Options(root) with { TmuxBinaryPath = executable });
+                if (existed)
+                {
+                    Directory.Delete(root);
+                }
+
+                Exception? error = await Record.ExceptionAsync(() => server.StartServerAsync(Token));
+                Assert.NotNull(error);
+                Assert.Contains("socket directory", error.ToString(), StringComparison.Ordinal);
+                Assert.False(File.Exists(launched));
+                Assert.False(Directory.Exists(root));
+            }
+        }
+        finally
+        {
+            Directory.Delete(parent, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task Unsafe_uid_directory_is_rejected_without_changing_its_permissions()
+    {
+        string root = CreateRoot();
+        string directory = Path.Combine(root, $"tmux-{UnixSocketDirectory.UserId}");
+        string target = Path.Combine(root, "target");
+        try
+        {
+            Directory.CreateDirectory(directory, (UnixFileMode)0x1FF);
+            File.SetUnixFileMode(directory, (UnixFileMode)0x1FF);
+            Exception? modeError = await Record.ExceptionAsync(() => Server.Open(Options(root)).StartServerAsync(Token));
+            Assert.NotNull(modeError);
+            Assert.Contains("no other-user permissions", modeError.ToString(), StringComparison.Ordinal);
+            Assert.Equal((UnixFileMode)0x1FF, File.GetUnixFileMode(directory));
+            Directory.Delete(directory);
+            Directory.CreateDirectory(target, (UnixFileMode)0x1C0);
+            Directory.CreateSymbolicLink(directory, target);
+            Exception? linkError = await Record.ExceptionAsync(() => Server.Open(Options(root)).StartServerAsync(Token));
+            Assert.NotNull(linkError);
+            Assert.Contains("real directory", linkError.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task Host_changes_do_not_redirect_process_control_or_cleanup_and_context_never_reaches_clients()
+    {
+        string root = CreateRoot();
+        string executable = Path.Combine(root, "tmux");
+        string log = Path.Combine(root, "clients");
+        string[] variables = ["TMUX_TMPDIR", "LIBTMUX_SOCKET_PATH", "LIBTMUX_SOCKET_NAME", "TMUX", "TMUX_PANE", "PATH", "LIBTMUX_TEST_CAPTURED_ENV", "LIBTMUX_TEST_LATE_ENV"];
+        Dictionary<string, string?> prior = variables.ToDictionary(name => name, Environment.GetEnvironmentVariable);
+        try
+        {
+            await TestExecutable.WriteAsync(executable,
+                $"#!/bin/sh\nprintf '%s|%s|%s|%s|%s\\n' \"${{TMUX-unset}}\" \"${{TMUX_PANE-unset}}\" \"${{LIBTMUX_TEST_CAPTURED_ENV-unset}}\" \"${{LIBTMUX_TEST_LATE_ENV-unset}}\" \"$*\" >> '{log}'\nexec '{Binary}' \"$@\"\n", Token);
+            File.Delete(log);
+            Environment.SetEnvironmentVariable("TMUX_TMPDIR", root);
+            Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_PATH", null);
+            Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_NAME", "captured");
+            Environment.SetEnvironmentVariable("TMUX", "ignored malformed context");
+            Environment.SetEnvironmentVariable("TMUX_PANE", "%9");
+            Environment.SetEnvironmentVariable("PATH", root + Path.PathSeparator + prior["PATH"]);
+            Environment.SetEnvironmentVariable("LIBTMUX_TEST_CAPTURED_ENV", "captured");
+            Environment.SetEnvironmentVariable("LIBTMUX_TEST_LATE_ENV", null);
+            Server endpoint = Server.Open(new ServerConnectionOptions { ConfigurationFile = "/dev/null" });
+            Environment.SetEnvironmentVariable("TMUX_TMPDIR", "relative changed root");
+            Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_PATH", "relative changed path");
+            Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_NAME", "../invalid");
+            Environment.SetEnvironmentVariable("PATH", "/no/tmux/in/this/path");
+            Environment.SetEnvironmentVariable("LIBTMUX_TEST_CAPTURED_ENV", "changed");
+            Environment.SetEnvironmentVariable("LIBTMUX_TEST_LATE_ENV", "added");
+            Session session = await endpoint.CreateSessionAsync(new NewSessionRequest { Name = "keeper" }, Token);
+            await using OwnedServerScope owned = await session.Server.AdoptAsync(Token);
+            await using (IControlModeSession control = await endpoint.EnterControlModeAsync(session.Id.ToString(), Token))
+            {
+                IReadOnlyList<string> answer = await control.SendAsync(TmuxCommand.Create("display-message", "-p", "#{socket_path}"), Token);
+                Assert.Equal(Path.Combine(root, $"tmux-{UnixSocketDirectory.UserId}", "captured"), Assert.Single(answer));
+            }
+
+            await owned.DisposeAsync();
+            string[] launches = await File.ReadAllLinesAsync(log, Token);
+            Assert.Contains(launches, line => line.Contains("-C", StringComparison.Ordinal));
+            Assert.Contains(launches, line => line.Contains("kill-server", StringComparison.Ordinal));
+            Assert.All(launches, line => Assert.StartsWith("unset|unset|captured|unset|", line, StringComparison.Ordinal));
+            Assert.Equal("ignored malformed context", Environment.GetEnvironmentVariable("TMUX"));
+            Assert.Equal("%9", Environment.GetEnvironmentVariable("TMUX_PANE"));
+            Assert.Equal("changed", Environment.GetEnvironmentVariable("LIBTMUX_TEST_CAPTURED_ENV"));
+            Assert.Equal("added", Environment.GetEnvironmentVariable("LIBTMUX_TEST_LATE_ENV"));
+        }
+        finally
+        {
+            foreach ((string name, string? value) in prior)
+            {
+                Environment.SetEnvironmentVariable(name, value);
+            }
+
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task Exact_quickstart_runs_with_only_external_endpoint_defaults()
+    {
+        await RunQuickstartAsync(failBody: false, failCleanup: false);
+        await RunQuickstartAsync(failBody: true, failCleanup: false);
+        await RunQuickstartAsync(failBody: false, failCleanup: true);
+        await RunQuickstartAsync(failBody: true, failCleanup: true);
+    }
+
+    [UnixFact]
+    public async Task Session_and_window_cleanup_share_failures_and_allow_retry_after_cancellation()
+    {
+        string root = CreateRoot();
+        bool fail = true;
+        int attempts = 0;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            await using OwnedServerScope owned = await Server.CreateOwnedAsync(Options(root), Token);
+            Session kept = await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "keeper" }, Token);
+            Server client = Server.Open(Options(root) with
+            {
+                Interceptor = async (invocation, next, token) =>
+                {
+                    if (invocation.Arguments.Any(arg => arg.Contains("kill-session", StringComparison.Ordinal)
+                        || arg.Contains("kill-window", StringComparison.Ordinal)))
+                    {
+                        Assert.False(token.IsCancellationRequested);
+                        attempts++;
+                        if (fail)
+                        {
+                            entered.TrySetResult();
+                            await release.Task;
+                            throw new InvalidOperationException("injected cleanup failure");
+                        }
+                    }
+
+                    return await next(token);
+                },
+            });
+            OwnedSessionScope session = await client.CreateOwnedSessionAsync(new NewSessionRequest { Name = "owned" }, Token);
+            Task first = session.DisposeAsync().AsTask();
+            await entered.Task.WaitAsync(Token);
+            Task concurrent = session.DisposeAsync().AsTask();
+            Assert.Same(first, concurrent);
+            release.SetResult();
+            await Assert.ThrowsAsync<InvalidOperationException>(() => first);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => concurrent);
+            Assert.True(await owned.Value.HasSessionAsync("owned", cancellationToken: Token));
+            fail = false;
+            await session.DisposeAsync();
+            await session.DisposeAsync();
+            Assert.Equal(2, attempts);
+            Assert.False(await owned.Value.HasSessionAsync("owned", cancellationToken: Token));
+            Session keeper = await client.GetSessionAsync(kept.Id, Token);
+            OwnedWindowScope window = await keeper.CreateOwnedWindowAsync(new NewWindowRequest { Name = "owned-window" }, Token);
+            fail = true;
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await window.DisposeAsync());
+            fail = false;
+            await window.DisposeAsync();
+            await window.DisposeAsync();
+            Assert.Equal(4, attempts);
+            Assert.DoesNotContain(await keeper.GetWindowsAsync(Token), candidate => candidate.Id == window.Value.Id);
+            using var cancelledBody = new CancellationTokenSource();
+            await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            {
+                await using OwnedSessionScope cancelled = await client.CreateOwnedSessionAsync(
+                    new NewSessionRequest { Name = "cancelled" }, Token);
+                cancelledBody.Cancel();
+                cancelledBody.Token.ThrowIfCancellationRequested();
+            });
+            Assert.False(await owned.Value.HasSessionAsync("cancelled", cancellationToken: Token));
+            Assert.Equal(5, attempts);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static async Task RunQuickstartAsync(bool failBody, bool failCleanup)
+    {
+        string root = CreateRoot();
+        string executable = Path.Combine(root, "tmux");
+        string socket = Path.Combine(root, "ordinary.sock");
+        ServerConnectionOptions options = Options(root) with { SocketName = null, SocketPath = socket };
+        try
+        {
+            await using OwnedServerScope owned = await Server.CreateOwnedAsync(options, Token);
+            await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "keeper" }, Token);
+            await owned.Value.ExecuteCommandAsync(["set-hook", "-g", "after-new-session", "set-option -g @ordinary-created yes"], Token);
+            string faults = (failBody ? "case \"$*\" in *new-window*) echo 'injected body failure' >&2; exit 1;; esac\n" : "")
+                + (failCleanup ? "case \"$*\" in *kill-session*) echo 'injected cleanup failure' >&2; exit 1;; esac\n" : "");
+            await TestExecutable.WriteAsync(executable, $"#!/bin/sh\n{faults}exec '{Binary}' \"$@\"\n", Token);
+            string project = Path.Combine(RepositoryRoot(), "examples", "LibTmux.Quickstart", "bin",
+                new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name,
+                new DirectoryInfo(AppContext.BaseDirectory).Name, "LibTmux.Quickstart.dll");
+            var start = new ProcessStartInfo(Environment.ProcessPath!)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            // Test assemblies run as apphosts or under dotnet. The example needs
+            // the same runtime host, never a new invocation of the test apphost.
+            if (!Path.GetFileNameWithoutExtension(start.FileName).Equals("dotnet", StringComparison.Ordinal))
+            {
+                start.FileName = Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), "..", "..", "..", "dotnet");
+            }
+
+            start.ArgumentList.Add(project);
+            start.Environment["LIBTMUX_SOCKET_PATH"] = socket;
+            start.Environment["LIBTMUX_SOCKET_NAME"] = "../ignored";
+            start.Environment["TMUX"] = "ignored malformed context";
+            start.Environment["TMUX_PANE"] = "%77";
+            start.Environment["PATH"] = root + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
+            using Process child = Process.Start(start)!;
+            Task<string> stdout = child.StandardOutput.ReadToEndAsync(Token);
+            Task<string> stderr = child.StandardError.ReadToEndAsync(Token);
+            try
+            {
+                await child.WaitForExitAsync(Token);
+            }
+            finally
+            {
+                if (!child.HasExited)
+                {
+                    child.Kill(entireProcessTree: true);
+                    await child.WaitForExitAsync(CancellationToken.None);
+                }
+            }
+
+            string output = await stdout;
+            string error = await stderr;
+            Assert.Equal(!failBody && !failCleanup, child.ExitCode == 0);
+            if (!failBody)
+            {
+                Assert.Contains(": tests", output, StringComparison.Ordinal);
+            }
+
+            if (failCleanup)
+            {
+                Assert.Contains("injected cleanup failure", error, StringComparison.Ordinal);
+                if (failBody)
+                {
+                    Assert.Contains("injected body failure", error, StringComparison.Ordinal);
+                }
+            }
+            else if (failBody)
+            {
+                Assert.Contains("injected body failure", error, StringComparison.Ordinal);
+            }
+
+            TmuxCommandResult effect = await owned.Value.ExecuteCommandAsync(["show-option", "-gqv", "@ordinary-created"], Token);
+            Assert.Equal("yes", Assert.Single(effect.StandardOutputLines));
+            Assert.Equal(failCleanup ? 2 : 1, (await owned.Value.GetSessionsAsync(Token)).Count);
+            await owned.DisposeAsync();
+            Assert.Null(await Server.Open(options).InspectAsync(Token));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static ServerConnectionOptions Options(string root) => new()
+    {
+        SocketName = "owned",
+        ConfigurationFile = "/dev/null",
+        TmuxBinaryPath = Binary,
+        ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = root },
+    };
+
+    private static string CreateRoot() =>
+        Directory.CreateDirectory(Path.Combine("/tmp/libtmux-dotnet-test", "mvp-" + Guid.NewGuid().ToString("N")[..12])).FullName;
+
+    private static string RepositoryRoot()
+    {
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "LibTmux.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        return directory?.FullName ?? throw new InvalidOperationException("The repository root was not found.");
+    }
+}

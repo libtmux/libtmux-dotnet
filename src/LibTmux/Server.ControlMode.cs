@@ -49,9 +49,7 @@ public sealed partial class Server
             connection.PrefixArguments,
             target,
             live.Generation!.Value,
-            startInfo => TmuxConnection.ApplyChildEnvironment(
-                startInfo,
-                connection.Options.ChildEnvironment),
+            connection.PrepareChild,
             connection.Options.ControlModeEventBufferCapacity,
             connection.Options.ControlModeEventBufferMaxBytes);
 

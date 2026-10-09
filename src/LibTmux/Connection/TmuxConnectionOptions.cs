@@ -54,6 +54,7 @@ public sealed record ServerConnectionOptions
     private readonly int? _controlModeEventBufferMaxBytes;
 
     /// <summary>Gets the tmux executable path.</summary>
+    /// <remarks>Opening a server resolves a bare name against the effective child PATH and retains that choice.</remarks>
     /// <exception cref="ArgumentException">The path is empty or whitespace.</exception>
     public string TmuxBinaryPath
     {
@@ -66,7 +67,7 @@ public sealed record ServerConnectionOptions
     }
 
     /// <summary>Gets the explicit socket name.</summary>
-    /// <exception cref="ArgumentException">The name is empty or whitespace.</exception>
+    /// <exception cref="ArgumentException">The name is empty or is not a leaf name.</exception>
     public string? SocketName
     {
         get => _socketName;
@@ -74,15 +75,15 @@ public sealed record ServerConnectionOptions
         {
             if (value is not null)
             {
-                ArgumentException.ThrowIfNullOrWhiteSpace(value);
+                TmuxConnectionEndpoint.ValidateSocketName(value, nameof(SocketName));
             }
 
             _socketName = value;
         }
     }
 
-    /// <summary>Gets the explicit socket path.</summary>
-    /// <exception cref="ArgumentException">The path is empty or whitespace.</exception>
+    /// <summary>Gets the explicit absolute socket path.</summary>
+    /// <exception cref="ArgumentException">The path is relative, empty, or contains NUL.</exception>
     public string? SocketPath
     {
         get => _socketPath;
@@ -90,7 +91,7 @@ public sealed record ServerConnectionOptions
         {
             if (value is not null)
             {
-                ArgumentException.ThrowIfNullOrWhiteSpace(value);
+                TmuxConnectionEndpoint.ValidateSocketPath(value, nameof(SocketPath));
             }
 
             _socketPath = value;
@@ -135,7 +136,13 @@ public sealed record ServerConnectionOptions
     /// <summary>Gets the post-connect initializer.</summary>
     public Func<Server, CancellationToken, ValueTask>? InitializeAsync { get; init; }
 
-    /// <summary>Gets the child-process environment overrides.</summary>
+    /// <summary>Gets copied child-process environment overrides; null values remove variables.</summary>
+    /// <remarks>
+    /// Endpoint selection reads these overrides before the host environment when
+    /// the handle is opened. The handle captures the complete effective environment.
+    /// The overrides do not change the host or tmux environment tables.
+    /// TMUX and TMUX_PANE select context but are removed from launched clients.
+    /// </remarks>
     /// <exception cref="ArgumentException">
     /// A name is empty, contains NUL or <c>=</c>, or a value contains NUL.
     /// </exception>

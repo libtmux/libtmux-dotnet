@@ -11,6 +11,7 @@
     <Compile Include="QueryTests.fs" />
     <Compile Include="DescriptorMatrixTests.fs" />
     <Compile Include="FixtureTests.fs" />
+    <Compile Include="LifecycleTests.fs" />
     <PackageReference Include="FSharp.Core" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="all" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />

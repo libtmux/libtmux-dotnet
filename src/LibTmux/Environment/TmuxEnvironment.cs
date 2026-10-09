@@ -17,7 +17,7 @@ namespace LibTmux.Internal;
 internal sealed record TmuxServerLocation(
     string SocketPath,
     int ServerProcessId,
-    SessionId SessionId);
+    SessionId? SessionId);
 
 /// <summary>Reads the variables tmux exports into the panes it spawns.</summary>
 internal static class TmuxEnvironmentVariables
@@ -37,10 +37,12 @@ internal static class TmuxEnvironmentVariables
     /// <returns>True when the environment names a tmux server.</returns>
     internal static bool TryRead(
         IReadOnlyDictionary<string, string>? environment,
-        [NotNullWhen(true)] out TmuxServerLocation? entry)
+        [NotNullWhen(true)] out TmuxServerLocation? entry) =>
+        TryParse(Read(environment, ServerVariable), out entry);
+
+    internal static bool TryParse(string? value, [NotNullWhen(true)] out TmuxServerLocation? entry)
     {
         entry = null;
-        string? value = Read(environment, ServerVariable);
         if (string.IsNullOrEmpty(value))
         {
             return false;
@@ -59,25 +61,28 @@ internal static class TmuxEnvironmentVariables
         string socketPath = value[..processSeparator];
         string rawProcessId = value[(processSeparator + 1)..sessionSeparator];
         string rawSessionId = value[(sessionSeparator + 1)..];
-        if (!int.TryParse(
-                rawProcessId,
-                NumberStyles.None,
-                CultureInfo.InvariantCulture,
-                out int processId)
-            || processId <= 0
-            || rawProcessId != processId.ToString(CultureInfo.InvariantCulture)
-            || !int.TryParse(
-                rawSessionId,
-                NumberStyles.None,
-                CultureInfo.InvariantCulture,
-                out int sessionId)
-            || sessionId < 0
-            || rawSessionId != sessionId.ToString(CultureInfo.InvariantCulture))
+        if (!TmuxConnectionEndpoint.IsAbsoluteSocketPath(socketPath) || socketPath.Contains('\0')
+            || rawProcessId.Length == 0 || !rawProcessId.All(char.IsAsciiDigit)
+            || !int.TryParse(rawProcessId, NumberStyles.None, CultureInfo.InvariantCulture, out int processId)
+            || processId <= 0)
         {
             return false;
         }
 
-        entry = new TmuxServerLocation(socketPath, processId, new SessionId(sessionId));
+        SessionId? session = null;
+        if (rawSessionId != "-1")
+        {
+            string digits = rawSessionId.StartsWith('$') ? rawSessionId[1..] : rawSessionId;
+            if (digits.Length == 0 || !digits.All(char.IsAsciiDigit)
+                || !int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out int sessionId))
+            {
+                return false;
+            }
+
+            session = new SessionId(sessionId);
+        }
+
+        entry = new TmuxServerLocation(socketPath, processId, session);
         return true;
     }
 

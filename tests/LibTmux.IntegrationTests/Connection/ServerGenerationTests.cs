@@ -237,7 +237,7 @@ public sealed class ServerGenerationTests
     }
 
     [UnixFact]
-    public async Task Window_creation_receipt_refuses_a_relinked_placement()
+    public async Task Window_creation_receipt_refuses_a_relinked_placement_and_rolls_back_its_window()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(token);
@@ -273,8 +273,9 @@ public sealed class ServerGenerationTests
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
         RawTmuxResult remaining = await context.ExecuteAsync(
             ["list-windows", "-t", context.SessionName, "-F", "#{window_id}\t#{window_index}"], token);
-        Assert.Contains(initialWindowId + "\t9", remaining.StandardOutputLines);
-        Assert.Equal(2, remaining.StandardOutputLines.Count);
+        Assert.DoesNotContain(remaining.StandardOutputLines, row => row.StartsWith(initialWindowId + "\t", StringComparison.Ordinal));
+        Assert.Single(remaining.StandardOutputLines);
+        Assert.Null(OwnedScope.CleanupFailure(failure));
     }
 
     [UnixFact]
@@ -616,15 +617,15 @@ public sealed class ServerGenerationTests
     }
 
     [UnixFact]
-    public async Task Implicit_default_endpoint_ignores_explicit_child_tmux()
+    public async Task Child_tmux_context_precedes_the_named_default()
     {
-        await using RawTmuxTestContext decoy = await RawTmuxTestContext.StartAsync(
+        await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         string nonce = Guid.NewGuid().ToString("N");
         string socketRoot = Path.Combine(Path.GetTempPath(), $"ltcs-default-{nonce}");
         string expectedSession = $"expected-{nonce}";
         Directory.CreateDirectory(socketRoot);
-        var expectedTransport = CreateNamedTransport(decoy.TmuxBinaryPath, socketRoot, "default");
+        var expectedTransport = CreateNamedTransport(context.TmuxBinaryPath, socketRoot, "default");
 
         try
         {
@@ -633,19 +634,21 @@ public sealed class ServerGenerationTests
                 (await expectedTransport.ExecuteAsync(
                     ["new-session", "-d", "-s", expectedSession],
                     TestContext.Current.CancellationToken)).ExitCode);
-            RawTmuxResult decoyPid = await decoy.ExecuteAsync(
+            RawTmuxResult contextPid = await context.ExecuteAsync(
                 ["display-message", "-p", "#{pid}"],
                 TestContext.Current.CancellationToken);
-            Assert.Equal(0, decoyPid.ExitCode);
-            string explicitTmux = $"{decoy.SocketPath},{Assert.Single(decoyPid.StandardOutputLines)},0";
+            Assert.Equal(0, contextPid.ExitCode);
+            string explicitTmux = $"{context.SocketPath},{Assert.Single(contextPid.StandardOutputLines)},0";
 
             Server server = await Server.ConnectAsync(
                 new ServerConnectionOptions
                 {
-                    TmuxBinaryPath = decoy.TmuxBinaryPath,
+                    TmuxBinaryPath = context.TmuxBinaryPath,
                     ConfigurationFile = "/dev/null",
                     ChildEnvironment = new Dictionary<string, string?>
                     {
+                        ["LIBTMUX_SOCKET_PATH"] = null,
+                        ["LIBTMUX_SOCKET_NAME"] = null,
                         ["TMUX"] = explicitTmux,
                         ["TMUX_TMPDIR"] = socketRoot,
                     }
@@ -655,7 +658,9 @@ public sealed class ServerGenerationTests
                 ["display-message", "-p", "#{session_name}"],
                 TestContext.Current.CancellationToken);
 
-            Assert.Equal([expectedSession], result.StandardOutputLines);
+            Assert.Equal([context.SessionName], result.StandardOutputLines);
+            Assert.Equal(0, (await expectedTransport.ExecuteAsync(
+                ["has-session", "-t", expectedSession], TestContext.Current.CancellationToken)).ExitCode);
         }
         finally
         {

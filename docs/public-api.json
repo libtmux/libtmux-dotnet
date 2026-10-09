@@ -93,7 +93,12 @@
     "T:LibTmux.TmuxHooks": "borrowed",
     "T:LibTmux.TmuxOptions": "borrowed",
     "T:LibTmux.Window": "borrowed",
-    "T:LibTmux.TmuxWaitChannel": "owned"
+    "T:LibTmux.TmuxWaitChannel": "owned",
+    "T:LibTmux.OwnedPaneScope": "owned",
+    "T:LibTmux.IOwnedTmuxResource`1": "owned",
+    "T:LibTmux.FoundOrCreated`1": "owned",
+    "T:LibTmux.DiscoveredServer": "borrowed",
+    "T:LibTmux.ServerDiscoveryResult": "borrowed"
   },
   "members": [
     {
@@ -1280,6 +1285,61 @@
     },
     {
       "id": "M:LibTmux.Workspace.WorkspaceBuilder.BuildAsync(LibTmux.Workspace.WorkspaceFile,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Server.AdoptAsync(System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Session.AdoptAsync(System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Window.AdoptAsync(System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Pane.AdoptAsync(System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Server.FindOrCreateAsync(System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Server.FindOrCreateSessionAsync(System.String,LibTmux.NewSessionRequest,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Session.FindOrCreateWindowAsync(System.String,LibTmux.NewWindowRequest,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Window.FindOrCreatePaneAsync(System.String,LibTmux.SplitPaneRequest,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Pane.SplitOwnedAsync(LibTmux.SplitPaneRequest,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Server.DiscoverAsync(LibTmux.ServerDiscoveryOptions,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Server.InspectAsync(System.Threading.CancellationToken)",
       "performsIO": true,
       "processBacked": true
     }

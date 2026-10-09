@@ -285,6 +285,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val tryFindSession: cancellationToken: CancellationToken -> id: SessionId -> server: LibTmux.Server -> Task<LibTmux.Session option>` | Returns a session or None after a successful lookup establishes absence. |
 | `val tryFindWindow: cancellationToken: CancellationToken -> id: WindowId -> server: LibTmux.Server -> Task<LibTmux.Window option>` | Returns a window or None after a successful lookup establishes absence. |
 | `val windows: server: LibTmux.Server -> Query<LibTmux.Window>` | Queries window placements across all sessions. |
+| `val withNewSession: cancellationToken: CancellationToken -> spec: SessionSpec -> work: (LibTmux.Session -> Task<'State>) -> server: LibTmux.Server -> Task<'State>` | Creates a session layout, runs work, and removes the session after the task completes. |
 | `val within: timeout: TimeSpan -> server: LibTmux.Server -> LibTmux.Server` | Returns the server with every command bounded by a timeout, for it and every handle taken from it. |
 
 ## Session

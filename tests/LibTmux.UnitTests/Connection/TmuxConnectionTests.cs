@@ -26,6 +26,7 @@ internal sealed class ConnectionUnixFactAttribute : FactAttribute
     }
 }
 
+[Collection("Process environment")]
 public sealed class ConnectionValueTests
 {
 
@@ -197,7 +198,7 @@ public sealed class ConnectionValueTests
                 ["PSMUX_SESSION"] = "explicit-session",
             });
 
-        Assert.Equal("explicit", overriddenStartInfo.Environment["TMUX"]);
+        Assert.False(overriddenStartInfo.Environment.ContainsKey("TMUX"));
         Assert.Equal("explicit-session", overriddenStartInfo.Environment["PSMUX_SESSION"]);
         Assert.Equal(processTmux, Environment.GetEnvironmentVariable("TMUX"));
 
@@ -206,7 +207,7 @@ public sealed class ConnectionValueTests
         TmuxConnection.ApplyChildEnvironment(
             emptyStartInfo,
             new Dictionary<string, string?> { ["TMUX"] = string.Empty });
-        Assert.Equal(string.Empty, emptyStartInfo.Environment["TMUX"]);
+        Assert.False(emptyStartInfo.Environment.ContainsKey("TMUX"));
 
         var removedStartInfo = new ProcessStartInfo("tmux");
         removedStartInfo.Environment["TMUX"] = "inherited";
@@ -308,7 +309,7 @@ public sealed class ConnectionValueTests
         };
         var connection = CreateFakeConnection(options);
 
-        Assert.Equal(expected, connection.PrefixArguments);
+        Assert.Equal([.. expected[..^2], .. NamedArguments("named")], connection.PrefixArguments);
     }
 
     [Fact]
@@ -316,7 +317,7 @@ public sealed class ConnectionValueTests
     {
         var connection = CreateFakeConnection(new ServerConnectionOptions());
 
-        Assert.Equal(["-u", "-L", "default"], connection.PrefixArguments);
+        Assert.Equal(["-u", .. NamedArguments("default")], connection.PrefixArguments);
     }
 
     [Fact]
@@ -329,7 +330,7 @@ public sealed class ConnectionValueTests
                 ("LIBTMUX_SOCKET_NAME", "libtmux-example-connect"))
             });
 
-        Assert.Equal(["-u", "-L", "libtmux-example-connect"], connection.PrefixArguments);
+        Assert.Equal(["-u", .. NamedArguments("libtmux-example-connect")], connection.PrefixArguments);
     }
 
     [Fact]
@@ -356,7 +357,7 @@ public sealed class ConnectionValueTests
             ChildEnvironment = ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored")),
         });
 
-        Assert.Equal(["-u", "-L", "named"], connection.PrefixArguments);
+        Assert.Equal(["-u", .. NamedArguments("named")], connection.PrefixArguments);
     }
 
     [Fact]
@@ -368,7 +369,7 @@ public sealed class ConnectionValueTests
             ChildEnvironment = ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored")),
         });
 
-        Assert.Equal(["-u", "-L", "made"], connection.PrefixArguments);
+        Assert.Equal(["-u", .. NamedArguments("made")], connection.PrefixArguments);
     }
 
     [Fact]
@@ -381,7 +382,7 @@ public sealed class ConnectionValueTests
                 ("LIBTMUX_SOCKET_PATH", "/tmp/libtmux-ignored.sock"))
         });
 
-        Assert.Equal(["-u", "-L", "named"], connection.PrefixArguments);
+        Assert.Equal(["-u", .. NamedArguments("named")], connection.PrefixArguments);
     }
 
     [Fact]
@@ -394,7 +395,7 @@ public sealed class ConnectionValueTests
         {
             var connection = CreateFakeConnection(new ServerConnectionOptions());
 
-            Assert.Equal(["-u", "-L", Name], connection.PrefixArguments);
+            Assert.Equal(["-u", .. NamedArguments(Name)], connection.PrefixArguments);
         }
         finally
         {
@@ -415,7 +416,7 @@ public sealed class ConnectionValueTests
     }
 
     [Fact]
-    public void Named_endpoint_identity_uses_the_normalized_effective_socket_root()
+    public void Named_endpoint_identity_preserves_the_effective_socket_root()
     {
         string firstRoot = Path.Combine(Path.GetTempPath(), "libtmux-root-one");
         string equivalentRoot = Path.Combine(firstRoot, "nested", "..");
@@ -446,8 +447,7 @@ public sealed class ConnectionValueTests
                 }
             });
 
-        Assert.Equal(first, equivalent);
-        Assert.Equal(first.GetHashCode(), equivalent.GetHashCode());
+        Assert.NotEqual(first, equivalent);
         Assert.NotEqual(first, distinct);
     }
 
@@ -486,28 +486,20 @@ public sealed class ConnectionValueTests
     }
 
     [Fact]
-    public void Socket_path_precedes_name_and_factory_without_invoking_superseded_factory()
+    public void Socket_path_and_name_are_rejected_without_invoking_factory()
     {
         int calls = 0;
-        string originalPath = Path.Combine("relative", "..", "socket.sock");
-        string absolutePath = Path.Combine(Directory.GetCurrentDirectory(), "socket.sock");
         var options = new ServerConnectionOptions
         {
             SocketName = "named",
-            SocketPath = originalPath,
+            SocketPath = Path.Combine(Path.GetTempPath(), "socket.sock"),
             SocketNameFactory = () =>
             {
                 calls++;
                 return "factory";
             }
         };
-        var connection = CreateFakeConnection(options);
-        Server normalized = Server.Open(new ServerConnectionOptions { SocketPath = absolutePath });
-        Server original = Server.Open(options);
-
-        Assert.Equal(["-u", "-S", absolutePath], connection.PrefixArguments);
-        Assert.Equal(normalized, original);
-        Assert.Equal(originalPath, connection.Options.SocketPath);
+        Assert.Throws<ArgumentException>(() => CreateFakeConnection(options));
         Assert.Equal(0, calls);
     }
 
@@ -526,7 +518,7 @@ public sealed class ConnectionValueTests
                 }
             });
 
-        Assert.Equal(["-u", "-L", "named"], connection.PrefixArguments);
+        Assert.Equal(["-u", .. NamedArguments("named")], connection.PrefixArguments);
         Assert.Equal(0, calls);
     }
 
@@ -554,7 +546,7 @@ public sealed class ConnectionValueTests
     [Theory]
     [InlineData(null)]
     [InlineData("")]
-    [InlineData("   ")]
+    [InlineData("../invalid")]
     public void Selected_socket_name_factory_rejects_invalid_results_before_execution(
         string? factoryResult)
     {
@@ -569,7 +561,7 @@ public sealed class ConnectionValueTests
         }
         };
 
-        Assert.Throws<InvalidOperationException>(
+        Assert.Throws<ArgumentException>(
             () => new TmuxConnection(
                 options,
                 FakeMultiplexer.AnsweringVersion((request, _) =>
@@ -582,7 +574,7 @@ public sealed class ConnectionValueTests
     }
 
     [Fact]
-    public void Server_equality_uses_only_the_normalized_endpoint()
+    public void Server_equality_preserves_the_selected_endpoint_spelling()
     {
         Server implicitDefault = Server.Open();
         Server explicitDefault = Server.Open(
@@ -614,7 +606,7 @@ public sealed class ConnectionValueTests
 
         Assert.Equal(implicitDefault, explicitDefault);
         Assert.Equal(implicitDefault.GetHashCode(), explicitDefault.GetHashCode());
-        Assert.Equal(firstPath, secondPath);
+        Assert.NotEqual(firstPath, secondPath);
         Assert.NotEqual(firstPath, implicitDefault);
     }
 
@@ -632,6 +624,11 @@ public sealed class ConnectionValueTests
         Assert.Null(server.Generation);
         Assert.Same(ServerConnectionOptions.Default, server.ConnectionOptions);
     }
+
+    private static string[] NamedArguments(string name) => OperatingSystem.IsWindows()
+        ? ["-L", name]
+        : ["-S", Path.Combine(Environment.GetEnvironmentVariable("TMUX_TMPDIR") ?? "/tmp",
+            $"tmux-{UnixSocketDirectory.UserId}", name)];
 
     private static TmuxConnection CreateFakeConnection(ServerConnectionOptions options) =>
         new(

@@ -6,6 +6,10 @@ open System.Threading
 open System.Threading.Tasks
 open LibTmux
 
+module internal AsyncCleanup =
+    val run: work: (unit -> Task<'T>) -> cleanup: (unit -> Task) -> Task<'T>
+    val failure: error: exn -> exn option
+
 /// <summary>Represents a decision to continue or stop an event fold.</summary>
 [<RequireQualifiedAccess>]
 type StreamStep<'State> =
@@ -105,11 +109,13 @@ module Control =
 
     /// <summary>Returns the cleanup failure attached to the exception a helper rethrew.</summary>
     /// <remarks>
-    /// When work and cleanup both fail, the helpers rethrow the work's exception
+    /// When work and cleanup both fail, control and session helpers rethrow the work's exception
     /// unchanged and attach the cleanup's; this reads it back. The work's
     /// exception keeps its type so that a handler written for it, such as
     /// <c>:? TmuxPaneException</c> or a <c>when</c> filter, still matches;
     /// an <c>AggregateException</c> of both would slip past those handlers.
+    /// The same accessor reports rollback failures attached by core creation
+    /// when its initial readback fails after receiving an object ID.
     /// </remarks>
     val cleanupFailure: error: exn -> exn option
 

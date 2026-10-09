@@ -159,9 +159,13 @@ public sealed partial class Window
             arguments.Add(options.Command);
         }
 
+        owner = await TmuxOwnershipIdentity.CaptureAsync(owner, cancellationToken).ConfigureAwait(false);
+        TmuxCommandDispatcher dispatcher = owner.Connection!.CreateEntityDispatcher(_generation);
+        cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource acquisition = new(OwnedCleanup.Timeout);
         var sequence = new TmuxMutationSequence();
         TmuxCommandResult result = await sequence.MutateAsync(
-                () => _commandDispatcher.ExecuteAsync(arguments, cancellationToken),
+                () => OwnedCleanup.DispatchCreationAsync(() => dispatcher.ExecuteAsync(arguments, acquisition.Token), arguments[0], acquisition.Token),
                 static value => TmuxCommandFailure.ThrowIfFailed(value, "new-window"))
             .ConfigureAwait(false);
 
@@ -173,13 +177,14 @@ public sealed partial class Window
                         "tmux reported no new window identifier.",
                         result));
 
-        IReadOnlyList<Window> windows = await sequence
-            .ObserveAsync(() => owner.GetWindowsAsync(cancellationToken))
-            .ConfigureAwait(false);
-        return sequence.Observe(() =>
-            windows.FirstOrDefault(window => window.Id == created)
-                ?? throw new TmuxObjectNotFoundException(
-                    $"tmux did not report the created window '{created}'.",
-                    created.ToString()));
+        return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<Window> windows = await owner.GetWindowsAsync(cancellationToken).ConfigureAwait(false);
+            Window window = windows.FirstOrDefault(window => window.Id == created)
+                ?? throw new TmuxObjectNotFoundException($"tmux did not report the created window '{created}'.", created.ToString());
+            cancellationToken.ThrowIfCancellationRequested();
+            return window;
+        }, owner, _generation, "window", created.ToString()).ConfigureAwait(false);
     }
 }

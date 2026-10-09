@@ -95,10 +95,7 @@ public sealed class ServerSessionLifecycleTests
             new NewSessionRequest { Name = "main" },
             token);
 
-        // owned.Value stays the unmaterialized endpoint; every listing
-        // through it must discover the live server and list what it owns
-        // rather than throwing "no tmux version".
-        Assert.False(owned.Value.IsMaterialized);
+        Assert.True(owned.Value.IsMaterialized);
         IReadOnlyList<Session> sessions = await owned.Value.GetSessionsAsync(token);
         Session listed = Assert.Single(sessions);
         Assert.Equal(session.Id, listed.Id);
@@ -110,11 +107,7 @@ public sealed class ServerSessionLifecycleTests
         Assert.Empty(await owned.Value.GetAttachedSessionsAsync(token));
         Assert.Single(await listed.GetWindowsAsync(token));
 
-        // The same still-unmaterialized handle must discover the live server
-        // from Find*Async and GetClientsAsync too, the way the four listings
-        // above already do, rather than throwing InvalidOperationException or
-        // IncompleteSnapshotException.
-        Assert.False(owned.Value.IsMaterialized);
+        Assert.Equal(session.Generation, owned.Value.Generation);
         Assert.Equal(session.Id, (await owned.Value.FindSessionAsync(session.Id, token))?.Id);
         Assert.Equal(window.Id, (await owned.Value.FindWindowAsync(window.Id, token))?.Id);
         Assert.Equal(pane.Id, (await owned.Value.FindPaneAsync(pane.Id, token))?.Id);

@@ -96,6 +96,14 @@ let runScenario mode =
                 let! first =
                     server.CreateSessionAsync(NewSessionRequest(Name = "fsharp", Command = "/bin/sh"), token)
 
+                let! scopedId =
+                    server
+                    |> Server.withNewSession token (SessionSpec.running "scoped" "/bin/sh") (fun session ->
+                        Task.FromResult session.Id)
+
+                let! scopedSession = server |> Server.tryFindSession token scopedId
+                check "session task scope removes its created session" scopedSession.IsNone
+
                 let! sessions = server.GetSessionsAsync(token)
 
                 check

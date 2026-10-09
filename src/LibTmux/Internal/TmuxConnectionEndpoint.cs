@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -18,60 +19,192 @@ internal static class TmuxConnectionEndpoint
     internal static ResolvedTmuxConnection Resolve(ServerConnectionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        Dictionary<string, string?> environment = CaptureEnvironment(options.ChildEnvironment);
+
+        if (options.SocketPath is not null
+            && (options.SocketName is not null || options.SocketNameFactory is not null))
+        {
+            throw new ArgumentException(
+                "A connection cannot specify both a socket path and a socket name.", nameof(options));
+        }
 
         bool chosen = options.SocketPath is not null
             || options.SocketName is not null
             || options.SocketNameFactory is not null;
-        string? environmentSocketName = chosen
-            ? null
-            : ReadVariable(options.ChildEnvironment, SocketNameVariable);
-
-        string? socketPath = options.SocketPath is not null
-            ? Path.GetFullPath(options.SocketPath)
-            : NormalizeSocketPath(
-                chosen ? null : ReadVariable(options.ChildEnvironment, SocketPathVariable));
-        string? socketName = null;
-        IReadOnlyDictionary<string, string?>? childEnvironment = options.ChildEnvironment;
-        TmuxEndpointIdentity endpointIdentity;
-        if (socketPath is null)
+        string? socketPath = options.SocketPath;
+        string? socketName = options.SocketName;
+        if (socketName is null && options.SocketNameFactory is not null)
         {
-            socketName = options.SocketName;
-            if (socketName is null && options.SocketNameFactory is not null)
+            socketName = options.SocketNameFactory()
+                ?? throw new ArgumentException("The socket-name factory returned null.", nameof(options));
+        }
+
+        if (!chosen)
+        {
+            socketPath = ReadVariable(environment, SocketPathVariable);
+            if (socketPath is null)
             {
-                socketName = options.SocketNameFactory();
-                if (string.IsNullOrWhiteSpace(socketName))
+                socketName = ReadVariable(environment, SocketNameVariable);
+                if (socketName is null
+                    && ReadVariable(environment, "TMUX") is string tmux)
                 {
-                    throw new InvalidOperationException(
-                        "The selected socket-name factory returned no usable name.");
+                    if (ReadRawVariable(environment, "PSMUX_SESSION") is not null
+                        || tmux.StartsWith("/tmp/psmux-", StringComparison.Ordinal))
+                    {
+                        throw new ArgumentException(
+                            "A psmux context requires explicit PsmuxConnectionOptions.", nameof(options));
+                    }
+
+                    if (!TmuxEnvironmentVariables.TryParse(tmux, out TmuxServerLocation? location))
+                    {
+                        throw new ArgumentException($"The selected TMUX value '{tmux}' is invalid.", nameof(options));
+                    }
+
+                    socketPath = location.SocketPath;
                 }
             }
+        }
 
-            socketName ??= environmentSocketName;
-            socketName ??= DefaultSocketName;
-            ResolvedSocketRoot socketRoot = ResolveSocketRoot(options.ChildEnvironment);
-            childEnvironment = FreezeChildEnvironment(
-                options.ChildEnvironment,
-                socketRoot.EnvironmentValue,
-                options.PsmuxPreview?.DataDirectory);
-            endpointIdentity = options.PsmuxPreview is null
-                ? TmuxEndpointIdentity.ForName(socketRoot.Identity, socketName)
-                : TmuxEndpointIdentity.ForPsmux(options.PsmuxPreview.DataDirectory, socketName);
+        string? socketDirectory = null;
+        string? socketRoot = null;
+        TmuxEndpointIdentity endpointIdentity;
+        string? launchPath = socketPath;
+        if (socketPath is not null)
+        {
+            ValidateSocketPath(socketPath, nameof(options.SocketPath));
+            endpointIdentity = TmuxEndpointIdentity.ForPath(socketPath);
         }
         else
         {
-            endpointIdentity = TmuxEndpointIdentity.ForPath(socketPath);
+            socketName ??= DefaultSocketName;
+            ValidateSocketName(socketName, nameof(options.SocketName));
+            if (options.PsmuxPreview is { } psmux)
+            {
+                PsmuxCompatibility.ValidateNamespaceName(socketName, nameof(options.SocketName));
+                endpointIdentity = TmuxEndpointIdentity.ForPsmux(psmux.DataDirectory, socketName);
+            }
+            else
+            {
+                socketRoot = ReadVariable(environment, "TMUX_TMPDIR") ?? DefaultSocketRoot;
+                ValidateSocketPath(socketRoot, "TMUX_TMPDIR");
+                endpointIdentity = TmuxEndpointIdentity.ForName(socketRoot, socketName);
+                if (!OperatingSystem.IsWindows())
+                {
+                    socketDirectory = Path.Combine(socketRoot,
+                        $"tmux-{UnixSocketDirectory.UserId.ToString(CultureInfo.InvariantCulture)}");
+                    launchPath = Path.Combine(socketDirectory, socketName);
+                }
+            }
         }
 
+        string? executablePath = CaptureExecutable(options.TmuxBinaryPath, environment);
+        var frozen = new Dictionary<string, string?>(environment, environment.Comparer);
+        foreach (string name in frozen.Keys.Where(name => name.StartsWith("PSMUX_", StringComparison.OrdinalIgnoreCase)).ToArray())
+        {
+            if (options.ChildEnvironment is null || !options.ChildEnvironment.ContainsKey(name))
+            {
+                frozen.Remove(name);
+            }
+        }
+        if (socketRoot is not null)
+        {
+            frozen["TMUX_TMPDIR"] = socketRoot;
+        }
+
+        if (options.PsmuxPreview is { } preview)
+        {
+            frozen["PSMUX_DATA_DIR"] = preview.DataDirectory;
+        }
+
+        frozen["TMUX"] = null;
+        frozen["TMUX_PANE"] = null;
         return new ResolvedTmuxConnection(
             options,
-            BuildPrefixArguments(options, socketPath, socketName),
+            BuildPrefixArguments(options, launchPath, socketName),
             socketName,
             socketPath,
             endpointIdentity,
-            childEnvironment);
+            new ReadOnlyDictionary<string, string?>(frozen),
+            socketDirectory,
+            executablePath);
     }
 
-    private static string[] BuildPrefixArguments(
+    private static Dictionary<string, string?> CaptureEnvironment(IReadOnlyDictionary<string, string?>? overrides)
+    {
+        var environment = new Dictionary<string, string?>(
+            OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
+        {
+            environment.Add((string)entry.Key, (string?)entry.Value);
+        }
+
+        foreach ((string key, string? value) in overrides ?? new Dictionary<string, string?>())
+        {
+            environment[key] = value;
+        }
+
+        return environment;
+    }
+
+    private static string? CaptureExecutable(string binary, IReadOnlyDictionary<string, string?> environment)
+    {
+        if (Path.IsPathFullyQualified(binary))
+        {
+            return binary;
+        }
+
+        string directory = Environment.CurrentDirectory;
+        if (binary.Contains(Path.DirectorySeparatorChar) || binary.Contains(Path.AltDirectorySeparatorChar))
+        {
+            return Path.Join(directory, binary);
+        }
+
+        if (ReadRawVariable(environment, "PATH") is not string path)
+        {
+            return null;
+        }
+
+        foreach (string entry in path.Split(Path.PathSeparator))
+        {
+            string root = Path.IsPathFullyQualified(entry) ? entry : Path.Join(directory, entry);
+            string candidate = Path.Join(root, binary);
+            if (OperatingSystem.IsWindows() && !Path.HasExtension(candidate))
+            {
+                candidate += ".exe";
+            }
+
+            if (File.Exists(candidate)
+                && (OperatingSystem.IsWindows()
+                    || (File.GetUnixFileMode(candidate)
+                        & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) != 0))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    internal static void ValidateSocketPath(string path, string parameterName)
+    {
+        if (path.Length == 0 || path.Contains('\0') || !IsAbsoluteSocketPath(path))
+        {
+            throw new ArgumentException($"Socket path '{path}' must be absolute and contain no NUL.", parameterName);
+        }
+    }
+
+    internal static bool IsAbsoluteSocketPath(string path) =>
+        path.StartsWith('/') || Path.IsPathFullyQualified(path);
+
+    internal static void ValidateSocketName(string name, string parameterName)
+    {
+        if (name.Length == 0 || name is "." or ".." || name.IndexOfAny(['/', '\\', '\0']) >= 0)
+        {
+            throw new ArgumentException($"Socket name '{name}' must be a nonempty leaf name.", parameterName);
+        }
+    }
+
+    internal static string[] BuildPrefixArguments(
         ServerConnectionOptions options,
         string? socketPath,
         string? socketName)
@@ -124,56 +257,16 @@ internal static class TmuxConnectionEndpoint
         IReadOnlyDictionary<string, string?>? childEnvironment,
         string name)
     {
-        string? value;
-        if (childEnvironment is null || !childEnvironment.TryGetValue(name, out value))
-        {
-            value = Environment.GetEnvironmentVariable(name);
-        }
-
-        return string.IsNullOrWhiteSpace(value) ? null : value;
+        string? value = ReadRawVariable(childEnvironment, name);
+        return string.IsNullOrEmpty(value) ? null : value;
     }
 
-    private static string? NormalizeSocketPath(string? socketPath) =>
-        socketPath is null ? null : Path.GetFullPath(socketPath);
-
-    private static ResolvedSocketRoot ResolveSocketRoot(
-        IReadOnlyDictionary<string, string?>? childEnvironment)
-    {
-        string? configuredRoot = ReadVariable(childEnvironment, "TMUX_TMPDIR");
-        if (string.IsNullOrEmpty(configuredRoot))
-        {
-            return new ResolvedSocketRoot(
-                NormalizeSocketRoot(DefaultSocketRoot),
-                EnvironmentValue: null);
-        }
-
-        string normalizedRoot = NormalizeSocketRoot(configuredRoot);
-        return new ResolvedSocketRoot(normalizedRoot, normalizedRoot);
-    }
-
-    private static ReadOnlyDictionary<string, string?> FreezeChildEnvironment(
+    private static string? ReadRawVariable(
         IReadOnlyDictionary<string, string?>? childEnvironment,
-        string? socketRoot,
-        string? psmuxDataDirectory)
-    {
-        var frozen = childEnvironment is null
-            ? new Dictionary<string, string?>(StringComparer.Ordinal)
-            : new Dictionary<string, string?>(childEnvironment, StringComparer.Ordinal);
-        frozen["TMUX_TMPDIR"] = socketRoot;
-        if (psmuxDataDirectory is not null)
-        {
-            frozen["PSMUX_DATA_DIR"] = psmuxDataDirectory;
-        }
-
-        return new ReadOnlyDictionary<string, string?>(frozen);
-    }
-
-    private static string NormalizeSocketRoot(string socketRoot) =>
-        Path.TrimEndingDirectorySeparator(Path.GetFullPath(socketRoot));
-
-    private readonly record struct ResolvedSocketRoot(
-        string Identity,
-        string? EnvironmentValue);
+        string name) =>
+        childEnvironment is not null && childEnvironment.TryGetValue(name, out string? value)
+            ? value
+            : null;
 }
 
 internal sealed record ResolvedTmuxConnection(
@@ -182,7 +275,9 @@ internal sealed record ResolvedTmuxConnection(
     string? SocketName,
     string? SocketPath,
     TmuxEndpointIdentity EndpointIdentity,
-    IReadOnlyDictionary<string, string?>? ChildEnvironment);
+    IReadOnlyDictionary<string, string?> ChildEnvironment,
+    string? SocketDirectory,
+    string? ExecutablePath);
 
 internal readonly record struct TmuxEndpointIdentity(
     TmuxEndpointKind Kind,

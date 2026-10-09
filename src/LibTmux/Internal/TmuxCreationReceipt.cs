@@ -7,9 +7,10 @@ internal readonly record struct TmuxCreationReceipt(
     SessionId SessionId,
     WindowId WindowId,
     PaneId PaneId,
-    int WindowIndex)
+    int WindowIndex,
+    string OwnershipToken)
 {
-    internal const string Format = TmuxConnection.GenerationFormat + "\t#{session_id}\t#{window_id}\t#{pane_id}\t#{window_index}";
+    internal const string Format = TmuxConnection.GenerationFormat + "\t#{session_id}\t#{window_id}\t#{pane_id}\t#{window_index}\t" + TmuxOwnershipIdentity.Format;
 
     internal static TmuxCreationReceipt Parse(TmuxCommandResult result)
     {
@@ -19,7 +20,7 @@ internal readonly record struct TmuxCreationReceipt(
         }
 
         string[] fields = result.StandardOutputLines[0].Split('\t');
-        if (fields.Length != 5
+        if (fields.Length != 6
             || !SessionId.TryParse(fields[1], out SessionId sessionId)
             || !WindowId.TryParse(fields[2], out WindowId windowId)
             || !PaneId.TryParse(fields[3], out PaneId paneId)
@@ -28,6 +29,7 @@ internal readonly record struct TmuxCreationReceipt(
             throw new TmuxCommandException("tmux reported a malformed creation receipt.", result);
         }
 
-        return new TmuxCreationReceipt(TmuxConnection.ParseGeneration(fields[0]), sessionId, windowId, paneId, windowIndex);
+        TmuxOwnershipIdentity.Validate(fields[5]);
+        return new TmuxCreationReceipt(TmuxConnection.ParseGeneration(fields[0]), sessionId, windowId, paneId, windowIndex, fields[5]);
     }
 }
