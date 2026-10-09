@@ -25,7 +25,7 @@ Returns the latest published view.
 
 Returns: <code>ServerMirrorView</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L147)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L148)
 
 <a name="start"></a>
 
@@ -45,7 +45,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `IncompleteSnapshotException` The session was not read through a server.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L141)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L142)
 
 <a name="startRefreshing"></a>
 
@@ -67,7 +67,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [ArgumentOutOfRangeException](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception) The interval is negative.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L144)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L145)
 
 <a name="tryWaitUntil"></a>
 
@@ -91,7 +91,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) The mirror ended first.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L159)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L160)
 
 <a name="views"></a>
 
@@ -109,7 +109,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.coll
 
 `TmuxObjectNotFoundException` The anchor session has gone, so the mirror could not attach again.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L149)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L150)
 
 <a name="waitUntil"></a>
 
@@ -137,4 +137,4 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) The mirror ended first.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L151)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L152)

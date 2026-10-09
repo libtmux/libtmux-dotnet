@@ -26,8 +26,6 @@ internal static class PsmuxProcessEnvironment
         bool forwardDataDirectoryThroughWsl)
     {
         ArgumentNullException.ThrowIfNull(startInfo);
-        Remove(startInfo, "TMUX");
-        Remove(startInfo, "TMUX_PANE");
         string[] inheritedPsmuxVariables =
         [
             .. startInfo.Environment.Keys.Where(IsPsmuxVariable),
@@ -37,12 +35,7 @@ internal static class PsmuxProcessEnvironment
             startInfo.Environment.Remove(variable);
         }
 
-        if (childEnvironment is null)
-        {
-            return;
-        }
-
-        foreach ((string key, string? value) in childEnvironment)
+        foreach ((string key, string? value) in childEnvironment ?? new Dictionary<string, string?>())
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
             if (value is null)
@@ -55,6 +48,8 @@ internal static class PsmuxProcessEnvironment
             }
         }
 
+        Remove(startInfo, "TMUX");
+        Remove(startInfo, "TMUX_PANE");
         if (forwardDataDirectoryThroughWsl)
         {
             ForwardDataDirectoryThroughWsl(startInfo);

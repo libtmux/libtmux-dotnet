@@ -33,6 +33,14 @@ let run () =
         let! created =
             server.CreateSessionAsync(NewSessionRequest(Name = "sdk8", Command = "/bin/sh"), token)
 
+        let! scopedId =
+            server
+            |> Server.withNewSession token (SessionSpec.running "scoped" "/bin/sh") (fun session ->
+                task { return session.Id })
+
+        let! scopedSession = server |> Server.tryFindSession token scopedId
+        check "session scope works with the SDK's FSharp.Core" scopedSession.IsNone
+
         let! sessions = server |> Server.sessions |> Query.list token
 
         let named =

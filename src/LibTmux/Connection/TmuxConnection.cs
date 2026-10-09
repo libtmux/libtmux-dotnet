@@ -12,6 +12,9 @@ internal sealed class TmuxConnection
     private readonly TmuxEndpointIdentity _endpointIdentity;
     private readonly string? _resolvedSocketName;
     private readonly string? _resolvedSocketPath;
+    private readonly string? _socketDirectory;
+    private readonly string? _executablePath;
+    private readonly IReadOnlyDictionary<string, string?> _childEnvironment;
 
     internal TmuxConnection(ServerConnectionOptions options)
         : this(TmuxConnectionEndpoint.Resolve(options), execute: null, markerFactory: null)
@@ -32,6 +35,9 @@ internal sealed class TmuxConnection
         Func<string>? markerFactory)
     {
         Options = resolved.Options;
+        _socketDirectory = resolved.SocketDirectory;
+        _executablePath = resolved.ExecutablePath;
+        _childEnvironment = resolved.ChildEnvironment;
         _resolvedSocketName = resolved.SocketName;
         _resolvedSocketPath = resolved.SocketPath;
         PrefixArguments = resolved.PrefixArguments;
@@ -41,7 +47,7 @@ internal sealed class TmuxConnection
             Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> send,
             Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> sendVersion) =
             execute is null
-                ? CreateProcessTransports(resolved)
+                ? CreateProcessTransports()
                 : (execute, execute);
 
         // Counted below the interceptor, as tmux receives each command. The
@@ -83,10 +89,14 @@ internal sealed class TmuxConnection
 
     // A view of a connection that bounds its commands differently: the same
     // transport, endpoint and verified dialect, so nothing starts or probes again.
-    private TmuxConnection(TmuxConnection source, ServerConnectionOptions options)
+    private TmuxConnection(TmuxConnection source, ServerConnectionOptions options, string? ownershipToken = null)
     {
         Options = options;
+        _socketDirectory = source._socketDirectory;
+        _executablePath = source._executablePath;
+        _childEnvironment = source._childEnvironment;
         _dialect = source._dialect;
+        OwnershipToken = ownershipToken ?? source.OwnershipToken;
         _endpointIdentity = source._endpointIdentity;
         _resolvedSocketName = source._resolvedSocketName;
         _resolvedSocketPath = source._resolvedSocketPath;
@@ -99,6 +109,14 @@ internal sealed class TmuxConnection
             ExecuteSingleAsync,
             CommandContext,
             ExecuteGroupAsync);
+    }
+
+    internal string? OwnershipToken { get; }
+
+    internal TmuxConnection WithOwnershipToken(string token)
+    {
+        TmuxOwnershipIdentity.Validate(token);
+        return new(this, Options, token);
     }
 
     internal ServerConnectionOptions Options { get; }
@@ -117,6 +135,26 @@ internal sealed class TmuxConnection
     {
         ArgumentNullException.ThrowIfNull(other);
         return _endpointIdentity == other._endpointIdentity;
+    }
+
+    internal string SocketPath => PrefixArguments.SkipWhile(static argument => argument != "-S").Skip(1).First();
+
+    internal IReadOnlyDictionary<string, string?> ChildEnvironment => _childEnvironment;
+
+    internal TmuxConnection WithStartupMarker(string name, string value)
+    {
+        var environment = new Dictionary<string, string?>(_childEnvironment, StringComparer.Ordinal) { [name] = value };
+        return new TmuxConnection(new ResolvedTmuxConnection(
+            Options, [.. PrefixArguments], _resolvedSocketName, _resolvedSocketPath, _endpointIdentity,
+            environment, _socketDirectory, _executablePath), execute: null, markerFactory: null);
+    }
+
+    internal TmuxConnection AtSocketPath(string path, TimeSpan timeout)
+    {
+        ServerConnectionOptions options = Options with { SocketPath = path, SocketName = null, SocketNameFactory = null, CommandTimeout = timeout };
+        return new TmuxConnection(new ResolvedTmuxConnection(
+            options, TmuxConnectionEndpoint.BuildPrefixArguments(options, path, null), null, path,
+            TmuxEndpointIdentity.ForPath(path), _childEnvironment, null, _executablePath), execute: null, markerFactory: null);
     }
 
     internal int GetEndpointHashCode() => _endpointIdentity.GetHashCode();
@@ -167,6 +205,9 @@ internal sealed class TmuxConnection
     internal TmuxConnection WithCommandTimeout(TimeSpan timeout) =>
         new(this, Options with { CommandTimeout = timeout });
 
+    internal TmuxCommandDispatcher CreateInspectionDispatcher() =>
+        new(_dialect.ExecuteNoStartAsync, CommandContext, _dialect.ExecuteNoStartGroupAsync);
+
     internal TmuxCommandDispatcher CreateEntityDispatcher(ServerGeneration generation)
     {
         ValidateLiveGeneration(generation);
@@ -175,7 +216,8 @@ internal sealed class TmuxConnection
                 generation,
                 [arguments],
                 cancellationToken),
-            CommandContext);
+            CommandContext,
+            (commands, token) => ExecuteGuardedGroupAsync(generation, commands, token));
     }
 
     [UnsupportedOSPlatform("windows")]
@@ -210,7 +252,9 @@ internal sealed class TmuxConnection
             TmuxCommandDispatcher.ValidateArguments(command);
         }
 
-        return _dialect.ExecuteGuardedAsync(expected, commands, cancellationToken);
+        return OwnershipToken is { } ownershipToken && _dialect is TmuxDialect tmux
+            ? tmux.ExecuteOwnedAsync(expected, ownershipToken, commands, cancellationToken)
+            : _dialect.ExecuteGuardedAsync(expected, commands, cancellationToken);
     }
 
     internal static ServerGeneration ParseGeneration(string text) => ServerGeneration.Parse(text);
@@ -223,6 +267,24 @@ internal sealed class TmuxConnection
             startInfo,
             childEnvironment,
             forwardPsmuxDataDirectoryThroughWsl);
+
+    internal void PrepareChild(ProcessStartInfo startInfo)
+    {
+        if (_socketDirectory is not null && !OperatingSystem.IsWindows())
+        {
+            UnixSocketDirectory.Prepare(_socketDirectory);
+        }
+
+        if (startInfo.FileName.Length != 0)
+        {
+            startInfo.FileName = _executablePath
+                ?? throw new FileNotFoundException($"The tmux executable '{Options.TmuxBinaryPath}' was not found in the captured PATH.");
+        }
+
+        startInfo.Environment.Clear();
+        ApplyChildEnvironment(startInfo, _childEnvironment,
+            PsmuxProcessEnvironment.ForwardsDataDirectoryThroughWsl(Options));
+    }
 
     private static void ValidateLiveGeneration(ServerGeneration generation)
     {
@@ -240,14 +302,11 @@ internal sealed class TmuxConnection
     private (
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> Send,
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> SendVersion)
-        CreateProcessTransports(ResolvedTmuxConnection resolved)
+        CreateProcessTransports()
     {
         Process Launch(ProcessStartInfo startInfo)
         {
-            ApplyChildEnvironment(
-                startInfo,
-                resolved.ChildEnvironment,
-                PsmuxProcessEnvironment.ForwardsDataDirectoryThroughWsl(Options));
+            PrepareChild(startInfo);
             return Process.Start(startInfo)
                 ?? throw new InvalidOperationException("The tmux client process did not start.");
         }

@@ -4017,6 +4017,59 @@
       "returnType": "LibTmux.FSharp.Query<LibTmux.Window>"
     },
     {
+      "id": "M:LibTmux.FSharp.Server.withNewSession``1(System.Threading.CancellationToken,LibTmux.FSharp.SessionSpec,Microsoft.FSharp.Core.FSharpFunc{LibTmux.Session,System.Threading.Tasks.Task{``0}},LibTmux.Server)",
+      "package": "LibTmux.FSharp",
+      "name": "withNewSession",
+      "declaringType": "T:LibTmux.FSharp.Server",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val withNewSession: cancellationToken: System.Threading.CancellationToken -> spec: LibTmux.FSharp.SessionSpec -> work: (LibTmux.Session -> System.Threading.Tasks.Task<'State>) -> server: LibTmux.Server -> System.Threading.Tasks.Task<'State>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.FSharp.SessionSpec -> (LibTmux.Session -> System.Threading.Tasks.Task<'State>) -> LibTmux.Server -> System.Threading.Tasks.Task<'State>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "spec",
+          "optional": false,
+          "type": "LibTmux.FSharp.SessionSpec"
+        },
+        {
+          "name": "work",
+          "optional": false,
+          "type": "LibTmux.Session -> System.Threading.Tasks.Task<'State>"
+        },
+        {
+          "name": "server",
+          "optional": false,
+          "type": "LibTmux.Server"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "withNewSession",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "State"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'State>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Server.within(System.TimeSpan,LibTmux.Server)",
       "package": "LibTmux.FSharp",
       "name": "within",

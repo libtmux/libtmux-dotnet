@@ -66,6 +66,18 @@ public sealed partial class Server : IEquatable<Server>
     }
 
     /// <summary>Opens an unmaterialized server connection handle.</summary>
+    /// <param name="options">Explicit selectors and copied child-process overrides, or default options.</param>
+    /// <returns>A borrowed handle with one captured endpoint; no daemon is started.</returns>
+    /// <remarks>
+    /// Selection uses an explicit path or name, then LIBTMUX_SOCKET_PATH,
+    /// LIBTMUX_SOCKET_NAME, TMUX, and finally the named default. Empty environment
+    /// selectors are absent. The selected value is validated without trimming.
+    /// Named Unix endpoints capture TMUX_TMPDIR or /tmp at construction.
+    /// Later environment changes do not redirect commands or cleanup.
+    /// The handle copies the complete effective client environment and resolves
+    /// executable names against its captured PATH for subprocess and control launches.
+    /// </remarks>
+    /// <exception cref="ArgumentException">Both explicit selectors are supplied, or the selected endpoint is invalid.</exception>
     public static Server Open(ServerConnectionOptions? options = null)
     {
         ServerConnectionOptions effectiveOptions = options ?? ServerConnectionOptions.Default;
@@ -117,7 +129,7 @@ public sealed partial class Server : IEquatable<Server>
             ?? throw new InvalidOperationException("This server has no connection identity.");
         TmuxCommandDispatcher dispatcher = _generation is ServerGeneration expected
             ? connection.CreateEntityDispatcher(expected)
-            : connection.ServerDispatcher;
+            : connection.CreateInspectionDispatcher();
         TmuxCommandResult result = await dispatcher.ExecuteAsync(
                 ["display-message", "-p", TmuxConnection.GenerationFormat + "\t#{version}"],
                 cancellationToken)

@@ -47,7 +47,9 @@ public sealed class ExampleNamespace : IAsyncDisposable
     private readonly string _entered;
     private readonly OwnedServerScope _server;
     private readonly IReadOnlyList<(string Name, string? Value)> _restore;
-    private int _disposed;
+    private readonly object _disposeLock = new();
+    private Task? _disposing;
+    private int _restored;
 
     private ExampleNamespace(
         string socketName,
@@ -120,9 +122,10 @@ public sealed class ExampleNamespace : IAsyncDisposable
         string entered = Environment.CurrentDirectory;
         Environment.CurrentDirectory = directory;
 
+        OwnedServerScope? server = null;
         try
         {
-            OwnedServerScope server = await Server.CreateOwnedAsync(
+            server = await Server.CreateOwnedAsync(
                 new ServerConnectionOptions
                 {
                     TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
@@ -147,40 +150,62 @@ public sealed class ExampleNamespace : IAsyncDisposable
             await world.PopulateAsync(cancellationToken);
             return world;
         }
-        catch
+        catch (Exception failure)
         {
             Environment.CurrentDirectory = entered;
             Restore(restore);
-            TryDelete(directory);
+            try
+            {
+                if (server is not null)
+                {
+                    await server.DisposeAsync();
+                }
+                if (FindSocket(socketName) is string socket)
+                {
+                    File.Delete(socket);
+                }
+                RemoveDirectory(directory);
+            }
+            catch (Exception cleanup)
+            {
+                failure.Data["LibTmux.CleanupFailure"] = cleanup;
+            }
             throw;
         }
     }
 
     /// <inheritdoc />
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        lock (_disposeLock)
         {
-            return;
+            if (_disposing is null || _disposing.IsFaulted || _disposing.IsCanceled)
+            {
+                _disposing = DisposeCoreAsync();
+            }
+            return new ValueTask(_disposing);
         }
+    }
 
+    private async Task DisposeCoreAsync()
+    {
         try
         {
             await _server.DisposeAsync();
         }
         finally
         {
-            Environment.CurrentDirectory = _entered;
-            Restore(_restore);
-
-            // The socket file outlives the server that made it.
-            if (FindSocket(SocketName) is string socket)
+            if (Interlocked.Exchange(ref _restored, 1) == 0)
             {
-                TryDeleteFile(socket);
+                Environment.CurrentDirectory = _entered;
+                Restore(_restore);
             }
-
-            TryDelete(_directory);
         }
+        if (FindSocket(SocketName) is string socket)
+        {
+            File.Delete(socket);
+        }
+        RemoveDirectory(_directory);
     }
 
     /// <summary>Returns the path of the named socket, or null if it is absent.</summary>
@@ -234,31 +259,13 @@ public sealed class ExampleNamespace : IAsyncDisposable
         }
     }
 
-    private static void TryDeleteFile(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
-
-    private static void TryDelete(string directory)
+    private static void RemoveDirectory(string directory)
     {
         try
         {
             System.IO.Directory.Delete(directory, recursive: true);
         }
-        catch (IOException)
-        {
-            // A descriptor the kernel has not released yet is not a failure.
-        }
-        catch (UnauthorizedAccessException)
+        catch (DirectoryNotFoundException)
         {
         }
     }

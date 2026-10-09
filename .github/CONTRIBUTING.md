@@ -375,10 +375,13 @@ $ cd tests/LibTmux.FSharp.Sdk8Consumer && \
 ```
 
 `examples/LibTmux.FSharp.Quickstart/Program.fs` is the F# package README's
-complete owned-server example. From a checkout it builds against the source on
+complete ordinary-endpoint example. From a checkout it builds against the source on
 .NET 10. The CI package step passes `-p:UsePackageReferences=true`, restores
 only `LibTmux.FSharp` into a separate cache, and runs the exact program on .NET
-8 and 10 against real tmux. Keep it outside the solution.
+8 and 10 against real tmux. `eng/docs/run_fsharp_quickstart.py` supplies a
+private endpoint, checks session cleanup after success and injected failures,
+and verifies daemon termination before removing its root. Keep the project
+outside the solution.
 
 `LibTmux.FSharp.AotSmoke` restores from the same mapped feed and publishes its
 native binary for both target frameworks. It covers the static snapshot and

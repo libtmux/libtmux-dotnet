@@ -94,7 +94,7 @@ internal static class QuerySourcePlanner
         FormatProjection projection = FormatProjection.Create(ListCommand(target), version, format);
         string[] command = [projection.ListCommand, .. target == QueryTarget.Session ? Array.Empty<string>() : ["-a"], "-F", projection.Template];
         TmuxCommandRequest guarded = TmuxGenerationGuard.CreateRequest(
-            new ServerGeneration(int.MaxValue, long.MaxValue), [command], new string('x', TmuxGenerationGuard.MarkerLength));
+            new ServerGeneration(int.MaxValue, long.MaxValue), [command], new string('x', TmuxGenerationGuard.MarkerLength), new string('a', 32));
         return guarded.FitsNativeArgumentBudget();
     }
 

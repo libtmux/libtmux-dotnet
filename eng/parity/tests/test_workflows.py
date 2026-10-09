@@ -79,6 +79,30 @@ def test_packed_complete_programs_are_required(
     assert any("execute every complete program" in error for error in verify(repository))
 
 
+@pytest.mark.parametrize(
+    "removed",
+    [
+        "python3 eng/docs/run_fsharp_quickstart.py",
+        "python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart",
+        "-p:UsePackageReferences=true",
+    ],
+)
+def test_fsharp_quickstart_requires_packed_isolation_and_output_check(
+    repository: pathlib.Path, removed: str
+) -> None:
+    """The ordinary program must run through its owned-endpoint harness."""
+    path = repository / ".github/workflows/dotnet.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    step = next(
+        step for step in document["jobs"]["build"]["steps"]
+        if step.get("id") == "fsharp-readme-quickstart"
+    )
+    step["run"] = step["run"].replace(removed, "")
+    path.write_text(yaml.safe_dump(document))
+
+    assert any("packed program's output" in error for error in verify(repository))
+
+
 def test_fsdocs_reference_check_is_required(repository: pathlib.Path) -> None:
     """The generated member pages must be checked, not only built."""
     path = repository / ".github/workflows/dotnet.yml"

@@ -58,8 +58,11 @@ module Server =
     /// order, each beside the pane before it.
     /// </para>
     /// <para>
-    /// Steps run one after another; a failure part way leaves what was already
-    /// created, so kill the session by name to clean up.
+    /// A failure or cancellation after a creation identity is known removes the
+    /// session by ID with an independent cleanup token, including failed initial
+    /// readback. A creation command without a usable reply has an unknown outcome;
+    /// inspect the endpoint before retrying. Read a rollback or scope cleanup
+    /// failure with <c>Control.cleanupFailure</c>.
     /// </para>
     /// </remarks>
     /// <returns>The session, read again after its windows and panes exist.</returns>
@@ -70,6 +73,21 @@ module Server =
     /// <exception cref="T:LibTmux.TmuxSessionExistsException">The name is already taken.</exception>
     val newSession:
         cancellationToken: CancellationToken -> spec: SessionSpec -> server: LibTmux.Server -> Task<LibTmux.Session>
+
+    /// <summary>Creates a session layout, runs work, and removes the session after the task completes.</summary>
+    /// <remarks>
+    /// Cleanup uses the captured session ID and daemon generation with its own
+    /// five-second token, including after work fails or is cancelled. If work and
+    /// cleanup both fail, the work's exception retains its type and cancellation
+    /// token; <c>Control.cleanupFailure</c> returns the cleanup exception. Initial
+    /// creation has the same unresolved-outcome limit as <c>newSession</c>.
+    /// </remarks>
+    val withNewSession:
+        cancellationToken: CancellationToken ->
+        spec: SessionSpec ->
+        work: (LibTmux.Session -> Task<'State>) ->
+        server: LibTmux.Server ->
+            Task<'State>
 
     /// <summary>Returns a new server handle captured to the requested depth.</summary>
     /// <remarks>Acquisition is not atomic; retained handles do not refresh themselves.</remarks>

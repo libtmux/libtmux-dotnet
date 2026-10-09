@@ -16,26 +16,6 @@ internal static class ChildProcessEnvironment
     /// <param name="overrides">Values to set, or null values to remove.</param>
     internal static void Apply(
         ProcessStartInfo startInfo,
-        IReadOnlyDictionary<string, string?>? overrides)
-    {
-        ArgumentNullException.ThrowIfNull(startInfo);
-        startInfo.Environment.Remove(TmuxEnvironmentVariables.ServerVariable);
-        if (overrides is null)
-        {
-            return;
-        }
-
-        foreach ((string key, string? value) in overrides)
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(key);
-            if (value is null)
-            {
-                startInfo.Environment.Remove(key);
-            }
-            else
-            {
-                startInfo.Environment[key] = value;
-            }
-        }
-    }
+        IReadOnlyDictionary<string, string?>? overrides) =>
+        PsmuxProcessEnvironment.Apply(startInfo, overrides, forwardDataDirectoryThroughWsl: false);
 }

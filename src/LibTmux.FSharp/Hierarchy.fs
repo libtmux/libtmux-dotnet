@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open System.Globalization
 open System.Threading
+open System.Threading.Tasks
 open LibTmux
 open LibTmux.Query
 
@@ -106,34 +107,60 @@ module Server =
                     cancellationToken
                 )
 
-            match first with
-            | Some window ->
-                let! panes = session.GetPanesAsync(cancellationToken)
-                do! splitAll cancellationToken panes[0] window.Splits
-            | None -> ()
+            let mutable completed = false
 
-            for window in
-                List.tail (
-                    if spec.Windows.IsEmpty then
-                        [ WindowSpec.empty ]
-                    else
-                        spec.Windows
-                ) do
-                let! created =
-                    session.CreateWindowAsync(
-                        NewWindowRequest(
-                            Name = Option.toObj window.Name,
-                            Command = Option.toObj window.Command,
-                            StartDirectory = Option.toObj window.Directory,
-                            Environment = environment window.Environment
-                        ),
-                        cancellationToken
-                    )
+            return!
+                AsyncCleanup.run
+                    (fun () ->
+                        backgroundTask {
+                            match first with
+                            | Some window ->
+                                let! panes = session.GetPanesAsync(cancellationToken)
+                                do! splitAll cancellationToken panes[0] window.Splits
+                            | None -> ()
 
-                let! panes = created.GetPanesAsync(cancellationToken)
-                do! splitAll cancellationToken panes[0] window.Splits
+                            for window in
+                                List.tail (
+                                    if spec.Windows.IsEmpty then
+                                        [ WindowSpec.empty ]
+                                    else
+                                        spec.Windows
+                                ) do
+                                let! created =
+                                    session.CreateWindowAsync(
+                                        NewWindowRequest(
+                                            Name = Option.toObj window.Name,
+                                            Command = Option.toObj window.Command,
+                                            StartDirectory = Option.toObj window.Directory,
+                                            Environment = environment window.Environment
+                                        ),
+                                        cancellationToken
+                                    )
 
-            return! session.RefreshAsync(cancellationToken)
+                                let! panes = created.GetPanesAsync(cancellationToken)
+                                do! splitAll cancellationToken panes[0] window.Splits
+
+                            let! refreshed = session.RefreshAsync(cancellationToken)
+                            completed <- true
+                            return refreshed
+                        })
+                    (fun () ->
+                        if completed then
+                            Task.CompletedTask
+                        else
+                            OwnedSessionScope(session).DisposeAsync().AsTask())
+        }
+
+    let withNewSession
+        (cancellationToken: CancellationToken)
+        (spec: SessionSpec)
+        (work: LibTmux.Session -> Task<'State>)
+        (server: LibTmux.Server)
+        =
+        backgroundTask {
+            let! session = newSession cancellationToken spec server
+            let owned = OwnedSessionScope(session)
+            return! AsyncCleanup.run (fun () -> work session) (fun () -> owned.DisposeAsync().AsTask())
         }
 
     let capture (cancellationToken: CancellationToken) depth (server: LibTmux.Server) =

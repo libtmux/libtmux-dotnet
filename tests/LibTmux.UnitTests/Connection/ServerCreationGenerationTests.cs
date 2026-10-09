@@ -75,16 +75,20 @@ public sealed class ServerCreationGenerationTests
             requests.Add(command);
             if (command.LogicalArguments.Contains("new-session", StringComparer.Ordinal))
             {
-                string prefix = command.LogicalArguments.Contains("if-shell", StringComparer.Ordinal) ? "91:901\n" : string.Empty;
+                string prefix = command.PreventServerStart ? "91:901\n" : string.Empty;
                 string receipt = command.LogicalArguments.Contains(
                     TmuxCreationReceipt.Format, StringComparer.Ordinal)
-                    ? "91:901\t$2\t@3\t%4\t0\n"
+                    ? "91:901\t$2\t@3\t%4\t0\t0123456789abcdef0123456789abcdef\n"
                     : "$2\n";
                 return Task.FromResult(Result(command, prefix + receipt));
             }
-            if (command.LogicalArguments is ["display-message", "-p", TmuxConnection.GenerationFormat])
+            if (command.LogicalArguments.Contains("kill-session", StringComparer.Ordinal))
             {
-                return Task.FromResult(Result(command, "91:902\n"));
+                throw new StaleServerGenerationException("The creating daemon was replaced before rollback.", expected, actual);
+            }
+            if (command.LogicalArguments.Contains("display-message", StringComparer.Ordinal))
+            {
+                throw new StaleServerGenerationException("The creating daemon was replaced before readback.", expected, actual);
             }
             throw new InvalidOperationException("Readback reached a replacement daemon.");
         }));
@@ -101,8 +105,11 @@ public sealed class ServerCreationGenerationTests
         Assert.Equal(expected, stale.Expected);
         Assert.Equal(actual, stale.Actual);
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
-        Assert.Equal(bindBeforeCreation, requests[0].LogicalArguments.Contains("if-shell", StringComparer.Ordinal));
-        Assert.Equal(2, requests.Count);
+        Assert.Equal(bindBeforeCreation, requests[0].PreventServerStart);
+        Assert.Equal(3, requests.Count);
+        Assert.True(requests[^1].PreventServerStart);
+        Assert.Contains("kill-session", requests[^1].LogicalArguments);
+        Assert.IsType<StaleServerGenerationException>(OwnedScope.CleanupFailure(failure));
         Assert.Equal(0, initializers);
     }
 

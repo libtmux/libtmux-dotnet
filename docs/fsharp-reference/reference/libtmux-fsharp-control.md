@@ -18,11 +18,13 @@ Streams are cold: nothing is read until a consumer enumerates one, and the
 
 Returns the cleanup failure attached to the exception a helper rethrew.
 
-When work and cleanup both fail, the helpers rethrow the work&#39;s exception
+When work and cleanup both fail, control and session helpers rethrow the work&#39;s exception
  unchanged and attach the cleanup&#39;s; this reads it back. The work&#39;s
  exception keeps its type so that a handler written for it, such as
  <code>:? TmuxPaneException</code> or a <code>when</code> filter, still matches;
  an <code>AggregateException</code> of both would slip past those handlers.
+ The same accessor reports rollback failures attached by core creation
+ when its initial readback fails after receiving an object ID.
 
 **Parameters:**
 
@@ -30,7 +32,7 @@ When work and cleanup both fail, the helpers rethrow the work&#39;s exception
 
 Returns: <code><span>exn&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L134)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L138)
 
 <a name="enter"></a>
 
@@ -49,7 +51,7 @@ The caller owns and asynchronously disposes the returned client. On a
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;IControlModeSession&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L53)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L58)
 
 <a name="enterSession"></a>
 
@@ -69,7 +71,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `IncompleteSnapshotException` The session was not read through a server.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L56)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L61)
 
 <a name="events"></a>
 
@@ -85,7 +87,7 @@ A client has one event stream; reading it while another reader is reading raises
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.iasyncenumerable-1">IAsyncEnumerable</a>&lt;TmuxEvent&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L72)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L77)
 
 <a name="foldWhile"></a>
 
@@ -109,7 +111,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Type parameters: 'State, 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L106)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L110)
 
 <a name="iter"></a>
 
@@ -131,7 +133,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L92)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L96)
 
 <a name="useSession"></a>
 
@@ -151,7 +153,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Type parameters: 'State
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L59)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L64)
 
 <a name="watchPane"></a>
 
@@ -185,7 +187,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.coll
 
 [InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) The pane&#39;s window left the client&#39;s session while it was watched, so tmux sends none of its output any more.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L74)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L79)
 
 <a name="watchPanes"></a>
 
@@ -212,7 +214,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.coll
 
 [InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) A pane&#39;s window left the client&#39;s session while it was watched.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L77)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L82)
 
 <a name="withSession"></a>
 
@@ -237,4 +239,4 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Type parameters: 'State
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L62)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L67)
