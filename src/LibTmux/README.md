@@ -264,6 +264,9 @@ and `Truncated` when a root, entry, probe or total time bound stops it. A
 failed probe differs from an empty directory. It skips symlink roots and
 entries, non-sockets and sockets owned by another user. Distinct paths to the
 same daemon generation produce one handle plus a duplicate diagnostic.
+Root components resolve through the filesystem before enumeration, so
+`symlink/..` follows the linked directory and missing components produce root
+errors. The root limit counts input entries, including duplicates.
 No-start probes cannot launch a daemon. Filesystem enumeration itself is
 synchronous; the time bound applies between filesystem calls and during
 probes. The result describes only the roots and bounds used by that call.

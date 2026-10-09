@@ -576,10 +576,23 @@ public sealed partial class Pane
         using CancellationTokenSource acquisition = new(OwnedCleanup.Timeout);
         var sequence = new TmuxMutationSequence();
         TmuxCommandResult result = await sequence.MutateAsync(
-                () => OwnedCleanup.DispatchCreationAsync(() => guarded is null
-                    ? dispatcher.ExecuteAsync(arguments, acquisition.Token)
-                    : owner.Chain().Then(guarded).ExecuteAsync(acquisition.Token), subcommand, acquisition.Token),
-                value => TmuxCommandFailure.ThrowIfFailed(value, subcommand))
+                () => OwnedCleanup.DispatchCreationAsync(async () =>
+                {
+                    if (guarded is null)
+                    {
+                        return await dispatcher.ExecuteAsync(arguments, acquisition.Token).ConfigureAwait(false);
+                    }
+                    TmuxCommandResult completed = await dispatcher.ExecuteGroupAsync(
+                        [.. guarded.ToDispatchCommands()], acquisition.Token).ConfigureAwait(false);
+                    return TmuxCommandResultProjection.Remap(completed, arguments, completed.StandardOutput);
+                }, subcommand, acquisition.Token),
+                value =>
+                {
+                    if (value.StandardOutputLines.Count == 0 || !PaneId.TryParse(value.StandardOutputLines[0], out _))
+                    {
+                        TmuxCommandFailure.ThrowIfFailed(value, subcommand);
+                    }
+                })
             .ConfigureAwait(false);
         PaneId created = sequence.Observe(() =>
             result.StandardOutputLines.Count > 0
@@ -588,6 +601,7 @@ public sealed partial class Pane
                     : throw new TmuxCommandException("tmux reported no new pane identifier.", result));
         return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
         {
+            TmuxCommandFailure.ThrowIfFailed(result, subcommand);
             cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyDictionary<string, string?>? row = await RelationReader.FindAsync(
                 owner, "list-panes", "pane_id", created.ToString(), inSession: null, cancellationToken)

@@ -105,4 +105,106 @@ public sealed class LifecycleDiscoveryTests
         Assert.NotNull(await first.Server.InspectAsync(Token));
         Assert.NotNull(await second.Server.InspectAsync(Token));
     }
+
+    [Theory(Skip = "Requires Unix symbolic links.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData("explicit")]
+    [InlineData("selected")]
+    [InlineData("configured")]
+    public async Task Root_components_resolve_symlink_parent_semantics_before_enumeration(string source)
+    {
+        await using var fixture = await Fixture.StartAsync();
+        string actual = Path.Combine(fixture.Root, "actual");
+        string child = Path.Combine(actual, "child");
+        string empty = Path.Combine(fixture.Root, "empty");
+        Directory.CreateDirectory(child);
+        Directory.CreateDirectory(empty);
+        Directory.CreateSymbolicLink(Path.Combine(fixture.Root, "link"), child);
+        string alias = Path.Combine(fixture.Root, "link", "..");
+        ServerConnectionOptions creation = source == "configured"
+            ? fixture.Options with
+            {
+                SocketPath = null,
+                SocketName = "actual-daemon",
+                ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = actual },
+            }
+            : fixture.Options with { SocketPath = Path.Combine(actual, "daemon") };
+        await using OwnedServerScope target = await Server.CreateOwnedAsync(creation, Token);
+        ServerDiscoveryResult result = await Server.DiscoverAsync(new()
+        {
+            Roots = source == "explicit" ? [alias] : [],
+            IncludeConfiguredRoots = source != "explicit",
+            Connection = fixture.Options with
+            {
+                SocketPath = Path.Combine(source == "selected" ? alias : empty, "daemon"),
+                ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = source == "configured" ? alias : empty },
+            },
+        }, Token);
+        Assert.Equal(target.Value.Generation, Assert.Single(result.Servers).Server.Generation);
+        Assert.Contains("/link/../", result.Servers[0].SocketPath, StringComparison.Ordinal);
+        Assert.False(result.Truncated);
+        Assert.NotNull(await fixture.Server.InspectAsync(Token));
+    }
+
+    [Theory(Skip = "Requires Unix path resolution.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData("explicit")]
+    [InlineData("selected")]
+    [InlineData("configured")]
+    public async Task Missing_intermediate_root_components_do_not_authorize_the_lexical_parent(string source)
+    {
+        await using var fixture = await Fixture.StartAsync();
+        string empty = Path.Combine(fixture.Root, "empty");
+        Directory.CreateDirectory(empty);
+        string suffix = "tmux-" + UnixSocketDirectory.UserId;
+        Directory.CreateDirectory(Path.Combine(fixture.Root, suffix));
+        string invalid = Path.Combine(fixture.Root, "missing", "..");
+        ServerDiscoveryResult result = await Server.DiscoverAsync(new()
+        {
+            Roots = source == "explicit" ? [invalid] : [],
+            IncludeConfiguredRoots = source != "explicit",
+            Connection = fixture.Options with
+            {
+                SocketPath = Path.Combine(source == "selected" ? invalid : empty, "socket"),
+                ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = source == "configured" ? invalid : empty },
+            },
+        }, Token);
+        string expected = source == "configured" ? Path.Combine(invalid, suffix) : invalid;
+        Assert.Contains(result.Diagnostics, item => item.Path == expected && item.Kind == "root-error");
+        Assert.Empty(result.Servers);
+        Assert.Equal(0, result.EntriesVisited);
+        Assert.Equal(0, result.ProbesAttempted);
+        Assert.False(result.Truncated);
+        Assert.NotNull(await fixture.Server.InspectAsync(Token));
+    }
+
+    [Theory(Skip = "Requires Unix sockets.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Duplicate_root_inputs_cannot_hide_an_omitted_root(int maximumRoots)
+    {
+        await using var fixture = await Fixture.StartAsync();
+        string empty = Path.Combine(fixture.Root, "empty");
+        Directory.CreateDirectory(empty);
+        ServerDiscoveryResult result = await Server.DiscoverAsync(new()
+        {
+            Roots = [empty, empty, fixture.Root],
+            IncludeConfiguredRoots = false,
+            MaximumRoots = maximumRoots,
+            Connection = fixture.Options,
+        }, Token);
+        Assert.Empty(result.Servers);
+        Assert.True(result.Truncated);
+        Assert.Contains(result.Diagnostics, item => item.Kind == "limit");
+        Assert.Equal(0, result.ProbesAttempted);
+        Assert.NotNull(await fixture.Server.InspectAsync(Token));
+
+        ServerDiscoveryResult complete = await Server.DiscoverAsync(new()
+        {
+            Roots = [empty, empty],
+            IncludeConfiguredRoots = false,
+            MaximumRoots = 2,
+            Connection = fixture.Options,
+        }, Token);
+        Assert.False(complete.Truncated);
+        Assert.Contains(complete.Diagnostics, item => item.Path == empty && item.Kind == "duplicate");
+    }
 }

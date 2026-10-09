@@ -299,7 +299,8 @@ public sealed partial class Session
     /// Rejects <see cref="NewWindowRequest.SelectExisting" /> before dispatch because an
     /// existing window has no creation receipt. The pane identifier comes from creation,
     /// not a later listing; the pane may have moved or disappeared before readback.
-    /// Failed readback rolls back the known window ID against its creating daemon.
+    /// A failed command result with a valid receipt, or failed readback, rolls back the known
+    /// window ID against its creating daemon.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<WindowCreationResult> CreateWindowWithReceiptAsync(
@@ -340,7 +341,15 @@ public sealed partial class Session
                     [.. BuildNewWindowArguments(options, _id.ToString(),
                         captureReceipt ? TmuxCreationReceipt.Format : "#{window_id}")],
                     acquisition.Token), "new-window", acquisition.Token),
-                static value => TmuxCommandFailure.ThrowIfFailed(value, "new-window"))
+                value =>
+                {
+                    bool hasIdentity = captureReceipt ? TmuxCreationReceipt.TryParse(value, out _)
+                        : value.StandardOutputLines.Count > 0 && WindowId.TryParse(value.StandardOutputLines[0], out _);
+                    if (!hasIdentity)
+                    {
+                        TmuxCommandFailure.ThrowIfFailed(value, "new-window");
+                    }
+                })
             .ConfigureAwait(false);
 
         if (result.StandardOutputLines.Count == 0 && selectedName is not null)
@@ -386,6 +395,7 @@ public sealed partial class Session
 
         return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
         {
+            TmuxCommandFailure.ThrowIfFailed(result, "new-window");
             cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<Window> windows = await new Session(owner, owner.Connection!, _generation, _id, RawFormatFields).GetWindowsAsync(cancellationToken).ConfigureAwait(false);
             Window window = (receipt is TmuxCreationReceipt bound

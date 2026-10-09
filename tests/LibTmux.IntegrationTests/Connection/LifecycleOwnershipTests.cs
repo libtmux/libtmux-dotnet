@@ -436,6 +436,224 @@ public sealed class LifecycleOwnershipTests
     }
 
     [Theory(Skip = "Requires a Unix process environment.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData("server", false, false)]
+    [InlineData("session", false, false)]
+    [InlineData("window", false, false)]
+    [InlineData("pane", false, false)]
+    [InlineData("server", true, false)]
+    [InlineData("session", true, false)]
+    [InlineData("window", true, false)]
+    [InlineData("pane", true, false)]
+    [InlineData("server", false, true)]
+    [InlineData("session", false, true)]
+    [InlineData("window", false, true)]
+    [InlineData("pane", false, true)]
+    [InlineData("receipt-window", false, false)]
+    [InlineData("relative-window", false, false)]
+    [InlineData("window-pane", false, false)]
+    [InlineData("guarded-pane", false, false)]
+    public async Task A_failed_completed_creation_retains_its_identity_before_rejecting_the_result(
+        string operation, bool cleanupFails, bool unusable)
+    {
+        await using var fixture = new Fixture();
+        string kind = operation.Contains("window", StringComparison.Ordinal) && !operation.EndsWith("pane", StringComparison.Ordinal)
+            ? "window" : operation.EndsWith("pane", StringComparison.Ordinal) ? "pane" : operation;
+        OwnedServerScope? parentOwner = kind == "server" ? null : await Server.CreateOwnedAsync(fixture.Options, Token);
+        Process? daemon = null;
+        bool armed = false;
+        bool created = false;
+        var rollbackFailure = new IOException("Injected rollback failure after a completed creation.");
+        string command = kind switch { "window" => "new-window", "pane" => "split-window", _ => "new-session" };
+        Server selected = Server.Open(fixture.Options with
+        {
+            Interceptor = async (invocation, next, token) =>
+            {
+                if (armed && created && cleanupFails && invocation.Arguments.Contains("kill-" + kind, StringComparer.Ordinal))
+                {
+                    throw rollbackFailure;
+                }
+                TmuxCommandResult result = await next(token);
+                if (armed && !created && invocation.Arguments.Contains(command, StringComparer.Ordinal) && result.ExitCode == 0)
+                {
+                    created = true;
+                    ServerGeneration generation = ServerGeneration.Parse(result.StandardOutputLines[0].Split('\t')[0]);
+                    daemon = Process.GetProcessById(generation.ProcessId);
+                    return FailedReceipt(result, unusable);
+                }
+                return result;
+            },
+        });
+        try
+        {
+            Session? parent = kind == "server" ? null : await selected.CreateSessionAsync(new() { Name = "keeper" }, Token);
+            Window? window = parent is null ? null : Assert.Single(await parent.GetWindowsAsync(Token));
+            Pane? pane = window is null ? null : Assert.Single(await window.GetPanesAsync(Token));
+            armed = true;
+            Task acquisition = operation switch
+            {
+                "server" => selected.FindOrCreateAsync(Token),
+                "session" => selected.CreateOwnedSessionAsync(new() { Name = "created" }, Token),
+                "window" => parent!.CreateOwnedWindowAsync(new() { Name = "created" }, Token),
+                "receipt-window" => parent!.CreateWindowWithReceiptAsync(new() { Name = "created" }, Token),
+                "relative-window" => window!.CreateWindowAsync(new() { Name = "created", Direction = WindowDirection.After }, Token),
+                "window-pane" => window!.SplitPaneAsync(cancellationToken: Token),
+                "guarded-pane" => pane!.SplitOwnedAsync(new() { ExpectedWindowId = window!.Id }, Token),
+                _ => pane!.SplitOwnedAsync(cancellationToken: Token),
+            };
+            Exception? error = await Record.ExceptionAsync(() => acquisition);
+            Assert.NotNull(error);
+            Assert.True(created);
+            TmuxCommandException commandFailure;
+            if (unusable)
+            {
+                commandFailure = Assert.IsType<TmuxCommandException>(error);
+                Assert.NotEqual(TmuxDispatchState.NotDispatched, commandFailure.Dispatch);
+            }
+            else
+            {
+                Assert.Equal(TmuxDispatchState.Unknown, Assert.IsType<LibTmuxException>(error).Dispatch);
+                commandFailure = Assert.IsType<TmuxCommandException>(error.InnerException);
+            }
+            Assert.Equal(77, commandFailure.Result.ExitCode);
+            Assert.Contains("failure after creation receipt", commandFailure.Result.StandardErrorLines);
+            Assert.Same(cleanupFails ? rollbackFailure : null, OwnedScope.CleanupFailure(error));
+            armed = false;
+            Server? current = await Server.Open(fixture.Options).InspectAsync(Token);
+            if (kind == "server")
+            {
+                Assert.Equal(cleanupFails || unusable, current is not null);
+                if (!cleanupFails && !unusable)
+                {
+                    Assert.True(daemon!.HasExited);
+                }
+            }
+            else
+            {
+                int remaining = kind switch
+                {
+                    "session" => (await current!.GetSessionsAsync(Token)).Count,
+                    "window" => (await current!.GetWindowsAsync(Token)).Count,
+                    _ => (await current!.GetPanesAsync(Token)).Count,
+                };
+                Assert.Equal(cleanupFails || unusable ? 2 : 1, remaining);
+            }
+        }
+        finally
+        {
+            armed = false;
+            if (parentOwner is not null)
+            {
+                await parentOwner.DisposeAsync();
+            }
+            else if (await Server.Open(fixture.Options).InspectAsync(Token) is { } remaining)
+            {
+                await (await remaining.AdoptAsync(Token)).DisposeAsync();
+            }
+            if (daemon is not null)
+            {
+                await daemon.WaitForExitAsync(Token).WaitAsync(TimeSpan.FromSeconds(5), Token);
+                daemon.Dispose();
+            }
+        }
+    }
+
+    [UnixFact]
+    public async Task A_failed_server_receipt_does_not_adopt_an_unrelated_starter()
+    {
+        await using var fixture = new Fixture();
+        OwnedServerScope? competitor = null;
+        bool armed = true;
+        try
+        {
+            Server endpoint = Server.Open(fixture.Options with
+            {
+                Interceptor = async (invocation, next, token) =>
+                {
+                    if (armed && invocation.Arguments.Contains("new-session", StringComparer.Ordinal))
+                    {
+                        armed = false;
+                        Session session = await Server.Open(fixture.Options).CreateSessionAsync(new() { Name = "competitor" }, token);
+                        competitor = await session.Server.AdoptAsync(token);
+                        return FailedReceipt(await next(token));
+                    }
+                    return await next(token);
+                },
+            });
+            LibTmuxException error = await Assert.ThrowsAsync<LibTmuxException>(() => endpoint.FindOrCreateAsync(Token));
+            Assert.Equal(77, Assert.IsType<TmuxCommandException>(error.InnerException).Result.ExitCode);
+            Assert.Null(OwnedScope.CleanupFailure(error));
+            Server? borrowed = await endpoint.InspectAsync(Token);
+            Assert.NotNull(borrowed);
+            Assert.Equal("competitor", Assert.Single(await borrowed.GetSessionsAsync(Token)).Name);
+            Assert.Equal("on", Assert.Single((await borrowed.ExecuteCommandAsync(["show-options", "-sv", "exit-empty"], Token)).StandardOutputLines));
+        }
+        finally
+        {
+            if (competitor is not null)
+            {
+                await competitor.DisposeAsync();
+            }
+        }
+    }
+
+    [UnixFact]
+    public async Task A_failed_server_receipt_retains_startup_verification_and_bootstrap_rollback_failures()
+    {
+        await using var fixture = new Fixture();
+        bool created = false;
+        int serverKills = 0;
+        var verificationFailure = new IOException("Startup verification failed.");
+        var rollbackFailure = new IOException("Bootstrap rollback failed.");
+        Server endpoint = Server.Open(fixture.Options with
+        {
+            Interceptor = async (invocation, next, token) =>
+            {
+                if (created && invocation.Arguments.Contains("show-environment", StringComparer.Ordinal))
+                {
+                    throw verificationFailure;
+                }
+                if (created && invocation.Arguments.Contains("kill-session", StringComparer.Ordinal))
+                {
+                    throw rollbackFailure;
+                }
+                if (invocation.Arguments.Contains("kill-server", StringComparer.Ordinal))
+                {
+                    serverKills++;
+                }
+                TmuxCommandResult result = await next(token);
+                if (invocation.Arguments.Contains("new-session", StringComparer.Ordinal))
+                {
+                    created = true;
+                    return FailedReceipt(result);
+                }
+                return result;
+            },
+        });
+        try
+        {
+            LibTmuxException error = await Assert.ThrowsAsync<LibTmuxException>(() => endpoint.FindOrCreateAsync(Token));
+            Assert.Equal(77, Assert.IsType<TmuxCommandException>(error.InnerException).Result.ExitCode);
+            AggregateException cleanup = Assert.IsType<AggregateException>(OwnedScope.CleanupFailure(error));
+            Assert.Contains(verificationFailure, cleanup.InnerExceptions);
+            Assert.Contains(rollbackFailure, cleanup.InnerExceptions);
+            Assert.Equal(0, serverKills);
+        }
+        finally
+        {
+            if (await Server.Open(fixture.Options).InspectAsync(Token) is { } remaining)
+            {
+                await (await remaining.AdoptAsync(Token)).DisposeAsync();
+            }
+        }
+    }
+
+    private static TmuxCommandResult FailedReceipt(TmuxCommandResult result, bool unusable = false) => new(
+        result.Arguments, 77,
+        unusable ? System.Text.Encoding.UTF8.GetBytes("unusable reply\n") : result.StandardOutput,
+        System.Text.Encoding.UTF8.GetBytes("failure after creation receipt\n"),
+        unusable ? ["unusable reply"] : result.StandardOutputLines, ["failure after creation receipt"]);
+
+    [Theory(Skip = "Requires a Unix process environment.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     [InlineData("server")]
     [InlineData("session")]
     [InlineData("window")]

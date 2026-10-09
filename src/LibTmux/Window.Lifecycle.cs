@@ -166,7 +166,13 @@ public sealed partial class Window
         var sequence = new TmuxMutationSequence();
         TmuxCommandResult result = await sequence.MutateAsync(
                 () => OwnedCleanup.DispatchCreationAsync(() => dispatcher.ExecuteAsync(arguments, acquisition.Token), arguments[0], acquisition.Token),
-                static value => TmuxCommandFailure.ThrowIfFailed(value, "new-window"))
+                static value =>
+                {
+                    if (value.StandardOutputLines.Count == 0 || !WindowId.TryParse(value.StandardOutputLines[0], out _))
+                    {
+                        TmuxCommandFailure.ThrowIfFailed(value, "new-window");
+                    }
+                })
             .ConfigureAwait(false);
 
         WindowId created = sequence.Observe(() =>
@@ -179,6 +185,7 @@ public sealed partial class Window
 
         return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
         {
+            TmuxCommandFailure.ThrowIfFailed(result, "new-window");
             cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<Window> windows = await owner.GetWindowsAsync(cancellationToken).ConfigureAwait(false);
             Window window = windows.FirstOrDefault(window => window.Id == created)
