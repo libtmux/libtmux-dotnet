@@ -41,6 +41,29 @@ let run () =
         let! scopedSession = server |> Server.tryFindSession token scopedId
         check "session scope works with the SDK's FSharp.Core" scopedSession.IsNone
 
+        use! reused = server |> Server.findOrCreateSession token "sdk8" None
+
+        match reused with
+        | FindOrCreate.Existing value -> check "find-or-create returns a borrowed session" (value.Id = created.Id)
+        | FindOrCreate.Created _ -> failwith "An existing session was classified as created."
+
+        let! selected =
+            server
+            |> Server.findOrCreateSession token "owned" (Some(NewSessionRequest(Command = "/bin/sh")))
+
+        let! ownedId =
+            selected
+            |> FindOrCreate.withResource token (fun session ->
+                task {
+                    let! pane = session |> Session.activePane token
+                    let! owner = pane |> Pane.adopt token
+                    do! owner |> Owned.withResource token (fun _ -> task { return () })
+                    return session.Id
+                })
+
+        let! removed = server |> Server.tryFindSession token ownedId
+        check "created cleanup and adoption work with the SDK's FSharp.Core" removed.IsNone
+
         let! sessions = server |> Server.sessions |> Query.list token
 
         let named =

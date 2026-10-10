@@ -187,8 +187,11 @@ def verify(root: pathlib.Path) -> list[str]:
     )
     require(
         "python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart" in quickstart_run
-        and quickstart_commands.count("-p:UsePackageReferences=true") >= 2
-        and 'python3 eng/docs/run_fsharp_quickstart.py --framework "${framework}"' in quickstart_commands,
+        and quickstart_commands.count("-p:UsePackageReferences=true") >= 3
+        and 'python3 eng/docs/run_fsharp_quickstart.py --framework "${framework}"' in quickstart_commands
+        and "-p:ExampleProgram=FindOrCreate" in quickstart_commands
+        and 'python3 eng/docs/run_fsharp_quickstart.py --framework "${framework}" --example find-or-create' in quickstart_commands
+        and "python3 eng/docs/sync_fsharp_snippets.py --expect-output FindOrCreateSession" in quickstart_commands,
         "dotnet.build.fsharp-readme-quickstart must compare the packed program's output with the README",
     )
 

@@ -1,4 +1,4 @@
-"""Run the unchanged F# quickstart on owned endpoints and verify cleanup."""
+"""Run the unchanged F# ordinary-endpoint examples and verify cleanup."""
 
 from __future__ import annotations
 
@@ -24,7 +24,10 @@ def process_identity(pid: int) -> str | None:
     return None if fields[0] == "Z" else fields[19]
 
 
-def scenario(dotnet: str, program: Path, selector: str, body: bool, cleanup: bool) -> str:
+def scenario(
+    dotnet: str, program: Path, selector: str, body: bool, cleanup: bool,
+    *, example: str = "quickstart", reuse: str | None = None,
+) -> str:
     base = Path(os.environ.get("TMUX_TMPDIR", "/tmp/libtmux-dotnet-test"))
     base.mkdir(parents=True, exist_ok=True)
     root = Path(tempfile.mkdtemp(prefix="fsharp-quickstart-", dir=base))
@@ -56,6 +59,10 @@ def scenario(dotnet: str, program: Path, selector: str, body: bool, cleanup: boo
         identity = process_identity(pid)
         if identity is None:
             raise AssertionError("The owned daemon exited before the example.")
+        if reuse:
+            tmux("new-session", "-d", "-s", "build", "/bin/sh")
+            if reuse == "window":
+                tmux("new-window", "-d", "-t", "build:", "-n", "tests", "/bin/sh")
         tmux("set-hook", "-g", "after-new-session", "set-option -g @ordinary-created yes")
         wrapper = root / "tmux"
         faults = ""
@@ -78,14 +85,20 @@ def scenario(dotnet: str, program: Path, selector: str, body: bool, cleanup: boo
         for requested, marker in ((body, "injected body failure"), (cleanup, "injected cleanup failure")):
             if requested and marker not in result.stderr:
                 raise AssertionError(f"Missing {marker!r}: {result.stderr}")
-        if not body and output != "window: tests\nwindows: 2\n":
+        prefix = f"session: {'existing' if reuse else 'created'}\n" if example == "find-or-create" else ""
+        if not body and output != prefix + "window: tests\nwindows: 2\n":
             raise AssertionError(f"Unexpected example output: {output!r}")
-        if tmux("show-option", "-gqv", "@ordinary-created").stdout.strip() != "yes":
-            raise AssertionError("The example did not create a session on the selected endpoint.")
-        expected = ["build", "keeper"] if cleanup else ["keeper"]
+        created = tmux("show-option", "-gqv", "@ordinary-created").stdout.strip()
+        if (created == "yes") != (not reuse):
+            raise AssertionError(f"Unexpected session creation marker: {created!r}; reuse={reuse!r}.")
+        expected = ["build", "keeper"] if cleanup or reuse else ["keeper"]
         sessions = sorted(tmux("list-sessions", "-F", "#{session_name}").stdout.splitlines())
         if sessions != expected:
             raise AssertionError(f"Unexpected remaining sessions: {sessions!r}; expected {expected!r}.")
+        if reuse:
+            windows = tmux("list-windows", "-t", "build", "-F", "#{window_name}").stdout.splitlines()
+            if len(windows) != (2 if reuse == "window" else 1):
+                raise AssertionError(f"Created window cleanup or borrowed window preservation failed: {windows!r}.")
     except Exception as error:
         failure = error
     finally:
@@ -110,7 +123,7 @@ def scenario(dotnet: str, program: Path, selector: str, body: bool, cleanup: boo
             raise
     if failure is not None:
         raise failure
-    print(f"PASS {program.parent.name} {selector} body_failure={body} cleanup_failure={cleanup}; daemon terminated", file=sys.stderr)
+    print(f"PASS {example} {program.parent.name} {selector} reuse={reuse} body_failure={body} cleanup_failure={cleanup}; daemon terminated", file=sys.stderr)
     return output
 
 
@@ -118,15 +131,24 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dotnet", default="dotnet")
     parser.add_argument("--framework", choices=("net8.0", "net10.0"), required=True)
+    parser.add_argument("--example", choices=("quickstart", "find-or-create"), default="quickstart")
     arguments = parser.parse_args()
     if not sys.platform.startswith("linux"):
         parser.error("This daemon-termination harness requires Linux /proc.")
-    program = ROOT / "examples/LibTmux.FSharp.Quickstart/bin/Release" / arguments.framework / "LibTmux.FSharp.Quickstart.dll"
+    directory = ROOT / "examples/LibTmux.FSharp.Quickstart/bin/Release"
+    if arguments.example == "find-or-create":
+        directory /= "FindOrCreate"
+    program = directory / arguments.framework / "LibTmux.FSharp.Quickstart.dll"
     if not program.is_file():
         parser.error(f"Build the quickstart before running it: {program}")
-    output = scenario(arguments.dotnet, program, "name", False, False)
+    output = scenario(arguments.dotnet, program, "name", False, False, example=arguments.example)
     for body, cleanup in ((False, False), (True, False), (False, True), (True, True)):
-        scenario(arguments.dotnet, program, "path", body, cleanup)
+        scenario(arguments.dotnet, program, "path", body, cleanup, example=arguments.example)
+    if arguments.example == "find-or-create":
+        for selector in ("name", "path"):
+            for reuse in ("session", "window"):
+                scenario(arguments.dotnet, program, selector, False, False, example=arguments.example, reuse=reuse)
+        scenario(arguments.dotnet, program, "path", True, False, example=arguments.example, reuse="session")
     print(output, end="")
 
 

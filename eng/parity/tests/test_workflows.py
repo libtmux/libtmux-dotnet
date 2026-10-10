@@ -85,6 +85,9 @@ def test_packed_complete_programs_are_required(
         "python3 eng/docs/run_fsharp_quickstart.py",
         "python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart",
         "-p:UsePackageReferences=true",
+        "-p:ExampleProgram=FindOrCreate",
+        "--example find-or-create",
+        "python3 eng/docs/sync_fsharp_snippets.py --expect-output FindOrCreateSession",
     ],
 )
 def test_fsharp_quickstart_requires_packed_isolation_and_output_check(

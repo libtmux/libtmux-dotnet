@@ -34,7 +34,7 @@ Appends any command, such as a typed request&#39;s <code>ToCommand</code>.
 
 Returns: <code>TmuxChain</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L365)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L436)
 
 <a name="arrange"></a>
 
@@ -50,7 +50,7 @@ Arranges the current window with a tmux layout; the chain checks the name before
 
 Returns: <code>TmuxChain</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L362)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L433)
 
 <a name="newWindow"></a>
 
@@ -70,7 +70,7 @@ It fails rather than reach another session when tmux restarted after the session
 
 Returns: <code>TmuxChain</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L345)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L416)
 
 <a name="run"></a>
 
@@ -88,7 +88,7 @@ Cancellation after dispatch does not undo commands tmux already ran.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;TmuxCommandResult&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L367)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L438)
 
 <a name="sendLine"></a>
 
@@ -104,7 +104,7 @@ Types a line into the current pane and presses Enter.
 
 Returns: <code>TmuxChain</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L359)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L430)
 
 <a name="splitLeftRight"></a>
 
@@ -118,7 +118,7 @@ Splits the current pane into a left and a right one; the right becomes current.
 
 Returns: <code>TmuxChain</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L355)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L426)
 
 <a name="splitTopBottom"></a>
 
@@ -132,7 +132,7 @@ Splits the current pane into a top and a bottom one; the bottom becomes current.
 
 Returns: <code>TmuxChain</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L357)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L428)
 
 <a name="start"></a>
 
@@ -148,4 +148,4 @@ Returns: <code>TmuxChain</code>
 
 [InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) The server handle has no connection.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L343)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L414)

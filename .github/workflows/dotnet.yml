@@ -237,10 +237,17 @@ jobs:
             --configuration Release \
             --no-restore \
             -p:UsePackageReferences=true
+          dotnet build examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
+            --configuration Release \
+            --no-restore \
+            -p:UsePackageReferences=true \
+            -p:ExampleProgram=FindOrCreate
           for framework in net8.0 net10.0; do
             # Built above, so only what the program prints reaches the comparison.
             printed="$(python3 eng/docs/run_fsharp_quickstart.py --framework "${framework}")"
             printf '%s\n' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart
+            printed="$(python3 eng/docs/run_fsharp_quickstart.py --framework "${framework}" --example find-or-create)"
+            printf '%s\n' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output FindOrCreateSession
           done
 
       - name: F# packed example console

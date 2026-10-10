@@ -383,6 +383,8 @@ private endpoint, checks session cleanup after success and injected failures,
 and verifies daemon termination before removing its root. Keep the project
 outside the solution.
 
+The same project builds `FindOrCreate.fs` with `-p:ExampleProgram=FindOrCreate`. Run its unchanged source through `eng/docs/run_fsharp_quickstart.py --framework net8.0 --example find-or-create` (and `net10.0`). The harness checks created cleanup, borrowed session/window preservation, externally selected names and paths, and body/cleanup failures. Snippet synchronization binds it to `docs/fsharp/lifecycle.md`.
+
 `LibTmux.FSharp.AotSmoke` restores from the same mapped feed and publishes its
 native binary for both target frameworks. It covers the static snapshot and
 native sequence route, and a tmux query read with `Query.tryExactlyOne` and

@@ -6,6 +6,41 @@ open System.Threading
 open System.Threading.Tasks
 open LibTmux
 
+/// <summary>Runs tasks with an explicitly owned tmux resource.</summary>
+[<RequireQualifiedAccess>]
+module Owned =
+    /// <summary>Runs work and awaits destruction of the owned resource after success, failure or cancellation.</summary>
+    /// <remarks>
+    /// The token is checked before work starts; pass it to commands inside work to cancel them.
+    /// Cleanup has its own five-second deadline and retains the captured endpoint, daemon generation and object ID.
+    /// If work and cleanup both fail, the original exception and cancellation token propagate;
+    /// <c>Control.cleanupFailure</c> returns the cleanup exception. A failed cleanup can be retried on the owner.
+    /// </remarks>
+    val withResource:
+        cancellationToken: CancellationToken ->
+        work: ('Resource -> Task<'State>) ->
+        owner: IOwnedTmuxResource<'Resource> ->
+            Task<'State>
+
+/// <summary>Distinguishes borrowed matches from resources created and owned by find-or-create.</summary>
+[<RequireQualifiedAccess>]
+module FindOrCreate =
+    /// <summary>Matches an existing borrowed handle or the owner of a newly created resource.</summary>
+    /// <remarks>Matching does not dispose the result. Dispose a created owner or pass the result to <c>withResource</c>.</remarks>
+    val (|Existing|Created|): result: FoundOrCreated<'Resource> -> Choice<'Resource, IOwnedTmuxResource<'Resource>>
+
+    /// <summary>Runs work and destroys only a resource created by the find-or-create call.</summary>
+    /// <remarks>
+    /// An existing resource remains borrowed after success, failure or cancellation.
+    /// Created resources use <c>Owned.withResource</c>, including its cancellation and paired-failure behavior.
+    /// The token is checked before work starts; work passes it to its own cancellable commands.
+    /// </remarks>
+    val withResource:
+        cancellationToken: CancellationToken ->
+        work: ('Resource -> Task<'State>) ->
+        result: FoundOrCreated<'Resource> ->
+            Task<'State>
+
 /// <summary>Starts server reads and queries with the caller's cancellation token.</summary>
 [<RequireQualifiedAccess>]
 module Server =
@@ -22,6 +57,40 @@ module Server =
     /// <summary>Attaches to a server already listening on the socket the options name.</summary>
     /// <remarks>The core's <c>Server.ConnectAsync</c>; it never starts a server.</remarks>
     val connect: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<LibTmux.Server>
+
+    /// <summary>Accepts responsibility for stopping an existing daemon and all its sessions, windows and panes.</summary>
+    /// <remarks>Disposal waits for the captured process to exit and refuses to stop a replacement daemon at the same endpoint.</remarks>
+    val adopt: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<OwnedServerScope>
+
+    /// <summary>Finds responsive daemons within the supplied socket directories and configured bounds.</summary>
+    /// <remarks>
+    /// Returns borrowed handles, diagnostics and truncation information. Only immediate directory children are examined;
+    /// probes never start a daemon. Symlinks and sockets owned by another Unix user are skipped.
+    /// Cancellation propagates; an unresponsive synchronous filesystem operation can exceed the configured deadline.
+    /// </remarks>
+    val discover: cancellationToken: CancellationToken -> options: ServerDiscoveryOptions -> Task<ServerDiscoveryResult>
+
+    /// <summary>Finds a daemon at the captured endpoint or starts and owns one.</summary>
+    /// <remarks>
+    /// An existing daemon remains borrowed. Creation uses the captured environment and startup configuration.
+    /// Calls serialize within this process for the same socket path spelling; other clients can still change tmux state.
+    /// Initialization runs only on creation and must not call find-or-create while its shared gate is held.
+    /// </remarks>
+    val findOrCreate:
+        cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<FoundOrCreated<LibTmux.Server>>
+
+    /// <summary>Finds an exact session name or creates and owns that session.</summary>
+    /// <remarks>
+    /// <c>None</c> uses default creation options. A request cannot replace an existing session or specify a conflicting name.
+    /// Reuse remains borrowed; creation failures with a usable receipt roll back the created session.
+    /// Calls serialize within this process; other clients can still change the selected resource.
+    /// </remarks>
+    val findOrCreateSession:
+        cancellationToken: CancellationToken ->
+        name: string ->
+        request: NewSessionRequest option ->
+        server: LibTmux.Server ->
+            Task<FoundOrCreated<LibTmux.Session>>
 
     /// <summary>Queries every session.</summary>
     /// <remarks>Child windows and panes require an explicit capture at the corresponding depth.</remarks>
@@ -118,6 +187,23 @@ module Server =
 /// <summary>Starts queries confined to one session.</summary>
 [<RequireQualifiedAccess>]
 module Session =
+    /// <summary>Accepts responsibility for destroying an existing session and its unshared windows and panes.</summary>
+    /// <remarks>Cleanup follows the captured session ID through renames and refuses a replacement daemon.</remarks>
+    val adopt: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<OwnedSessionScope>
+
+    /// <summary>Finds an exact window name in the session or creates and owns that window.</summary>
+    /// <remarks>
+    /// <c>None</c> uses default creation options. Multiple matching windows raise <c>TmuxAmbiguousMatchException</c>.
+    /// Requests cannot kill or select an existing window or specify a conflicting name.
+    /// Reuse remains borrowed; a created window's owner destroys all its links and panes when disposed.
+    /// </remarks>
+    val findOrCreateWindow:
+        cancellationToken: CancellationToken ->
+        name: string ->
+        request: NewWindowRequest option ->
+        session: LibTmux.Session ->
+            Task<FoundOrCreated<LibTmux.Window>>
+
     /// <summary>Queries the window placements in a session.</summary>
     /// <exception cref="T:LibTmux.IncompleteSnapshotException">The session was not read through a server.</exception>
     val windows: session: LibTmux.Session -> Query<LibTmux.Window>
@@ -158,6 +244,23 @@ module Session =
 /// <summary>Identifies window placements and starts queries confined to one window.</summary>
 [<RequireQualifiedAccess>]
 module Window =
+    /// <summary>Accepts responsibility for destroying an existing window, all its session links and all its panes.</summary>
+    /// <remarks>Cleanup follows the captured window ID and refuses a replacement daemon.</remarks>
+    val adopt: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<OwnedWindowScope>
+
+    /// <summary>Finds a pane with the exact local identity option or creates and owns a matching pane.</summary>
+    /// <remarks>
+    /// Uses the pane-local <c>@libtmux-identity</c> option within this window, not the pane title or index.
+    /// Multiple matches raise <c>TmuxAmbiguousMatchException</c>. <c>None</c> uses default split options;
+    /// a request cannot override the target window. Reuse remains borrowed and creation records the identity before returning.
+    /// </remarks>
+    val findOrCreatePane:
+        cancellationToken: CancellationToken ->
+        identity: string ->
+        request: SplitPaneRequest option ->
+        window: LibTmux.Window ->
+            Task<FoundOrCreated<LibTmux.Pane>>
+
     /// <summary>Returns a comparable key including the captured session and window index.</summary>
     /// <exception cref="T:LibTmux.IncompleteSnapshotException">The placement was not captured.</exception>
     val placementKey: window: LibTmux.Window -> WindowPlacementKey
@@ -206,6 +309,10 @@ module Window =
 /// <summary>Reads captured pane fields and starts explicit pane operations.</summary>
 [<RequireQualifiedAccess>]
 module Pane =
+    /// <summary>Accepts responsibility for destroying an existing pane, including after it moves to another window.</summary>
+    /// <remarks>Cleanup follows the captured pane ID and refuses a replacement daemon.</remarks>
+    val adopt: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task<OwnedPaneScope>
+
     /// <summary>Reads the captured working directory, preserving an empty string.</summary>
     /// <exception cref="T:LibTmux.IncompleteSnapshotException">The path field was not captured.</exception>
     val currentPath: pane: LibTmux.Pane -> string option

@@ -22,6 +22,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | Fields to filter on | [`PaneFields.currentCommand`](#panefields), [`WindowFields.name`](#windowfields), [`SessionFields.name`](#sessionfields) | [PaneFields](#panefields), [WindowFields](#windowfields), [SessionFields](#sessionfields), [ClientFields](#clientfields) |
 | Pick one match, or panes showing text | [`Query.exactlyOne`](#query), [`Query.atMostOne`](#query), [`Query.showing`](#query), [`Server.tryFindPane`](#server) | [Selection](#selection), [CardinalityError](#cardinalityerror), [ScreenSearch](#screensearch) |
 | Start or attach to a server | [`Server.createOwned`](#server), [`Server.connect`](#server), [`Server.within`](#server) | [Server](#server), [Options](#options) |
+| Ownership and find-or-create | [`Owned.withResource`](#owned), [`FindOrCreate.withResource`](#findorcreate) | [Owned](#owned), [FindOrCreate](#findorcreate) |
 | Describe sessions, windows and splits | [`Server.newSession`](#server), [`SessionSpec.named`](#sessionspec), [`WindowSpec.named`](#windowspec), [`SplitSpec.empty`](#splitspec) | [SessionSpec](#sessionspec), [WindowSpec](#windowspec), [SplitSpec](#splitspec), [SplitSize](#splitsize) |
 | Split panes and find the active one | [`Pane.split`](#pane), [`Session.activePane`](#session), [`Window.activePane`](#window) | [Session](#session), [Window](#window), [WindowPlacementKey](#windowplacementkey) |
 | Type into a pane | [`Pane.sendLine`](#pane), [`Pane.sendKeys`](#pane), [`Pane.pressKey`](#pane) | [Pane](#pane), [Chain](#chain) |
@@ -124,6 +125,14 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val toDocument: filter: Filter<'T> -> LibTmux.Query.QueryDocument` | Returns the core document validated when the filter was constructed. |
 | `val toPredicate: filter: Filter<'T> -> ('T -> bool)` | Returns a predicate compiled once for native lazy filtering. |
 
+## FindOrCreate
+
+| Signature | Summary |
+|---|---|
+| `module FindOrCreate` | Distinguishes borrowed matches from resources created and owned by find-or-create. |
+| `val (|Existing|Created|) : result: FoundOrCreated<'Resource> -> Choice<'Resource,IOwnedTmuxResource<'Resource>>` | Matches an existing borrowed handle or the owner of a newly created resource. |
+| `val withResource: cancellationToken: CancellationToken -> work: ('Resource -> Task<'State>) -> result: FoundOrCreated<'Resource> -> Task<'State>` | Runs work and destroys only a resource created by the find-or-create call. |
+
 ## Mirror
 
 | Signature | Summary |
@@ -144,11 +153,19 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val get: cancellationToken: CancellationToken -> key: TmuxOptionKey<'T> -> options: TmuxOptions -> Task<'T> when 'T: not null` | Reads the value an option has in a scope, set there or inherited, as its key's type. |
 | `val set: cancellationToken: CancellationToken -> key: TmuxOptionKey<'T> -> value: 'T -> options: TmuxOptions -> Task when 'T: not null` | Sets an option in a scope from a value of its key's type. |
 
+## Owned
+
+| Signature | Summary |
+|---|---|
+| `module Owned` | Runs tasks with an explicitly owned tmux resource. |
+| `val withResource: cancellationToken: CancellationToken -> work: ('Resource -> Task<'State>) -> owner: IOwnedTmuxResource<'Resource> -> Task<'State>` | Runs work and awaits destruction of the owned resource after success, failure or cancellation. |
+
 ## Pane
 
 | Signature | Summary |
 |---|---|
 | `module Pane` | Reads captured pane fields and starts explicit pane operations. |
+| `val adopt: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task<OwnedPaneScope>` | Accepts responsibility for destroying an existing pane, including after it moves to another window. |
 | `val capture: cancellationToken: CancellationToken -> request: CapturePaneRequest -> pane: LibTmux.Pane -> Task<IReadOnlyList<string>>` | Captures pane contents using the supplied core request. |
 | `val clearHistory: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task` | Clears the pane's scrollback history; what the screen shows stays. |
 | `val currentCommand: pane: LibTmux.Pane -> string option` | Reads the captured command name, preserving an empty string. |
@@ -273,10 +290,14 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | Signature | Summary |
 |---|---|
 | `module Server` | Starts server reads and queries with the caller's cancellation token. |
+| `val adopt: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<OwnedServerScope>` | Accepts responsibility for stopping an existing daemon and all its sessions, windows and panes. |
 | `val capture: cancellationToken: CancellationToken -> depth: SnapshotDepth -> server: LibTmux.Server -> Task<LibTmux.Server>` | Returns a new server handle captured to the requested depth. |
 | `val clients: server: LibTmux.Server -> Query<Client>` | Queries attached clients. |
 | `val connect: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<LibTmux.Server>` | Attaches to a server already listening on the socket the options name. |
 | `val createOwned: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<OwnedServerScope>` | Starts a server on the socket the options name and owns it; disposing the scope stops it. |
+| `val discover: cancellationToken: CancellationToken -> options: ServerDiscoveryOptions -> Task<ServerDiscoveryResult>` | Finds responsive daemons within the supplied socket directories and configured bounds. |
+| `val findOrCreate: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<FoundOrCreated<LibTmux.Server>>` | Finds a daemon at the captured endpoint or starts and owns one. |
+| `val findOrCreateSession: cancellationToken: CancellationToken -> name: string -> request: NewSessionRequest option -> server: LibTmux.Server -> Task<FoundOrCreated<LibTmux.Session>>` | Finds an exact session name or creates and owns that session. |
 | `val newSession: cancellationToken: CancellationToken -> spec: SessionSpec -> server: LibTmux.Server -> Task<LibTmux.Session>` | Creates a session as described: its windows, and each window's splits. |
 | `val panes: server: LibTmux.Server -> Query<LibTmux.Pane>` | Queries every pane. |
 | `val sessions: server: LibTmux.Server -> Query<LibTmux.Session>` | Queries every session. |
@@ -294,6 +315,8 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 |---|---|
 | `module Session` | Starts queries confined to one session. |
 | `val activePane: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<LibTmux.Pane>` | Reads from tmux the pane the session shows: its current window's active pane. |
+| `val adopt: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<OwnedSessionScope>` | Accepts responsibility for destroying an existing session and its unshared windows and panes. |
+| `val findOrCreateWindow: cancellationToken: CancellationToken -> name: string -> request: NewWindowRequest option -> session: LibTmux.Session -> Task<FoundOrCreated<LibTmux.Window>>` | Finds an exact window name in the session or creates and owns that window. |
 | `val holdWaitClient: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<IAsyncDisposable>` | Keeps the control client that waits on the session's panes use attached until the handle is disposed. |
 | `val kill: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task` | Kills the session, with its windows and panes. |
 | `val newWindow: cancellationToken: CancellationToken -> request: NewWindowRequest -> session: LibTmux.Session -> Task<LibTmux.Window>` | Creates a window in the session as the request describes, and returns it. |
@@ -388,6 +411,8 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 |---|---|
 | `module Window` | Identifies window placements and starts queries confined to one window. |
 | `val activePane: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<LibTmux.Pane>` | Reads from tmux the window's active pane. |
+| `val adopt: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<OwnedWindowScope>` | Accepts responsibility for destroying an existing window, all its session links and all its panes. |
+| `val findOrCreatePane: cancellationToken: CancellationToken -> identity: string -> request: SplitPaneRequest option -> window: LibTmux.Window -> Task<FoundOrCreated<LibTmux.Pane>>` | Finds a pane with the exact local identity option or creates and owns a matching pane. |
 | `val kill: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task` | Kills the window, with its panes. |
 | `val move: cancellationToken: CancellationToken -> request: MoveWindowRequest -> window: LibTmux.Window -> Task<LibTmux.Window>` | Moves the window as the request says, and returns a handle carrying the state afterwards. |
 | `val panes: window: LibTmux.Window -> Query<LibTmux.Pane>` | Queries the panes in a window. |

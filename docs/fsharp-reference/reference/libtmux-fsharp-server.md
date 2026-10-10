@@ -8,6 +8,24 @@ Starts server reads and queries with the caller's cancellation token.
 
 ### Functions and values
 
+<a name="adopt"></a>
+
+#### <code><span>Server.adopt&#32;<span>cancellationToken&#32;server</span></span></code>
+
+Accepts responsibility for stopping an existing daemon and all its sessions, windows and panes.
+
+Disposal waits for the captured process to exit and refuses to stop a replacement daemon at the same endpoint.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**server**: <code>Server</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;OwnedServerScope&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L52)
+
 <a name="capture"></a>
 
 #### <code><span>Server.capture&#32;<span>cancellationToken&#32;depth&#32;server</span></span></code>
@@ -26,7 +44,7 @@ Acquisition is not atomic; retained handles do not refresh themselves.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Server&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L166)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L215)
 
 <a name="clients"></a>
 
@@ -42,7 +60,7 @@ tmux narrows a filtered client listing only from tmux 3.4; older tmux lists ever
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&lt;Client&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L28)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L77)
 
 <a name="connect"></a>
 
@@ -60,7 +78,7 @@ The core&#39;s <code>Server.ConnectAsync</code>; it never starts a server.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Server&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L16)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L49)
 
 <a name="createOwned"></a>
 
@@ -84,7 +102,71 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxCommandException`tmux failed to say whether a server is listening, such as on a socket it may not open.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L13)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L46)
+
+<a name="discover"></a>
+
+#### <code><span>Server.discover&#32;<span>cancellationToken&#32;options</span></span></code>
+
+Finds responsive daemons within the supplied socket directories and configured bounds.
+
+Returns borrowed handles, diagnostics and truncation information. Only immediate directory children are examined;
+ probes never start a daemon. Symlinks and sockets owned by another Unix user are skipped.
+ Cancellation propagates; an unresponsive synchronous filesystem operation can exceed the configured deadline.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**options**: <code>ServerDiscoveryOptions</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;ServerDiscoveryResult&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L54)
+
+<a name="findOrCreate"></a>
+
+#### <code><span>Server.findOrCreate&#32;<span>cancellationToken&#32;server</span></span></code>
+
+Finds a daemon at the captured endpoint or starts and owns one.
+
+An existing daemon remains borrowed. Creation uses the captured environment and startup configuration.
+ Calls serialize within this process for the same socket path spelling; other clients can still change tmux state.
+ Initialization runs only on creation and must not call find-or-create while its shared gate is held.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**server**: <code>Server</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>FoundOrCreated&lt;Server&gt;</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L57)
+
+<a name="findOrCreateSession"></a>
+
+#### <code><span>Server.findOrCreateSession&#32;<span>cancellationToken&#32;name&#32;request&#32;server</span></span></code>
+
+Finds an exact session name or creates and owns that session.
+
+<code>None</code> uses default creation options. A request cannot replace an existing session or specify a conflicting name.
+ Reuse remains borrowed; creation failures with a usable receipt roll back the created session.
+ Calls serialize within this process; other clients can still change the selected resource.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**name**: <code>string</code>
+
+**request**: <code><span>NewSessionRequest&#32;option</span></code>
+
+**server**: <code>Server</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>FoundOrCreated&lt;Session&gt;</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L60)
 
 <a name="newSession"></a>
 
@@ -124,7 +206,7 @@ The session, read again after its windows and panes exist.
 
 `TmuxSessionExistsException` The name is already taken.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L63)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L112)
 
 <a name="panes"></a>
 
@@ -138,7 +220,7 @@ Queries every pane.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&lt;Pane&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L25)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L74)
 
 <a name="sessions"></a>
 
@@ -154,7 +236,7 @@ Child windows and panes require an explicit capture at the corresponding depth.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&lt;Session&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L19)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L68)
 
 <a name="tryFindClient"></a>
 
@@ -176,7 +258,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The client name is null, empty or whitespace.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L187)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L236)
 
 <a name="tryFindPane"></a>
 
@@ -196,7 +278,7 @@ Connection, command and cancellation errors propagate unchanged.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>Pane&#32;option</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L181)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L230)
 
 <a name="tryFindSession"></a>
 
@@ -216,7 +298,7 @@ Connection, command and cancellation errors propagate unchanged.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>Session&#32;option</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L169)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L218)
 
 <a name="tryFindWindow"></a>
 
@@ -236,7 +318,7 @@ Connection, command and cancellation errors propagate unchanged.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>Window&#32;option</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L175)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L224)
 
 <a name="windows"></a>
 
@@ -252,7 +334,7 @@ A linked window appears once for each session it is linked into.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&lt;Window&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L22)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L71)
 
 <a name="withNewSession"></a>
 
@@ -280,7 +362,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Type parameters: 'State
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L154)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L203)
 
 <a name="within"></a>
 
@@ -302,4 +384,4 @@ Returns: <code>Server</code>
 
 [ArgumentOutOfRangeException](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception) The timeout does not run forward.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L31)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L80)

@@ -8,6 +8,9 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(UsePackageReferences)' != 'true'">net10.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
+    <ExampleProgram Condition="'$(ExampleProgram)' == ''">Program</ExampleProgram>
+    <OutputPath Condition="'$(ExampleProgram)' != 'Program'">bin/$(Configuration)/$(ExampleProgram)/</OutputPath>
+    <IntermediateOutputPath Condition="'$(ExampleProgram)' != 'Program'">obj/$(Configuration)/$(TargetFramework)/$(ExampleProgram)/</IntermediateOutputPath>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
     <RestoreLockedMode>false</RestoreLockedMode>
@@ -16,7 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Program.fs" />
+    <Compile Include="$(ExampleProgram).fs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(UsePackageReferences)' == 'true'">

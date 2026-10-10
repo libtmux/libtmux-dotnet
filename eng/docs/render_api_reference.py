@@ -162,6 +162,8 @@ FSHARP_TASKS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
      ("Selection", "CardinalityError", "ScreenSearch")),
     ("Start or attach to a server", ("Server.createOwned", "Server.connect", "Server.within"),
      ("Server", "Options")),
+    ("Ownership and find-or-create", ("Owned.withResource", "FindOrCreate.withResource"),
+     ("Owned", "FindOrCreate")),
     ("Describe sessions, windows and splits",
      ("Server.newSession", "SessionSpec.named", "WindowSpec.named", "SplitSpec.empty"),
      ("SessionSpec", "WindowSpec", "SplitSpec", "SplitSize")),

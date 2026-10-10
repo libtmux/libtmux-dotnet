@@ -104,6 +104,29 @@ let runScenario mode =
                 let! scopedSession = server |> Server.tryFindSession token scopedId
                 check "session task scope removes its created session" scopedSession.IsNone
 
+                use! reused = server |> Server.findOrCreateSession token "fsharp" None
+
+                match reused with
+                | FindOrCreate.Existing value -> check "packed find-or-create preserves borrowing" (value.Id = first.Id)
+                | FindOrCreate.Created _ -> failwith "An existing session was classified as created."
+
+                let! selected =
+                    server
+                    |> Server.findOrCreateSession token "owned" (Some(NewSessionRequest(Command = "/bin/sh")))
+
+                let! ownedId =
+                    selected
+                    |> FindOrCreate.withResource token (fun session ->
+                        task {
+                            let! pane = session |> Session.activePane token
+                            let! owner = pane |> Pane.adopt token
+                            do! owner |> Owned.withResource token (fun _ -> Task.FromResult())
+                            return session.Id
+                        })
+
+                let! removed = server |> Server.tryFindSession token ownedId
+                check "packed created scope and adopted pane clean up" removed.IsNone
+
                 let! sessions = server.GetSessionsAsync(token)
 
                 check

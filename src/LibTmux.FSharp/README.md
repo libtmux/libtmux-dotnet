@@ -96,9 +96,26 @@ targets `net8.0` and `net10.0`.
 | One session's or window's panes | `Session.panes session \|> Query.list ct`; `Window.panes` alike | `IReadOnlyList<Pane>` |
 | Panes showing some text | `Server.panes server \|> Query.showing search \|> Query.list ct` | `IReadOnlyList<Pane>` |
 | Exactly one match | `Query.exactlyOne ct query`; `Query.tryExactlyOne` under NativeAOT | `Result<'T, CardinalityError>`; `'T option` |
-| Find, or create when absent | `Query.atMostOne ct query` | `'T option`; several raise |
+| At most one existing match | `Query.atMostOne ct query` | `'T option`; several raise; nothing is created |
 | One object by ID | `Server.tryFindPane ct id server` | `Pane option` |
 | The pane a session or window shows | `Session.activePane ct session`, `Window.activePane ct window` | `Pane` |
+
+### Ownership and find-or-create
+
+| Need | F# call | Effect |
+| --- | --- | --- |
+| Find or start a daemon | `server \|> Server.findOrCreate ct` | Reuse is borrowed; a new daemon is owned |
+| Find or create a session | `server \|> Server.findOrCreateSession ct "build" None` | Matches the exact session name |
+| Find or create a window | `session \|> Session.findOrCreateWindow ct "tests" None` | Matches the exact window name in that session; duplicates raise |
+| Find or create a pane | `window \|> Window.findOrCreatePane ct "worker" None` | Matches the pane-local `@libtmux-identity` option; duplicates raise |
+| Run work, then destroy only a created resource | `result \|> FindOrCreate.withResource ct work` | An existing resource survives success, failure and cancellation |
+| Accept destruction of an existing object | `resource \|> Server.adopt ct`; `Session.adopt`, `Window.adopt`, `Pane.adopt` alike | Returns an explicit owner |
+| Run work with an owner | `owner \|> Owned.withResource ct work` | Awaits cleanup and preserves paired failures |
+| Search socket directories | `options \|> Server.discover ct` | Borrowed handles, diagnostics and bounds reached |
+
+`FindOrCreate.Existing value` and `FindOrCreate.Created owner` are active patterns over the result. `None` selects default creation options; use `Some request` to set the command, directory or other creation settings. These calls serialize within this process; other tmux clients can still change the selected objects.
+
+The [lifecycle guide](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/lifecycle.md) includes complete examples, the destruction boundary for each owner, and external example-test configuration.
 
 ### Type, wait and run
 
