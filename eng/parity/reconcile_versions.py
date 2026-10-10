@@ -247,6 +247,10 @@ REQUIRED_TMUX_VERSIONS = (
     "3.7c",
 )
 LEGACY_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-1]
+# Recorded evidence keeps the SDK it ran under; run-matrix.sh stamps new
+# runs with the pinned SDK, the newest of these.
+KNOWN_SDK_VERSIONS = {"10.0.302", "10.0.303"}
+
 KNOWN_REQUIRED_TMUX_VERSION_SETS = {
     LEGACY_REQUIRED_TMUX_VERSIONS,
     REQUIRED_TMUX_VERSIONS,
@@ -893,7 +897,7 @@ def _load_environment(path: pathlib.Path) -> dict[str, t.Any]:
         or environment["platform"] not in {"linux", "macos"}
         or environment["redactionProof"] is not True
         or environment["schemaVersion"] != 1
-        or environment["sdkVersion"] != "10.0.302"
+        or environment["sdkVersion"] not in KNOWN_SDK_VERSIONS
         or environment["sourceState"] not in {"clean", "uncommitted"}
         or not isinstance(fingerprint, str)
         or FINGERPRINT_PATTERN.fullmatch(fingerprint) is None

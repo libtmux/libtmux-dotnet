@@ -108,8 +108,8 @@ fi
 
 cd "${CSHARP_DIRECTORY}"
 readonly SDK_VERSION="$(mise exec -- dotnet --version)"
-if [[ "${SDK_VERSION}" != 10.0.302 ]]; then
-    echo "expected .NET SDK 10.0.302, got ${SDK_VERSION}" >&2
+if [[ "${SDK_VERSION}" != 10.0.303 ]]; then
+    echo "expected .NET SDK 10.0.303, got ${SDK_VERSION}" >&2
     exit 1
 fi
 

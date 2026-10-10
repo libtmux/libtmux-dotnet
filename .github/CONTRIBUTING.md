@@ -11,7 +11,7 @@ them.
 
 ## Getting set up
 
-`dotnet` is pinned to `10.0.302` by [`global.json`](../global.json) with
+`dotnet` is pinned to `10.0.303` by [`global.json`](../global.json) with
 `rollForward: disable`, and again by `.tool-versions`. It resolves through
 [mise](https://mise.jdx.dev) locally, so it is not on `PATH` — every command
 below is prefixed accordingly:

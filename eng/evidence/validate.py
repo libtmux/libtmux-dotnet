@@ -28,6 +28,10 @@ def _supported_tmux_versions() -> tuple[str, ...]:
 
 REQUIRED_TMUX_VERSIONS = _supported_tmux_versions()
 LEGACY_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-1]
+# Recorded evidence keeps the SDK it ran under; run-matrix.sh stamps new
+# runs with the pinned SDK, the newest of these.
+KNOWN_SDK_VERSIONS = {"10.0.302", "10.0.303"}
+
 KNOWN_REQUIRED_TMUX_VERSION_SETS = {
     LEGACY_REQUIRED_TMUX_VERSIONS,
     REQUIRED_TMUX_VERSIONS,
@@ -454,7 +458,7 @@ def _validate_environment(
         )
         or environment["platform"] not in {"linux", "macos"}
         or environment["redactionProof"] is not True
-        or environment["sdkVersion"] != "10.0.302"
+        or environment["sdkVersion"] not in KNOWN_SDK_VERSIONS
         or environment["sourceState"] not in {"clean", "uncommitted"}
         or not isinstance(environment["sourceTreeFingerprint"], str)
         or not FINGERPRINT_PATTERN.fullmatch(environment["sourceTreeFingerprint"])

@@ -34,7 +34,7 @@ run, mirror, option and snapshot helpers.
 
 ## Run a complete F# program
 
-Use Linux or macOS with Git, tmux 3.2a or newer, .NET SDK 10.0.302 and the
+Use Linux or macOS with Git, tmux 3.2a or newer, .NET SDK 10.0.303 and the
 .NET 8 and 10 runtimes. From a checkout containing these files, make a separate
 consumer directory. This clone selects the current committed revision. An API
 page must supply an HTTPS clone and an exact checkout revision.

@@ -214,7 +214,7 @@ def _fake_matrix_environment(
     mise.write_text(
         "#!/usr/bin/env sh\n"
         'if [ "$4" = "--version" ]; then\n'
-        "    printf '%s\\n' '10.0.302'\n"
+        "    printf '%s\\n' '10.0.303'\n"
         'elif [ "$4" = "test" ]; then\n'
         '    if [ -n "${LIBTMUX_PROTOCOL_TRANSCRIPT_DIR-}" ]; then\n'
         '        mkdir -p "$LIBTMUX_PROTOCOL_TRANSCRIPT_DIR"\n'
