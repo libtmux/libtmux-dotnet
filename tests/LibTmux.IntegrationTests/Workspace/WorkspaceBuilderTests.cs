@@ -547,8 +547,12 @@ public sealed class WorkspaceBuilderTests
             string completed = $"workspace-held-{Guid.NewGuid():N}";
             string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
             string command = $"printf 'held' > {ShellQuote(received)}; {tmux} wait-for -S {completed}";
-            WorkspaceFile workspace = new("libtmux-held-enter", windows:
-                [new WorkspaceWindow(panes: [new WorkspacePane(commands: [new WorkspaceCommand(command, false)])])]);
+            // A pinned shell keeps the prompt short: the runner's login prompt
+            // carries its host name and pushed the typed command past the
+            // pane's width, so tmux wrapped `printf 'held'` across two rows.
+            WorkspaceFile workspace = new("libtmux-held-enter",
+                options: new Dictionary<string, string> { ["default-command"] = "exec /bin/sh" },
+                windows: [new WorkspaceWindow(panes: [new WorkspacePane(commands: [new WorkspaceCommand(command, false)])])]);
 
             WorkspaceResult result = await new WorkspaceBuilder(scope.Server).BuildAsync(workspace, token);
             Pane pane = Assert.Single(await Assert.Single(result.Windows).GetPanesAsync(token));
