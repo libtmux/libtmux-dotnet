@@ -902,10 +902,14 @@ public sealed class TmuxToolsTests
         // look like a run that started. awk printing the last field of every
         // line turned the payload's own echo into a bare marker line, so the
         // marker is assembled from halves the payload never spells together.
+        // awk runs under a shell that cannot exec it away (the trailing `:`),
+        // so the pane's foreground command stays a shell whether or not awk has
+        // started by the time the run checks it; otherwise a slow runner sees
+        // awk in front and refuses the pane before the payload is typed.
         ActionResult held = await mcp.Capabilities.SplitWindowAsync(
             pane, cancellationToken: token);
         await mcp.Write.SendKeysAsync(
-            "awk '{print $NF}'", held.PaneId, enter: true, cancellationToken: token);
+            "sh -c \"awk '{print \\$NF}'; :\"", held.PaneId, enter: true, cancellationToken: token);
         RunResult never = await mcp.Write.RunAsync(
             "echo x", held.PaneId, timeoutSeconds: 4, cancellationToken: token);
         Assert.True(never.TimedOut);
