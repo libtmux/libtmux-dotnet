@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 using LibTmux.Workspace;
@@ -647,7 +648,7 @@ public sealed class WorkspaceApplyTests
             WorkspaceHostResult host = Assert.IsType<WorkspaceHostResult>(journal[hostIndex].Result);
             Assert.True(host.Started);
             Assert.Equal(exitCode, host.ExitCode);
-            Assert.Equal($"declared:{sessionDirectory}", host.StandardOutput);
+            Assert.Equal($"declared:{PhysicalPath.Resolve(sessionDirectory)}", host.StandardOutput);
             Assert.Equal("diagnostic", host.StandardError);
         }
         finally

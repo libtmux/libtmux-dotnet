@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 // A namespace segment named Workspace would shadow LibTmux.Workspace for
 // every file in the assembly, so this sits at the assembly root instead.
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 using LibTmux.Workspace;
@@ -144,8 +145,8 @@ public sealed class WorkspaceBuilderTests
             IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
 
             Assert.Equal(2, panes.Count);
-            Assert.Equal(source, panes[0].CurrentPath);
-            Assert.Equal(tests, panes[1].CurrentPath);
+            Assert.Equal(PhysicalPath.Resolve(source), panes[0].CurrentPath);
+            Assert.Equal(PhysicalPath.Resolve(tests), panes[1].CurrentPath);
 
             WorkspaceFile native = new(
                 sessionName: "native-directories",
@@ -155,7 +156,7 @@ public sealed class WorkspaceBuilderTests
             WorkspaceResult nativeResult = await new WorkspaceBuilder(scope.Server)
                 .BuildAsync(native, token);
             Pane nativePane = Assert.Single(await nativeResult.Windows[1].GetPanesAsync(token));
-            Assert.Equal(origin, nativePane.CurrentPath);
+            Assert.Equal(PhysicalPath.Resolve(origin), nativePane.CurrentPath);
         }
         finally
         {
@@ -634,8 +635,8 @@ public sealed class WorkspaceBuilderTests
         IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
 
         Assert.Equal(2, panes.Count);
-        Assert.Equal("/usr", panes[0].CurrentPath);
-        Assert.Equal("/etc", panes[1].CurrentPath);
+        Assert.Equal(PhysicalPath.Resolve("/usr"), panes[0].CurrentPath);
+        Assert.Equal(PhysicalPath.Resolve("/etc"), panes[1].CurrentPath);
     }
 
     [UnixFact]
