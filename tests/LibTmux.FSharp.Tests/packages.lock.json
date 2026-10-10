@@ -4,9 +4,9 @@
     "net10.0": {
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[10.1.302, )",
-        "resolved": "10.1.302",
-        "contentHash": "bN7XMQrAQg1dyHScJ7FcsznERBkvm74LtIo1O6C5mUzgbDqSwNbDpb3+nBGaJAjDmtC/suK5Vx5pFysKY6Hm+Q=="
+        "requested": "[10.1.303, )",
+        "resolved": "10.1.303",
+        "contentHash": "juOEjKuOCZKBFbFO8TwWRQu5cY91m2BpDkrUcv1r8pfhc1yyt64H6jTYqoRWxZoRD31XB5dxyUg9j4brs7RZCg=="
       },
       "Microsoft.NET.Test.Sdk": {
         "type": "Direct",
@@ -205,9 +205,9 @@
     "net8.0": {
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[10.1.302, )",
-        "resolved": "10.1.302",
-        "contentHash": "bN7XMQrAQg1dyHScJ7FcsznERBkvm74LtIo1O6C5mUzgbDqSwNbDpb3+nBGaJAjDmtC/suK5Vx5pFysKY6Hm+Q=="
+        "requested": "[10.1.303, )",
+        "resolved": "10.1.303",
+        "contentHash": "juOEjKuOCZKBFbFO8TwWRQu5cY91m2BpDkrUcv1r8pfhc1yyt64H6jTYqoRWxZoRD31XB5dxyUg9j4brs7RZCg=="
       },
       "Microsoft.NET.Test.Sdk": {
         "type": "Direct",

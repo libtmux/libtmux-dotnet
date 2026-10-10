@@ -12,7 +12,7 @@
          newer one fails to load there. 8.0.100 ships with the first .NET 8
          SDK; tests, examples and tools use the current one. -->
     <PackageVersion Include="FSharp.Core" Version="8.0.100" Condition="'$(MSBuildProjectName)' == 'LibTmux.FSharp'" />
-    <PackageVersion Include="FSharp.Core" Version="10.1.302" Condition="'$(MSBuildProjectName)' != 'LibTmux.FSharp'" />
+    <PackageVersion Include="FSharp.Core" Version="10.1.303" Condition="'$(MSBuildProjectName)' != 'LibTmux.FSharp'" />
     <!-- The two analyzer packages read the compiler's own syntax trees, so
          they have to track the Roslyn the SDK ships. Bumping the SDK without
          bumping these leaves the public API baseline unreadable. -->

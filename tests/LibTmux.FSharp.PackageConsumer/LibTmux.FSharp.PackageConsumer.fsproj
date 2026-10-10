@@ -13,7 +13,7 @@
     <Compile Include="Program.fs" />
     <PackageReference Include="LibTmux.FSharp" Version="[$(LibTmuxPackageVersion)]" />
     <PackageReference Include="LibTmux.Testing" Version="[$(LibTmuxPackageVersion)]" />
-    <PackageReference Include="FSharp.Core" Version="10.1.302" />
+    <PackageReference Include="FSharp.Core" Version="10.1.303" />
     <AssemblyMetadata Include="ExpectedPackageVersion" Value="$(LibTmuxPackageVersion)" />
   </ItemGroup>
 </Project>

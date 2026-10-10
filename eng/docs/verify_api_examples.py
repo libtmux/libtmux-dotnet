@@ -109,7 +109,7 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
         if project.findall(".//ProjectReference") or project.findall(".//Import"):
             raise ValueError(f"Profile {name} must not import hidden source or build properties")
         references = {node.get("Include"): node.get("Version") for node in project.findall(".//PackageReference")}
-        dependencies = {"LibTmux.FSharp": f"[{version}]", "FSharp.Core": "[10.1.302]"} if name == "fsharp" else {"LibTmux": f"[{version}]"}
+        dependencies = {"LibTmux.FSharp": f"[{version}]", "FSharp.Core": "[10.1.303]"} if name == "fsharp" else {"LibTmux": f"[{version}]"}
         if references != dependencies:
             raise ValueError(f"Profile {name} must use the exact library and language dependencies")
         if name == "csharp" and any(
