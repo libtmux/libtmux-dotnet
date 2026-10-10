@@ -26,6 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../examples/LibTmux.SessionCleanup/LibTmux.SessionCleanup.csproj"
+                      ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../examples/LibTmux.Quickstart/LibTmux.Quickstart.csproj"
                       ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../src/LibTmux/LibTmux.csproj" />

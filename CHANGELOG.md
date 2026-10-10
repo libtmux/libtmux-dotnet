@@ -12,6 +12,8 @@ version.
 
 ### Added
 
+- `Server.EnsureAsync` returns an ordinary running server and starts a missing daemon with normal configuration. Startup retains one detached bootstrap session; existing daemons keep their state and configuration. The imported C# quick start finds or creates a workspace and leaves it available, while `LibTmux.SessionCleanup` demonstrates explicit cleanup.
+
 - `OwnedScope.CleanupOwners(error)` returns the accepted owners retained after failed acquisition rollback or callback cleanup. Call `DisposeAsync` on those owners to retry without adopting the endpoint again; nested failures retain each owner.
 
 - F# `Server.adopt`, `Session.adopt`, `Window.adopt` and `Pane.adopt` accept explicit ownership. `Owned.withResource` awaits cleanup and retains paired failures.

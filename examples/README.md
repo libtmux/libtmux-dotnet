@@ -19,11 +19,7 @@ Two mechanisms sit on top of that, and they catch different failures:
 
 ## Ordinary C# program
 
-[`LibTmux.Quickstart/Program.cs`](LibTmux.Quickstart/Program.cs) includes its
-imports, opens `Server.Open()` with normal defaults, and creates a session and
-window. Its `UseAsync` callback scope removes the session after success,
-failure or cancellation. `OwnedScope.CleanupFailure` exposes a second cleanup
-failure while the original body exception remains primary.
+[`LibTmux.Quickstart/Program.cs`](LibTmux.Quickstart/Program.cs) includes its imports and calls `Server.EnsureAsync()` with normal defaults. It finds or creates the `libtmux-dotnet-quickstart` session and its `tests` window, then leaves them available. Repeating the program reuses those names. If no daemon exists, ensure keeps a detached bootstrap session running `cat`; it does not change `exit-empty`. An existing daemon retains its state and configuration.
 
 Run it against your selected endpoint:
 
@@ -34,12 +30,20 @@ $ mise exec -- dotnet run \
     --framework net10.0
 ```
 
-`LifecycleDefaultsTests` launches that same compiled file in a child process
-with `LIBTMUX_SOCKET_PATH` supplied by the harness. Private roots, fault
-injection and whole-server teardown stay in the harness. Tests verify the
-creation effect, cleanup after a body failure, and an observable cleanup
-failure. The combined-failure case verifies that the program reports the
-cleanup failure and retains the original body exception.
+`LifecycleDefaultsTests` runs this exact compiled program twice with an absent or existing daemon and external socket-path or socket-name defaults. The harness owns setup and teardown. A source contract checks that the whole program, including imports, matches the root and package README blocks.
+
+## C# session cleanup program
+
+[`LibTmux.SessionCleanup/Program.cs`](LibTmux.SessionCleanup/Program.cs) retains the scoped cleanup demonstration. Its `UseAsync` callback removes the created session after success, failure or cancellation. `OwnedScope.CleanupFailure` exposes a second cleanup failure while the original body exception remains primary.
+
+```console
+$ mise exec -- dotnet run \
+    --project examples/LibTmux.SessionCleanup/LibTmux.SessionCleanup.csproj \
+    --configuration Release \
+    --framework net10.0
+```
+
+The separate lifecycle test retains its body-failure, cleanup-failure and paired-failure cases. Explicit private endpoints, injected faults and whole-server cleanup belong to the harness.
 
 ## Ordinary F# program
 
@@ -164,5 +168,5 @@ not repeat the setup — but everything else has to be real.
 session/window/pane results, bounded discovery, and whole-server ownership at
 an explicit disposable endpoint. The example suite supplies its endpoint
 settings outside the ordinary examples. The package README publishes the
-same source regions. `LibTmux.Quickstart/Program.cs` uses `OwnedScope.UseAsync`
+same source regions. `LibTmux.SessionCleanup/Program.cs` uses `OwnedScope.UseAsync`
 and prints a second cleanup failure while preserving its original exception.

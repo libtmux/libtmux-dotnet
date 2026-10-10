@@ -1059,6 +1059,7 @@ LibTmux.Server.DetachAllClientsAsync(string? keepClient = null, string? shellCom
 LibTmux.Server.DetachClientAsync(string? targetClient = null, string? shellCommand = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.DisplayMessageAsync(LibTmux.DisplayMessageRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>?>!
 LibTmux.Server.EndpointArguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.Server.EnsureAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Server!>!
 LibTmux.Server.EnterControlModeAsync(string? target = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.IControlModeSession!>!
 LibTmux.Server.Environment.get -> LibTmux.TmuxEnvironment!
 LibTmux.Server.Equals(LibTmux.Server? other) -> bool
@@ -2187,6 +2188,7 @@ static LibTmux.Server.BuildGuardedCommandLine(LibTmux.ServerGeneration expected,
 static LibTmux.Server.ConnectAsync(LibTmux.ServerConnectionOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Server!>!
 static LibTmux.Server.CreateOwnedAsync(LibTmux.ServerConnectionOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.OwnedServerScope!>!
 static LibTmux.Server.DiscoverAsync(LibTmux.ServerDiscoveryOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.ServerDiscoveryResult!>!
+static LibTmux.Server.EnsureAsync(LibTmux.ServerConnectionOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Server!>!
 static LibTmux.Server.FromEnvironment(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null) -> LibTmux.Server!
 static LibTmux.Server.IsValidLayoutCandidate(string! layout, int paneCount) -> bool
 static LibTmux.Server.Open(LibTmux.ServerConnectionOptions? options = null) -> LibTmux.Server!

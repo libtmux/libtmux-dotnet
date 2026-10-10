@@ -23,27 +23,25 @@ for stable tmux **3.2a and newer** on **net8.0** and **net10.0**.
 > settled, and any release may change or remove exported identifiers without a
 > deprecation period. Pin an exact version. Not recommended for production.
 
-<!-- snippet: ConnectAndBuild usings: System, LibTmux -->
+<!-- snippet: OrdinaryWorkspace usings: System, LibTmux -->
 ```csharp
 using System;
 using LibTmux;
 
-Server server = Server.Open();
-OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
-    new NewSessionRequest { Name = $"build-{Guid.NewGuid():N}" });
-await owned.UseAsync(async (session, token) =>
+if (OperatingSystem.IsWindows())
 {
-    Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" }, token);
-    Console.WriteLine($"Created {session.Id} / {window.Id}: {window.Name}");
-});
+    throw new PlatformNotSupportedException("This example requires Unix tmux.");
+}
+
+Server server = await Server.EnsureAsync();
+FoundOrCreated<Session> session = await server.FindOrCreateSessionAsync(
+    "libtmux-dotnet-quickstart", new NewSessionRequest { WindowName = "work" });
+FoundOrCreated<Window> window = await session.Value.FindOrCreateWindowAsync("tests");
+Console.WriteLine($"Workspace ready: {session.Value.Name} / {window.Value.Name}");
 ```
 <!-- endsnippet -->
 
-`Server.Open()` captures an endpoint without starting a daemon. Creating the
-session starts tmux when needed. `UseAsync` removes this session after success,
-failure or cancellation; the server handle itself is borrowed. The
-[complete C# program](examples/LibTmux.Quickstart/Program.cs) runs unchanged under
-an external test harness.
+`Server.EnsureAsync()` reuses the selected daemon or starts it with normal tmux configuration. Startup leaves a detached `libtmux-start-*` session running `cat` to keep the daemon available without changing `exit-empty`. The named workspace remains available after this program exits. Repeating the program reuses its session and window. The [complete C# program](examples/LibTmux.Quickstart/Program.cs) includes the same imports and runs unchanged under an external test harness.
 
 ## Is this for you?
 

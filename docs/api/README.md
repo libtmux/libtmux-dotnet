@@ -379,6 +379,8 @@ modes differ.
 | `LibTmux.Server.DetachClientAsync(System.String,System.String,System.Threading.CancellationToken)` | Detaches one client. |
 | `LibTmux.Server.DiscoverAsync(LibTmux.ServerDiscoveryOptions,System.Threading.CancellationToken)` | Discovers responsive daemons within explicit and configured socket directories. |
 | `LibTmux.Server.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)` | Shows a message on a client. |
+| `LibTmux.Server.EnsureAsync(LibTmux.ServerConnectionOptions,System.Threading.CancellationToken)` | Returns a running server at the selected endpoint, starting one when absent. |
+| `LibTmux.Server.EnsureAsync(System.Threading.CancellationToken)` | Returns a running server at this captured endpoint, starting one when absent. |
 | `LibTmux.Server.EnterControlModeAsync(System.String,System.Threading.CancellationToken)` | Starts a tmux control client and keeps it running. |
 | `LibTmux.Server.Equals(LibTmux.Server)` | Inherits the base member contract. |
 | `LibTmux.Server.Equals(System.Object)` | Inherits the base member contract. |

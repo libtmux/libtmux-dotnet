@@ -27,29 +27,29 @@ nothing for it.
 
 ## Start here
 
-<!-- snippet: ConnectAndBuild usings: System, LibTmux -->
+<!-- snippet: OrdinaryWorkspace usings: System, LibTmux -->
 ```csharp
 using System;
 using LibTmux;
 
-Server server = Server.Open();
-OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
-    new NewSessionRequest { Name = $"build-{Guid.NewGuid():N}" });
-await owned.UseAsync(async (session, token) =>
+if (OperatingSystem.IsWindows())
 {
-    Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" }, token);
-    Console.WriteLine($"Created {session.Id} / {window.Id}: {window.Name}");
-});
+    throw new PlatformNotSupportedException("This example requires Unix tmux.");
+}
+
+Server server = await Server.EnsureAsync();
+FoundOrCreated<Session> session = await server.FindOrCreateSessionAsync(
+    "libtmux-dotnet-quickstart", new NewSessionRequest { WindowName = "work" });
+FoundOrCreated<Window> window = await session.Value.FindOrCreateWindowAsync("tests");
+Console.WriteLine($"Workspace ready: {session.Value.Name} / {window.Value.Name}");
 ```
 <!-- endsnippet -->
 
-`Server.Open()` captures an endpoint without starting tmux. Session creation
-starts a daemon when needed. `UseAsync` removes the session after the callback
-returns, throws or cancels, with an independent cleanup deadline. The server
-handle is borrowed. `OwnedScope.CleanupFailure(error)` returns a second
-cleanup error while the original body exception and cancellation token remain
-intact. A cleanup failure after success propagates on its own; failed disposal
-can be retried.
+`Server.EnsureAsync()` selects the normal endpoint and returns a running `Server`. If tmux is absent, startup loads its normal configuration and keeps one detached `libtmux-start-*` session running `cat`. This session keeps the daemon alive without changing `exit-empty`; it remains until you remove it or the daemon exits. An existing daemon retains its sessions, windows, panes, options and environment, and reuse skips `InitializeAsync`. A daemon with no sessions and `exit-empty off` needs no bootstrap.
+
+The program leaves its named workspace available. Repeating it reuses the same session and window. Ensuring availability and accepting destruction responsibility are separate: use `AdoptAsync`, `CreateOwnedAsync` or the [session cleanup example](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.SessionCleanup/Program.cs) when cleanup is the feature you want to demonstrate.
+
+`Server.Open(options).EnsureAsync(cancellationToken)` retains a previously captured endpoint. Calls for the same path serialize within the process. Independent processes can race and leave additional bootstrap sessions. Startup uses the existing receipt-bound session acquisition: cancellation or readback failure rolls back only its accepted session ID, even if a hook renamed it. Failed rollback remains available through `OwnedScope.CleanupOwners(error)`. No cleanup authority follows an unknown receipt. Startup runs `InitializeAsync` under the same gate; an initializer must not call ensure or find-or-create.
 
 To reach one server in particular:
 
@@ -99,6 +99,28 @@ not apply to that backend.
 
 Every call that reaches tmux is asynchronous and takes a `CancellationToken`.
 There are no synchronous twins to choose between.
+
+## Session cleanup
+
+This example demonstrates cleanup explicitly. `UseAsync` removes the created session after the callback returns, throws or cancels, with an independent cleanup deadline. The server handle remains borrowed. `OwnedScope.CleanupFailure(error)` returns a second cleanup error while the original body exception and cancellation token remain intact. A cleanup failure after success propagates on its own; failed disposal can be retried.
+
+<!-- snippet: ConnectAndBuild usings: System, LibTmux -->
+```csharp
+using System;
+using LibTmux;
+
+Server server = Server.Open();
+OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
+    new NewSessionRequest { Name = $"build-{Guid.NewGuid():N}" });
+await owned.UseAsync(async (session, token) =>
+{
+    Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" }, token);
+    Console.WriteLine($"Created {session.Id} / {window.Id}: {window.Name}");
+});
+```
+<!-- endsnippet -->
+
+The complete [SessionCleanup program](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.SessionCleanup/Program.cs) also reports a cleanup failure before rethrowing the original exception.
 
 ## Ownership and reuse
 

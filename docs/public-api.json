@@ -1314,6 +1314,16 @@
       "processBacked": true
     },
     {
+      "id": "M:LibTmux.Server.EnsureAsync(LibTmux.ServerConnectionOptions,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Server.EnsureAsync(System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
       "id": "M:LibTmux.Server.FindOrCreateAsync(System.Threading.CancellationToken)",
       "performsIO": true,
       "processBacked": true

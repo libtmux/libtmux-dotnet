@@ -9,6 +9,58 @@ namespace LibTmux;
 // delivery is part of the answer.
 public sealed partial class Server
 {
+    /// <summary>Returns a running server at the selected endpoint, starting one when absent.</summary>
+    /// <param name="options">The endpoint and normal tmux startup configuration, or captured environment defaults.</param>
+    /// <param name="cancellationToken">Cancels lookup or startup before the handle is returned.</param>
+    /// <returns>An ordinary server handle without destruction responsibility.</returns>
+    /// <remarks>Uses the startup and cancellation behavior of <see cref="EnsureAsync(CancellationToken)" />.</remarks>
+    [UnsupportedOSPlatform("windows")]
+    public static Task<Server> EnsureAsync(
+        ServerConnectionOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        Open(options).EnsureAsync(cancellationToken);
+
+    /// <summary>Returns a running server at this captured endpoint, starting one when absent.</summary>
+    /// <param name="cancellationToken">Cancels lookup or startup before the handle is returned.</param>
+    /// <returns>An ordinary generation-bound server handle without destruction responsibility.</returns>
+    /// <remarks>
+    /// <para>Reuse only inspects the daemon. It preserves its sessions and configuration and skips
+    /// <see cref="ServerConnectionOptions.InitializeAsync" />. A generation-bound handle refuses a replacement daemon.</para>
+    /// <para>Startup loads normal tmux configuration and leaves one detached <c>libtmux-start-*</c> session
+    /// running <c>cat</c> so tmux remains usable with its normal <c>exit-empty</c> setting. Startup initializes
+    /// the ownership metadata used by session acquisition and runs <see cref="ServerConnectionOptions.InitializeAsync" />.
+    /// The bootstrap session remains until the caller removes it or the daemon exits; hooks may rename it.
+    /// Calls for the same captured path serialize in this process. External starters can create additional bootstrap sessions.</para>
+    /// <para>Cancellation before dispatch starts nothing. After a creation receipt is accepted, failed startup
+    /// removes only that session ID on the captured daemon. An unknown creation result grants no cleanup authority.
+    /// <see cref="OwnedScope.CleanupOwners(Exception)" /> exposes a failed rollback for retry.
+    /// Initializers must not call find-or-create or ensure because endpoints can share the startup gate.</para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">This handle has no endpoint or its captured daemon has exited.</exception>
+    /// <exception cref="StaleServerGenerationException">A replacement daemon owns the endpoint.</exception>
+    /// <exception cref="LibTmuxException">Inspection, startup or readback failed.</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled before publication.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public Task<Server> EnsureAsync(CancellationToken cancellationToken = default) =>
+        LifecycleSerialization.RunAsync(this, async () =>
+        {
+            if (await InspectAsync(cancellationToken).ConfigureAwait(false) is { } existing)
+            {
+                return existing;
+            }
+            if (Generation is not null)
+            {
+                throw new InvalidOperationException("A generation-bound handle cannot start a replacement daemon.");
+            }
+
+            Session bootstrap = await CreateSessionAsync(new NewSessionRequest
+            {
+                Name = "libtmux-start-" + Guid.NewGuid().ToString("N"),
+                Command = "cat",
+            }, cancellationToken).ConfigureAwait(false);
+            return bootstrap.Server;
+        }, cancellationToken);
+
     /// <summary>Starts the tmux server without creating a session.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <remarks>

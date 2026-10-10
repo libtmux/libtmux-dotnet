@@ -6,6 +6,24 @@ namespace LibTmux.Examples.Snippets;
 [UnsupportedOSPlatform("windows")]
 public static class OneShot
 {
+    /// <summary>Starts or reuses the selected server and leaves a named workspace available.</summary>
+    [Example("Find or create an ordinary workspace")]
+    public static async Task OrdinaryWorkspace()
+    {
+        #region OrdinaryWorkspace
+        if (OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("This example requires Unix tmux.");
+        }
+
+        Server server = await Server.EnsureAsync();
+        FoundOrCreated<Session> session = await server.FindOrCreateSessionAsync(
+            "libtmux-dotnet-quickstart", new NewSessionRequest { WindowName = "work" });
+        FoundOrCreated<Window> window = await session.Value.FindOrCreateWindowAsync("tests");
+        Console.WriteLine($"Workspace ready: {session.Value.Name} / {window.Value.Name}");
+        #endregion
+    }
+
     /// <summary>Creates a session and window, then removes the session at scope exit.</summary>
     [Example("Create a session and window with scoped cleanup")]
     public static async Task ConnectAndBuild()

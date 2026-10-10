@@ -14,6 +14,21 @@ public sealed class SnippetContractTests
         RegexOptions.Multiline | RegexOptions.Compiled);
 
     [Fact]
+    public void Ordinary_readme_blocks_match_the_complete_quickstart_program()
+    {
+        string root = RepositoryRoot();
+        string program = File.ReadAllText(Path.Combine(root, "examples", "LibTmux.Quickstart", "Program.cs"));
+        foreach (string document in new[] { "README.md", "src/LibTmux/README.md" })
+        {
+            Match match = Regex.Match(File.ReadAllText(Path.Combine(root, document)),
+                "<!-- snippet: OrdinaryWorkspace usings: System, LibTmux -->\\n```csharp\\n(?<source>.*?)```\\n<!-- endsnippet -->",
+                RegexOptions.Singleline);
+            Assert.True(match.Success, document);
+            Assert.Equal(program, match.Groups["source"].Value);
+        }
+    }
+
+    [Fact]
     public void Every_published_region_is_an_explicit_example()
     {
         HashSet<string> examples =
