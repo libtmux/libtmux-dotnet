@@ -470,15 +470,17 @@ jobs:
 
       - name: Unit tests
         run: >
-          dotnet test tests/LibTmux.UnitTests/LibTmux.UnitTests.csproj
+          dotnet test
+          --project tests/LibTmux.UnitTests/LibTmux.UnitTests.csproj
           --configuration Release --no-build --framework net10.0
-          -- --minimum-expected-tests 200
+          --minimum-expected-tests 200
 
       - name: Native MCP swap tests
         run: >
-          dotnet test eng/mcp-swap/tests/LibTmux.McpSwap.Tests.csproj
+          dotnet test
+          --project eng/mcp-swap/tests/LibTmux.McpSwap.Tests.csproj
           --configuration Release --no-build --framework net10.0
-          -- --minimum-expected-tests 119
+          --minimum-expected-tests 119
 
       - name: Integration tests
         # This is the part that could only ever be guessed at before: real tmux,
@@ -487,9 +489,10 @@ jobs:
         env:
           LIBTMUX_INTEGRATION_REQUIRED: '1'
         run: >
-          dotnet test tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
+          dotnet test
+          --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
           --configuration Release --no-build --framework net10.0
-          -- --minimum-expected-tests 400
+          --minimum-expected-tests 400
 
       - name: Inspect the macOS runner
         id: debug
