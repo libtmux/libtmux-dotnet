@@ -273,7 +273,7 @@ jobs:
         # A consumer deciding whether to take this needs to know what comes with
         # it. The SBOM describes the packed artifacts rather than the tree, so it
         # lists what actually ships.
-        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         env:
           # The file catalogers add one entry per file, named by its path, which
           # buries the packages and records where the runner unpacked them.
