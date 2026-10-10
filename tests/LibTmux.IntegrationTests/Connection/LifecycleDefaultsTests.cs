@@ -30,7 +30,7 @@ public sealed class LifecycleDefaultsTests
         }
         finally
         {
-            Directory.Delete(root, recursive: true);
+            await CleanupRootAsync(root, owned: null, bodyFailure: null);
         }
     }
 
@@ -39,17 +39,24 @@ public sealed class LifecycleDefaultsTests
     {
         string root = CreateRoot();
         string directory = Path.Combine(root, $"tmux-{UnixSocketDirectory.UserId}");
+        OwnedServerScope? owned = null;
+        Exception? bodyFailure = null;
         try
         {
-            await using OwnedServerScope owned = await Server.CreateOwnedAsync(Options(root), Token);
+            owned = await Server.CreateOwnedAsync(Options(root), Token);
             Session session = await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "first" }, Token);
             Assert.Equal((UnixFileMode)0x1C0, File.GetUnixFileMode(directory));
             File.SetUnixFileMode(directory, (UnixFileMode)0x1F8);
             Assert.True(await owned.Value.HasSessionAsync(session.Name, cancellationToken: Token));
         }
+        catch (Exception error)
+        {
+            bodyFailure = error;
+            throw;
+        }
         finally
         {
-            Directory.Delete(root, recursive: true);
+            await CleanupRootAsync(root, owned, bodyFailure);
         }
     }
 
@@ -113,7 +120,7 @@ public sealed class LifecycleDefaultsTests
         }
         finally
         {
-            Directory.Delete(root, recursive: true);
+            await CleanupRootAsync(root, owned: null, bodyFailure: null);
         }
     }
 
@@ -125,6 +132,8 @@ public sealed class LifecycleDefaultsTests
         string log = Path.Combine(root, "clients");
         string[] variables = ["TMUX_TMPDIR", "LIBTMUX_SOCKET_PATH", "LIBTMUX_SOCKET_NAME", "TMUX", "TMUX_PANE", "PATH", "LIBTMUX_TEST_CAPTURED_ENV", "LIBTMUX_TEST_LATE_ENV"];
         Dictionary<string, string?> prior = variables.ToDictionary(name => name, Environment.GetEnvironmentVariable);
+        OwnedServerScope? owned = null;
+        Exception? bodyFailure = null;
         try
         {
             await TestExecutable.WriteAsync(executable,
@@ -146,7 +155,7 @@ public sealed class LifecycleDefaultsTests
             Environment.SetEnvironmentVariable("LIBTMUX_TEST_CAPTURED_ENV", "changed");
             Environment.SetEnvironmentVariable("LIBTMUX_TEST_LATE_ENV", "added");
             Session session = await endpoint.CreateSessionAsync(new NewSessionRequest { Name = "keeper" }, Token);
-            await using OwnedServerScope owned = await session.Server.AdoptAsync(Token);
+            owned = await session.Server.AdoptAsync(Token);
             await using (IControlModeSession control = await endpoint.EnterControlModeAsync(session.Id.ToString(), Token))
             {
                 IReadOnlyList<string> answer = await control.SendAsync(TmuxCommand.Create("display-message", "-p", "#{socket_path}"), Token);
@@ -163,6 +172,11 @@ public sealed class LifecycleDefaultsTests
             Assert.Equal("changed", Environment.GetEnvironmentVariable("LIBTMUX_TEST_CAPTURED_ENV"));
             Assert.Equal("added", Environment.GetEnvironmentVariable("LIBTMUX_TEST_LATE_ENV"));
         }
+        catch (Exception error)
+        {
+            bodyFailure = error;
+            throw;
+        }
         finally
         {
             foreach ((string name, string? value) in prior)
@@ -170,7 +184,7 @@ public sealed class LifecycleDefaultsTests
                 Environment.SetEnvironmentVariable(name, value);
             }
 
-            Directory.Delete(root, recursive: true);
+            await CleanupRootAsync(root, owned, bodyFailure);
         }
     }
 
@@ -191,9 +205,11 @@ public sealed class LifecycleDefaultsTests
         int attempts = 0;
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        OwnedServerScope? owned = null;
+        Exception? bodyFailure = null;
         try
         {
-            await using OwnedServerScope owned = await Server.CreateOwnedAsync(Options(root), Token);
+            owned = await Server.CreateOwnedAsync(Options(root), Token);
             Session kept = await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "keeper" }, Token);
             Server client = Server.Open(Options(root) with
             {
@@ -249,9 +265,14 @@ public sealed class LifecycleDefaultsTests
             Assert.False(await owned.Value.HasSessionAsync("cancelled", cancellationToken: Token));
             Assert.Equal(5, attempts);
         }
+        catch (Exception error)
+        {
+            bodyFailure = error;
+            throw;
+        }
         finally
         {
-            Directory.Delete(root, recursive: true);
+            await CleanupRootAsync(root, owned, bodyFailure);
         }
     }
 
@@ -261,9 +282,11 @@ public sealed class LifecycleDefaultsTests
         string executable = Path.Combine(root, "tmux");
         string socket = Path.Combine(root, "ordinary.sock");
         ServerConnectionOptions options = Options(root) with { SocketName = null, SocketPath = socket };
+        OwnedServerScope? owned = null;
+        Exception? bodyFailure = null;
         try
         {
-            await using OwnedServerScope owned = await Server.CreateOwnedAsync(options, Token);
+            owned = await Server.CreateOwnedAsync(options, Token);
             await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "keeper" }, Token);
             await owned.Value.ExecuteCommandAsync(["set-hook", "-g", "after-new-session", "set-option -g @ordinary-created yes"], Token);
             string faults = (failBody ? "case \"$*\" in *new-window*) echo 'injected body failure' >&2; exit 1;; esac\n" : "")
@@ -334,9 +357,129 @@ public sealed class LifecycleDefaultsTests
             await owned.DisposeAsync();
             Assert.Null(await Server.Open(options).InspectAsync(Token));
         }
+        catch (Exception error)
+        {
+            bodyFailure = error;
+            throw;
+        }
         finally
         {
-            Directory.Delete(root, recursive: true);
+            await CleanupRootAsync(root, owned, bodyFailure);
+        }
+    }
+
+    [Theory(Skip = "Requires Unix sockets.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Fixture_root_removal_requires_successful_owned_cleanup(bool failBody, bool failCleanup)
+    {
+        string root = CreateRoot();
+        bool rejectCleanup = false;
+        var cleanupFailure = new IOException("Injected outer fixture cleanup failure.");
+        Exception? bodyFailure = failBody ? new InvalidOperationException("Body failure.") : null;
+        OwnedServerScope? owned = null;
+        try
+        {
+            owned = await Server.CreateOwnedAsync(Options(root) with
+            {
+                Interceptor = (invocation, next, token) =>
+                {
+                    if (rejectCleanup && invocation.Arguments.Any(argument => argument.Contains("kill-server", StringComparison.Ordinal)))
+                    {
+                        return Task.FromException<TmuxCommandResult>(cleanupFailure);
+                    }
+                    return next(token);
+                },
+            }, Token);
+            using Process daemon = Process.GetProcessById(owned.Value.Generation!.Value.ProcessId);
+            string marker = Path.Combine(root, "retained-evidence");
+            await File.WriteAllTextAsync(marker, "Keep until daemon exit.", Token);
+            rejectCleanup = failCleanup;
+            Exception? error = await Record.ExceptionAsync(() => CleanupRootAsync(root, owned, bodyFailure));
+            if (failCleanup)
+            {
+                Assert.Same(cleanupFailure, failBody ? OwnedScope.CleanupFailure(bodyFailure!) : error);
+                if (failBody)
+                {
+                    Assert.Null(error);
+                }
+                Assert.True(Directory.Exists(root));
+                Assert.True(File.Exists(marker));
+                Assert.False(daemon.HasExited);
+                Assert.NotNull(await owned.Value.InspectAsync(Token));
+                rejectCleanup = false;
+                await CleanupRootAsync(root, owned, bodyFailure: null);
+            }
+            else
+            {
+                Assert.Null(error);
+                if (bodyFailure is not null)
+                {
+                    Assert.Null(OwnedScope.CleanupFailure(bodyFailure));
+                }
+            }
+            Assert.True(daemon.HasExited);
+            Assert.False(Directory.Exists(root));
+        }
+        finally
+        {
+            rejectCleanup = false;
+            await CleanupRootAsync(root, owned, bodyFailure: null);
+        }
+    }
+
+    [UnixFact]
+    public async Task Fixture_retains_its_root_when_acquisition_never_returned_an_owner()
+    {
+        string root = CreateRoot();
+        try
+        {
+            await CleanupRootAsync(root, owned: null, bodyFailure: new IOException("Unknown startup outcome."));
+            Assert.True(Directory.Exists(root));
+        }
+        finally
+        {
+            // This test never dispatched a command or started a daemon.
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root);
+            }
+        }
+    }
+
+    private static async Task CleanupRootAsync(string root, OwnedServerScope? owned, Exception? bodyFailure)
+    {
+        async Task CleanupAsync()
+        {
+            if (owned is null)
+            {
+                Console.Error.WriteLine($"Retained fixture root after incomplete acquisition: {root}");
+                return;
+            }
+            try
+            {
+                await owned.DisposeAsync();
+            }
+            catch
+            {
+                Console.Error.WriteLine($"Retained fixture root after cleanup failure: {root}");
+                throw;
+            }
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+
+        if (bodyFailure is null)
+        {
+            await CleanupAsync();
+        }
+        else
+        {
+            await OwnedScope.PreserveCleanupAsync(bodyFailure, CleanupAsync);
         }
     }
 

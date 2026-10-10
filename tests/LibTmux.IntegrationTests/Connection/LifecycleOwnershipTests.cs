@@ -734,6 +734,75 @@ public sealed class LifecycleOwnershipTests
         Assert.Null(await Server.Open(fixture.Options).InspectAsync(Token));
     }
 
+    [UnixFact]
+    public async Task Fixture_retains_root_when_startup_and_rollback_fail_before_owner_handoff()
+    {
+        var acquisitionFailure = new IOException("Injected fixture initialization failure.");
+        var cleanupFailure = new IOException("Injected fixture rollback failure.");
+        Server? accepted = null;
+        Process? daemon = null;
+        string? root = null;
+        bool rejectCleanup = false;
+        try
+        {
+            Exception? failure = await Record.ExceptionAsync(() => Fixture.StartAsync(
+                (invocation, next, token) => rejectCleanup && invocation.Arguments.Any(argument => argument.Contains("kill-server", StringComparison.Ordinal))
+                    ? Task.FromException<TmuxCommandResult>(cleanupFailure) : next(token),
+                (server, _) =>
+                {
+                    accepted = server;
+                    daemon = Process.GetProcessById(server.Generation!.Value.ProcessId);
+                    root = Path.GetDirectoryName(server.ConnectionOptions.SocketPath!)!;
+                    rejectCleanup = true;
+                    return ValueTask.FromException(acquisitionFailure);
+                }));
+            Assert.Same(acquisitionFailure, failure);
+            Assert.Same(cleanupFailure, OwnedScope.CleanupFailure(acquisitionFailure));
+            Assert.Equal(root, acquisitionFailure.Data["LibTmux.TestRoot"]);
+            Assert.True(Directory.Exists(root));
+            Assert.False(daemon!.HasExited);
+            Assert.NotNull(await accepted!.InspectAsync(Token));
+        }
+        finally
+        {
+            rejectCleanup = false;
+            if (accepted is not null && daemon is not null)
+            {
+                try
+                {
+                    OwnedServerScope recovery = await accepted.AdoptAsync(CancellationToken.None);
+                    await recovery.DisposeAsync();
+                    await daemon.WaitForExitAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+                    Assert.True(daemon.HasExited);
+                    Directory.Delete(root!, recursive: true);
+                }
+                finally
+                {
+                    daemon.Dispose();
+                }
+            }
+        }
+    }
+
+    [UnixFact]
+    public async Task Fixture_without_an_owner_retains_its_root_on_disposal()
+    {
+        var fixture = new Fixture();
+        try
+        {
+            await fixture.DisposeAsync();
+            Assert.True(Directory.Exists(fixture.Root));
+        }
+        finally
+        {
+            // This fixture was never used to dispatch a command or start a daemon.
+            if (Directory.Exists(fixture.Root))
+            {
+                Directory.Delete(fixture.Root);
+            }
+        }
+    }
+
     internal static async Task RunAsync(Server server, IReadOnlyList<string> args)
     {
         TmuxCommandResult result = await server.ExecuteCommandAsync(args, Token);
@@ -760,27 +829,35 @@ public sealed class LifecycleOwnershipTests
         internal OwnedServerScope Owner { get; private set; } = null!;
         internal Server Server => Owner.Value;
 
-        internal static async Task<Fixture> StartAsync(TmuxInterceptor? interceptor = null)
+        internal static async Task<Fixture> StartAsync(
+            TmuxInterceptor? interceptor = null, Func<Server, CancellationToken, ValueTask>? initialize = null)
         {
             var fixture = new Fixture();
             try
             {
-                fixture.Owner = await Server.CreateOwnedAsync(fixture.Options with { Interceptor = interceptor }, Token);
+                fixture.Owner = await Server.CreateOwnedAsync(fixture.Options with
+                {
+                    Interceptor = interceptor,
+                    InitializeAsync = initialize,
+                }, Token);
                 return fixture;
             }
-            catch
+            catch (Exception failure)
             {
-                await fixture.DisposeAsync();
+                failure.Data["LibTmux.TestRoot"] = fixture.Root;
+                Console.Error.WriteLine($"Retained fixture root after incomplete acquisition: {fixture.Root}");
                 throw;
             }
         }
 
         public async ValueTask DisposeAsync()
         {
-            if (Owner is not null)
+            if (Owner is null)
             {
-                await Owner.DisposeAsync();
+                Console.Error.WriteLine($"Retained fixture root without an acquired owner: {Root}");
+                return;
             }
+            await Owner.DisposeAsync();
             Directory.Delete(Root, recursive: true);
         }
     }
