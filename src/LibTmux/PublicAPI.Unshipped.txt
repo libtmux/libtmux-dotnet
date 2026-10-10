@@ -2125,6 +2125,7 @@ static LibTmux.NewSessionRequest.operator ==(LibTmux.NewSessionRequest? left, Li
 static LibTmux.NewWindowRequest.operator !=(LibTmux.NewWindowRequest? left, LibTmux.NewWindowRequest? right) -> bool
 static LibTmux.NewWindowRequest.operator ==(LibTmux.NewWindowRequest? left, LibTmux.NewWindowRequest? right) -> bool
 static LibTmux.OwnedScope.CleanupFailure(System.Exception! error) -> System.Exception?
+static LibTmux.OwnedScope.CleanupOwners(System.Exception! error) -> System.Collections.Generic.IReadOnlyList<System.IAsyncDisposable!>!
 static LibTmux.OwnedScope.UseAsync<T, TResult>(this LibTmux.IOwnedTmuxResource<T>! owner, System.Func<T, System.Threading.CancellationToken, System.Threading.Tasks.Task<TResult>!>! body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<TResult>!
 static LibTmux.OwnedScope.UseAsync<T>(this LibTmux.IOwnedTmuxResource<T>! owner, System.Func<T, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 static LibTmux.Pane.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!

@@ -4,12 +4,12 @@ using System.Runtime.Versioning;
 
 namespace LibTmux.Internal;
 
-internal sealed class OwnedCleanup(Func<CancellationToken, Task> cleanup)
+internal sealed class OwnedCleanup(Func<CancellationToken, Task> cleanup) : IAsyncDisposable
 {
     internal static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
     private Task? _stopping;
 
-    internal ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         while (true)
         {
@@ -116,8 +116,7 @@ internal sealed class OwnedCleanup(Func<CancellationToken, Task> cleanup)
     [UnsupportedOSPlatform("windows")]
     internal static async Task RollbackAsync(Exception failure, Server server, ServerGeneration generation, string kind, string id)
     {
-        using CancellationTokenSource deadline = new(Timeout);
-        await OwnedScope.PreserveCleanupAsync(failure,
-            () => DestroyAsync(server, generation, kind, id, deadline.Token)).ConfigureAwait(false);
+        var owner = new OwnedCleanup(token => DestroyAsync(server, generation, kind, id, token));
+        await OwnedScope.PreserveCleanupAsync(failure, owner).ConfigureAwait(false);
     }
 }

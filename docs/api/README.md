@@ -251,6 +251,7 @@ modes differ.
 | `LibTmux.NewWindowRequest.ToCommand(LibTmux.Session)` | Returns a window request as one tmux command. |
 | `LibTmux.OwnedPaneScope.DisposeAsync` | Destroys the pane with an independent five-second deadline. |
 | `LibTmux.OwnedScope.CleanupFailure(System.Exception)` | Returns the cleanup failure attached to an exception from an owned scope or acquisition. |
+| `LibTmux.OwnedScope.CleanupOwners(System.Exception)` | Returns owners retained when cleanup failed during acquisition or an owned callback. |
 | ```LibTmux.OwnedScope.UseAsync``1(LibTmux.IOwnedTmuxResource{``0},System.Func{``0,System.Threading.CancellationToken,System.Threading.Tasks.Task},System.Threading.CancellationToken)``` | Runs a callback and disposes its owner while retaining both failures. |
 | ```LibTmux.OwnedScope.UseAsync``2(LibTmux.IOwnedTmuxResource{``0},System.Func{``0,System.Threading.CancellationToken,System.Threading.Tasks.Task{``1}},System.Threading.CancellationToken)``` | Runs a callback and disposes its owner after success, failure or cancellation. |
 | `LibTmux.OwnedServerScope.DisposeAsync` | Stops the accepted daemon and waits for its captured process to exit. |

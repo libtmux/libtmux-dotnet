@@ -230,7 +230,7 @@ public sealed partial class Window
             }
             catch (Exception failure)
             {
-                await OwnedScope.PreserveCleanupAsync(failure, () => created.DisposeAsync().AsTask()).ConfigureAwait(false);
+                await OwnedScope.PreserveCleanupAsync(failure, created).ConfigureAwait(false);
                 throw;
             }
         }, cancellationToken);

@@ -45,7 +45,7 @@ internal static class LifecycleSerialization
         }
         catch (Exception failure)
         {
-            await OwnedScope.PreserveCleanupAsync(failure, () => owner.DisposeAsync().AsTask()).ConfigureAwait(false);
+            await OwnedScope.PreserveCleanupAsync(failure, owner).ConfigureAwait(false);
             throw;
         }
     }

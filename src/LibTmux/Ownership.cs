@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 
@@ -16,6 +17,8 @@ public interface IOwnedTmuxResource<out T> : IAsyncDisposable
 public static class OwnedScope
 {
     private const string FailureKey = "LibTmux.CleanupFailure";
+    private const string OwnersKey = "LibTmux.CleanupOwners";
+    private static readonly ConditionalWeakTable<Exception, object> FailureLocks = new();
 
     /// <summary>Returns the cleanup failure attached to an exception from an owned scope or acquisition.</summary>
     /// <param name="error">The original body or acquisition exception.</param>
@@ -23,7 +26,30 @@ public static class OwnedScope
     public static Exception? CleanupFailure(Exception error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return error.Data[FailureKey] as Exception;
+        lock (FailureLocks.GetOrCreateValue(error))
+        {
+            return error.Data[FailureKey] as Exception;
+        }
+    }
+
+    /// <summary>Returns owners retained when cleanup failed during acquisition or an owned callback.</summary>
+    /// <param name="error">The original body or acquisition exception.</param>
+    /// <returns>A read-only snapshot of retryable owners, in the order cleanup failures were recorded, or an empty list.</returns>
+    /// <remarks>
+    /// <para>Call <see cref="IAsyncDisposable.DisposeAsync" /> on each owner to retry cleanup.
+    /// Library owners retain the accepted daemon generation and resource ID, even when acquisition failed before returning a handle.
+    /// No owner is returned when acquisition did not establish cleanup authority.</para>
+    /// <para>Nested scopes retain each failed owner once, with inner scopes first.
+    /// Successfully retried owners remain in the snapshot; repeated disposal is harmless for library owners.
+    /// The original exception and <see cref="CleanupFailure(Exception)" /> remain unchanged by retries.</para>
+    /// </remarks>
+    public static IReadOnlyList<IAsyncDisposable> CleanupOwners(Exception error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        lock (FailureLocks.GetOrCreateValue(error))
+        {
+            return error.Data[OwnersKey] as IReadOnlyList<IAsyncDisposable> ?? [];
+        }
     }
 
     /// <summary>Runs a callback and disposes its owner after success, failure or cancellation.</summary>
@@ -37,6 +63,7 @@ public static class OwnedScope
     /// The original body exception, including cancellation and its token, propagates.
     /// If teardown also fails, inspect it with <see cref="CleanupFailure(Exception)" />.
     /// A cleanup failure after a successful body propagates on its own. Failed disposal remains retryable.
+    /// <see cref="CleanupOwners(Exception)" /> retains the owner if both the body and cleanup fail.
     /// </remarks>
     public static async Task<TResult> UseAsync<T, TResult>(
         this IOwnedTmuxResource<T> owner,
@@ -53,11 +80,19 @@ public static class OwnedScope
         }
         catch (Exception failure)
         {
-            await PreserveCleanupAsync(failure, () => owner.DisposeAsync().AsTask()).ConfigureAwait(false);
+            await PreserveCleanupAsync(failure, owner).ConfigureAwait(false);
             throw;
         }
 
-        await owner.DisposeAsync().ConfigureAwait(false);
+        try
+        {
+            await owner.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception failure)
+        {
+            RetainOwner(failure, owner);
+            throw;
+        }
         return result;
     }
 
@@ -80,7 +115,10 @@ public static class OwnedScope
         }, cancellationToken);
     }
 
-    internal static async Task PreserveCleanupAsync(Exception failure, Func<Task> cleanup)
+    internal static Task PreserveCleanupAsync(Exception failure, IAsyncDisposable owner) =>
+        PreserveCleanupAsync(failure, () => owner.DisposeAsync().AsTask(), owner);
+
+    internal static async Task PreserveCleanupAsync(Exception failure, Func<Task> cleanup, IAsyncDisposable? owner = null)
     {
         try
         {
@@ -88,9 +126,28 @@ public static class OwnedScope
         }
         catch (Exception cleanupFailure)
         {
-            failure.Data[FailureKey] = CleanupFailure(failure) is { } previous
-                ? new AggregateException(previous, cleanupFailure)
-                : cleanupFailure;
+            lock (FailureLocks.GetOrCreateValue(failure))
+            {
+                failure.Data[FailureKey] = failure.Data[FailureKey] is Exception previous
+                    ? new AggregateException(previous, cleanupFailure)
+                    : cleanupFailure;
+                if (owner is not null)
+                {
+                    RetainOwner(failure, owner);
+                }
+            }
+        }
+    }
+
+    private static void RetainOwner(Exception failure, IAsyncDisposable owner)
+    {
+        lock (FailureLocks.GetOrCreateValue(failure))
+        {
+            IReadOnlyList<IAsyncDisposable> owners = CleanupOwners(failure);
+            if (!owners.Any(item => ReferenceEquals(item, owner)))
+            {
+                failure.Data[OwnersKey] = Array.AsReadOnly<IAsyncDisposable>([.. owners, owner]);
+            }
         }
     }
 }

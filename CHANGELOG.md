@@ -12,6 +12,8 @@ version.
 
 ### Added
 
+- `OwnedScope.CleanupOwners(error)` returns the accepted owners retained after failed acquisition rollback or callback cleanup. Call `DisposeAsync` on those owners to retry without adopting the endpoint again; nested failures retain each owner.
+
 - F# `Server.adopt`, `Session.adopt`, `Window.adopt` and `Pane.adopt` accept explicit ownership. `Owned.withResource` awaits cleanup and retains paired failures.
 - F# find-or-create calls cover servers, sessions, windows and panes. `FindOrCreate.Existing` and `Created` distinguish borrowed matches from owners; `FindOrCreate.withResource` destroys only created resources.
 - F# `Server.discover` exposes bounded discovery and its diagnostics. The lifecycle guide includes compiled adoption and discovery functions and a complete ordinary-endpoint find-or-create program.

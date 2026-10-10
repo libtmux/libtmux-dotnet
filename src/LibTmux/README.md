@@ -186,6 +186,8 @@ known, failed readback or cancellation rolls back against that daemon.
 malformed initial reply leaves the result unknown; inspect the endpoint
 before retrying. Rollback does not undo earlier explicit replacement effects.
 
+If rollback fails before acquisition returns an owner, `OwnedScope.CleanupOwners(error)` returns the accepted cleanup owners. Retry each owner's `DisposeAsync` after resolving the cleanup failure. These owners retain the original daemon generation and object ID; they refuse a replacement daemon. Nested callback scopes retain each failed owner, starting with the inner scope. Successful retries leave the original exception, recorded cleanup failures and owner list available for inspection. An unknown creation result with no accepted identity provides no cleanup owner.
+
 ### Find or create
 
 `FoundOrCreated<T>.Created` distinguishes new resources from reuse. `Owner`

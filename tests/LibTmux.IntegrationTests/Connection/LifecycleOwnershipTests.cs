@@ -224,6 +224,7 @@ public sealed class LifecycleOwnershipTests
         });
         current = fixture;
         string original = Assert.Single((await fixture.Server.ExecuteCommandAsync(["show-options", "-sv", "@libtmux_owner_generation"], Token)).StandardOutputLines);
+        IAsyncDisposable? recovery = null;
         try
         {
             armed = true;
@@ -231,12 +232,16 @@ public sealed class LifecycleOwnershipTests
             StaleServerGenerationException stale = Assert.IsType<StaleServerGenerationException>(failure.InnerException);
             Assert.Equal(stale.Expected, stale.Actual);
             Assert.IsType<StaleServerGenerationException>(OwnedScope.CleanupFailure(failure));
+            recovery = Assert.Single(OwnedScope.CleanupOwners(failure));
+            await Assert.ThrowsAsync<StaleServerGenerationException>(() => recovery.DisposeAsync().AsTask());
             Assert.True(await Server.Open(fixture.Options).HasSessionAsync("created-before-change", cancellationToken: Token));
         }
         finally
         {
             await RunAsync(Server.Open(fixture.Options), ["set-option", "-s", "@libtmux_owner_generation", original]);
         }
+        await recovery!.DisposeAsync();
+        Assert.False(await fixture.Server.HasSessionAsync("created-before-change", cancellationToken: Token));
     }
 
     [UnixFact]
@@ -322,6 +327,7 @@ public sealed class LifecycleOwnershipTests
         else if (scenario == "cleanup")
         {
             Assert.IsType<IOException>(failure);
+            Assert.Same(owned, Assert.Single(OwnedScope.CleanupOwners(failure)));
         }
         else
         {
@@ -330,6 +336,7 @@ public sealed class LifecycleOwnershipTests
         if (scenario is "both" or "cancel-cleanup")
         {
             Assert.IsType<IOException>(OwnedScope.CleanupFailure(failure!));
+            Assert.Same(owned, Assert.Single(OwnedScope.CleanupOwners(failure!)));
         }
         Assert.Equal(failCleanup, await fixture.Server.HasSessionAsync("scoped", cancellationToken: Token));
         failCleanup = false;
@@ -348,6 +355,9 @@ public sealed class LifecycleOwnershipTests
     [InlineData("session", false, true)]
     [InlineData("window", false, true)]
     [InlineData("pane", false, true)]
+    [InlineData("session", true, true)]
+    [InlineData("window", true, true)]
+    [InlineData("pane", true, true)]
     public async Task Known_creation_rolls_back_readback_failure_and_cancellation(string kind, bool cancel, bool cleanupFails)
     {
         bool armed = false;
@@ -393,6 +403,7 @@ public sealed class LifecycleOwnershipTests
         if (cancel)
         {
             Assert.IsAssignableFrom<OperationCanceledException>(failure);
+            Assert.Equal(cancellation.Token, ((OperationCanceledException)failure).CancellationToken);
             Assert.True(acquisition.IsCanceled);
         }
         else
@@ -412,6 +423,19 @@ public sealed class LifecycleOwnershipTests
             _ => (await window.GetPanesAsync(Token)).Count,
         };
         Assert.Equal(cleanupFails ? 2 : 1, count);
+        if (cleanupFails)
+        {
+            IAsyncDisposable recovery = Assert.Single(OwnedScope.CleanupOwners(failure));
+            await recovery.DisposeAsync();
+            await recovery.DisposeAsync();
+            Assert.Single(await fixture.Server.GetSessionsAsync(Token));
+            Assert.Single(await session.GetWindowsAsync(Token));
+            Assert.Single(await window.GetPanesAsync(Token));
+        }
+        else
+        {
+            Assert.Empty(OwnedScope.CleanupOwners(failure));
+        }
     }
 
     [UnixFact]
@@ -432,6 +456,7 @@ public sealed class LifecycleOwnershipTests
             fixture.Server.CreateOwnedSessionAsync(new() { Name = "uncertain" }, Token));
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
         Assert.Null(OwnedScope.CleanupFailure(failure));
+        Assert.Empty(OwnedScope.CleanupOwners(failure));
         Assert.True(await fixture.Server.HasSessionAsync("uncertain", cancellationToken: Token));
     }
 
@@ -537,6 +562,26 @@ public sealed class LifecycleOwnershipTests
                 };
                 Assert.Equal(cleanupFails || unusable ? 2 : 1, remaining);
             }
+            if (cleanupFails)
+            {
+                IAsyncDisposable recovery = Assert.Single(OwnedScope.CleanupOwners(error));
+                await recovery.DisposeAsync();
+                await recovery.DisposeAsync();
+                if (kind == "server")
+                {
+                    Assert.Null(await Server.Open(fixture.Options).InspectAsync(Token));
+                }
+                else
+                {
+                    Assert.Single(await current!.GetSessionsAsync(Token));
+                    Assert.Single(await current.GetWindowsAsync(Token));
+                    Assert.Single(await current.GetPanesAsync(Token));
+                }
+            }
+            else
+            {
+                Assert.Empty(OwnedScope.CleanupOwners(error));
+            }
         }
         finally
         {
@@ -557,18 +602,26 @@ public sealed class LifecycleOwnershipTests
         }
     }
 
-    [UnixFact]
-    public async Task A_failed_server_receipt_does_not_adopt_an_unrelated_starter()
+    [Theory(Skip = "Requires a Unix process environment.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_failed_server_receipt_does_not_adopt_an_unrelated_starter(bool cleanupFails)
     {
         await using var fixture = new Fixture();
         OwnedServerScope? competitor = null;
         bool armed = true;
+        bool rejectCleanup = cleanupFails;
+        var rollback = new IOException("Injected rollback failure for the bootstrap session.");
         try
         {
             Server endpoint = Server.Open(fixture.Options with
             {
                 Interceptor = async (invocation, next, token) =>
                 {
+                    if (rejectCleanup && invocation.Arguments.Contains("kill-session", StringComparer.Ordinal))
+                    {
+                        throw rollback;
+                    }
                     if (armed && invocation.Arguments.Contains("new-session", StringComparer.Ordinal))
                     {
                         armed = false;
@@ -581,7 +634,19 @@ public sealed class LifecycleOwnershipTests
             });
             LibTmuxException error = await Assert.ThrowsAsync<LibTmuxException>(() => endpoint.FindOrCreateAsync(Token));
             Assert.Equal(77, Assert.IsType<TmuxCommandException>(error.InnerException).Result.ExitCode);
-            Assert.Null(OwnedScope.CleanupFailure(error));
+            Assert.Same(cleanupFails ? rollback : null, OwnedScope.CleanupFailure(error));
+            if (cleanupFails)
+            {
+                IAsyncDisposable recovery = Assert.Single(OwnedScope.CleanupOwners(error));
+                Assert.IsNotType<OwnedServerScope>(recovery);
+                rejectCleanup = false;
+                await recovery.DisposeAsync();
+                await recovery.DisposeAsync();
+            }
+            else
+            {
+                Assert.Empty(OwnedScope.CleanupOwners(error));
+            }
             Server? borrowed = await endpoint.InspectAsync(Token);
             Assert.NotNull(borrowed);
             Assert.Equal("competitor", Assert.Single(await borrowed.GetSessionsAsync(Token)).Name);
@@ -601,6 +666,7 @@ public sealed class LifecycleOwnershipTests
     {
         await using var fixture = new Fixture();
         bool created = false;
+        bool rejectCleanup = true;
         int serverKills = 0;
         var verificationFailure = new IOException("Startup verification failed.");
         var rollbackFailure = new IOException("Bootstrap rollback failed.");
@@ -612,7 +678,7 @@ public sealed class LifecycleOwnershipTests
                 {
                     throw verificationFailure;
                 }
-                if (created && invocation.Arguments.Contains("kill-session", StringComparer.Ordinal))
+                if (created && rejectCleanup && invocation.Arguments.Contains("kill-session", StringComparer.Ordinal))
                 {
                     throw rollbackFailure;
                 }
@@ -637,6 +703,12 @@ public sealed class LifecycleOwnershipTests
             Assert.Contains(verificationFailure, cleanup.InnerExceptions);
             Assert.Contains(rollbackFailure, cleanup.InnerExceptions);
             Assert.Equal(0, serverKills);
+            IAsyncDisposable recovery = Assert.Single(OwnedScope.CleanupOwners(error));
+            rejectCleanup = false;
+            await recovery.DisposeAsync();
+            await recovery.DisposeAsync();
+            Assert.Equal(0, serverKills);
+            Assert.Null(await Server.Open(fixture.Options).InspectAsync(Token));
         }
         finally
         {
@@ -732,6 +804,85 @@ public sealed class LifecycleOwnershipTests
         Assert.True(created);
         Assert.True(acquisition.IsCanceled);
         Assert.Null(await Server.Open(fixture.Options).InspectAsync(Token));
+    }
+
+    [Theory(Skip = "Requires a Unix process environment.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData("configure", false)]
+    [InlineData("initialize", false)]
+    [InlineData("cancel", false)]
+    [InlineData("initialize", true)]
+    public async Task Failed_server_acquisition_exposes_only_its_accepted_retry_owner(string stage, bool replace)
+    {
+        await using var fixture = new Fixture();
+        using CancellationTokenSource cancellation = new();
+        var original = new IOException("Injected acquisition failure.");
+        var rollback = new IOException("Injected rollback failure.");
+        bool rejectCleanup = true;
+        Server endpoint = Server.Open(fixture.Options with
+        {
+            InitializeAsync = (_, _) =>
+            {
+                if (stage == "cancel")
+                {
+                    cancellation.Cancel();
+                    return ValueTask.CompletedTask;
+                }
+                return ValueTask.FromException(original);
+            },
+            Interceptor = (invocation, next, token) =>
+            {
+                if (rejectCleanup && invocation.Arguments.Contains("kill-server", StringComparer.Ordinal))
+                {
+                    return Task.FromException<TmuxCommandResult>(rollback);
+                }
+                if (stage == "configure" && invocation.Arguments.Contains("exit-empty", StringComparer.Ordinal))
+                {
+                    return Task.FromException<TmuxCommandResult>(original);
+                }
+                return next(token);
+            },
+        });
+        Task acquisition = endpoint.FindOrCreateAsync(cancellation.Token);
+        Exception? error = await Record.ExceptionAsync(() => acquisition);
+        Assert.NotNull(error);
+        if (stage == "cancel")
+        {
+            Assert.Equal(cancellation.Token, Assert.IsAssignableFrom<OperationCanceledException>(error).CancellationToken);
+            Assert.True(acquisition.IsCanceled);
+        }
+        else
+        {
+            Assert.Same(original, error);
+        }
+        Assert.Same(rollback, OwnedScope.CleanupFailure(error));
+        OwnedServerScope recovery = Assert.IsType<OwnedServerScope>(Assert.Single(OwnedScope.CleanupOwners(error)));
+        Assert.NotNull(await recovery.Value.InspectAsync(Token));
+        rejectCleanup = false;
+        try
+        {
+            if (replace)
+            {
+                await (await recovery.Value.AdoptAsync(Token)).DisposeAsync();
+                await using OwnedServerScope replacement = await Server.CreateOwnedAsync(fixture.Options, Token);
+                Session sentinel = await replacement.Value.CreateSessionAsync(new() { Name = "preserved" }, Token);
+                await Assert.ThrowsAsync<StaleServerGenerationException>(() => recovery.DisposeAsync().AsTask());
+                Assert.Equal(sentinel.Id, Assert.Single(await replacement.Value.GetSessionsAsync(Token)).Id);
+            }
+            else
+            {
+                await recovery.DisposeAsync();
+                await recovery.DisposeAsync();
+                Assert.Null(await Server.Open(fixture.Options).InspectAsync(Token));
+            }
+        }
+        finally
+        {
+            if (!replace)
+            {
+                await recovery.DisposeAsync();
+            }
+        }
+        Assert.Same(rollback, OwnedScope.CleanupFailure(error));
     }
 
     [UnixFact]

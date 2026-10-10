@@ -102,6 +102,11 @@
   },
   "members": [
     {
+      "id": "M:LibTmux.OwnedScope.CleanupOwners(System.Exception)",
+      "performsIO": false,
+      "portable": true
+    },
+    {
       "id": "M:LibTmux.Client.GetAsync(LibTmux.Server,System.String,System.Threading.CancellationToken)",
       "performsIO": true,
       "processBacked": true

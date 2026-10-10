@@ -114,7 +114,7 @@ public sealed partial class Server
             }
             if (owner is not null)
             {
-                await OwnedScope.PreserveCleanupAsync(failure, () => owner.DisposeAsync().AsTask()).ConfigureAwait(false);
+                await OwnedScope.PreserveCleanupAsync(failure, owner).ConfigureAwait(false);
             }
             else
             {
