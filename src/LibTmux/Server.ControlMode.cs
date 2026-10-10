@@ -25,9 +25,18 @@ public sealed partial class Server
     /// The endpoint changed servers while the control client was attaching.
     /// </exception>
     [UnsupportedOSPlatform("windows")]
-    public async Task<IControlModeSession> EnterControlModeAsync(
+    public Task<IControlModeSession> EnterControlModeAsync(
         string? target = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        EnterControlModeAsync(target, attachFlags: null, cancellationToken);
+
+    // Client flags given here are set by the attach itself, before tmux can
+    // queue any pane output for the client.
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<IControlModeSession> EnterControlModeAsync(
+        string? target,
+        string? attachFlags,
+        CancellationToken cancellationToken)
     {
         TmuxConnection connection = _connection
             ?? throw new InvalidOperationException("The server handle has no connection.");
@@ -53,7 +62,8 @@ public sealed partial class Server
                 startInfo,
                 connection.Options.ChildEnvironment),
             connection.Options.ControlModeEventBufferCapacity,
-            connection.Options.ControlModeEventBufferMaxBytes);
+            connection.Options.ControlModeEventBufferMaxBytes,
+            attachFlags);
 
         // Attaching is asynchronous, and a caller who sends a command before
         // tmux has answered its own attach would be handed that answer.

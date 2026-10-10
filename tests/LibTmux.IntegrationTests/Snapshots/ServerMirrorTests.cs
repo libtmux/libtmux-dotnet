@@ -35,9 +35,6 @@ public sealed class ServerMirrorTests
         CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Session anchor = await AnchorAsync(raw, token);
-        Assert.SkipWhen(
-            await TmuxVersion.DetectAsync(raw.TmuxBinaryPath, token) == TmuxVersion.Parse("3.3a"),
-            "tmux 3.3a mirror control attachment can stall: https://github.com/libtmux/libtmux-dotnet/issues/61.");
         await using ServerMirror mirror = await ServerMirror.OpenAsync(
             anchor,
             TimeSpan.FromMilliseconds(100),

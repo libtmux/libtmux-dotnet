@@ -107,7 +107,8 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         ServerGeneration generation,
         Action<ProcessStartInfo> configureEnvironment,
         int? eventBufferCapacity = null,
-        int? eventBufferMaxBytes = null)
+        int? eventBufferMaxBytes = null,
+        string? attachFlags = null)
     {
         ProcessStartInfo startInfo = new(tmuxBinaryPath)
         {
@@ -127,6 +128,12 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         // told about the hierarchy but not about pane output, so %output never
         // arrives and the stream looks mysteriously quiet.
         startInfo.ArgumentList.Add("attach-session");
+        if (attachFlags is not null)
+        {
+            startInfo.ArgumentList.Add("-f");
+            startInfo.ArgumentList.Add(attachFlags);
+        }
+
         if (target is not null)
         {
             startInfo.ArgumentList.Add("-t");
