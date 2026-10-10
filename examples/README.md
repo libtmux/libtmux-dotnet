@@ -21,7 +21,9 @@ Two mechanisms sit on top of that, and they catch different failures:
 
 [`LibTmux.Quickstart/Program.cs`](LibTmux.Quickstart/Program.cs) includes its
 imports, opens `Server.Open()` with normal defaults, and creates a session and
-window. Its `await using` scope removes the session.
+window. Its `UseAsync` callback scope removes the session after success,
+failure or cancellation. `OwnedScope.CleanupFailure` exposes a second cleanup
+failure while the original body exception remains primary.
 
 Run it against your selected endpoint:
 
@@ -36,8 +38,8 @@ $ mise exec -- dotnet run \
 with `LIBTMUX_SOCKET_PATH` supplied by the harness. Private roots, fault
 injection and whole-server teardown stay in the harness. Tests verify the
 creation effect, cleanup after a body failure, and an observable cleanup
-failure. The combined-failure case records C#'s exception replacement behavior;
-a scope that preserves both exceptions remains separate ownership work.
+failure. The combined-failure case verifies that the program reports the
+cleanup failure and retains the original body exception.
 
 ## Ordinary F# program
 
