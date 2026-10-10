@@ -1733,6 +1733,92 @@
       "returnType": "'T -> Microsoft.FSharp.Core.bool"
     },
     {
+      "id": "M:LibTmux.FSharp.FindOrCreate.withResource``2(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{``0,System.Threading.Tasks.Task{``1}},LibTmux.FoundOrCreated{``0})",
+      "package": "LibTmux.FSharp",
+      "name": "withResource",
+      "declaringType": "T:LibTmux.FSharp.FindOrCreate",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val withResource: cancellationToken: System.Threading.CancellationToken -> work: ('Resource -> System.Threading.Tasks.Task<'State>) -> result: LibTmux.FoundOrCreated<'Resource> -> System.Threading.Tasks.Task<'State>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> ('Resource -> System.Threading.Tasks.Task<'State>) -> LibTmux.FoundOrCreated<'Resource> -> System.Threading.Tasks.Task<'State>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "work",
+          "optional": false,
+          "type": "'Resource -> System.Threading.Tasks.Task<'State>"
+        },
+        {
+          "name": "result",
+          "optional": false,
+          "type": "LibTmux.FoundOrCreated<'Resource>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "withResource",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "Resource"
+        },
+        {
+          "constraints": [],
+          "name": "State"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'State>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.FindOrCreate.|Existing|Created|``1(LibTmux.FoundOrCreated{``0})",
+      "package": "LibTmux.FSharp",
+      "name": "(|Existing|Created|)",
+      "declaringType": "T:LibTmux.FSharp.FindOrCreate",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val (|Existing|Created|) : result: LibTmux.FoundOrCreated<'Resource> -> Microsoft.FSharp.Core.Choice<'Resource,LibTmux.IOwnedTmuxResource<'Resource>>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FoundOrCreated<'Resource> -> Microsoft.FSharp.Core.Choice<'Resource,LibTmux.IOwnedTmuxResource<'Resource>>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "result",
+          "optional": false,
+          "type": "LibTmux.FoundOrCreated<'Resource>"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "|Existing|Created|",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "Resource"
+        }
+      ],
+      "returnType": "Microsoft.FSharp.Core.Choice<'Resource,LibTmux.IOwnedTmuxResource<'Resource>>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Mirror.current(LibTmux.ServerMirror)",
       "package": "LibTmux.FSharp",
       "name": "current",
@@ -2069,6 +2155,93 @@
         }
       ],
       "returnType": "System.Threading.Tasks.Task"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Owned.withResource``2(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{``0,System.Threading.Tasks.Task{``1}},LibTmux.IOwnedTmuxResource{``0})",
+      "package": "LibTmux.FSharp",
+      "name": "withResource",
+      "declaringType": "T:LibTmux.FSharp.Owned",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val withResource: cancellationToken: System.Threading.CancellationToken -> work: ('Resource -> System.Threading.Tasks.Task<'State>) -> owner: LibTmux.IOwnedTmuxResource<'Resource> -> System.Threading.Tasks.Task<'State>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> ('Resource -> System.Threading.Tasks.Task<'State>) -> LibTmux.IOwnedTmuxResource<'Resource> -> System.Threading.Tasks.Task<'State>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "work",
+          "optional": false,
+          "type": "'Resource -> System.Threading.Tasks.Task<'State>"
+        },
+        {
+          "name": "owner",
+          "optional": false,
+          "type": "LibTmux.IOwnedTmuxResource<'Resource>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "withResource",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "Resource"
+        },
+        {
+          "constraints": [],
+          "name": "State"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'State>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Pane.adopt(System.Threading.CancellationToken,LibTmux.Pane)",
+      "package": "LibTmux.FSharp",
+      "name": "adopt",
+      "declaringType": "T:LibTmux.FSharp.Pane",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val adopt: cancellationToken: System.Threading.CancellationToken -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.OwnedPaneScope>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.OwnedPaneScope>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "adopt",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.OwnedPaneScope>"
     },
     {
       "id": "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)",
@@ -3573,6 +3746,42 @@
       "returnType": "Microsoft.FSharp.Core.Result<'T,LibTmux.FSharp.CardinalityError>"
     },
     {
+      "id": "M:LibTmux.FSharp.Server.adopt(System.Threading.CancellationToken,LibTmux.Server)",
+      "package": "LibTmux.FSharp",
+      "name": "adopt",
+      "declaringType": "T:LibTmux.FSharp.Server",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val adopt: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.OwnedServerScope>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.OwnedServerScope>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "server",
+          "optional": false,
+          "type": "LibTmux.Server"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "adopt",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.OwnedServerScope>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Server.capture(System.Threading.CancellationToken,LibTmux.SnapshotDepth,LibTmux.Server)",
       "package": "LibTmux.FSharp",
       "name": "capture",
@@ -3715,6 +3924,126 @@
       "compiledName": "createOwned",
       "genericParameters": [],
       "returnType": "System.Threading.Tasks.Task<LibTmux.OwnedServerScope>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Server.discover(System.Threading.CancellationToken,LibTmux.ServerDiscoveryOptions)",
+      "package": "LibTmux.FSharp",
+      "name": "discover",
+      "declaringType": "T:LibTmux.FSharp.Server",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val discover: cancellationToken: System.Threading.CancellationToken -> options: LibTmux.ServerDiscoveryOptions -> System.Threading.Tasks.Task<LibTmux.ServerDiscoveryResult>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.ServerDiscoveryOptions -> System.Threading.Tasks.Task<LibTmux.ServerDiscoveryResult>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "options",
+          "optional": false,
+          "type": "LibTmux.ServerDiscoveryOptions"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "discover",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.ServerDiscoveryResult>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Server.findOrCreate(System.Threading.CancellationToken,LibTmux.Server)",
+      "package": "LibTmux.FSharp",
+      "name": "findOrCreate",
+      "declaringType": "T:LibTmux.FSharp.Server",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val findOrCreate: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Server>>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Server>>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "server",
+          "optional": false,
+          "type": "LibTmux.Server"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "findOrCreate",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Server>>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Server.findOrCreateSession(System.Threading.CancellationToken,System.String,Microsoft.FSharp.Core.FSharpOption{LibTmux.NewSessionRequest},LibTmux.Server)",
+      "package": "LibTmux.FSharp",
+      "name": "findOrCreateSession",
+      "declaringType": "T:LibTmux.FSharp.Server",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val findOrCreateSession: cancellationToken: System.Threading.CancellationToken -> name: Microsoft.FSharp.Core.string -> request: LibTmux.NewSessionRequest Microsoft.FSharp.Core.option -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Session>>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.string -> LibTmux.NewSessionRequest Microsoft.FSharp.Core.option -> LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Session>>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "name",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "request",
+          "optional": false,
+          "type": "LibTmux.NewSessionRequest Microsoft.FSharp.Core.option"
+        },
+        {
+          "name": "server",
+          "optional": false,
+          "type": "LibTmux.Server"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "findOrCreateSession",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Session>>"
     },
     {
       "id": "M:LibTmux.FSharp.Server.newSession(System.Threading.CancellationToken,LibTmux.FSharp.SessionSpec,LibTmux.Server)",
@@ -4017,6 +4346,59 @@
       "returnType": "LibTmux.FSharp.Query<LibTmux.Window>"
     },
     {
+      "id": "M:LibTmux.FSharp.Server.withNewSession``1(System.Threading.CancellationToken,LibTmux.FSharp.SessionSpec,Microsoft.FSharp.Core.FSharpFunc{LibTmux.Session,System.Threading.Tasks.Task{``0}},LibTmux.Server)",
+      "package": "LibTmux.FSharp",
+      "name": "withNewSession",
+      "declaringType": "T:LibTmux.FSharp.Server",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val withNewSession: cancellationToken: System.Threading.CancellationToken -> spec: LibTmux.FSharp.SessionSpec -> work: (LibTmux.Session -> System.Threading.Tasks.Task<'State>) -> server: LibTmux.Server -> System.Threading.Tasks.Task<'State>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.FSharp.SessionSpec -> (LibTmux.Session -> System.Threading.Tasks.Task<'State>) -> LibTmux.Server -> System.Threading.Tasks.Task<'State>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "spec",
+          "optional": false,
+          "type": "LibTmux.FSharp.SessionSpec"
+        },
+        {
+          "name": "work",
+          "optional": false,
+          "type": "LibTmux.Session -> System.Threading.Tasks.Task<'State>"
+        },
+        {
+          "name": "server",
+          "optional": false,
+          "type": "LibTmux.Server"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "withNewSession",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "State"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'State>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Server.within(System.TimeSpan,LibTmux.Server)",
       "package": "LibTmux.FSharp",
       "name": "within",
@@ -4087,6 +4469,90 @@
       "compiledName": "activePane",
       "genericParameters": [],
       "returnType": "System.Threading.Tasks.Task<LibTmux.Pane>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Session.adopt(System.Threading.CancellationToken,LibTmux.Session)",
+      "package": "LibTmux.FSharp",
+      "name": "adopt",
+      "declaringType": "T:LibTmux.FSharp.Session",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val adopt: cancellationToken: System.Threading.CancellationToken -> session: LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.OwnedSessionScope>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.OwnedSessionScope>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.Session"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "adopt",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.OwnedSessionScope>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Session.findOrCreateWindow(System.Threading.CancellationToken,System.String,Microsoft.FSharp.Core.FSharpOption{LibTmux.NewWindowRequest},LibTmux.Session)",
+      "package": "LibTmux.FSharp",
+      "name": "findOrCreateWindow",
+      "declaringType": "T:LibTmux.FSharp.Session",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val findOrCreateWindow: cancellationToken: System.Threading.CancellationToken -> name: Microsoft.FSharp.Core.string -> request: LibTmux.NewWindowRequest Microsoft.FSharp.Core.option -> session: LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Window>>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.string -> LibTmux.NewWindowRequest Microsoft.FSharp.Core.option -> LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Window>>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "name",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "request",
+          "optional": false,
+          "type": "LibTmux.NewWindowRequest Microsoft.FSharp.Core.option"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.Session"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "findOrCreateWindow",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Window>>"
     },
     {
       "id": "M:LibTmux.FSharp.Session.holdWaitClient(System.Threading.CancellationToken,LibTmux.Session)",
@@ -4705,6 +5171,90 @@
       "compiledName": "activePane",
       "genericParameters": [],
       "returnType": "System.Threading.Tasks.Task<LibTmux.Pane>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Window.adopt(System.Threading.CancellationToken,LibTmux.Window)",
+      "package": "LibTmux.FSharp",
+      "name": "adopt",
+      "declaringType": "T:LibTmux.FSharp.Window",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val adopt: cancellationToken: System.Threading.CancellationToken -> window: LibTmux.Window -> System.Threading.Tasks.Task<LibTmux.OwnedWindowScope>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Window -> System.Threading.Tasks.Task<LibTmux.OwnedWindowScope>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "window",
+          "optional": false,
+          "type": "LibTmux.Window"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "adopt",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.OwnedWindowScope>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Window.findOrCreatePane(System.Threading.CancellationToken,System.String,Microsoft.FSharp.Core.FSharpOption{LibTmux.SplitPaneRequest},LibTmux.Window)",
+      "package": "LibTmux.FSharp",
+      "name": "findOrCreatePane",
+      "declaringType": "T:LibTmux.FSharp.Window",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val findOrCreatePane: cancellationToken: System.Threading.CancellationToken -> identity: Microsoft.FSharp.Core.string -> request: LibTmux.SplitPaneRequest Microsoft.FSharp.Core.option -> window: LibTmux.Window -> System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Pane>>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.string -> LibTmux.SplitPaneRequest Microsoft.FSharp.Core.option -> LibTmux.Window -> System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Pane>>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "identity",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "request",
+          "optional": false,
+          "type": "LibTmux.SplitPaneRequest Microsoft.FSharp.Core.option"
+        },
+        {
+          "name": "window",
+          "optional": false,
+          "type": "LibTmux.Window"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "findOrCreatePane",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.FoundOrCreated<LibTmux.Pane>>"
     },
     {
       "id": "M:LibTmux.FSharp.Window.kill(System.Threading.CancellationToken,LibTmux.Window)",
@@ -6641,6 +7191,33 @@
       "publicRepresentation": true
     },
     {
+      "id": "T:LibTmux.FSharp.FindOrCreate",
+      "package": "LibTmux.FSharp",
+      "name": "FindOrCreate",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.FindOrCreate",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.FindOrCreate"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
+    },
+    {
       "id": "T:LibTmux.FSharp.Mirror",
       "package": "LibTmux.FSharp",
       "name": "Mirror",
@@ -6681,6 +7258,33 @@
       "interfaces": [],
       "exposedTypes": [
         "LibTmux.FSharp.Options"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
+    },
+    {
+      "id": "T:LibTmux.FSharp.Owned",
+      "package": "LibTmux.FSharp",
+      "name": "Owned",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.Owned",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Owned"
       ],
       "attributes": [
         {

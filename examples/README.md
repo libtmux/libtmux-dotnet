@@ -17,6 +17,48 @@ Two mechanisms sit on top of that, and they catch different failures:
 | `sync_snippets.py` | `eng/docs/` | A published block has drifted from the region it was quoted from |
 | `SnippetContractTests` | `tests/LibTmux.ExampleTests/` | A published region is not an example that runs, or an example is somewhere the snippet reader cannot see |
 
+## Ordinary C# program
+
+[`LibTmux.Quickstart/Program.cs`](LibTmux.Quickstart/Program.cs) includes its imports and calls `Server.EnsureAsync()` with normal defaults. It finds or creates the `libtmux-dotnet-quickstart` session and its `tests` window, then leaves them available. Repeating the program reuses those names. If no daemon exists, ensure keeps a detached bootstrap session running `cat`; it does not change `exit-empty`. An existing daemon retains its state and configuration.
+
+Run it against your selected endpoint:
+
+```console
+$ mise exec -- dotnet run \
+    --project examples/LibTmux.Quickstart/LibTmux.Quickstart.csproj \
+    --configuration Release \
+    --framework net10.0
+```
+
+`LifecycleDefaultsTests` runs this exact compiled program twice with an absent or existing daemon and external socket-path or socket-name defaults. The harness owns setup and teardown. A source contract checks that the whole program, including imports, matches the root and package README blocks.
+
+## C# session cleanup program
+
+[`LibTmux.SessionCleanup/Program.cs`](LibTmux.SessionCleanup/Program.cs) retains the scoped cleanup demonstration. Its `UseAsync` callback removes the created session after success, failure or cancellation. `OwnedScope.CleanupFailure` exposes a second cleanup failure while the original body exception remains primary.
+
+```console
+$ mise exec -- dotnet run \
+    --project examples/LibTmux.SessionCleanup/LibTmux.SessionCleanup.csproj \
+    --configuration Release \
+    --framework net10.0
+```
+
+The separate lifecycle test retains its body-failure, cleanup-failure and paired-failure cases. Explicit private endpoints, injected faults and whole-server cleanup belong to the harness.
+
+## Ordinary F# program
+
+[`LibTmux.FSharp.Quickstart/Program.fs`](LibTmux.FSharp.Quickstart/Program.fs)
+includes its imports, opens `LibTmux.Server.Open()` with normal defaults, and
+runs session work through `Server.withNewSession`. The scope removes its
+session after success, failure, or cancellation. `Control.cleanupFailure`
+exposes cleanup failure when the work also failed.
+
+The Linux harness `eng/docs/run_fsharp_quickstart.py` runs that exact compiled
+program with external socket-name and socket-path selectors. It injects body
+and cleanup failures, checks session state, and waits for its owned daemon to
+terminate before removing the root. The required F# quickstart workflow uses
+fresh packages on .NET 8 and 10 and compares the printed output with the README.
+
 ## Writing an example
 
 An example is a method carrying `[Example]`, taking a `Server` and a
@@ -119,3 +161,12 @@ Tag a block `csharp run` when it is meant to execute, and leave it plain
 `csharp` when it only illustrates. A plain block still has to compile. The
 harness supplies a preamble and hoists type declarations, so an example does
 not repeat the setup — but everything else has to be real.
+
+## Lifecycle examples
+
+`Snippets/Lifecycle.cs` runs adoption after rename, created versus reused
+session/window/pane results, bounded discovery, and whole-server ownership at
+an explicit disposable endpoint. The example suite supplies its endpoint
+settings outside the ordinary examples. The package README publishes the
+same source regions. `LibTmux.SessionCleanup/Program.cs` uses `OwnedScope.UseAsync`
+and prints a second cleanup failure while preserving its original exception.

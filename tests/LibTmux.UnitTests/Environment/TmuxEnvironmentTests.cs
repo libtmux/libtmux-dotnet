@@ -44,10 +44,10 @@ public sealed class TmuxEnvironmentTests
 
     [Theory]
     [InlineData("0", "3")]
-    [InlineData("04242", "3")]
-    [InlineData("4242", "03")]
-    [InlineData("4242", "-1")]
-    [InlineData("4242", "$3")]
+    [InlineData("+4242", "3")]
+    [InlineData("4242", "+3")]
+    [InlineData("4242", "-2")]
+    [InlineData("4242", "$-1")]
     public void Rejects_noncanonical_pid_or_session(string pid, string session) =>
         Assert.False(TmuxEnvironmentVariables.TryRead(
             Env(("TMUX", $"/tmp/socket,{pid},{session}")),

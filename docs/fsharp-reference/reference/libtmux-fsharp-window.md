@@ -26,7 +26,49 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxObjectNotFoundException`tmux reports no such pane.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L197)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L293)
+
+<a name="adopt"></a>
+
+#### <code><span>Window.adopt&#32;<span>cancellationToken&#32;window</span></span></code>
+
+Accepts responsibility for destroying an existing window, all its session links and all its panes.
+
+Cleanup follows the captured window ID and refuses a replacement daemon.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**window**: <code>Window</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;OwnedWindowScope&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L278)
+
+<a name="findOrCreatePane"></a>
+
+#### <code><span>Window.findOrCreatePane&#32;<span>cancellationToken&#32;identity&#32;request&#32;window</span></span></code>
+
+Finds a pane with the exact local identity option or creates and owns a matching pane.
+
+Uses the pane-local <code>@libtmux-identity</code> option within this window, not the pane title or index.
+ Multiple matches raise <code>TmuxAmbiguousMatchException</code>. <code>None</code> uses default split options;
+ a request cannot override the target window. Reuse remains borrowed and creation records the identity before returning.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**identity**: <code>string</code>
+
+**request**: <code><span>SplitPaneRequest&#32;option</span></code>
+
+**window**: <code>Window</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>FoundOrCreated&lt;Pane&gt;</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L280)
 
 <a name="kill"></a>
 
@@ -44,7 +86,7 @@ The core&#39;s <code>Window.KillAsync</code> without <code>allExcept</code>.
 
 Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L205)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L301)
 
 <a name="move"></a>
 
@@ -62,7 +104,7 @@ Moves the window as the request says, and returns a handle carrying the state af
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L215)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L311)
 
 <a name="panes"></a>
 
@@ -78,7 +120,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&
 
 `IncompleteSnapshotException` The window was not read through a server.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L194)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L290)
 
 <a name="placementKey"></a>
 
@@ -94,7 +136,7 @@ Returns: <code><a href="../reference/libtmux-fsharp-windowplacementkey.md">Windo
 
 `IncompleteSnapshotException` The placement was not captured.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L192)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L288)
 
 <a name="rename"></a>
 
@@ -114,7 +156,7 @@ tmux expands the name as a format, so a <code>#</code> in it does not survive ve
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L200)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L296)
 
 <a name="resize"></a>
 
@@ -132,7 +174,7 @@ Resizes the window as the request says, and returns a handle carrying the state 
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L212)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L308)
 
 <a name="select"></a>
 
@@ -148,7 +190,7 @@ Makes the window its session's current window, and returns a handle carrying the
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L203)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L299)
 
 <a name="selectLayout"></a>
 
@@ -172,4 +214,4 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxWindowException`tmux may not recognise the layout, so it is refused before anything is sent.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L208)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L304)

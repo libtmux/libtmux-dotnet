@@ -4,8 +4,42 @@ open System
 open System.Collections.Generic
 open System.Globalization
 open System.Threading
+open System.Threading.Tasks
 open LibTmux
 open LibTmux.Query
+
+[<RequireQualifiedAccess>]
+module Owned =
+    let withResource
+        (cancellationToken: CancellationToken)
+        (work: 'Resource -> Task<'State>)
+        (owner: IOwnedTmuxResource<'Resource>)
+        =
+        OwnedScope.UseAsync(
+            owner,
+            Func<'Resource, CancellationToken, Task<'State>>(fun resource _ -> work resource),
+            cancellationToken
+        )
+
+[<RequireQualifiedAccess>]
+module FindOrCreate =
+    let (|Existing|Created|) (result: FoundOrCreated<'Resource>) =
+        match Option.ofObj result.Owner with
+        | Some owner -> Created owner
+        | None -> Existing result.Value
+
+    let withResource
+        (cancellationToken: CancellationToken)
+        (work: 'Resource -> Task<'State>)
+        (result: FoundOrCreated<'Resource>)
+        =
+        match result with
+        | Created owner -> Owned.withResource cancellationToken work owner
+        | Existing resource ->
+            backgroundTask {
+                cancellationToken.ThrowIfCancellationRequested()
+                return! work resource
+            }
 
 [<RequireQualifiedAccess>]
 module Server =
@@ -14,6 +48,22 @@ module Server =
 
     let connect (cancellationToken: CancellationToken) (options: ServerConnectionOptions) =
         LibTmux.Server.ConnectAsync(options, cancellationToken)
+
+    let adopt (cancellationToken: CancellationToken) (server: LibTmux.Server) = server.AdoptAsync(cancellationToken)
+
+    let discover (cancellationToken: CancellationToken) (options: ServerDiscoveryOptions) =
+        LibTmux.Server.DiscoverAsync(options, cancellationToken)
+
+    let findOrCreate (cancellationToken: CancellationToken) (server: LibTmux.Server) =
+        server.FindOrCreateAsync(cancellationToken)
+
+    let findOrCreateSession
+        (cancellationToken: CancellationToken)
+        (name: string)
+        (request: NewSessionRequest option)
+        (server: LibTmux.Server)
+        =
+        server.FindOrCreateSessionAsync(name, Option.toObj request, cancellationToken)
 
     let sessions (server: LibTmux.Server) =
         Query<LibTmux.Session>.Create(server, QueryTarget.Session, None, None)
@@ -106,34 +156,60 @@ module Server =
                     cancellationToken
                 )
 
-            match first with
-            | Some window ->
-                let! panes = session.GetPanesAsync(cancellationToken)
-                do! splitAll cancellationToken panes[0] window.Splits
-            | None -> ()
+            let mutable completed = false
 
-            for window in
-                List.tail (
-                    if spec.Windows.IsEmpty then
-                        [ WindowSpec.empty ]
-                    else
-                        spec.Windows
-                ) do
-                let! created =
-                    session.CreateWindowAsync(
-                        NewWindowRequest(
-                            Name = Option.toObj window.Name,
-                            Command = Option.toObj window.Command,
-                            StartDirectory = Option.toObj window.Directory,
-                            Environment = environment window.Environment
-                        ),
-                        cancellationToken
-                    )
+            return!
+                AsyncCleanup.run
+                    (fun () ->
+                        backgroundTask {
+                            match first with
+                            | Some window ->
+                                let! panes = session.GetPanesAsync(cancellationToken)
+                                do! splitAll cancellationToken panes[0] window.Splits
+                            | None -> ()
 
-                let! panes = created.GetPanesAsync(cancellationToken)
-                do! splitAll cancellationToken panes[0] window.Splits
+                            for window in
+                                List.tail (
+                                    if spec.Windows.IsEmpty then
+                                        [ WindowSpec.empty ]
+                                    else
+                                        spec.Windows
+                                ) do
+                                let! created =
+                                    session.CreateWindowAsync(
+                                        NewWindowRequest(
+                                            Name = Option.toObj window.Name,
+                                            Command = Option.toObj window.Command,
+                                            StartDirectory = Option.toObj window.Directory,
+                                            Environment = environment window.Environment
+                                        ),
+                                        cancellationToken
+                                    )
 
-            return! session.RefreshAsync(cancellationToken)
+                                let! panes = created.GetPanesAsync(cancellationToken)
+                                do! splitAll cancellationToken panes[0] window.Splits
+
+                            let! refreshed = session.RefreshAsync(cancellationToken)
+                            completed <- true
+                            return refreshed
+                        })
+                    (fun () ->
+                        if completed then
+                            Task.CompletedTask
+                        else
+                            OwnedSessionScope(session).DisposeAsync().AsTask())
+        }
+
+    let withNewSession
+        (cancellationToken: CancellationToken)
+        (spec: SessionSpec)
+        (work: LibTmux.Session -> Task<'State>)
+        (server: LibTmux.Server)
+        =
+        backgroundTask {
+            let! session = newSession cancellationToken spec server
+            let owned = OwnedSessionScope(session)
+            return! AsyncCleanup.run (fun () -> work session) (fun () -> owned.DisposeAsync().AsTask())
         }
 
     let capture (cancellationToken: CancellationToken) depth (server: LibTmux.Server) =
@@ -166,6 +242,16 @@ module Server =
 
 [<RequireQualifiedAccess>]
 module Session =
+    let adopt (cancellationToken: CancellationToken) (session: LibTmux.Session) = session.AdoptAsync(cancellationToken)
+
+    let findOrCreateWindow
+        (cancellationToken: CancellationToken)
+        (name: string)
+        (request: NewWindowRequest option)
+        (session: LibTmux.Session)
+        =
+        session.FindOrCreateWindowAsync(name, Option.toObj request, cancellationToken)
+
     let windows (session: LibTmux.Session) =
         Query<LibTmux.Window>.Create(session.Server, QueryTarget.Window, Some session.Id, None)
 
@@ -189,6 +275,16 @@ module Session =
 
 [<RequireQualifiedAccess>]
 module Window =
+    let adopt (cancellationToken: CancellationToken) (window: LibTmux.Window) = window.AdoptAsync(cancellationToken)
+
+    let findOrCreatePane
+        (cancellationToken: CancellationToken)
+        (identity: string)
+        (request: SplitPaneRequest option)
+        (window: LibTmux.Window)
+        =
+        window.FindOrCreatePaneAsync(identity, Option.toObj request, cancellationToken)
+
     let placementKey window = Placement.key window
 
     let panes (window: LibTmux.Window) =
@@ -217,6 +313,8 @@ module Window =
 
 [<RequireQualifiedAccess>]
 module Pane =
+    let adopt (cancellationToken: CancellationToken) (pane: LibTmux.Pane) = pane.AdoptAsync(cancellationToken)
+
     let currentPath (pane: LibTmux.Pane) = Option.ofObj pane.CurrentPath
     let currentCommand (pane: LibTmux.Pane) = Option.ofObj pane.CurrentCommand
 

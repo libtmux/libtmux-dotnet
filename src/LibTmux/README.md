@@ -27,16 +27,29 @@ nothing for it.
 
 ## Start here
 
+<!-- snippet: OrdinaryWorkspace usings: System, LibTmux -->
 ```csharp
+using System;
 using LibTmux;
 
-Server server = await Server.ConnectAsync();
-Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
-Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
-Pane pane = (await window.GetPanesAsync())[0];
+if (OperatingSystem.IsWindows())
+{
+    throw new PlatformNotSupportedException("This example requires Unix tmux.");
+}
 
-await pane.SendTextAsync("dotnet test");
+Server server = await Server.EnsureAsync();
+FoundOrCreated<Session> session = await server.FindOrCreateSessionAsync(
+    "libtmux-dotnet-quickstart", new NewSessionRequest { WindowName = "work" });
+FoundOrCreated<Window> window = await session.Value.FindOrCreateWindowAsync("tests");
+Console.WriteLine($"Workspace ready: {session.Value.Name} / {window.Value.Name}");
 ```
+<!-- endsnippet -->
+
+`Server.EnsureAsync()` selects the normal endpoint and returns a running `Server`. If tmux is absent, startup loads its normal configuration and keeps one detached `libtmux-start-*` session running `cat`. This session keeps the daemon alive without changing `exit-empty`; it remains until you remove it or the daemon exits. An existing daemon retains its sessions, windows, panes, options and environment, and reuse skips `InitializeAsync`. A daemon with no sessions and `exit-empty off` needs no bootstrap.
+
+The program leaves its named workspace available. Repeating it reuses the same session and window. Ensuring availability and accepting destruction responsibility are separate: use `AdoptAsync`, `CreateOwnedAsync` or the [session cleanup example](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.SessionCleanup/Program.cs) when cleanup is the feature you want to demonstrate.
+
+`Server.Open(options).EnsureAsync(cancellationToken)` retains a previously captured endpoint. Calls for the same path serialize within the process. Independent processes can race and leave additional bootstrap sessions. Startup uses the existing receipt-bound session acquisition: cancellation or readback failure rolls back only its accepted session ID, even if a hook renamed it. Failed rollback remains available through `OwnedScope.CleanupOwners(error)`. No cleanup authority follows an unknown receipt. Startup runs `InitializeAsync` under the same gate; an initializer must not call ensure or find-or-create.
 
 To reach one server in particular:
 
@@ -45,31 +58,242 @@ Server elsewhere = await Server.ConnectAsync(
     new ServerConnectionOptions { SocketName = "build-box" });
 ```
 
-### Where a bare connect lands
+### Endpoint defaults
 
-`ConnectAsync` with no arguments takes the first of these that says anything:
+`Server.Open()` and `Server.ConnectAsync()` select one endpoint from the
+effective constructor environment. `ChildEnvironment` overrides host variables
+without changing the host process or tmux's server/session environment tables.
 
-| Source | What it decides |
+The handle copies the complete effective client environment and resolves its executable against that environment's `PATH` at construction. Later host edits, including newly added variables, do not reach its subprocess or control clients. A bare executable name absent from the captured `PATH` fails when an operation tries to launch it; a later host `PATH` change does not select another executable. An explicit executable path bypasses that search.
+
+| Precedence | Selector |
 |---|---|
-| `ServerConnectionOptions` | an explicit `socketPath`, `socketName`, or `socketNameFactory` |
-| `LIBTMUX_SOCKET_PATH` | the socket, by path |
-| `LIBTMUX_SOCKET_NAME` | the socket, by name, under the root below |
-| `TMUX_TMPDIR` | the root a name resolves under — `/tmp` when unset |
-| — | the socket named `default` |
+| 1 | Explicit `SocketPath` or `SocketName` (`SocketNameFactory` is deferred once) |
+| 2 | Nonempty `LIBTMUX_SOCKET_PATH` |
+| 3 | Nonempty `LIBTMUX_SOCKET_NAME` |
+| 4 | Nonempty `TMUX`, parsed from the final two commas |
+| 5 | The socket named `default` |
 
-Options always win. A call that named a socket is never redirected by a
-variable, which is what makes the variables safe to export for a whole process
-— a test harness, a sandbox, a container — without auditing the call sites in
-between. This library's own examples use exactly that: each one exports a
-socket name of its own, so the connect above stays one line and still cannot
-reach the server you are sitting in.
+Supplying both an explicit path and a name is an `ArgumentException`. Paths
+must be absolute. Names must be nonempty leaf names other than `.` and `..`.
+Empty environment selectors are absent; whitespace is preserved. An invalid
+selected value fails instead of trying a lower-precedence target.
 
-A pane's own server is a different question, and a different call:
-`Server.FromEnvironment()` reads the socket path out of the `TMUX` variable
-tmux exports into every pane. `ConnectAsync` never consults it.
+`TMUX` accepts a positive ASCII decimal PID and a nonnegative decimal session
+ID, optionally prefixed by `$`, or the `-1` job sentinel. Commas in the socket
+path survive parsing. `Server.FromEnvironment()` explicitly selects this
+context even when library defaults are present. Clients remove `TMUX` and
+`TMUX_PANE` after selection, including values supplied through child overrides.
+
+Named Unix sockets use the captured `TMUX_TMPDIR`, or `/tmp` when absent, and
+`tmux-UID/name`. Launches pin that absolute path with `-S`. The root must exist;
+a missing or removed root fails without falling back. Only its `tmux-UID`
+directory is created, with mode 0700. An existing directory must be real,
+owned by the current UID, and have no other-user permissions; group access is
+allowed. Explicit socket paths do not create parent directories. The handle
+keeps its endpoint when the host environment changes.
+
+The configured Psmux preview retains its Windows data-directory and namespace
+representation and its existing executable trust checks. Unix socket rules do
+not apply to that backend.
 
 Every call that reaches tmux is asynchronous and takes a `CancellationToken`.
 There are no synchronous twins to choose between.
+
+## Session cleanup
+
+This example demonstrates cleanup explicitly. `UseAsync` removes the created session after the callback returns, throws or cancels, with an independent cleanup deadline. The server handle remains borrowed. `OwnedScope.CleanupFailure(error)` returns a second cleanup error while the original body exception and cancellation token remain intact. A cleanup failure after success propagates on its own; failed disposal can be retried.
+
+<!-- snippet: ConnectAndBuild usings: System, LibTmux -->
+```csharp
+using System;
+using LibTmux;
+
+Server server = Server.Open();
+OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
+    new NewSessionRequest { Name = $"build-{Guid.NewGuid():N}" });
+await owned.UseAsync(async (session, token) =>
+{
+    Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" }, token);
+    Console.WriteLine($"Created {session.Id} / {window.Id}: {window.Name}");
+});
+```
+<!-- endsnippet -->
+
+The complete [SessionCleanup program](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.SessionCleanup/Program.cs) also reports a cleanup failure before rethrowing the original exception.
+
+## Ownership and reuse
+
+Lookup returns borrowed handles. Disposing a control client detaches that
+client and leaves remote resources alive. `Session.AdoptAsync()`, `Window.AdoptAsync()`
+and `Pane.AdoptAsync()` accept destruction responsibility for existing objects.
+`Server.AdoptAsync()` first reads the daemon identity. Each owner retains
+the captured endpoint, daemon and object ID through renames and moves.
+Window disposal kills the window, its links and its panes; use `UnlinkAsync`
+for the separate unlink operation.
+
+Creation and explicit adoption reserve the server option
+`@libtmux_owner_generation`. An absent option is initialized to 32
+ASCII hexadecimal characters; a valid value is reused unchanged. An empty or
+malformed existing value fails before creation or adoption and is never overwritten.
+Creation captures the token on the same native connection as its receipt;
+adoption captures it before accepting the resource. Cleanup tests the token
+alongside PID and start time in the same native command group as destruction,
+so equal numeric generations cannot redirect cleanup. Do not shadow or edit this
+reserved metadata while owners exist. Plain lookup and discovery remain
+read-only.
+
+<!-- snippet: AdoptExisting usings: System, LibTmux -->
+```csharp
+using System;
+using LibTmux;
+
+Server server = Server.Open();
+Session existing = await server.CreateSessionAsync(new NewSessionRequest { Name = $"adopt-{Guid.NewGuid():N}" });
+OwnedSessionScope owner = await existing.AdoptAsync();
+try
+{
+    await owner.UseAsync(async (session, token) =>
+    {
+        await session.RenameAsync("renamed-" + Guid.NewGuid().ToString("N"), token);
+        Console.WriteLine($"Cleanup retains session ID {session.Id}.");
+    });
+}
+catch (Exception error)
+{
+    if (OwnedScope.CleanupFailure(error) is Exception cleanup)
+    {
+        Console.Error.WriteLine($"Cleanup failed: {cleanup.Message}");
+    }
+    throw;
+}
+```
+<!-- endsnippet -->
+
+`await using` also disposes an owner, but C# replaces a body exception if
+`DisposeAsync` throws while unwinding. Use `UseAsync` when both failures must
+remain inspectable. Concurrent disposal calls share one attempt. Success is
+idempotent; failure permits another attempt. Cleanup has its own five-second
+deadline, including after body cancellation. A missing socket with a still-live
+captured PID reports an unknown outcome and permits a cleanup retry. PID reuse
+can also produce this conservative refusal; missing transport alone does not
+prove that the owned resource was destroyed.
+
+`CreateOwnedAsync` refuses an existing daemon. A unique startup environment
+marker proves that the accepting call started the daemon, and a native
+nonwaiting generation guard rejects replacement daemons during cleanup.
+Owned servers keep running without sessions until disposal, which waits for
+the captured process to exit. Startup still honors normal tmux configuration.
+Whole-server examples choose an explicit disposable endpoint:
+
+<!-- snippet: OwnDisposableServer usings: System, LibTmux -->
+```csharp
+using System;
+using LibTmux;
+
+var options = new ServerConnectionOptions { SocketName = "disposable-" + Guid.NewGuid().ToString("N") };
+OwnedServerScope owner = await Server.CreateOwnedAsync(options);
+await owner.UseAsync(async (server, token) =>
+{
+    await server.CreateSessionAsync(new NewSessionRequest { Name = "work" }, token);
+    Console.WriteLine($"Owned daemon: {server.Generation}.");
+});
+```
+<!-- endsnippet -->
+
+Creation waits up to five seconds for an initial reply even if the caller
+cancels, so cancellation cannot discard a returned identity. Once an ID is
+known, failed readback or cancellation rolls back against that daemon.
+`OwnedScope.CleanupFailure(error)` exposes a failed rollback. A missing or
+malformed initial reply leaves the result unknown; inspect the endpoint
+before retrying. Rollback does not undo earlier explicit replacement effects.
+
+If rollback fails before acquisition returns an owner, `OwnedScope.CleanupOwners(error)` returns the accepted cleanup owners. Retry each owner's `DisposeAsync` after resolving the cleanup failure. These owners retain the original daemon generation and object ID; they refuse a replacement daemon. Nested callback scopes retain each failed owner, starting with the inner scope. Successful retries leave the original exception, recorded cleanup failures and owner list available for inspection. An unknown creation result with no accepted identity provides no cleanup owner.
+
+### Find or create
+
+`FoundOrCreated<T>.Created` distinguishes new resources from reuse. `Owner`
+is present only for a resource created by the call. Disposing the result
+cleans up that owner and leaves reused resources alive. Adopt a borrowed
+handle only when you intend to destroy it later.
+
+<!-- snippet: FindOrCreateHierarchy usings: System, LibTmux -->
+```csharp
+using System;
+using LibTmux;
+
+Server server = Server.Open();
+string name = "build-" + Guid.NewGuid().ToString("N");
+await using FoundOrCreated<Session> session = await server.FindOrCreateSessionAsync(name);
+await using FoundOrCreated<Window> window = await session.Value.FindOrCreateWindowAsync("tests");
+await using FoundOrCreated<Pane> pane = await window.Value.FindOrCreatePaneAsync("application/test-runner");
+await using FoundOrCreated<Pane> reused = await window.Value.FindOrCreatePaneAsync("application/test-runner");
+Console.WriteLine($"Created: {pane.Created}; reused: {!reused.Created}; borrowed: {reused.Owner is null}.");
+```
+<!-- endsnippet -->
+
+| Operation | Matching rule |
+|---|---|
+| `Server.FindOrCreateAsync` | One daemon at the captured endpoint |
+| `Server.FindOrCreateSessionAsync` | Exact literal session name |
+| `Session.FindOrCreateWindowAsync` | Exact literal name within that session |
+| `Window.FindOrCreatePaneAsync` | Exact local pane option `@libtmux-identity` within that window |
+
+Window and pane duplicates raise `TmuxAmbiguousMatchException`. tmux itself
+forbids duplicate session names; a competing creator's session returns as
+borrowed. Pane creation installs its identity and rolls back if that step
+fails. Names containing `#` remain literal under these matching APIs.
+
+Calls sharing the same socket path spelling serialize within this process,
+including independently opened handles. Path aliases and unrelated tmux
+clients do not share that lock. Other clients can rename, remove or duplicate
+windows and pane identities; cross-process uniqueness needs application
+coordination. A bounded set of gates means different paths can also serialize.
+Initializers must not call find-or-create while acquisition holds a gate.
+Borrowed server reuse skips `InitializeAsync`. A competing daemon starter remains borrowed unless its
+startup environment proves that this call started it.
+
+### Bounded discovery
+
+`Server.InspectAsync` reads one known endpoint. `Server.DiscoverAsync` scans
+immediate children of the directories in `Roots` plus the current user's
+configured socket directory and the selected endpoint's directory. Set
+`IncludeConfiguredRoots = false` for an explicit search only.
+
+<!-- snippet: DiscoverServers usings: System, LibTmux -->
+```csharp
+using System;
+using LibTmux;
+
+ServerDiscoveryResult discovery = await Server.DiscoverAsync(new ServerDiscoveryOptions
+{
+    MaximumEntries = 64,
+    MaximumProbes = 16,
+    Timeout = TimeSpan.FromSeconds(2),
+});
+foreach (DiscoveredServer found in discovery.Servers)
+{
+    Console.WriteLine($"{found.SocketPath}: {found.Server.Generation}");
+}
+foreach (ServerDiscoveryDiagnostic diagnostic in discovery.Diagnostics)
+{
+    Console.WriteLine($"{diagnostic.Kind}: {diagnostic.Path}: {diagnostic.Message}");
+}
+Console.WriteLine($"Truncated: {discovery.Truncated}.");
+```
+<!-- endsnippet -->
+
+Discovery returns borrowed handles, per-root and per-candidate diagnostics,
+and `Truncated` when a root, entry, probe or total time bound stops it. A
+failed probe differs from an empty directory. It skips symlink roots and
+entries, non-sockets and sockets owned by another user. Distinct paths to the
+same daemon generation produce one handle plus a duplicate diagnostic.
+Root components resolve through the filesystem before enumeration, so
+`symlink/..` follows the linked directory and missing components produce root
+errors. The root limit counts input entries, including duplicates.
+No-start probes cannot launch a daemon. Filesystem enumeration itself is
+synchronous; the time bound applies between filesystem calls and during
+probes. The result describes only the roots and bounds used by that call.
 
 ## Three ways to reach tmux
 

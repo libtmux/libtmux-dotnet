@@ -100,7 +100,7 @@ public sealed partial class Window
             RequiredWindowPaneMembership = TmuxWindowPlacementGuard.CreatePaneMembership(copy),
         };
         TmuxCommandRequest guarded = TmuxGenerationGuard.CreateRequest(
-            _generation, [.. command.ToDispatchCommands()], new string('x', TmuxGenerationGuard.MarkerLength));
+            _generation, [.. command.ToDispatchCommands()], new string('x', TmuxGenerationGuard.MarkerLength), Server.Connection?.OwnershipToken);
         if (!guarded.FitsNativeArgumentBudget())
         {
             throw new ArgumentException("The pane guard exceeds the native tmux command byte budget.", nameof(expectedPaneIds));

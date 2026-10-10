@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 
@@ -10,8 +9,57 @@ namespace LibTmux;
 // delivery is part of the answer.
 public sealed partial class Server
 {
-    private const int SettleAttempts = 200;
-    private static readonly TimeSpan SettleInterval = TimeSpan.FromMilliseconds(5);
+    /// <summary>Returns a running server at the selected endpoint, starting one when absent.</summary>
+    /// <param name="options">The endpoint and normal tmux startup configuration, or captured environment defaults.</param>
+    /// <param name="cancellationToken">Cancels lookup or startup before the handle is returned.</param>
+    /// <returns>An ordinary server handle without destruction responsibility.</returns>
+    /// <remarks>Uses the startup and cancellation behavior of <see cref="EnsureAsync(CancellationToken)" />.</remarks>
+    [UnsupportedOSPlatform("windows")]
+    public static Task<Server> EnsureAsync(
+        ServerConnectionOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        Open(options).EnsureAsync(cancellationToken);
+
+    /// <summary>Returns a running server at this captured endpoint, starting one when absent.</summary>
+    /// <param name="cancellationToken">Cancels lookup or startup before the handle is returned.</param>
+    /// <returns>An ordinary generation-bound server handle without destruction responsibility.</returns>
+    /// <remarks>
+    /// <para>Reuse only inspects the daemon. It preserves its sessions and configuration and skips
+    /// <see cref="ServerConnectionOptions.InitializeAsync" />. A generation-bound handle refuses a replacement daemon.</para>
+    /// <para>Startup loads normal tmux configuration and leaves one detached <c>libtmux-start-*</c> session
+    /// running <c>cat</c> so tmux remains usable with its normal <c>exit-empty</c> setting. Startup initializes
+    /// the ownership metadata used by session acquisition and runs <see cref="ServerConnectionOptions.InitializeAsync" />.
+    /// The bootstrap session remains until the caller removes it or the daemon exits; hooks may rename it.
+    /// Calls for the same captured path serialize in this process. External starters can create additional bootstrap sessions.</para>
+    /// <para>Cancellation before dispatch starts nothing. After a creation receipt is accepted, failed startup
+    /// removes only that session ID on the captured daemon. An unknown creation result grants no cleanup authority.
+    /// <see cref="OwnedScope.CleanupOwners(Exception)" /> exposes a failed rollback for retry.
+    /// Initializers must not call find-or-create or ensure because endpoints can share the startup gate.</para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">This handle has no endpoint or its captured daemon has exited.</exception>
+    /// <exception cref="StaleServerGenerationException">A replacement daemon owns the endpoint.</exception>
+    /// <exception cref="LibTmuxException">Inspection, startup or readback failed.</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled before publication.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public Task<Server> EnsureAsync(CancellationToken cancellationToken = default) =>
+        LifecycleSerialization.RunAsync(this, async () =>
+        {
+            if (await InspectAsync(cancellationToken).ConfigureAwait(false) is { } existing)
+            {
+                return existing;
+            }
+            if (Generation is not null)
+            {
+                throw new InvalidOperationException("A generation-bound handle cannot start a replacement daemon.");
+            }
+
+            Session bootstrap = await CreateSessionAsync(new NewSessionRequest
+            {
+                Name = "libtmux-start-" + Guid.NewGuid().ToString("N"),
+                Command = "cat",
+            }, cancellationToken).ConfigureAwait(false);
+            return bootstrap.Server;
+        }, cancellationToken);
 
     /// <summary>Starts the tmux server without creating a session.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
@@ -144,7 +192,9 @@ public sealed partial class Server
     /// <remarks>
     /// The returned session is bound to the creating daemon. Its child identifiers are
     /// creation-time facts, not a snapshot or a promise that the children still belong
-    /// to the session. A failed readback publishes no receipt or cleanup ownership.
+    /// to the session. A failed command result with a valid receipt, or failed readback, rolls back
+    /// its known session ID against the creating daemon.
+    /// An initial command without a valid receipt has an unknown outcome; inspect the endpoint before retrying.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<SessionCreationResult> CreateSessionWithReceiptAsync(
@@ -169,10 +219,16 @@ public sealed partial class Server
             }
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource acquisition = new(OwnedCleanup.Timeout);
         TmuxCommandResult result = await sequence.MutateAsync(
-                () => Dispatch([.. BuildNewSessionArguments(options, TmuxCreationReceipt.Format)], cancellationToken, options.ExpectedGeneration),
+                () => OwnedCleanup.DispatchCreationAsync(() => DispatchCreationAsync([.. BuildNewSessionArguments(options, TmuxCreationReceipt.Format)], acquisition.Token, options.ExpectedGeneration ?? (Connection!.OwnershipToken is null ? null : Generation)), "new-session", acquisition.Token),
                 value =>
                 {
+                    if (TmuxCreationReceipt.TryParse(value, out _))
+                    {
+                        return;
+                    }
                     if (value.ExitCode != 0
                         && options.Name is not null
                         && value.StandardErrorLines.Any(static line =>
@@ -186,132 +242,53 @@ public sealed partial class Server
                     TmuxCommandFailure.ThrowIfFailed(value, "new-session");
                 })
             .ConfigureAwait(false);
-        TmuxCreationReceipt receipt = sequence.Observe(() =>
+        TmuxCreationReceipt receipt = sequence.Observe(() => TmuxCreationReceipt.Parse(result));
+        var accepted = new Server(Connection!.WithOwnershipToken(receipt.OwnershipToken), receipt.Generation, Connection.VerifiedRawVersion);
+        return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
         {
-            TmuxCreationReceipt parsed = TmuxCreationReceipt.Parse(result);
-            if (options.ExpectedGeneration is ServerGeneration expected && parsed.Generation != expected)
+            TmuxCommandFailure.ThrowIfFailed(result, "new-session");
+            cancellationToken.ThrowIfCancellationRequested();
+            if (options.ExpectedGeneration is ServerGeneration expected && receipt.Generation != expected)
             {
-                throw new StaleServerGenerationException("The creating daemon generation changed.", expected, parsed.Generation);
+                throw new StaleServerGenerationException("The creating daemon generation changed.", expected, receipt.Generation);
             }
 
-            return parsed;
-        });
-
-        // Re-list directly so Name is materialized and listing errors remain failures.
-        // Replacing the last session may restart the daemon, so rediscover first.
-        Server materialized = await sequence
-            .ObserveAsync(() => RediscoverCurrentGenerationAsync(cancellationToken, receipt.Generation))
-            .ConfigureAwait(false);
-        IReadOnlyDictionary<string, string?>? row = await sequence
-            .ObserveAsync(() => RelationReader.FindAsync(
-                materialized,
-                "list-sessions",
-                "session_id",
-                receipt.SessionId.ToString(),
-                inSession: null,
-                cancellationToken))
-            .ConfigureAwait(false);
-        Session session = sequence.Observe(() =>
-            row is null
+            Server materialized = await accepted.InspectAsync(cancellationToken).ConfigureAwait(false)
+                ?? throw new TmuxObjectNotFoundException("The creating daemon disappeared before readback.", Connection.SocketPath);
+            if (Generation != receipt.Generation && ConnectionOptions.InitializeAsync is { } initialize)
+            {
+                await initialize(materialized, cancellationToken).ConfigureAwait(false);
+            }
+            IReadOnlyDictionary<string, string?>? row = await RelationReader.FindAsync(
+                materialized, "list-sessions", "session_id", receipt.SessionId.ToString(),
+                inSession: null, cancellationToken).ConfigureAwait(false);
+            Session session = row is null
                 ? throw new TmuxObjectNotFoundException(
-                    $"tmux did not report the created session '{receipt.SessionId}'.",
-                    receipt.SessionId.ToString())
-                : RelationReader.ToSession(materialized, row));
-        return new SessionCreationResult(session, receipt.WindowId, receipt.WindowIndex, receipt.PaneId);
+                    $"tmux did not report the created session '{receipt.SessionId}'.", receipt.SessionId.ToString())
+                : RelationReader.ToSession(materialized, row);
+            cancellationToken.ThrowIfCancellationRequested();
+            return new SessionCreationResult(session, receipt.WindowId, receipt.WindowIndex, receipt.PaneId);
+        }, accepted, receipt.Generation, "session", receipt.SessionId.ToString()).ConfigureAwait(false);
     }
 
-    /// <summary>Starts a server and takes ownership of it.</summary>
-    /// <param name="options">Connection options.</param>
-    /// <param name="cancellationToken">Cancels the tmux commands.</param>
-    /// <returns>A scope that stops the server when disposed.</returns>
+    /// <summary>Starts a daemon at a captured endpoint and accepts destruction responsibility.</summary>
+    /// <param name="options">The endpoint and normal tmux startup configuration.</param>
+    /// <param name="cancellationToken">Cancels acquisition before the owner is returned.</param>
+    /// <returns>An owner bound to the daemon proven to have started in this call.</returns>
     /// <remarks>
-    /// The scope holds an endpoint rather than a materialized server, because
-    /// a tmux server with no sessions exits at once. <see cref="OwnedServerScope.Value" />
-    /// stays that endpoint after a session is created through it; its session,
-    /// window, and pane listings and <see cref="CaptureSnapshotAsync(SnapshotDepth, CancellationToken)" />
-    /// discover the live server on each call, and the objects they return
-    /// carry the discovered handle.
-    /// <para>
-    /// On the default socket, the one a caller gets by naming none, a server
-    /// already listening is refused rather than adopted: disposing the scope
-    /// stops the server, and on a developer's machine the default socket holds
-    /// the one they are using. A named socket or path stays the caller's to
-    /// adopt deliberately. The check and the start are two tmux calls, so two
-    /// callers that own the default socket at the same moment can both pass
-    /// it; give each owned server a socket of its own.
-    /// </para>
-    /// <para>
-    /// A call that fails or is cancelled after starting a server stops it, since
-    /// no scope reaches the caller to do so; a server it found running is left.
-    /// </para>
+    /// A temporary session keeps startup alive until its generation and startup marker have been read.
+    /// Owned daemons keep running without sessions until disposal. Give whole-server owners disposable endpoints.
+    /// Concurrent library calls using the same socket path serialize within this process.
     /// </remarks>
-    /// <exception cref="InvalidOperationException">A server is already listening on the default socket.</exception>
-    /// <exception cref="TmuxCommandException">tmux failed to say whether a server is listening, such as on a socket it may not open.</exception>
+    /// <exception cref="InvalidOperationException">A daemon already owns the endpoint or another starter won the race.</exception>
     [UnsupportedOSPlatform("windows")]
     public static async Task<OwnedServerScope> CreateOwnedAsync(
         ServerConnectionOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        Server endpoint = Open(options ?? ServerConnectionOptions.Default);
-        bool serving = await endpoint.IsServingAsync(cancellationToken).ConfigureAwait(false);
-        if (serving && endpoint.Connection is
-            { ResolvedSocket: { SocketPath: null, SocketName: TmuxConnectionEndpoint.DefaultSocketName } })
-        {
-            throw new InvalidOperationException(
-                "A tmux server is already listening on the default socket. Refusing to own it: "
-                + "disposing the scope would stop a server this call did not start. Name a socket "
-                + "of your own, or use ConnectAsync to attach without owning it.");
-        }
-
-        var sequence = new TmuxMutationSequence();
-        try
-        {
-            await sequence.MutateAsync(() => endpoint.StartServerAsync(cancellationToken))
-                .ConfigureAwait(false);
-            await sequence
-                .ObserveAsync(() => endpoint.WaitForSettledEndpointAsync(cancellationToken))
-                .ConfigureAwait(false);
-        }
-        catch (Exception failure) when (!serving)
-        {
-            // No scope reaches the caller to stop a server this call started.
-            await StopStartedServerAsync(endpoint, failure).ConfigureAwait(false);
-            throw;
-        }
-
-        return sequence.Observe(() => new OwnedServerScope(endpoint));
-    }
-
-    // Unlike IsAliveAsync, a failure that does not say the server is missing
-    // raises: a permission error against a live daemon read as absence would
-    // skip the refusal, and a failed start would then stop that daemon.
-    [UnsupportedOSPlatform("windows")]
-    private async Task<bool> IsServingAsync(CancellationToken cancellationToken)
-    {
-        TmuxCommandResult result = await Dispatch(["list-sessions"], cancellationToken)
-            .ConfigureAwait(false);
-        if (result.ExitCode != 0 && TmuxCommandFailure.NamesMissingServer(result))
-        {
-            return false;
-        }
-
-        TmuxCommandFailure.ThrowIfFailed(result, "list-sessions");
-        return true;
-    }
-
-    [UnsupportedOSPlatform("windows")]
-    private static async Task StopStartedServerAsync(Server endpoint, Exception failure)
-    {
-        using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
-        try
-        {
-            await endpoint.KillAsync(cleanup.Token).ConfigureAwait(false);
-        }
-        catch (Exception cleanupFailure) when (cleanupFailure is LibTmuxException or OperationCanceledException)
-        {
-            // The caller needs the failure that stopped the start, not this one.
-            failure.Data["LibTmux.CleanupFailure"] = cleanupFailure;
-        }
+        FoundOrCreated<Server> result = await Open(options).FindOrCreateAsync(cancellationToken).ConfigureAwait(false);
+        return result.Owner as OwnedServerScope
+            ?? throw new InvalidOperationException("A daemon already owns the endpoint. Inspect it and call AdoptAsync to accept its destruction responsibility.");
     }
 
     /// <summary>Creates a session and takes ownership of it.</summary>
@@ -324,6 +301,11 @@ public sealed partial class Server
         CancellationToken cancellationToken = default)
     {
         var sequence = new TmuxMutationSequence();
+        if (request is { ReplaceExisting: true })
+        {
+            throw new ArgumentException("Owned creation cannot replace an existing session.", nameof(request));
+        }
+
         Session created = await sequence
             .MutateAsync(() => CreateSessionAsync(request, cancellationToken))
             .ConfigureAwait(false);
@@ -417,32 +399,20 @@ public sealed partial class Server
         }
     }
 
-    // tmux forks before noticing it holds no sessions, so the socket briefly
-    // answers neither; waiting for either settled answer closes that window.
-    [UnsupportedOSPlatform("windows")]
-    private async Task WaitForSettledEndpointAsync(CancellationToken cancellationToken)
-    {
-        for (int attempt = 0; attempt < SettleAttempts; attempt++)
-        {
-            TmuxCommandResult result = await Dispatch(["list-sessions"], cancellationToken)
-                .ConfigureAwait(false);
-            if (result.ExitCode == 0 || TmuxCommandFailure.NamesMissingServer(result))
-            {
-                return;
-            }
-
-            await Task.Delay(SettleInterval, cancellationToken).ConfigureAwait(false);
-        }
-
-        // An endpoint still in flux after the deadline is left for the caller's
-        // next command to report, rather than failing here with less context.
-    }
-
-    // A dying server is success for Kill (already stopping is what was asked)
-    // but not-yet-settled for the endpoint wait.
+    // A dying server is already stopping, which is the requested outcome.
     private static bool NamesDyingServer(TmuxCommandResult result) =>
         result.StandardErrorLines.Any(static line =>
             line.Contains("server exited unexpectedly", StringComparison.Ordinal));
+
+    [UnsupportedOSPlatform("windows")]
+    private Task<TmuxCommandResult> DispatchCreationAsync(
+        IReadOnlyList<string> arguments, CancellationToken cancellationToken, ServerGeneration? expectedGeneration = null)
+    {
+        TmuxConnection connection = Connection ?? throw new InvalidOperationException("The server handle has no connection.");
+        TmuxCommandDispatcher dispatcher = expectedGeneration is { } expected
+            ? connection.CreateEntityDispatcher(expected) : connection.ServerDispatcher;
+        return dispatcher.ExecuteGroupAsync([.. TmuxOwnershipIdentity.InitializeCommands(), arguments], cancellationToken);
+    }
 
     [UnsupportedOSPlatform("windows")]
     private Task<TmuxCommandResult> Dispatch(
@@ -462,86 +432,44 @@ public sealed partial class Server
 /// server down, so a caller cannot accidentally kill a server it merely
 /// connected to.
 /// </remarks>
-public sealed class OwnedServerScope : IAsyncDisposable
+public sealed class OwnedServerScope : IOwnedTmuxResource<Server>
 {
     private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(5);
-    private Task? _stopping;
+    private readonly OwnedCleanup _cleanup;
+    private readonly (int Id, DateTime Started)? _process;
 
-    // Read once, by the first attempt that reaches the server: a retry after
-    // kill-server finds no server to ask, and still has to wait for this one.
-    // The start time tells it apart from a process that reuses its ID.
-    private (int Id, DateTime Started)? _process;
+    [UnsupportedOSPlatform("windows")]
+    internal OwnedServerScope(Server value)
+    {
+        ServerGeneration generation = value.Generation
+            ?? throw new InvalidOperationException("Server ownership requires a captured daemon generation.");
+        Value = value;
+        _process = Identify(generation.ProcessId);
+        _cleanup = new OwnedCleanup(StopAsync);
+    }
 
-    internal OwnedServerScope(Server value) => Value = value;
-
-    /// <summary>Gets the owned server.</summary>
+    /// <summary>Gets the generation-bound server owned by this scope.</summary>
     public Server Value { get; }
 
-    /// <summary>Stops the owned server.</summary>
-    /// <returns>A task that completes once the server process has exited.</returns>
+    /// <summary>Stops the accepted daemon and waits for its captured process to exit.</summary>
+    /// <returns>The shared cleanup attempt.</returns>
     /// <remarks>
-    /// Calls made while a stop is under way share it, and complete or fail with
-    /// it. A call after a failed stop tries again; one after a stop that
-    /// succeeded returns at once.
+    /// Cleanup uses an independent five-second deadline. Concurrent calls share an attempt;
+    /// failed attempts can be retried and successful repeated disposal is harmless.
+    /// A replacement daemon is rejected by a native guard before any kill command.
     /// </remarks>
-    /// <exception cref="LibTmuxException">The server could not be stopped, or had not exited within five seconds.</exception>
+    /// <exception cref="LibTmuxException">Cleanup failed or the endpoint belongs to a replacement daemon.</exception>
     [UnsupportedOSPlatform("windows")]
-    public ValueTask DisposeAsync()
-    {
-        while (true)
-        {
-            Task? current = Volatile.Read(ref _stopping);
-            if (current is not null && !current.IsFaulted)
-            {
-                return new ValueTask(current);
-            }
-
-            var attempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            if (Interlocked.CompareExchange(ref _stopping, attempt.Task, current) == current)
-            {
-                _ = StopAsync(attempt);
-                return new ValueTask(attempt.Task);
-            }
-        }
-    }
+    public ValueTask DisposeAsync() => _cleanup.DisposeAsync();
 
     [UnsupportedOSPlatform("windows")]
-    private async Task StopAsync(TaskCompletionSource attempt)
+    private async Task StopAsync(CancellationToken token)
     {
-        // Teardown does not inherit the caller's token, because a canceled
-        // caller still needs its server gone; it bounds itself instead so a
-        // wedged socket cannot hang disposal forever.
-        using CancellationTokenSource cleanup = new(CleanupTimeout);
-        try
+        await OwnedCleanup.DestroyAsync(Value, Value.Generation!.Value, "server", null, token).ConfigureAwait(false);
+        if (_process is { } process)
         {
-            _process ??= Identify(await ReadProcessIdAsync(Value, cleanup.Token).ConfigureAwait(false));
-            await Value.KillAsync(cleanup.Token).ConfigureAwait(false);
-            if (_process is { } process)
-            {
-                await WaitForExitAsync(process, cleanup.Token).ConfigureAwait(false);
-            }
-
-            attempt.SetResult();
+            await WaitForExitAsync(process, token).ConfigureAwait(false);
         }
-        catch (Exception error)
-        {
-            attempt.SetException(error);
-        }
-    }
-
-    // The scope's handle stays unmaterialized, so ask the server itself; one
-    // already gone answers nothing and leaves nothing to wait for.
-    [UnsupportedOSPlatform("windows")]
-    private static async Task<int?> ReadProcessIdAsync(Server server, CancellationToken cancellationToken)
-    {
-        TmuxCommandResult result = await server
-            .ExecuteCommandAsync(["display-message", "-p", "#{pid}"], cancellationToken)
-            .ConfigureAwait(false);
-        return result.ExitCode == 0
-            && result.StandardOutputLines is [string line, ..]
-            && int.TryParse(line, NumberStyles.None, CultureInfo.InvariantCulture, out int processId)
-                ? processId
-                : null;
     }
 
     private static (int Id, DateTime Started)? Identify(int? processId)

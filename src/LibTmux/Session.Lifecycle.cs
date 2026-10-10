@@ -299,7 +299,8 @@ public sealed partial class Session
     /// Rejects <see cref="NewWindowRequest.SelectExisting" /> before dispatch because an
     /// existing window has no creation receipt. The pane identifier comes from creation,
     /// not a later listing; the pane may have moved or disappeared before readback.
-    /// A failed readback publishes no receipt or cleanup ownership.
+    /// A failed command result with a valid receipt, or failed readback, rolls back the known
+    /// window ID against its creating daemon.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<WindowCreationResult> CreateWindowWithReceiptAsync(
@@ -323,7 +324,8 @@ public sealed partial class Session
         bool captureReceipt,
         CancellationToken cancellationToken)
     {
-        _ = RequireOwner("windows");
+        Server owner = await TmuxOwnershipIdentity.CaptureAsync(RequireOwner("windows"), cancellationToken).ConfigureAwait(false);
+        TmuxCommandDispatcher dispatcher = owner.Connection!.CreateEntityDispatcher(_generation);
         bool maySelectExisting = options.SelectExisting
             && options.Name is not null
             && options.Index is null
@@ -332,12 +334,22 @@ public sealed partial class Session
             ? await ExpandWindowNameAsync(options.Name!, cancellationToken).ConfigureAwait(false)
             : null;
         var sequence = new TmuxMutationSequence();
+        cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource acquisition = new(OwnedCleanup.Timeout);
         TmuxCommandResult result = await sequence.MutateAsync(
-                () => _commandDispatcher.ExecuteAsync(
+                () => OwnedCleanup.DispatchCreationAsync(() => dispatcher.ExecuteAsync(
                     [.. BuildNewWindowArguments(options, _id.ToString(),
                         captureReceipt ? TmuxCreationReceipt.Format : "#{window_id}")],
-                    cancellationToken),
-                static value => TmuxCommandFailure.ThrowIfFailed(value, "new-window"))
+                    acquisition.Token), "new-window", acquisition.Token),
+                value =>
+                {
+                    bool hasIdentity = captureReceipt ? TmuxCreationReceipt.TryParse(value, out _)
+                        : value.StandardOutputLines.Count > 0 && WindowId.TryParse(value.StandardOutputLines[0], out _);
+                    if (!hasIdentity)
+                    {
+                        TmuxCommandFailure.ThrowIfFailed(value, "new-window");
+                    }
+                })
             .ConfigureAwait(false);
 
         if (result.StandardOutputLines.Count == 0 && selectedName is not null)
@@ -381,17 +393,19 @@ public sealed partial class Session
                         "tmux reported no new window identifier.",
                         result));
 
-        IReadOnlyList<Window> windows = await sequence
-            .ObserveAsync(() => GetWindowsAsync(cancellationToken))
-            .ConfigureAwait(false);
-        Window window = sequence.Observe(() =>
-            (receipt is TmuxCreationReceipt bound
+        return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
+        {
+            TmuxCommandFailure.ThrowIfFailed(result, "new-window");
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<Window> windows = await new Session(owner, owner.Connection!, _generation, _id, RawFormatFields).GetWindowsAsync(cancellationToken).ConfigureAwait(false);
+            Window window = (receipt is TmuxCreationReceipt bound
                 ? windows.SingleOrDefault(window => window.Id == created && window.Index == bound.WindowIndex)
                 : windows.FirstOrDefault(window => window.Id == created))
                 ?? throw new TmuxObjectNotFoundException(
-                    $"tmux did not report the created window '{created}'.",
-                    created.ToString()));
-        return (window, receipt?.PaneId);
+                    $"tmux did not report the created window '{created}'.", created.ToString());
+            cancellationToken.ThrowIfCancellationRequested();
+            return (window, receipt?.PaneId);
+        }, owner, _generation, "window", created.ToString()).ConfigureAwait(false);
     }
 
     [UnsupportedOSPlatform("windows")]
@@ -572,43 +586,27 @@ public sealed partial class Session
     }
 }
 
-/// <summary>Owns a session and stops it when disposed.</summary>
-public sealed class OwnedSessionScope : IAsyncDisposable
+/// <summary>Owns a session and destroys it when disposed.</summary>
+public sealed class OwnedSessionScope : IOwnedTmuxResource<Session>
 {
-    private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(5);
-    private int _disposed;
+    private readonly OwnedCleanup _cleanup;
 
-    internal OwnedSessionScope(Session value) => Value = value;
+    [UnsupportedOSPlatform("windows")]
+    internal OwnedSessionScope(Session value)
+    {
+        Value = value;
+        _cleanup = new OwnedCleanup(token => OwnedCleanup.DestroyAsync(value.Server, value.Generation, "session", value.Id.ToString(), token));
+    }
 
     /// <summary>Gets the owned session.</summary>
     public Session Value { get; }
 
-    /// <summary>Stops the owned session.</summary>
-    /// <returns>A task that completes once the session is gone.</returns>
-    /// <exception cref="LibTmuxException">The session could not be stopped.</exception>
+    /// <summary>Destroys the session with an independent five-second deadline.</summary>
+    /// <returns>The shared cleanup attempt.</returns>
+    /// <remarks>
+    /// Concurrent calls share an attempt. Failed cleanup is retryable and successful cleanup is idempotent.
+    /// Use <see cref="OwnedScope" /> to retain body and teardown failures together.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public async ValueTask DisposeAsync()
-    {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-        {
-            return;
-        }
-
-        using CancellationTokenSource cleanup = new(CleanupTimeout);
-        try
-        {
-            await Value.KillAsync(cancellationToken: cleanup.Token).ConfigureAwait(false);
-        }
-        catch (TmuxCommandException error) when (NamesAbsentSession(error.Result))
-        {
-            // A session the server already dropped is the outcome that was
-            // asked for. Anything else is surfaced: disposal that quietly fails
-            // to clean up leaves a live session behind.
-        }
-    }
-
-    private static bool NamesAbsentSession(TmuxCommandResult result) =>
-        result.StandardErrorLines.Any(static line =>
-            line.Contains("can't find session", StringComparison.Ordinal)
-            || line.Contains("no server running", StringComparison.Ordinal));
+    public ValueTask DisposeAsync() => _cleanup.DisposeAsync();
 }

@@ -8,15 +8,20 @@ internal sealed partial class TmuxGenerationGuard(
     Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
     Func<string> markerFactory)
 {
+    internal Task<TmuxCommandResult> ExecuteAsync(
+        ServerGeneration expected, IReadOnlyList<IReadOnlyList<string>> commands, CancellationToken cancellationToken) =>
+        ExecuteAsync(expected, commands, null, cancellationToken);
+
     internal async Task<TmuxCommandResult> ExecuteAsync(
         ServerGeneration expected,
         IReadOnlyList<IReadOnlyList<string>> commands,
+        string? ownershipToken,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<string> logicalArguments = [.. commands.SelectMany(static command => command)];
         string marker = markerFactory();
         ArgumentException.ThrowIfNullOrWhiteSpace(marker);
-        TmuxCommandRequest request = CreateRequest(expected, commands, marker);
+        TmuxCommandRequest request = CreateRequest(expected, commands, marker, ownershipToken);
         TmuxCommandResult grouped = await ExecuteRequestAsync(request, logicalArguments, cancellationToken)
             .ConfigureAwait(false);
         return InterpretResult(expected, logicalArguments, marker, grouped);
@@ -70,7 +75,8 @@ internal sealed partial class TmuxGenerationGuard(
         if (grouped.ExitCode == 1 && IsExactMarkerFailure(grouped.StandardError.Span, marker))
         {
             throw new StaleServerGenerationException(
-                $"The tmux server generation changed from {GenerationText(expected)} to "
+                actual == expected ? "The tmux daemon ownership token changed while its numeric generation stayed the same."
+                : $"The tmux server generation changed from {GenerationText(expected)} to "
                 + $"{actual.ProcessId.ToString(CultureInfo.InvariantCulture)}:"
                 + $"{actual.StartTime.ToString(CultureInfo.InvariantCulture)}.",
                 expected,
@@ -90,19 +96,26 @@ internal sealed partial class TmuxGenerationGuard(
     internal static TmuxCommandRequest CreateRequest(
         ServerGeneration expected,
         IReadOnlyList<IReadOnlyList<string>> commands,
-        string marker) =>
+        string marker,
+        string? ownershipToken = null) =>
         TmuxCommandRequest.Group(preventServerStart: true, [
             ["display-message", "-p", TmuxConnection.GenerationFormat],
-            Conditional(expected, marker),
+            Conditional(expected, marker, ownershipToken),
             .. commands]);
 
     private static string GenerationText(ServerGeneration expected) =>
         $"{expected.ProcessId.ToString(CultureInfo.InvariantCulture)}:"
         + expected.StartTime.ToString(CultureInfo.InvariantCulture);
-    internal static IReadOnlyList<string> Conditional(ServerGeneration expected, string mismatchCommand)
+    internal static IReadOnlyList<string> Conditional(ServerGeneration expected, string mismatchCommand, string? ownershipToken = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(mismatchCommand);
-        return ["if-shell", "-F", $"#{{==:{TmuxConnection.GenerationFormat},{GenerationText(expected)}}}", string.Empty, mismatchCommand];
+        string matches = $"#{{==:{TmuxConnection.GenerationFormat},{GenerationText(expected)}}}";
+        if (ownershipToken is not null)
+        {
+            TmuxOwnershipIdentity.Validate(ownershipToken);
+            matches = $"#{{&&:{matches},#{{==:{TmuxOwnershipIdentity.Format},{ownershipToken}}}}}";
+        }
+        return ["if-shell", "-F", matches, string.Empty, mismatchCommand];
     }
 
     private static bool TryStripGenerationPrefix(

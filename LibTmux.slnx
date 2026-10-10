@@ -10,6 +10,8 @@
     <Project Path="src/LibTmux.Mcp/LibTmux.Mcp.csproj" />
   </Folder>
   <Folder Name="/examples/">
+    <Project Path="examples/LibTmux.Quickstart/LibTmux.Quickstart.csproj" />
+    <Project Path="examples/LibTmux.SessionCleanup/LibTmux.SessionCleanup.csproj" />
     <Project Path="examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj" />
     <Project Path="examples/LibTmux.Examples/LibTmux.Examples.csproj" />
     <Project Path="benchmarks/LibTmux.Benchmarks/LibTmux.Benchmarks.csproj" />

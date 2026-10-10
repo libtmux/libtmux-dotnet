@@ -20,61 +20,58 @@ repository, release version, and primary author in the `libtmux` organization.
 [![tmux matrix](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
 
-[Run isolated tmux](#quick-start) · [Connect to running tmux](#existing-tmux) ·
+[Run the example](#quick-start) · [Connect to running tmux](#existing-tmux) ·
 [Send, wait, read](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#send-wait-read) ·
 [Query tmux](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md) ·
 [Stream events](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/streams.md)
 
-Find a shell, send it keys, wait for its output, and run a command:
+Create a session, add a window, and remove the session when the task ends:
 
 <!-- fsharp-contract: golden -->
-<!-- fsharp-snippet: SendWaitList run -->
+<!-- fsharp-snippet: Quickstart run -->
 ```fsharp run
 open System
 open System.Threading
 open LibTmux
 open LibTmux.FSharp
 
-let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
+let runAsync () =
     task {
-        // List and filter: tmux narrows the listing, then every row is rechecked.
-        let! shells =
+        use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 30.)
+        let token = deadline.Token
+        let server = LibTmux.Server.Open()
+
+        do!
             server
-            |> Server.panes
-            |> Query.where (PaneFields.currentCommand |> Filter.oneOf [ "bash"; "sh"; "zsh" ])
-            |> Query.list cancellationToken
+            |> Server.withNewSession token (SessionSpec.running "build" "/bin/sh") (fun session ->
+                task {
+                    let! window =
+                        session
+                        |> Session.newWindow token (NewWindowRequest(Name = "tests", Command = "/bin/sh"))
 
-        match shells |> Seq.tryHead with
-        | None -> return None
-        | Some pane ->
-            // Type a command and wait for what it prints, not for its echo.
-            let! ready =
-                pane
-                |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
-
-            // Run a command to its exit status and read what it printed.
-            let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
-
-            match listing with
-            | PaneRun.Exited status -> return Some(ready.Found, status, listing.Output)
-            | PaneRun.Ended
-            | PaneRun.NotStarted
-            | PaneRun.TimedOut -> return None
+                    printfn "window: %s" window.Name
+                    let! windows = session |> Session.windows |> Query.list token
+                    printfn "windows: %d" windows.Count
+                })
     }
+
+try
+    runAsync().GetAwaiter().GetResult()
+with error ->
+    error
+    |> Control.cleanupFailure
+    |> Option.iter (fun cleanup -> eprintfn "Cleanup failed: %O" cleanup)
+
+    reraise ()
 ```
 <!-- endfsharp-snippet -->
 
-Building a query reads nothing; `Query.list` asks tmux, which drops panes that
-cannot match, and checks every row it returns. `Pane.sendAndWait` types the
-line, then waits for a later line to contain the text; the screen before it and
-the line's own echo do not count. It sleeps on the pane's output instead of
-polling, and ends early if the program exits while it waits. `Pane.run` returns
-the lines the command printed, and `PaneRun` tells a command that exited, with
-its status, from one whose shell exited first, one that never started, and one
-that ran out of time. `server` comes from `Server.createOwned`, which the quick
-start below uses to run these steps on an isolated server. Pass a server from
-`Server.connect` only with care: the sample types into the first shell it
-finds, and on a tmux already running that may be the terminal you are reading.
+`LibTmux.Server.Open()` captures the endpoint and child environment when you
+construct it. `Server.withNewSession` owns the created session through the
+callback, including its windows and panes. It awaits cleanup after success,
+exception, or cancellation. If work and cleanup both fail,
+`Control.cleanupFailure` returns the cleanup exception while the original
+exception retains its type and cancellation token.
 
 Alpha API: pin a package version and upgrade deliberately. The walkthrough
 uses .NET SDK 10 and tmux 3.2a through 3.7c on Linux or macOS. The package
@@ -86,6 +83,7 @@ targets `net8.0` and `net10.0`.
 
 | Need | F# call | Returns |
 | --- | --- | --- |
+| Capture the ordinary endpoint | `LibTmux.Server.Open()` | `Server` |
 | Start a server you own | `options \|> Server.createOwned ct` | `OwnedServerScope` to `use!` |
 | Attach to a running server | `options \|> Server.connect ct` | `Server` |
 | Bound every command's time | `Server.within timeout server` | `Server` |
@@ -98,9 +96,26 @@ targets `net8.0` and `net10.0`.
 | One session's or window's panes | `Session.panes session \|> Query.list ct`; `Window.panes` alike | `IReadOnlyList<Pane>` |
 | Panes showing some text | `Server.panes server \|> Query.showing search \|> Query.list ct` | `IReadOnlyList<Pane>` |
 | Exactly one match | `Query.exactlyOne ct query`; `Query.tryExactlyOne` under NativeAOT | `Result<'T, CardinalityError>`; `'T option` |
-| Find, or create when absent | `Query.atMostOne ct query` | `'T option`; several raise |
+| At most one existing match | `Query.atMostOne ct query` | `'T option`; several raise; nothing is created |
 | One object by ID | `Server.tryFindPane ct id server` | `Pane option` |
 | The pane a session or window shows | `Session.activePane ct session`, `Window.activePane ct window` | `Pane` |
+
+### Ownership and find-or-create
+
+| Need | F# call | Effect |
+| --- | --- | --- |
+| Find or start a daemon | `server \|> Server.findOrCreate ct` | Reuse is borrowed; a new daemon is owned |
+| Find or create a session | `server \|> Server.findOrCreateSession ct "build" None` | Matches the exact session name |
+| Find or create a window | `session \|> Session.findOrCreateWindow ct "tests" None` | Matches the exact window name in that session; duplicates raise |
+| Find or create a pane | `window \|> Window.findOrCreatePane ct "worker" None` | Matches the pane-local `@libtmux-identity` option; duplicates raise |
+| Run work, then destroy only a created resource | `result \|> FindOrCreate.withResource ct work` | An existing resource survives success, failure and cancellation |
+| Accept destruction of an existing object | `resource \|> Server.adopt ct`; `Session.adopt`, `Window.adopt`, `Pane.adopt` alike | Returns an explicit owner |
+| Run work with an owner | `owner \|> Owned.withResource ct work` | Awaits cleanup and preserves paired failures |
+| Search socket directories | `options \|> Server.discover ct` | Borrowed handles, diagnostics and bounds reached |
+
+`FindOrCreate.Existing value` and `FindOrCreate.Created owner` are active patterns over the result. `None` selects default creation options; use `Some request` to set the command, directory or other creation settings. These calls serialize within this process; other tmux clients can still change the selected objects.
+
+The [lifecycle guide](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/lifecycle.md) includes complete examples, the destruction boundary for each owner, and external example-test configuration.
 
 ### Type, wait and run
 
@@ -127,6 +142,7 @@ targets `net8.0` and `net10.0`.
 | Arrange, resize or move a window | `Window.selectLayout ct layout window`, `Window.resize ct request window`, `Window.move ct request window` | a handle with the state afterwards |
 | Title, resize, swap, respawn or clear a pane | `Pane.setTitle ct title pane`, `Pane.resize`, `Pane.swap`, `Pane.respawn`, `Pane.clearHistory` | the handle, or `Task` |
 | Add a window to a session | `Session.newWindow ct request session` | the new `Window` |
+| Scope a new session to a task | `Server.withNewSession ct spec work server` | the task result after cleanup |
 | Create a session running one command | `Server.newSession ct (SessionSpec.running name command) server` | `Session` |
 | Create a session with windows | `Server.newSession ct spec server` | `Session` |
 | Several commands, one tmux call | `Chain.start server \|> … \|> Chain.run ct` | `TmuxCommandResult` |
@@ -199,63 +215,7 @@ $ dotnet package add LibTmux.FSharp --prerelease
 
 Replace `Program.fs` with this complete program:
 
-<!-- fsharp-snippet: Quickstart run -->
-```fsharp run
-open System
-open System.Threading
-open LibTmux
-open LibTmux.FSharp
-
-let runAsync () =
-    task {
-        use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 30.)
-        let token = deadline.Token
-
-        // A server of its own on a private socket, without user configuration.
-        let options =
-            ServerConnectionOptions(
-                SocketName = "fsharp-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null"
-            )
-
-        use! owned = options |> Server.createOwned token
-
-        // One session whose window runs a plain shell, whatever the user's login shell is.
-        let! session =
-            owned.Value |> Server.newSession token (SessionSpec.running "build" "/bin/sh")
-
-        let! pane = session |> Session.activePane token
-
-        // Type a command and wait for what it prints, not for its echo.
-        let! started =
-            pane
-            |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
-
-        printfn "wait found: %b" started.Found
-
-        // Run a command to its exit status and read what it printed.
-        let! result =
-            pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
-
-        match result with
-        | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq result.Output)
-        | PaneRun.Ended -> printfn "run: the shell exited first"
-        | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
-        | PaneRun.TimedOut -> printfn "run: still running"
-
-        // List and filter: tmux narrows the listing, then every row is rechecked.
-        let! found =
-            owned.Value
-            |> Server.sessions
-            |> Query.where (SessionFields.name |> Filter.startsWith "bu")
-            |> Query.list token
-
-        printfn "sessions: %s" (String.Join(", ", [ for listed in found -> listed.Name ]))
-    }
-
-runAsync().GetAwaiter().GetResult()
-```
-<!-- endfsharp-snippet -->
+Use the complete `Program.fs` shown above.
 
 Run it:
 
@@ -267,18 +227,31 @@ It prints:
 
 <!-- fsharp-output: Quickstart -->
 ```text
-wait found: true
-run: exit 3, output ["ok"]
-sessions: build
+window: tests
+windows: 2
 ```
 <!-- endfsharp-output -->
 
-`Server.createOwned` starts a server on a unique socket, with the `tmux` on
-`PATH`; set `ServerConnectionOptions.TmuxBinaryPath` to use another. `use!`
-stops it when the task ends. The wait succeeds whether the line appeared
-before or after it began, and the run's exit status comes from the shell, not
-from reading the screen. The listing reaches tmux as a filter, so tmux returns
-only the sessions that match.
+The example uses explicit options, `LIBTMUX_SOCKET_PATH`,
+`LIBTMUX_SOCKET_NAME`, the current `TMUX` context, or the named default, in
+that order. A selected value must be valid; an invalid value raises instead
+of selecting a different endpoint. `TMUX_TMPDIR` determines the named-socket
+root at construction. Later host-environment edits cannot redirect commands
+or cleanup. The handle borrows the server; the session scope removes only
+the session it created. An existing session named `build` causes creation to
+fail without taking ownership of that session.
+
+`Server.newSession` rolls back failures once the core knows the creation
+identity, including failed initial readback and later layout steps. Creation
+retains the core daemon token with its receipt; cleanup checks it with PID and
+start time before destruction. The reserved server option
+`@libtmux_owner_generation` holds 32 ASCII hexadecimal characters. A valid
+value is reused; an absent option is initialized, and empty or malformed
+existing metadata is rejected. Do not edit it while owners exist. Cleanup
+retains the endpoint, daemon generation and session ID. A creation command
+that returns no usable reply has an unknown outcome; inspect the endpoint
+before retrying. `Control.cleanupFailure` exposes rollback failures from
+both the core acquisition and the F# layout scope.
 
 The [quickstart source](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.FSharp.Quickstart/Program.fs)
 is the published block. From a checkout,
@@ -286,17 +259,56 @@ is the published block. From a checkout,
 source. CI instead passes `-p:UsePackageReferences=true`, restores only
 `LibTmux.FSharp` from freshly packed artifacts, runs the program against real
 tmux on both target frameworks, and compares what it prints with the block
-above.
+above. The external harness redirects the unchanged program with a socket
+name and path, injects body and cleanup failures, checks the remaining
+sessions, and waits for its daemon to terminate before removing its root.
 
 ## Existing tmux
 
-`options |> Server.connect ct` attaches to a server already running on the
-socket the options name; use it in place of `Server.createOwned` for a server
-your program did not start. `Server.connect` never starts tmux. Default options
-resolve the default socket; [socket selection](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#where-a-bare-connect-lands)
-explains the configuration order. Code running inside a tmux pane can use
-`Server.FromEnvironment()` to locate that pane's server.
+`options |> Server.connect ct` attaches to an existing server using the same
+endpoint precedence. It verifies a running daemon without starting one.
+[Socket selection](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#where-a-bare-connect-lands)
+explains the options. `Server.createOwned` gives a scope responsibility for
+stopping a whole server; give that scope an explicit endpoint you own.
 
+The following function borrows a server and types into its first matching
+shell. Call it only on a shell you intend to control:
+
+<!-- fsharp-snippet: SendWaitList run -->
+```fsharp run
+open System
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
+    task {
+        // List and filter: tmux narrows the listing, then every row is rechecked.
+        let! shells =
+            server
+            |> Server.panes
+            |> Query.where (PaneFields.currentCommand |> Filter.oneOf [ "bash"; "sh"; "zsh" ])
+            |> Query.list cancellationToken
+
+        match shells |> Seq.tryHead with
+        | None -> return None
+        | Some pane ->
+            // Type a command and wait for what it prints, not for its echo.
+            let! ready =
+                pane
+                |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
+
+            // Run a command to its exit status and read what it printed.
+            let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
+
+            match listing with
+            | PaneRun.Exited status -> return Some(ready.Found, status, listing.Output)
+            | PaneRun.Ended
+            | PaneRun.NotStarted
+            | PaneRun.TimedOut -> return None
+    }
+```
+<!-- endfsharp-snippet -->
 ## Keep going
 
 - [Send, wait and read; split panes](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md): owned scopes, waits, runs and live mutation.

@@ -6,20 +6,37 @@ namespace LibTmux.Examples.Snippets;
 [UnsupportedOSPlatform("windows")]
 public static class OneShot
 {
-    /// <summary>Connects, builds a hierarchy, and types into the pane it made.</summary>
-    [Example("Connect, build a session and window, and type into a pane")]
+    /// <summary>Starts or reuses the selected server and leaves a named workspace available.</summary>
+    [Example("Find or create an ordinary workspace")]
+    public static async Task OrdinaryWorkspace()
+    {
+        #region OrdinaryWorkspace
+        if (OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("This example requires Unix tmux.");
+        }
+
+        Server server = await Server.EnsureAsync();
+        FoundOrCreated<Session> session = await server.FindOrCreateSessionAsync(
+            "libtmux-dotnet-quickstart", new NewSessionRequest { WindowName = "work" });
+        FoundOrCreated<Window> window = await session.Value.FindOrCreateWindowAsync("tests");
+        Console.WriteLine($"Workspace ready: {session.Value.Name} / {window.Value.Name}");
+        #endregion
+    }
+
+    /// <summary>Creates a session and window, then removes the session at scope exit.</summary>
+    [Example("Create a session and window with scoped cleanup")]
     public static async Task ConnectAndBuild()
     {
         #region ConnectAndBuild
-        // Requires a tmux server already listening on this socket:
-        // ConnectAsync() discovers one, it never starts one. With nothing
-        // running yet, call Server.CreateOwnedAsync() instead.
-        Server server = await Server.ConnectAsync();
-        Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
-        Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
-        Pane pane = (await window.GetPanesAsync())[0];
-
-        await pane.SendTextAsync("dotnet test");
+        Server server = Server.Open();
+        OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
+            new NewSessionRequest { Name = $"build-{Guid.NewGuid():N}" });
+        await owned.UseAsync(async (session, token) =>
+        {
+            Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" }, token);
+            Console.WriteLine($"Created {session.Id} / {window.Id}: {window.Name}");
+        });
         #endregion
     }
 

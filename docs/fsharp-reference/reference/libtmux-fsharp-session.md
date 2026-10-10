@@ -26,7 +26,49 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxObjectNotFoundException`tmux reports no such pane.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L175)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L261)
+
+<a name="adopt"></a>
+
+#### <code><span>Session.adopt&#32;<span>cancellationToken&#32;session</span></span></code>
+
+Accepts responsibility for destroying an existing session and its unshared windows and panes.
+
+Cleanup follows the captured session ID through renames and refuses a replacement daemon.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**session**: <code>Session</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;OwnedSessionScope&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L245)
+
+<a name="findOrCreateWindow"></a>
+
+#### <code><span>Session.findOrCreateWindow&#32;<span>cancellationToken&#32;name&#32;request&#32;session</span></span></code>
+
+Finds an exact window name in the session or creates and owns that window.
+
+<code>None</code> uses default creation options. Multiple matching windows raise <code>TmuxAmbiguousMatchException</code>.
+ Requests cannot kill or select an existing window or specify a conflicting name.
+ Reuse remains borrowed; a created window&#39;s owner destroys all its links and panes when disposed.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**name**: <code>string</code>
+
+**request**: <code><span>NewWindowRequest&#32;option</span></code>
+
+**session**: <code>Session</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>FoundOrCreated&lt;Window&gt;</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L247)
 
 <a name="holdWaitClient"></a>
 
@@ -45,7 +87,7 @@ The core&#39;s <code>Session.HoldWaitClientAsync</code>. Each wait attaches a cl
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<a href="https://learn.microsoft.com/dotnet/api/system.iasyncdisposable">IAsyncDisposable</a>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L178)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L264)
 
 <a name="kill"></a>
 
@@ -63,7 +105,7 @@ The core&#39;s <code>Session.KillAsync</code> with its other options left off.
 
 Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L184)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L270)
 
 <a name="newWindow"></a>
 
@@ -83,7 +125,7 @@ The core&#39;s <code>Session.CreateWindowAsync</code>; cancellation can leave th
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Window&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L187)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L273)
 
 <a name="panes"></a>
 
@@ -99,7 +141,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&
 
 `IncompleteSnapshotException` The session was not read through a server.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L172)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L258)
 
 <a name="rename"></a>
 
@@ -119,7 +161,7 @@ tmux expands the name as a format, so a <code>#</code> in it does not survive ve
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Session&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L181)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L267)
 
 <a name="windows"></a>
 
@@ -135,4 +177,4 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&
 
 `IncompleteSnapshotException` The session was not read through a server.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L169)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L255)

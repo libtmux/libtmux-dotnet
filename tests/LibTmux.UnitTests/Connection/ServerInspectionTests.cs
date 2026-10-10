@@ -8,6 +8,74 @@ namespace LibTmux.UnitTests.Connection;
 public sealed class ServerInspectionTests
 {
     [Fact]
+    public async Task Ensure_reuses_an_inspected_daemon_without_initialization_or_mutation()
+    {
+        var fixture = new Fixture();
+        Server ensured = await fixture.Server.EnsureAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(new ServerGeneration(91, 901), ensured.Generation);
+        Assert.Equal(TmuxVersion.Parse("3.2a"), ensured.DaemonVersion);
+        Assert.Same(fixture.Server.Connection, ensured.Connection);
+        Assert.Equal(0, fixture.InitializerCalls);
+        Assert.Single(fixture.Requests);
+        Assert.Equal("display-message", fixture.Requests[0].LogicalArguments[0]);
+    }
+
+    [Fact]
+    public async Task Ensure_cancellation_prevents_dispatch_and_late_publication()
+    {
+        using var before = new CancellationTokenSource();
+        var fixture = new Fixture();
+        await before.CancelAsync();
+        OperationCanceledException canceled = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => fixture.Server.EnsureAsync(before.Token));
+        Assert.Equal(before.Token, canceled.CancellationToken);
+        Assert.Empty(fixture.Requests);
+
+        using var after = new CancellationTokenSource();
+        fixture.Replied = after.Cancel;
+        canceled = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Server.EnsureAsync(after.Token));
+        Assert.Equal(after.Token, canceled.CancellationToken);
+        Assert.Single(fixture.Requests);
+    }
+
+    [Theory]
+    [InlineData("error connecting to /tmp/owned (Permission denied)")]
+    [InlineData("server exited unexpectedly")]
+    public async Task Ensure_does_not_treat_inspection_failure_as_absence(string diagnostic)
+    {
+        var fixture = new Fixture { Diagnostic = diagnostic };
+        await Assert.ThrowsAsync<TmuxCommandException>(() => fixture.Server.EnsureAsync(TestContext.Current.CancellationToken));
+        Assert.Single(fixture.Requests);
+        Assert.Equal(0, fixture.InitializerCalls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Ensure_does_not_publish_or_clean_up_an_unaccepted_startup_receipt(bool commandFails)
+    {
+        List<TmuxCommandRequest> requests = [];
+        var connection = new TmuxConnection(new ServerConnectionOptions(), FakeMultiplexer.AnsweringVersion((request, _) =>
+        {
+            requests.Add(request);
+            bool creating = request.LogicalArguments.Contains("new-session", StringComparer.Ordinal);
+            byte[] stdout = Encoding.UTF8.GetBytes(creating && !commandFails ? "malformed receipt\n" : "");
+            byte[] stderr = Encoding.UTF8.GetBytes(creating
+                ? commandFails ? "could not create startup session\n" : ""
+                : "no server running on /tmp/ordinary\n");
+            return Task.FromResult(new TmuxCommandResult(request.LogicalArguments, creating && !commandFails ? 0 : 1,
+                stdout, stderr, Utf8BackslashDecoder.ProjectOutputLines(stdout), Utf8BackslashDecoder.ProjectErrorLines(stderr)));
+        }));
+        var server = new Server(connection, null, null);
+        LibTmuxException failure = await Assert.ThrowsAnyAsync<LibTmuxException>(
+            () => server.EnsureAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(OwnedScope.CleanupOwners(failure));
+        Assert.Equal(2, requests.Count);
+        Assert.DoesNotContain(requests, request => request.LogicalArguments.Any(argument => argument.StartsWith("kill-", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public async Task Inspection_preserves_endpoint_and_both_versions_without_initializing()
     {
         var fixture = new Fixture();

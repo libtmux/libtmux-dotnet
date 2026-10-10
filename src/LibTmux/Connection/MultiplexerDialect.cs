@@ -41,6 +41,19 @@ internal abstract class MultiplexerDialect
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken);
 
+    internal async Task<TmuxCommandResult> ExecuteNoStartAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
+    {
+        await EnsureVerifiedAsync(cancellationToken).ConfigureAwait(false);
+        return await Execute(TmuxCommandRequest.Group(preventServerStart: true, [arguments]), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    internal async Task<TmuxCommandResult> ExecuteNoStartGroupAsync(IReadOnlyList<IReadOnlyList<string>> commands, CancellationToken cancellationToken)
+    {
+        await EnsureVerifiedAsync(cancellationToken).ConfigureAwait(false);
+        return await Execute(TmuxCommandRequest.Group(preventServerStart: true, [.. commands]), cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Runs several commands in one invocation.</summary>
     internal abstract Task<TmuxCommandResult> ExecuteGroupAsync(
         IReadOnlyList<IReadOnlyList<string>> commands,

@@ -12,9 +12,62 @@ version.
 
 ### Added
 
+- `Server.EnsureAsync` returns an ordinary running server and starts a missing daemon with normal configuration. Startup retains one detached bootstrap session; existing daemons keep their state and configuration. The imported C# quick start finds or creates a workspace and leaves it available, while `LibTmux.SessionCleanup` demonstrates explicit cleanup.
+
+- `OwnedScope.CleanupOwners(error)` returns the accepted owners retained after failed acquisition rollback or callback cleanup. Call `DisposeAsync` on those owners to retry without adopting the endpoint again; nested failures retain each owner.
+
+- F# `Server.adopt`, `Session.adopt`, `Window.adopt` and `Pane.adopt` accept explicit ownership. `Owned.withResource` awaits cleanup and retains paired failures.
+- F# find-or-create calls cover servers, sessions, windows and panes. `FindOrCreate.Existing` and `Created` distinguish borrowed matches from owners; `FindOrCreate.withResource` destroys only created resources.
+- F# `Server.discover` exposes bounded discovery and its diagnostics. The lifecycle guide includes compiled adoption and discovery functions and a complete ordinary-endpoint find-or-create program.
+
+- `AdoptAsync` on servers, sessions, windows and panes accepts explicit
+  ownership. `OwnedPaneScope` and `OwnedScope.UseAsync` preserve body,
+  cancellation and cleanup failures.
+- `Server.DiscoverAsync` reports bounded multi-root discovery with skipped
+  candidates, probe failures, duplicate daemons and truncation diagnostics.
+- Server, session, window and pane find-or-create operations return
+  `FoundOrCreated<T>` with an owner only for newly created resources.
+
+- `Server.withNewSession` in F# scopes a session layout to a task. Cleanup
+  runs after cancellation and preserves the work exception when teardown
+  fails; `Control.cleanupFailure` returns that second exception.
+
 ### Fixed
 
+- `Server.DiscoverAsync` preserves the caller's cancellation token during an active probe, including through F# `Server.discover`. Client PID, dispatch diagnostics and the original cancellation remain available.
+
+- Creation rolls back known session, window and pane IDs after a completed
+  command reports failure, failed readback or cancellation. Server startup
+  verifies its nonce before destroying the daemon after a failed result.
+  `OwnedScope.CleanupFailure` and F#
+  `Control.cleanupFailure` expose rollback failures.
+- `Server.DiscoverAsync` resolves directory components through the filesystem
+  and reports truncation when duplicate root inputs consume the root bound.
+- Whole-server owners reject replacement daemons through the native
+  generation guard before sending a kill command.
+
+- F# `Server.newSession` removes the session after later layout steps fail,
+  once initial creation has returned its identity.
+
+- Server handles capture the complete child environment and executable lookup at construction. Later host changes to `PATH` or other variables do not reach subprocess or control clients, including during cleanup.
+- `OwnedSessionScope` and `OwnedWindowScope` share concurrent cleanup attempts
+  and allow retry after failure. Cleanup uses an independent cancellation bound.
+- Process and control clients remove `TMUX` and `TMUX_PANE` after applying
+  child overrides and retain the endpoint captured at construction.
+
 ### Changed
+
+- **`Server.CreateOwnedAsync` refuses existing daemons and returns a
+  materialized generation-bound handle.** Use `AdoptAsync` to own an existing
+  daemon. Newly owned daemons remain alive without sessions until disposal.
+
+- **Ordinary server handles now use `TMUX` after library environment defaults.**
+  Set an explicit socket selector or a `LIBTMUX_SOCKET_*` variable to override it.
+- **Socket paths and `TMUX_TMPDIR` must be absolute; selected values are not
+  trimmed or normalized.** Both explicit socket selectors are an input error.
+- Named Unix endpoints launch with a pinned socket path. A missing root fails
+  without fallback; only a valid root's private per-UID directory is prepared.
+
 
 ### Removed
 

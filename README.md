@@ -23,21 +23,25 @@ for stable tmux **3.2a and newer** on **net8.0** and **net10.0**.
 > settled, and any release may change or remove exported identifiers without a
 > deprecation period. Pin an exact version. Not recommended for production.
 
-<!-- snippet: ConnectAndBuild usings: LibTmux -->
+<!-- snippet: OrdinaryWorkspace usings: System, LibTmux -->
 ```csharp
+using System;
 using LibTmux;
 
-// Requires a tmux server already listening on this socket:
-// ConnectAsync() discovers one, it never starts one. With nothing
-// running yet, call Server.CreateOwnedAsync() instead.
-Server server = await Server.ConnectAsync();
-Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
-Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
-Pane pane = (await window.GetPanesAsync())[0];
+if (OperatingSystem.IsWindows())
+{
+    throw new PlatformNotSupportedException("This example requires Unix tmux.");
+}
 
-await pane.SendTextAsync("dotnet test");
+Server server = await Server.EnsureAsync();
+FoundOrCreated<Session> session = await server.FindOrCreateSessionAsync(
+    "libtmux-dotnet-quickstart", new NewSessionRequest { WindowName = "work" });
+FoundOrCreated<Window> window = await session.Value.FindOrCreateWindowAsync("tests");
+Console.WriteLine($"Workspace ready: {session.Value.Name} / {window.Value.Name}");
 ```
 <!-- endsnippet -->
+
+`Server.EnsureAsync()` reuses the selected daemon or starts it with normal tmux configuration. Startup leaves a detached `libtmux-start-*` session running `cat` to keep the daemon available without changing `exit-empty`. The named workspace remains available after this program exits. Repeating the program reuses its session and window. The [complete C# program](examples/LibTmux.Quickstart/Program.cs) includes the same imports and runs unchanged under an external test harness.
 
 ## Is this for you?
 
@@ -320,7 +324,7 @@ It exposes 45 tools selected from the unordered `inspect` (18), `manage` (14),
 `tmux://capabilities` resource. Existing and user-configured sockets omit
 teardown by default and expose 41. [The full reference](docs/mcp/tools.md) is
 generated from the server itself. Pin one socket for the process with
-`LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH`.
+`LIBTMUX_SOCKET_NAME` or `LIBTMUX_SOCKET_PATH`.
 
 What it is built around is that an assistant should never get stuck and never
 waste context. `run_shell_command` returns the shell's real exit status, and

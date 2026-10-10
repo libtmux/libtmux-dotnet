@@ -570,36 +570,47 @@ public sealed partial class Pane
         CancellationToken cancellationToken,
         TmuxCommand? guarded = null)
     {
+        Server owner = await TmuxOwnershipIdentity.CaptureAsync(Server, cancellationToken).ConfigureAwait(false);
+        TmuxCommandDispatcher dispatcher = owner.Connection!.CreateEntityDispatcher(_generation);
+        cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource acquisition = new(OwnedCleanup.Timeout);
         var sequence = new TmuxMutationSequence();
         TmuxCommandResult result = await sequence.MutateAsync(
-                () => guarded is null
-                    ? _commandDispatcher.ExecuteAsync(arguments, cancellationToken)
-                    : Server.Chain().Then(guarded).ExecuteAsync(cancellationToken),
-                value => TmuxCommandFailure.ThrowIfFailed(value, subcommand))
+                () => OwnedCleanup.DispatchCreationAsync(async () =>
+                {
+                    if (guarded is null)
+                    {
+                        return await dispatcher.ExecuteAsync(arguments, acquisition.Token).ConfigureAwait(false);
+                    }
+                    TmuxCommandResult completed = await dispatcher.ExecuteGroupAsync(
+                        [.. guarded.ToDispatchCommands()], acquisition.Token).ConfigureAwait(false);
+                    return TmuxCommandResultProjection.Remap(completed, arguments, completed.StandardOutput);
+                }, subcommand, acquisition.Token),
+                value =>
+                {
+                    if (value.StandardOutputLines.Count == 0 || !PaneId.TryParse(value.StandardOutputLines[0], out _))
+                    {
+                        TmuxCommandFailure.ThrowIfFailed(value, subcommand);
+                    }
+                })
             .ConfigureAwait(false);
         PaneId created = sequence.Observe(() =>
             result.StandardOutputLines.Count > 0
                 && PaneId.TryParse(result.StandardOutputLines[0], out PaneId parsed)
                     ? parsed
-                    : throw new TmuxCommandException(
-                        "tmux reported no new pane identifier.",
-                        result));
-
-        Server owner = sequence.Observe(() => Server);
-        IReadOnlyDictionary<string, string?>? row = await sequence
-            .ObserveAsync(() => RelationReader.FindAsync(
-                owner,
-                "list-panes",
-                "pane_id",
-                created.ToString(),
-                inSession: null,
-                cancellationToken))
-            .ConfigureAwait(false);
-        return sequence.Observe(() =>
-            row is null
-                ? throw new TmuxObjectNotFoundException(
-                    $"tmux did not report the created pane '{created}'.",
-                    created.ToString())
-                : RelationReader.ToPane(owner, row));
+                    : throw new TmuxCommandException("tmux reported no new pane identifier.", result));
+        return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
+        {
+            TmuxCommandFailure.ThrowIfFailed(result, subcommand);
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyDictionary<string, string?>? row = await RelationReader.FindAsync(
+                owner, "list-panes", "pane_id", created.ToString(), inSession: null, cancellationToken)
+                .ConfigureAwait(false);
+            Pane pane = row is null
+                ? throw new TmuxObjectNotFoundException($"tmux did not report the created pane '{created}'.", created.ToString())
+                : RelationReader.ToPane(owner, row);
+            cancellationToken.ThrowIfCancellationRequested();
+            return pane;
+        }, owner, _generation, "pane", created.ToString()).ConfigureAwait(false);
     }
 }

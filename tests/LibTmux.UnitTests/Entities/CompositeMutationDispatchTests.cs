@@ -522,10 +522,10 @@ public sealed class CompositeMutationDispatchTests
                 "has-session" => Task.FromResult(Success(request)),
                 "kill-session" => Task.FromResult(Success(request)),
                 "new-session" => Task.FromResult(Success(request,
-                    $"{Generation.ProcessId}:{Generation.StartTime}\t$2\t@3\t%4\t0\n")),
+                    $"{Generation.ProcessId}:{Generation.StartTime}\t$2\t@3\t%4\t0\t0123456789abcdef0123456789abcdef\n")),
                 "display-message" => Task.FromResult(Success(
                     request,
-                    $"{Generation.ProcessId}:{Generation.StartTime}\n")),
+                    $"{Generation.ProcessId}:{Generation.StartTime}\t3.7\n")),
                 "-V" => Task.FromResult(Success(request, "tmux 3.7\n")),
                 ProjectionRead => throw NotDispatched(
                     arguments,
@@ -549,6 +549,7 @@ public sealed class CompositeMutationDispatchTests
                 "new-session",
                 "display-message",
                 ProjectionRead,
+                "kill-session",
             ],
             commands.ToArray());
     }
@@ -565,6 +566,37 @@ public sealed class CompositeMutationDispatchTests
                 TestContext.Current.CancellationToken));
 
         AssertPartialFailure(failure, typeof(TmuxCommandException));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Floating_pane_creation_rolls_back_a_receipt_from_a_failed_completed_result(bool fromWindow)
+    {
+        var destroyed = new List<string>();
+        Task<TmuxCommandResult> Execute(TmuxCommandRequest request, CancellationToken _)
+        {
+            if (request.LogicalArguments.Contains("new-pane", StringComparer.Ordinal))
+            {
+                TmuxCommandResult created = Success(request, "%2\n");
+                return Task.FromResult(new TmuxCommandResult(created.Arguments, 77, created.StandardOutput,
+                    Encoding.UTF8.GetBytes("failure after receipt\n"), created.StandardOutputLines, ["failure after receipt"]));
+            }
+            if (request.LogicalArguments.Contains("kill-pane", StringComparer.Ordinal))
+            {
+                destroyed.Add(request.LogicalArguments[^1]);
+            }
+            return Task.FromResult(Success(request));
+        }
+
+        Task<Pane> acquisition = fromWindow
+            ? CreateWindow(Execute).CreatePaneAsync(cancellationToken: TestContext.Current.CancellationToken)
+            : CreatePane(Execute).CreatePaneAsync(cancellationToken: TestContext.Current.CancellationToken);
+        LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() => acquisition);
+        AssertPartialFailure(failure, typeof(TmuxCommandException));
+        Assert.Equal(77, Assert.IsType<TmuxCommandException>(failure.InnerException).Result.ExitCode);
+        Assert.Null(OwnedScope.CleanupFailure(failure));
+        Assert.Equal(["%2"], destroyed);
     }
 
     [Fact]
@@ -833,20 +865,21 @@ public sealed class CompositeMutationDispatchTests
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
         Func<Server, CancellationToken, ValueTask>? initializeAsync = null)
     {
-        TmuxConnection connection = CreateConnection(execute, initializeAsync);
+        var connection = new TmuxConnection(new ServerConnectionOptions
+        { SocketName = "composite-mutation-test", InitializeAsync = initializeAsync }, execute);
         return new Server(connection, Generation, "tmux 3.7");
     }
 
     private static TmuxConnection CreateConnection(
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
         Func<Server, CancellationToken, ValueTask>? initializeAsync = null) =>
-        new(
+        new TmuxConnection(
             new ServerConnectionOptions
             {
                 SocketName = "composite-mutation-test",
                 InitializeAsync = initializeAsync,
             },
-            execute);
+            execute).WithOwnershipToken("0123456789abcdef0123456789abcdef");
 
     private static TmuxTransportException NotDispatched(
         IReadOnlyList<string> arguments,
@@ -862,7 +895,7 @@ public sealed class CompositeMutationDispatchTests
         string command = arguments.Contains("if-shell", StringComparer.Ordinal)
             ? arguments.Last(static argument => argument is
                 "display-message" or "list-sessions" or "list-windows" or "list-panes"
-                or "new-window")
+                or "new-window" or "new-session" or "kill-session" or "kill-window" or "kill-pane")
             : arguments[0];
         return command == "display-message"
             && arguments[^1].Contains(FormatProjection.RowSeparator, StringComparison.Ordinal)
@@ -884,7 +917,7 @@ public sealed class CompositeMutationDispatchTests
             payload = "tmux 3.7\n";
         }
 
-        bool guarded = arguments.Contains("if-shell", StringComparer.Ordinal);
+        bool guarded = request.PreventServerStart;
         ServerGeneration effectiveGeneration = generation ?? Generation;
         string output = guarded
             ? $"{effectiveGeneration.ProcessId}:{effectiveGeneration.StartTime}\n{payload}"
@@ -924,10 +957,10 @@ public sealed class CompositeMutationDispatchTests
             return command switch
             {
                 "new-session" => Task.FromResult(Success(request,
-                    $"{discovered.ProcessId}:{discovered.StartTime}\t$2\t@3\t%4\t0\n")),
+                    $"{discovered.ProcessId}:{discovered.StartTime}\t$2\t@3\t%4\t0\t0123456789abcdef0123456789abcdef\n")),
                 "display-message" => Task.FromResult(Success(
                     request,
-                    $"{discovered.ProcessId}:{discovered.StartTime}\n")),
+                    $"{discovered.ProcessId}:{discovered.StartTime}\t3.7\n")),
                 "-V" => Task.FromResult(Success(request, "tmux 3.7\n")),
                 ProjectionRead => Task.FromResult(Success(
                     request,

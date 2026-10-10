@@ -166,10 +166,20 @@ public sealed partial class Window
             arguments.Add(options.Command);
         }
 
+        owner = await TmuxOwnershipIdentity.CaptureAsync(owner, cancellationToken).ConfigureAwait(false);
+        TmuxCommandDispatcher dispatcher = owner.Connection!.CreateEntityDispatcher(_generation);
+        cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource acquisition = new(OwnedCleanup.Timeout);
         var sequence = new TmuxMutationSequence();
         TmuxCommandResult result = await sequence.MutateAsync(
-                () => _commandDispatcher.ExecuteAsync(arguments, cancellationToken),
-                static value => TmuxCommandFailure.ThrowIfFailed(value, "split-window"))
+                () => OwnedCleanup.DispatchCreationAsync(() => dispatcher.ExecuteAsync(arguments, acquisition.Token), arguments[0], acquisition.Token),
+                static value =>
+                {
+                    if (value.StandardOutputLines.Count == 0 || !PaneId.TryParse(value.StandardOutputLines[0], out _))
+                    {
+                        TmuxCommandFailure.ThrowIfFailed(value, "split-window");
+                    }
+                })
             .ConfigureAwait(false);
         PaneId created = sequence.Observe(() =>
             result.StandardOutputLines.Count > 0
@@ -179,14 +189,16 @@ public sealed partial class Window
                         "tmux reported no new pane identifier.",
                         result));
 
-        IReadOnlyList<Pane> panes = await sequence
-            .ObserveAsync(() => GetPanesAsync(cancellationToken))
-            .ConfigureAwait(false);
-        return sequence.Observe(() =>
-            panes.FirstOrDefault(pane => pane.Id == created)
-                ?? throw new TmuxObjectNotFoundException(
-                    $"tmux did not report the created pane '{created}'.",
-                    created.ToString()));
+        return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
+        {
+            TmuxCommandFailure.ThrowIfFailed(result, "split-window");
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<Pane> panes = await new Window(owner, owner.Connection!, _generation, _id, RawFormatFields).GetPanesAsync(cancellationToken).ConfigureAwait(false);
+            Pane pane = panes.FirstOrDefault(pane => pane.Id == created)
+                ?? throw new TmuxObjectNotFoundException($"tmux did not report the created pane '{created}'.", created.ToString());
+            cancellationToken.ThrowIfCancellationRequested();
+            return pane;
+        }, owner, _generation, "pane", created.ToString()).ConfigureAwait(false);
     }
 
     /// <summary>Creates a floating pane in this window.</summary>
@@ -258,10 +270,20 @@ public sealed partial class Window
             arguments.Add(options.Command);
         }
 
+        owner = await TmuxOwnershipIdentity.CaptureAsync(owner, cancellationToken).ConfigureAwait(false);
+        TmuxCommandDispatcher dispatcher = owner.Connection!.CreateEntityDispatcher(_generation);
+        cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource acquisition = new(OwnedCleanup.Timeout);
         var sequence = new TmuxMutationSequence();
         TmuxCommandResult result = await sequence.MutateAsync(
-                () => _commandDispatcher.ExecuteAsync(arguments, cancellationToken),
-                static value => TmuxCommandFailure.ThrowIfFailed(value, "new-pane"))
+                () => OwnedCleanup.DispatchCreationAsync(() => dispatcher.ExecuteAsync(arguments, acquisition.Token), arguments[0], acquisition.Token),
+                static value =>
+                {
+                    if (value.StandardOutputLines.Count == 0 || !PaneId.TryParse(value.StandardOutputLines[0], out _))
+                    {
+                        TmuxCommandFailure.ThrowIfFailed(value, "new-pane");
+                    }
+                })
             .ConfigureAwait(false);
         PaneId created = sequence.Observe(() =>
             result.StandardOutputLines.Count > 0
@@ -271,14 +293,16 @@ public sealed partial class Window
                         "tmux reported no new pane identifier.",
                         result));
 
-        IReadOnlyList<Pane> panes = await sequence
-            .ObserveAsync(() => GetPanesAsync(cancellationToken))
-            .ConfigureAwait(false);
-        return sequence.Observe(() =>
-            panes.FirstOrDefault(pane => pane.Id == created)
-                ?? throw new TmuxObjectNotFoundException(
-                    $"tmux did not report the created pane '{created}'.",
-                    created.ToString()));
+        return await OwnedCleanup.CompleteAcquisitionAsync(async () =>
+        {
+            TmuxCommandFailure.ThrowIfFailed(result, "new-pane");
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<Pane> panes = await new Window(owner, owner.Connection!, _generation, _id, RawFormatFields).GetPanesAsync(cancellationToken).ConfigureAwait(false);
+            Pane pane = panes.FirstOrDefault(pane => pane.Id == created)
+                ?? throw new TmuxObjectNotFoundException($"tmux did not report the created pane '{created}'.", created.ToString());
+            cancellationToken.ThrowIfCancellationRequested();
+            return pane;
+        }, owner, _generation, "pane", created.ToString()).ConfigureAwait(false);
     }
 
     /// <summary>Runs a tmux-side filter over this window's panes.</summary>

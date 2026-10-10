@@ -73,6 +73,14 @@ internal sealed class TmuxDialect : MultiplexerDialect
             .ConfigureAwait(false);
     }
 
+    internal async Task<TmuxCommandResult> ExecuteOwnedAsync(
+        ServerGeneration expected, string token,
+        IReadOnlyList<IReadOnlyList<string>> commands, CancellationToken cancellationToken)
+    {
+        await EnsureVerifiedAsync(cancellationToken).ConfigureAwait(false);
+        return await _generationGuard.ExecuteAsync(expected, commands, token, cancellationToken).ConfigureAwait(false);
+    }
+
     [UnsupportedOSPlatform("windows")]
     internal async Task<TmuxCommandResult> ExecuteAttachmentAsync(
         ServerGeneration expected,

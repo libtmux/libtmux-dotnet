@@ -12,8 +12,11 @@ type StreamStep<'State> =
     | Continue of state: 'State
     | Stop of state: 'State
 
-module private AsyncCleanup =
-    let run (cleanupKey: string) (work: unit -> Task<'T>) (cleanup: unit -> Task) =
+module internal AsyncCleanup =
+    [<Literal>]
+    let private CleanupFailureKey = "LibTmux.FSharp.CleanupFailure"
+
+    let run (work: unit -> Task<'T>) (cleanup: unit -> Task) =
         backgroundTask {
             let mutable outcome: Result<'T, exn> option = None
 
@@ -39,17 +42,19 @@ module private AsyncCleanup =
                 ExceptionDispatchInfo.Capture(primary).Throw()
                 return Unchecked.defaultof<'T>
             | Some(Error primary), Some cleanup ->
-                primary.Data[cleanupKey] <- cleanup
+                primary.Data[CleanupFailureKey] <- cleanup
                 ExceptionDispatchInfo.Capture(primary).Throw()
                 return Unchecked.defaultof<'T>
             | None, _ -> return invalidOp "The asynchronous resource scope did not finish its work."
         }
 
+    let failure (error: exn) =
+        match error.Data[CleanupFailureKey] with
+        | :? exn as cleanup -> Some cleanup
+        | _ -> OwnedScope.CleanupFailure(error) |> Option.ofObj
+
 [<RequireQualifiedAccess>]
 module Control =
-    [<Literal>]
-    let private CleanupFailureKey = "LibTmux.FSharp.CleanupFailure"
-
     let enter (cancellationToken: CancellationToken) (server: LibTmux.Server) =
         server.EnterControlModeAsync(cancellationToken = cancellationToken)
 
@@ -57,7 +62,7 @@ module Control =
         session.Server.EnterControlModeAsync(session.Id.ToString(), cancellationToken)
 
     let useSession (work: IControlModeSession -> Task<'State>) (session: IControlModeSession) =
-        AsyncCleanup.run CleanupFailureKey (fun () -> work session) (fun () -> session.DisposeAsync().AsTask())
+        AsyncCleanup.run (fun () -> work session) (fun () -> session.DisposeAsync().AsTask())
 
     let withSession
         (cancellationToken: CancellationToken)
@@ -85,8 +90,7 @@ module Control =
         backgroundTask {
             let reader = source.GetAsyncEnumerator(cancellationToken)
 
-            return!
-                AsyncCleanup.run CleanupFailureKey (fun () -> work reader) (fun () -> reader.DisposeAsync().AsTask())
+            return! AsyncCleanup.run (fun () -> work reader) (fun () -> reader.DisposeAsync().AsTask())
         }
 
     let iter (cancellationToken: CancellationToken) (handler: 'T -> Task) (source: IAsyncEnumerable<'T>) =
@@ -131,10 +135,7 @@ module Control =
                 return state
             })
 
-    let cleanupFailure (error: exn) =
-        match error.Data[CleanupFailureKey] with
-        | :? exn as cleanup -> Some cleanup
-        | _ -> None
+    let cleanupFailure (error: exn) = AsyncCleanup.failure error
 
 [<RequireQualifiedAccess>]
 module Mirror =
