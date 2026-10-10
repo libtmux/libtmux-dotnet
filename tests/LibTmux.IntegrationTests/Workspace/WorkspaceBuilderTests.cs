@@ -556,7 +556,9 @@ public sealed class WorkspaceBuilderTests
                 PaneWaitRequest.FromTextPatterns(["printf 'held'"], simpleMatch: true)
                     with
                 { Timeout = TimeSpan.FromSeconds(2) }, token);
-            Assert.True(pending.Outcome is PaneWaitOutcome.PresentAtEntry or PaneWaitOutcome.Matched);
+            Assert.True(
+                pending.Outcome is PaneWaitOutcome.PresentAtEntry or PaneWaitOutcome.Matched,
+                $"typed command not shown ({pending.Outcome}); pane tail: {string.Join(" | ", pending.Tail)}");
             Assert.Contains(pending.Tail, line => line.Contains("printf 'held'", StringComparison.Ordinal));
             Assert.False(File.Exists(received));
 
