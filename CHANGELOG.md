@@ -30,6 +30,8 @@ version.
 
 ### Fixed
 
+- `Server.DiscoverAsync` preserves the caller's cancellation token during an active probe, including through F# `Server.discover`. Client PID, dispatch diagnostics and the original cancellation remain available.
+
 - Creation rolls back known session, window and pane IDs after a completed
   command reports failure, failed readback or cancellation. Server startup
   verifies its nonce before destroying the daemon after a failed result.

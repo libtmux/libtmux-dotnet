@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Sockets;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Transport;
@@ -10,6 +11,122 @@ namespace LibTmux.IntegrationTests.Connection;
 public sealed class LifecycleDiscoveryTests
 {
     private static CancellationToken Token => TestContext.Current.CancellationToken;
+
+    [Theory(Skip = "Requires Unix sockets.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Probe_cancellation_keeps_its_cause_and_only_normalizes_a_requested_caller(
+        bool cancelCaller, bool originalCallerToken)
+    {
+        await using var fixture = new Fixture();
+        using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        socket.Bind(new UnixDomainSocketEndPoint(fixture.Options.SocketPath!));
+        using var caller = new CancellationTokenSource();
+        using var other = new CancellationTokenSource();
+        other.Cancel();
+        var original = new OperationCanceledException("Probe cancellation detail.",
+            new IOException("Probe cause."), originalCallerToken ? caller.Token : other.Token);
+        Task<ServerDiscoveryResult> pending = Server.DiscoverAsync(new()
+        {
+            Roots = [fixture.Root],
+            IncludeConfiguredRoots = false,
+            Connection = fixture.Options with
+            {
+                Interceptor = (invocation, next, token) =>
+                {
+                    if (!invocation.Arguments.Contains("display-message", StringComparer.Ordinal))
+                    {
+                        return next(token);
+                    }
+                    if (cancelCaller)
+                    {
+                        caller.Cancel();
+                    }
+                    return Task.FromException<TmuxCommandResult>(original);
+                },
+            },
+        }, caller.Token);
+        OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        Assert.True(pending.IsCanceled);
+        if (cancelCaller && !originalCallerToken)
+        {
+            Assert.Equal(caller.Token, error.CancellationToken);
+            Assert.Equal(original.Message, error.Message);
+            Assert.Same(original, error.InnerException);
+        }
+        else
+        {
+            Assert.Same(original, error);
+        }
+    }
+
+    [UnixFact]
+    public async Task Cancellation_during_a_probe_keeps_the_caller_token_and_client_diagnostics()
+    {
+        var fixture = new Fixture();
+        using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        listener.Bind(new UnixDomainSocketEndPoint(fixture.Options.SocketPath!));
+        listener.Listen(1);
+        using var caller = new CancellationTokenSource();
+        Task<ServerDiscoveryResult> pending = Server.DiscoverAsync(new()
+        {
+            Roots = [fixture.Root],
+            IncludeConfiguredRoots = false,
+            Connection = fixture.Options,
+            ProbeTimeout = TimeSpan.FromSeconds(10),
+            Timeout = TimeSpan.FromSeconds(20),
+        }, caller.Token);
+        try
+        {
+            // Accepting the connection proves the real tmux client entered the probe.
+            using Socket accepted = await listener.AcceptAsync(Token).AsTask()
+                .WaitAsync(TimeSpan.FromSeconds(5), Token);
+            caller.Cancel();
+            TmuxOperationCanceledException error = await Assert.ThrowsAsync<TmuxOperationCanceledException>(
+                () => pending.WaitAsync(TimeSpan.FromSeconds(5), Token));
+            Assert.True(pending.IsCanceled);
+            Assert.True(error.CommandMayHaveExecuted);
+            Assert.True(error.ClientProcessId > 0);
+            Assert.Equal(caller.Token, error.CancellationToken);
+            TmuxOperationCanceledException original = Assert.IsType<TmuxOperationCanceledException>(error.InnerException);
+            Assert.Equal(original.Message, error.Message);
+            Assert.Equal(original.ClientProcessId, error.ClientProcessId);
+            Assert.Equal(original.CommandMayHaveExecuted, error.CommandMayHaveExecuted);
+            Assert.NotEqual(caller.Token, original.CancellationToken);
+        }
+        finally
+        {
+            caller.Cancel();
+            Exception? outcome = await Record.ExceptionAsync(
+                () => pending.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None));
+            bool exited = false;
+            if (outcome is TmuxOperationCanceledException canceled)
+            {
+                try
+                {
+                    using Process client = Process.GetProcessById(canceled.ClientProcessId);
+                    await client.WaitForExitAsync(CancellationToken.None)
+                        .WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+                    exited = client.HasExited;
+                }
+                catch (ArgumentException)
+                {
+                    exited = true;
+                }
+            }
+            listener.Dispose();
+            if (exited)
+            {
+                await fixture.DisposeAsync();
+            }
+            else
+            {
+                TestContext.Current.SendDiagnosticMessage("Retained unverified probe root: {0}", fixture.Root);
+            }
+            Assert.True(exited, "The probe client exit must be observed before removing its root.");
+        }
+    }
 
     [UnixFact]
     public async Task Multiple_roots_report_live_stale_failed_skipped_duplicate_and_missing_candidates()

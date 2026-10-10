@@ -85,6 +85,7 @@ public sealed partial class Server
     /// Root components resolve through the filesystem before enumeration; missing components are errors.
     /// No-start probes cannot create a daemon. Filesystem calls themselves are synchronous and may exceed
     /// the deadline on an unresponsive filesystem; subsequent work stops at the next boundary.
+    /// Cancellation during a probe retains the caller's token and the original dispatch diagnostics.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public static async Task<ServerDiscoveryResult> DiscoverAsync(
@@ -192,6 +193,18 @@ public sealed partial class Server
                         {
                             diagnostics.Add(new(candidate, "duplicate", "This daemon generation was already found through another path."));
                         }
+                    }
+                    catch (OperationCanceledException failure)
+                        when (cancellationToken.IsCancellationRequested && failure.CancellationToken != cancellationToken)
+                    {
+                        throw failure is TmuxOperationCanceledException dispatched
+                            ? new TmuxOperationCanceledException(
+                                dispatched.Message,
+                                cancellationToken,
+                                dispatched.CommandMayHaveExecuted,
+                                dispatched.ClientProcessId,
+                                dispatched)
+                            : new OperationCanceledException(failure.Message, failure, cancellationToken);
                     }
                     catch (Exception failure) when (failure is not OperationCanceledException)
                     {
