@@ -89,6 +89,10 @@ jobs:
             examples/LibTmux.FSharp.Examples/bin/Release/net10.0 \
             examples/LibTmux.FSharp.Examples/bin/Release/programs \
             examples/LibTmux.Examples/bin/Release/programs \
+            examples/LibTmux.Quickstart/bin/Release/net8.0 \
+            examples/LibTmux.Quickstart/bin/Release/net10.0 \
+            examples/LibTmux.SessionCleanup/bin/Release/net8.0 \
+            examples/LibTmux.SessionCleanup/bin/Release/net10.0 \
             src/LibTmux.Workspace.Cli/bin/Release/net8.0 \
             src/LibTmux.Workspace.Cli/bin/Release/net10.0 \
             tests/LibTmux.TestChild/bin/Release/net8.0 \

@@ -187,6 +187,29 @@ def test_query_programs_survive_matrix_build_and_execution(
     assert any(expected in error for error in verify(repository))
 
 
+@pytest.mark.parametrize("example", ["Quickstart", "SessionCleanup"])
+@pytest.mark.parametrize("framework", ["net8.0", "net10.0"])
+def test_csharp_lifecycle_programs_reach_matrix_consumers(
+    repository: pathlib.Path, example: str, framework: str
+) -> None:
+    """A build dependency alone does not deliver its program to consumers."""
+    path = repository / ".github/workflows/dotnet-tmux.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    step = next(
+        step for step in document["jobs"]["build"]["steps"]
+        if step.get("name") == "Archive runnable assemblies"
+    )
+    output = f"examples/LibTmux.{example}/bin/Release/{framework}"
+    assert output in step["run"]
+    step["run"] = step["run"].replace(output, "")
+    path.write_text(yaml.safe_dump(document))
+
+    assert any(
+        f"archive the C# {example} example for {framework}" in error
+        for error in verify(repository)
+    )
+
+
 def test_commented_dependencies_do_not_gate_publication(
     repository: pathlib.Path,
 ) -> None:

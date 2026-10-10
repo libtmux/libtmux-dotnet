@@ -307,6 +307,12 @@ def verify(root: pathlib.Path) -> list[str]:
                 in archive_command,
                 f"dotnet-tmux.build must archive the F# example for {framework}",
             )
+            for example in ("Quickstart", "SessionCleanup"):
+                require(
+                    f"examples/LibTmux.{example}/bin/Release/{framework}"
+                    in archive_command,
+                    f"dotnet-tmux.build must archive the C# {example} example for {framework}",
+                )
     integration = required_step("dotnet-tmux", "matrix", "integration-tests")
     require(
         {**matrix.get("env", {}), **integration.get("env", {})}.get(
