@@ -320,8 +320,7 @@ explains the configuration order. Code running inside a tmux pane can use
 | Trimming and NativeAOT | Portable filters bind fields without reflection. A Linux consumer publishes and runs captured snapshots, a tmux query, portable filters with relations and regex, and native `Seq` predicates under NativeAOT and trimming on both frameworks. |
 
 `Selection.exactlyOne` and `Query.exactlyOne` return FSharp.Core's `Result`,
-whose compiler-generated `ToString` formats through `printf`; with
-FSharp.Core 10.1.302, which the NativeAOT consumer builds with, NativeAOT
-publication rejects it. Under NativeAOT, read one row with `Query.atMostOne`,
+whose compiler-generated `ToString` formats through `printf`, which NativeAOT
+publication rejects. Under NativeAOT, read one row with `Query.atMostOne`,
 which still raises on several matches, or with `Query.tryExactlyOne` where
 none and several may be treated alike. The NativeAOT consumer runs both.

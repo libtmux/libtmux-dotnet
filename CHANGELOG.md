@@ -283,9 +283,9 @@ few F# functions are replaced by queries and streams; see Removed.
   Client listings are narrowed from tmux 3.4. (#51)
 - `Query.atMostOne` returns `None` only when nothing matched and raises on
   several, for finding an object or creating it. Under NativeAOT, read one
-  row with it or `Query.tryExactlyOne`: FSharp.Core 10.1.302 formats the
-  `Result` from `Query.exactlyOne` through `printf`, which NativeAOT
-  publication rejects. (#51)
+  row with it or `Query.tryExactlyOne`: FSharp.Core formats the `Result`
+  from `Query.exactlyOne` through `printf`, which NativeAOT publication
+  rejects. (#51)
 - `LibTmux.FSharp.Filter` adds `ne`, `eqIgnoreCase`, `startsWithIgnoreCase`,
   `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`,
   `matches`, `matchesIgnoreCase`, `lt`, `le`, `gt`, `ge` and `notOneOf`.

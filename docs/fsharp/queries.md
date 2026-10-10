@@ -14,8 +14,7 @@ several did, so it suits finding an object or creating it when absent;
 `Query.tryExactlyOne`, like FSharp.Core's `Seq.tryExactlyOne`, returns `None`
 for both. In an application published with NativeAOT, use either of them:
 `Query.exactlyOne` returns FSharp.Core's `Result`, whose compiler-generated
-`ToString` formats through `printf`, and with FSharp.Core 10.1.302 NativeAOT
-publication rejects it.
+`ToString` formats through `printf`, which NativeAOT publication rejects.
 
 These complete programs require .NET 8 or 10 and tmux on Linux or macOS.
 Run the commands from this repository's root. Each block can also replace
