@@ -159,6 +159,13 @@ $ mise exec -- dotnet test \
     --minimum-expected-tests 1
 ```
 
+One-shot commands travel over a control client the library keeps on each
+server. A test that needs every command to be a process of its own, such as one
+that reads the arguments an executable standing in for tmux receives, sets the
+internal `ServerConnectionOptions.ForceProcessTransport` and says why in a
+comment. To run a whole suite against the process transport, set
+`LIBTMUX_CONTROL_TRANSPORT=0`.
+
 ## Checks that must pass
 
 [dotnet.yml](workflows/dotnet.yml) owns the primary Linux checks and the

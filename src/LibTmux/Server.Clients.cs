@@ -13,7 +13,12 @@ public sealed partial class Server
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The clients tmux reports.</returns>
     /// <exception cref="LibTmuxException">The listing failed, including an absent daemon.</exception>
-    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
+    /// <remarks>
+    /// A handle that has not found a live server yet discovers one first. The
+    /// control client this library keeps on the server for one-shot commands is
+    /// not listed. A <c>list-clients</c> you run yourself lists it, and so does a
+    /// format of your own that reads <c>#{client_name}</c> or <c>#{session_attached}</c>.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<Client>> GetClientsAsync(
         CancellationToken cancellationToken = default)

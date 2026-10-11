@@ -16,6 +16,18 @@ version.
 
 ### Changed
 
+- One-shot commands now travel over one control client the library keeps on
+  each server, shared by every handle on the socket, instead of starting a tmux
+  process per command. A pane run starts 3 tmux processes where it started 16,
+  and a two-window, three-pane workspace build starts 2 where it started 32
+  (3 where it started 33 when the client attaches during the build).
+  `wait-for`, `new-session`, the `kill-*` commands and the commands that open
+  interface on a client still run on a process. The client is left out of
+  `GetClientsAsync`, `GetAttachedSessionsAsync`, `Session.Attached` and queries
+  over `session_attached`; a format of your own that reads `#{session_attached}`
+  counts it. A wrapper around `TmuxBinaryPath` sees the client's launch, not
+  each command. See [one-shot](docs/modes/one-shot.md#how-a-call-reaches-tmux).
+
 ### Removed
 
 ### Development

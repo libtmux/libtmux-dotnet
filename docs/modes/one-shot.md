@@ -1,8 +1,8 @@
 # One-shot: the default
 
-A one-shot call starts a tmux client, runs one command, waits for it, and lets
-the client exit. It is what every typed method on `Server`, `Session`,
-`Window`, and `Pane` does unless you asked for something else.
+A one-shot call sends one command to tmux, waits for its answer, and returns a
+typed object. It is what every typed method on `Server`, `Session`, `Window`,
+and `Pane` does unless you asked for something else.
 
 <!-- snippet: CreateWindow -->
 ```csharp
@@ -25,13 +25,66 @@ made. Refresh is explicit, so nothing changes under you mid-function.
 
 ## When it is not
 
-Starting a process costs more than running a command does. For a handful of
-commands that is invisible; for fifty in a row it dominates, and
-[chaining](chaining.md) pays that cost once instead of fifty times.
+Each call is still a round trip, and a few commands cost a process on top (see
+below). For fifty commands that must run back to back, [chaining](chaining.md)
+sends them in one round trip.
 
 It also only ever sees what it asked for. To notice a window appearing, or read
 what a program writes into a pane, you need a client that stays —
 [control mode](control-mode.md).
+
+## How a call reaches tmux
+
+The library keeps one control client per server, shared by every `Server`
+handle on the same socket, and sends one-shot commands over it. The client
+starts with the first command that can use it, only against a server that has a
+session, and attaches with the `ignore-size` and `no-output` client flags, so
+it changes no window's size and receives no pane output. It is not the client
+`EnterControlModeAsync` returns, reports nothing to you, and ends with its
+session or server; the next command starts another.
+
+These commands run on a process of their own, as before: `wait-for`,
+`run-shell`, `if-shell` without `-F`, `new-session`, `start-server`,
+`attach-session`, `kill-server`, `kill-session`, `kill-window`, `kill-pane`,
+`unlink-window`, `move-window`, `join-pane`, `move-pane`, `save-buffer`, `load-buffer`,
+`source-file`, the `choose-*` commands, and the commands that act on a client.
+They either wait for another client, end the client's session, read or write a
+file for the caller, or open interface on a client.
+
+What follows from it:
+
+- **Listings leave the client out.** `GetClientsAsync`, `GetAttachedSessionsAsync`,
+  `Session.Attached`, snapshots, and queries over `session_attached` do not
+  count it. A `list-clients` you run yourself lists it, and a format of your own
+  that reads `#{session_attached}`, `#{client_name}` or `#{session_clients}`
+  counts it. `display-message -p` with a `client_*` format and no `-c` reads
+  it as the current client.
+- **Commands without a target resolve against its session.** A command with no
+  target session, window or pane resolves against the client's session instead
+  of the server's most recently used one. Name the target.
+- **A client command with no client named does not act on it.**
+  `detach-client`, `switch-client`, `lock-client`, `suspend-client`,
+  `refresh-client`, `display-panes`, `display-popup`, `display-menu`,
+  `command-prompt`, `confirm-before`, `display-message` without `-p`,
+  `send-keys -K` and `set-buffer -w` act on the most recently active client
+  that is not this one, and fail with tmux's `no current client` when there is
+  none, except that `display-message` and `send-keys -K` then do nothing and
+  `set-buffer` only sets the buffer. `detach-client -a` and `-s` detach the
+  other clients one by one and leave this one attached.
+- **The `client-attached` hook fires once per attach**, not once per command:
+  at the first command, and again each time the client has to start over.
+- **Its socket connection is long-lived.** Changing the socket's permissions or
+  replacing the executable after it attached does not affect commands it
+  carries.
+- **A wrapper around `TmuxBinaryPath` sees the client's launch**
+  (`-C attach-session`) and the commands that stay on processes, not the rest.
+- **When the client ends with a command in flight**, the command runs again on
+  a process only if it never reached tmux or only reads (`list-*`, `show-*`,
+  `capture-pane -p`, `display-message -p`, `has-session`). Any other command
+  fails with `TmuxDispatchState.Unknown`; look before repeating it.
+- **Replies are bounded like a process's.** A reply may be as large as
+  `ServerConnectionOptions.MaxCapturedBytesPerStream`, the same bound a process
+  has on each of its streams.
 
 ## Ownership and replacement snapshots
 
