@@ -1729,7 +1729,7 @@ public sealed class RegressionTests : IDisposable
             : "#!/bin/sh\ncase \"$*\" in\n  *'#{window_index}'*) echo not-a-number ;;\n  *) exec \"$REAL_TMUX\" \"$@\" ;;\nesac\n", token);
         File.SetUnixFileMode(wrapper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         string binary = Context(TextWriter.Null).Executable(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
-        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["LIBTMUX_TMUX"] = wrapper, ["REAL_TMUX"] = binary };
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["LIBTMUX_TMUX"] = wrapper, ["REAL_TMUX"] = binary, ["LIBTMUX_CONTROL_TRANSPORT"] = "0" };
         Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = binary, SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
@@ -1845,6 +1845,7 @@ public sealed class RegressionTests : IDisposable
             ["LIBTMUX_TMUX"] = wrapper,
             ["REAL_TMUX"] = binary,
             ["TRACE"] = trace,
+            ["LIBTMUX_CONTROL_TRANSPORT"] = "0", // the wrapper records argv, which only a process has
         };
         Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = binary, SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
