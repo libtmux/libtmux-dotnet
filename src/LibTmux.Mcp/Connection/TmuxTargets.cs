@@ -437,7 +437,8 @@ internal static class TmuxTargets
     /// tmux does not refuse a start directory it cannot enter. It tries the
     /// requested path, then HOME, then <c>/</c>, and reports success either
     /// way, so an unqualified "created" leaves every command the caller runs
-    /// afterwards executing somewhere they never chose.
+    /// afterwards executing somewhere they never chose. The answer follows
+    /// that rule rather than a reading of the new pane.
     /// </remarks>
     internal static async Task<string> StartDirectoryNoteAsync(
         Pane? pane,
@@ -449,41 +450,58 @@ internal static class TmuxTargets
             return string.Empty;
         }
 
-        // Normalised, so a request that only spells the same directory
-        // differently — a trailing slash, a . or a .. segment — is recognised
-        // as honoured rather than reported as a fallback.
-        string asked = Path.TrimEndingDirectorySeparator(Path.GetFullPath(requested));
-
-        // The request reaching here has been literalized for tmux, so a '#' in
-        // the path arrives doubled and never equals what tmux reports. Both
-        // forms are compared rather than only the undoubled one, so a
-        // directory genuinely named with '##' is not reported as a fallback.
-        string literal = Path.TrimEndingDirectorySeparator(
+        // What tmux sees after it has expanded the request as a format. The
+        // request reaching here has been literalized, so a '#' in the path
+        // arrives doubled and expands to the one it stands for.
+        string asked = Path.TrimEndingDirectorySeparator(
             Path.GetFullPath(requested.Replace("##", "#", StringComparison.Ordinal)));
-        // pane_current_path, deliberately, even though it can be read part way
-        // through a respawn's chdir. pane_start_path looks like the
-        // race-free answer and is not an answer at all: it reports what tmux
-        // was ASKED for, so a start directory tmux ignored still reads back as
-        // the one requested and the fallback this note exists to disclose
-        // disappears. Measured — a spawn into /definitely/does/not/exist
-        // reports that path as its start and the inherited directory
-        // as its current.
-        string? actual = await DisplayAsync(pane, "#{pane_current_path}", cancellationToken)
+        if (PaneInputEndpoint.CanEnter(asked))
+        {
+            return string.Empty;
+        }
+
+        // The rule tmux applies in the new process: the directory asked for,
+        // then HOME, then /. It is decided here rather than read back from the
+        // pane because nothing says when the process has changed directory.
+        // pane_current_path is empty until the process owns its terminal, and
+        // before tmux 3.7 it is the server's own directory until the process
+        // has moved, so a read right after the spawn names neither place.
+        // pane_start_path is no better: it reports what tmux was asked for.
+        if (SkipsHomeFallback(pane.Server.DaemonVersion ?? pane.Server.Version))
+        {
+            return " It started in the tmux server's working directory; tmux 3.3 and 3.3a "
+                + "do not fall back to HOME, and tmux does not refuse a start directory it "
+                + "cannot use.";
+        }
+
+        string landed = await ServerHomeAsync(pane.Server, cancellationToken).ConfigureAwait(false) is { } home
+            && PaneInputEndpoint.CanEnter(home)
+                ? Path.TrimEndingDirectorySeparator(home)
+                : "/";
+        return $" It started in {landed}; tmux does not refuse a start directory "
+            + "it cannot use.";
+    }
+
+    // tmux 3.3 and 3.3a test HOME with || where && was meant, so a set HOME is
+    // never entered and the pane keeps the server's directory. Fixed in 3.4 by
+    // tmux 273577ba.
+    private static bool SkipsHomeFallback(TmuxVersion? version) =>
+        version is { } known
+        && known.IsAtLeast(TmuxVersion.Parse("3.3"))
+        && !known.IsAtLeast(TmuxVersion.Parse("3.4"));
+
+    // The HOME tmux falls back to is the server's environment, which its global
+    // environment holds.
+    private static async Task<string?> ServerHomeAsync(Server server, CancellationToken cancellationToken)
+    {
+        TmuxCommandResult result = await server
+            .ExecuteCommandAsync(["show-environment", "-g", "HOME"], cancellationToken)
             .ConfigureAwait(false);
-        // Stated as where it landed rather than as a rejection: the two paths
-        // come from different sides of a symlink often enough that claiming
-        // tmux refused the request would sometimes be the wrong story.
-        string landed = actual is null
-            ? string.Empty
-            : Path.TrimEndingDirectorySeparator(actual);
-        return actual is null
-            || string.Equals(landed, asked, StringComparison.Ordinal)
-            || string.Equals(landed, literal, StringComparison.Ordinal)
-            || PaneInputEndpoint.SameDirectory(landed, asked)
-            || PaneInputEndpoint.SameDirectory(landed, literal)
-            ? string.Empty
-            : $" It started in {actual}; tmux does not refuse a start directory "
-                + "it cannot use.";
+        const string Prefix = "HOME=";
+        return result.ExitCode == 0
+            && result.StandardOutputLines.FirstOrDefault(static line => line.StartsWith(Prefix, StringComparison.Ordinal)) is { } line
+                ? line[Prefix.Length..]
+                : null;
     }
 
     // An empty string is a caller's bug, not an omission, and every resolver
