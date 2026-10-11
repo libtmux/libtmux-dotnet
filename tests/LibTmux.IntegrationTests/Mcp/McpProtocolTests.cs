@@ -652,6 +652,7 @@ public sealed class McpProtocolTests
             new Dictionary<string, object?> { ["paneId"] = paneId },
             cancellationToken: token);
         string secondPaneId = Structured(split).GetProperty("paneId").GetString()!;
+        await harness.WaitForShellsAsync(token, paneId, secondPaneId);
         _ = await harness.Client.CallToolAsync(
             "set_synchronize_panes",
             new Dictionary<string, object?>
@@ -1264,6 +1265,28 @@ public sealed class McpProtocolTests
 
         internal McpClient Client { get; }
 
+        // A pane is ready for input once its shell has drawn its first prompt.
+        internal async Task WaitForShellsAsync(CancellationToken cancellationToken, params string[] paneIds)
+        {
+            Server tmux = await Server.ConnectAsync(
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                    SocketName = _socketName,
+                    ConfigurationFile = "/dev/null",
+                },
+                cancellationToken);
+            foreach (string id in paneIds)
+            {
+                Pane pane = await tmux.GetPaneAsync(PaneId.Parse(id), cancellationToken);
+                PaneWaitResult prompt = await pane.WaitUntilAsync(
+                    rows => rows.Any(row => row.Trim().Length > 0),
+                    TimeSpan.FromSeconds(10),
+                    cancellationToken);
+                Assert.True(prompt.Found, $"{id} never drew a prompt");
+            }
+        }
+
         internal static async Task<ProtocolHarness> StartAsync(CancellationToken cancellationToken)
         {
             ServiceCollection services = new();
@@ -1277,6 +1300,7 @@ public sealed class McpProtocolTests
                     TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
                     SocketName = socketName,
                     ConfigurationFile = "/dev/null",
+                    ChildEnvironment = McpToolFixture.PlainShellEnvironment,
                 },
                 callerPaneId: null,
                 CapabilitySelection.All,
