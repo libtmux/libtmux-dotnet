@@ -59,10 +59,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         // tmux marks one pane active in every window, so the first window's
         // pane still reads as active, and lists first, once a later one shows.
@@ -86,10 +83,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string first = scope.Pane.Id.ToString();
         ActionResult second = await mcp.Capabilities.SplitWindowAsync(
             first, cancellationToken: token);
@@ -153,10 +147,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         int secondIndex = scope.Window.Index == 7 ? 8 : 7;
         await scope.Window.LinkAsync(
             new LinkWindowRequest(scope.Session.Id.ToString())
@@ -184,10 +175,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
         string suffix = Guid.NewGuid().ToString("N");
         string debugOut = $"debug-out-{suffix}";
@@ -288,10 +276,7 @@ public sealed class TmuxToolsTests
             }
 
             await using McpToolFixture mcp = McpToolFixture.Create();
-            TmuxTestFactory factory = new();
-            await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-                mcp.Options,
-                token);
+            await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
             string pane = scope.Pane.Id.ToString();
             await scope.Pane.RespawnAsync(
                 new RespawnRequest
@@ -340,10 +325,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
         await scope.Pane.RespawnAsync(
             new RespawnRequest { Command = "exec /bin/bash --noprofile --norc", KillExistingProcess = true },
@@ -377,10 +359,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         RunResult timedOut = await mcp.Capabilities.RunShellCommandAsync(
@@ -426,10 +405,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string session = scope.Session.Id.ToString();
         ActionResult extra = await mcp.Capabilities.CreateWindowAsync(
             session, cancellationToken: token);
@@ -533,10 +509,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         Assert.False(mcp.Activity.IsStreaming);
         IAsyncDisposable lease = await mcp.Activity.WatchAsync(scope.Pane, cancellationToken: token);
@@ -668,10 +641,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         // set -g is where nearly all tmux configuration lives, and a read
         // without inherited values answers nothing for it at any narrower
@@ -698,10 +668,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         await mcp.Capabilities.SetOptionAsync(
             "status-position", "top", OptionScope.Session, cancellationToken: token);
@@ -755,10 +722,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         McpException missing = await Assert.ThrowsAsync<McpException>(
             () => mcp.Read.CapturePaneAsync("%999", cancellationToken: token));
@@ -778,10 +742,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         RunResult ok = await mcp.Write.RunAsync(
@@ -808,10 +769,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string first = scope.Pane.Id.ToString();
         ActionResult split = await mcp.Capabilities.SplitWindowAsync(
             first, cancellationToken: token);
@@ -868,10 +826,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         // A shell echoes what is pasted into it, and a multi-line command
@@ -908,6 +863,7 @@ public sealed class TmuxToolsTests
         // awk in front and refuses the pane before the payload is typed.
         ActionResult held = await mcp.Capabilities.SplitWindowAsync(
             pane, cancellationToken: token);
+        await mcp.WaitForShellsAsync(token, held.PaneId!);
         await mcp.Write.SendKeysAsync(
             "sh -c \"awk '{print \\$NF}'; :\"", held.PaneId, enter: true, cancellationToken: token);
         RunResult never = await mcp.Write.RunAsync(
@@ -921,10 +877,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         // A pane's own shell decides this: CI runs bash, whose default prompt
@@ -985,10 +938,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         await mcp.Write.RunAsync("echo first", pane, timeoutSeconds: 20, cancellationToken: token);
@@ -1033,10 +983,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         PaneRunResult run = await scope.Pane.RunAsync(
             "printf 'public-visible\\n'",
@@ -1058,10 +1005,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         // A prompt this wide leaves the run's own bookkeeping wrapping across
@@ -1092,10 +1036,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         // A first read establishes a position and spends nothing.
@@ -1124,10 +1065,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         await Assert.ThrowsAsync<McpException>(
             () => mcp.Read.TailPaneAsync(
@@ -1141,10 +1079,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string channel = $"qa-ready-{Guid.NewGuid():N}";
         Window output = await scope.Session.CreateWindowAsync(
             new NewWindowRequest
@@ -1174,10 +1109,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         // A readline redraw needs a real line editor, which the scope's
         // default shell is not guaranteed to have.
@@ -1245,10 +1177,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         WaitResult timedOut = await mcp.Read.WaitForTextAsync(
             scope.Pane.Id.ToString(),
@@ -1271,10 +1200,7 @@ public sealed class TmuxToolsTests
         {
             WaitCeiling = TimeSpan.FromSeconds(2),
         });
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         WaitResult capped = await mcp.Read.WaitForTextAsync(
             scope.Pane.Id.ToString(),
@@ -1290,10 +1216,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         await mcp.Write.RunAsync(
@@ -1313,10 +1236,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         McpException bad = await Assert.ThrowsAsync<McpException>(
             () => mcp.Read.SearchPanesAsync("([unclosed", cancellationToken: token));
@@ -1328,10 +1248,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         ActionResult split = await mcp.Write.SplitPaneAsync(
             scope.Pane.Id.ToString(),
@@ -1354,10 +1271,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         ActionResult split = await mcp.Write.SplitPaneAsync(
             scope.Pane.Id.ToString(),
@@ -1376,10 +1290,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         PaneSnapshot snapshot = await mcp.Read.SnapshotPaneAsync(
             scope.Pane.Id.ToString(),
@@ -1395,10 +1306,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         await mcp.Write.RunAsync("seq 1 300", pane, timeoutSeconds: 30, cancellationToken: token);
@@ -1423,10 +1331,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         Server server = await mcp.Connection.GetAsync(cancellationToken: token);
         await server.Environment.SetAsync("LIBTMUX_PROBE_PLAIN", "plain-value", cancellationToken: token);
@@ -1509,10 +1414,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         Assert.False(Assert.Single(await mcp.Read.ListSessionsAsync(cancellationToken: token)).Attached);
@@ -1591,10 +1493,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         Server server = await mcp.Connection.GetAsync(cancellationToken: token);
@@ -1643,10 +1542,7 @@ public sealed class TmuxToolsTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create(
             registry: CapabilityRegistry.Select(CapabilitySelection.WithoutTeardown));
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         // move-window -k kills whatever holds the destination index, so the
         // default toolset could destroy a window without kill_window.
@@ -1671,10 +1567,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         // tmux does not refuse a directory it cannot enter; it falls back to
         // HOME and reports success, so the caller has to be told.
@@ -1698,10 +1591,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         Server server = await mcp.Connection.GetAsync(cancellationToken: token);
         string home = (await server.ExecuteCommandAsync(["show-environment", "-g", "HOME"], token))
             .StandardOutputLines.Single()["HOME=".Length..];
@@ -1740,14 +1630,67 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task The_test_pane_is_handed_over_only_once_its_shell_has_started()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        // A control: an ordinary shell is the pane's command when it is handed over.
+        await using (McpToolFixture plain = McpToolFixture.Create())
+        {
+            await using TemporaryHierarchyScope ready = await plain.CreateReadyHierarchyAsync(token);
+            Assert.Equal("sh", await TmuxTargets.DisplayAsync(ready.Pane, "#{pane_current_command}", token));
+        }
+
+        // A shell whose startup runs another command until it is released, as a
+        // login profile runs locale: the pane reads as that command until then.
+        string directory = Directory.CreateTempSubdirectory("ltm-park-").FullName;
+        string shell = Path.Combine(directory, "parked-shell");
+        string release = Path.Combine(directory, "release");
+        try
+        {
+            using (System.Diagnostics.Process made = System.Diagnostics.Process.Start("mkfifo", release)!)
+            {
+                await made.WaitForExitAsync(token);
+            }
+
+            await TestExecutable.WriteAsync(
+                shell,
+                "#!/bin/sh\ncat < \"$LT_RELEASE\" > /dev/null\nexec /bin/sh \"$@\"\n",
+                token);
+            await using McpToolFixture slow = McpToolFixture.Create(childEnvironment: new Dictionary<string, string?>
+            {
+                ["SHELL"] = shell,
+                ["LT_RELEASE"] = release,
+                ["ENV"] = null,
+                ["BASH_ENV"] = null,
+            });
+
+            // The pane is handed over only after the wait found it blank; that
+            // is when the startup command is let go.
+            int waited = 0;
+            slow.WhenPaneHasNotDrawn = () =>
+            {
+                if (Interlocked.Exchange(ref waited, 1) == 0)
+                {
+                    File.WriteAllText(release, "go\n");
+                }
+            };
+            await using TemporaryHierarchyScope scope = await slow.CreateReadyHierarchyAsync(token);
+            Assert.Equal(1, Volatile.Read(ref waited));
+            Assert.Equal("sh", await TmuxTargets.DisplayAsync(scope.Pane, "#{pane_current_command}", token));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [UnixFact]
     public async Task Every_declared_format_literalization_is_proven_to_bite()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         Server server = await mcp.Connection.GetAsync(cancellationToken: token);
 
         const string Injection = "INJ#{session_name}END";
@@ -1873,10 +1816,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         await mcp.Write.RunAsync(
@@ -1937,10 +1877,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
         ReadToolCall Listing() => new("list_sessions", null);
         Task<ReadToolBatchResult> RunAsync(int count) =>
@@ -1979,10 +1916,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         static string Filler(int bytes) => new('a', bytes);
@@ -2032,10 +1966,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();
 
         // Driven off the enums themselves, so a value added later is swept
@@ -2089,10 +2020,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string paneId = scope.Pane.Id.ToString();
         string marker = $"modal-input-{Guid.NewGuid():N}";
 
@@ -2150,13 +2078,11 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string target = scope.Pane.Id.ToString();
         ActionResult split = await mcp.Capabilities.SplitWindowAsync(target, cancellationToken: token);
         string sibling = split.PaneId!;
+        await mcp.WaitForShellsAsync(token, sibling);
         Server server = await mcp.Connection.GetAsync(cancellationToken: token);
         Pane modal = await TmuxTargets.PaneAsync(server, sibling, token);
         string marker = $"synchronized-modal-{Guid.NewGuid():N}";
@@ -2202,10 +2128,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string source = scope.Pane.Id.ToString();
         ActionResult split = await mcp.Capabilities.SplitWindowAsync(source, cancellationToken: token);
         string peerId = split.PaneId!;
@@ -2214,6 +2137,7 @@ public sealed class TmuxToolsTests
         string marker = $"effective-on-modal-{Guid.NewGuid():N}";
         string deliveredMarker = $"effective-on-delivered-{Guid.NewGuid():N}";
 
+        await WaitForShellsAsync(mcp, token, source, peerId);
         _ = await scope.Window.Options.SetAsync(
             new SetOptionRequest("synchronize-panes", "off"), token);
         await SetPaneSynchronizationAsync(scope.Pane, "on", token);
@@ -2273,10 +2197,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string source = scope.Pane.Id.ToString();
         ActionResult split = await mcp.Capabilities.SplitWindowAsync(source, cancellationToken: token);
         string peerId = split.PaneId!;
@@ -2301,13 +2222,11 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string target = scope.Pane.Id.ToString();
         ActionResult split = await mcp.Capabilities.SplitWindowAsync(target, cancellationToken: token);
         string sibling = split.PaneId!;
+        await mcp.WaitForShellsAsync(token, sibling);
         Server server = await mcp.Connection.GetAsync(cancellationToken: token);
         Pane modal = await TmuxTargets.PaneAsync(server, sibling, token);
         string marker = $"target-only-paste-{Guid.NewGuid():N}";
@@ -2343,10 +2262,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
+        await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string paneId = scope.Pane.Id.ToString();
         Server server = await mcp.Connection.GetAsync(cancellationToken: token);
         Pane preflight = await TmuxTargets.PaneAsync(server, paneId, token);
@@ -2421,22 +2337,11 @@ public sealed class TmuxToolsTests
 
     // The input preflight reads each pane's running command twice and refuses
     // if it changed, as it does while a shell is still starting.
-    private static async Task WaitForShellsAsync(
+    private static Task WaitForShellsAsync(
         McpToolFixture mcp,
         CancellationToken cancellationToken,
-        params string[] paneIds)
-    {
-        Server server = await mcp.Connection.GetAsync(cancellationToken: cancellationToken);
-        foreach (string id in paneIds)
-        {
-            Pane pane = await TmuxTargets.PaneAsync(server, id, cancellationToken);
-            PaneWaitResult prompt = await pane.WaitUntilAsync(
-                rows => rows.Any(row => row.Trim().Length > 0),
-                TimeSpan.FromSeconds(10),
-                cancellationToken);
-            Assert.True(prompt.Found, $"{id} never drew a prompt");
-        }
-    }
+        params string[] paneIds) =>
+        mcp.WaitForShellsAsync(cancellationToken, paneIds);
 
     private static async Task AssertMarkerAbsentAsync(
         McpToolFixture mcp,
