@@ -134,6 +134,11 @@ internal static class TmuxFilterRenderer
             nameof(filter));
     }
 
+    // tmux counts the library's own control client in session_attached, so the
+    // count says a session is attached when only that client is. It can rule a
+    // session out, never in.
+    private static Bounds OwnClientCounts(string count) => new(count, False);
+
     private readonly record struct Bounds(string Upper, string Lower)
     {
         internal static Bounds Unknown { get; } = new(True, False);
@@ -148,6 +153,9 @@ internal static class TmuxFilterRenderer
         AndNode and => Fold(and.Operands, And, True),
         OrNode or => Fold(or.Operands, Or, False),
         NotNode not => Negate(Render(not.Operand)),
+        FieldNode { WireName: "session_attached" } field => Format(field) is { } count
+            ? OwnClientCounts(count)
+            : Bounds.Unknown,
         FieldNode field => Format(field) is { } token ? Bounds.Exact(Truthy(field, token)) : Bounds.Unknown,
         ComparisonNode comparison => Comparison(comparison),
         StringNode text => Text(text),
@@ -260,6 +268,9 @@ internal static class TmuxFilterRenderer
         bool equal = comparison.Operator == QueryComparison.Equal;
         switch (constant.Value)
         {
+            case BooleanConstant flag when field.WireName == "session_attached"
+                && (equal || comparison.Operator == QueryComparison.NotEqual):
+                return flag.Value == equal ? OwnClientCounts(token) : Negate(OwnClientCounts(token));
             case BooleanConstant flag when equal || comparison.Operator == QueryComparison.NotEqual:
                 string truthy = Truthy(field, token);
                 return Bounds.Exact(flag.Value == equal ? truthy : Not(truthy));
