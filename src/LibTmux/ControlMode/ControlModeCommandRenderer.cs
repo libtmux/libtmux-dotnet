@@ -8,9 +8,14 @@ internal static class ControlModeCommandRenderer
     internal static string Render(TmuxCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
+        return Render(command.ToDispatchCommands());
+    }
+
+    internal static string Render(IEnumerable<IReadOnlyList<string>> commands)
+    {
         var rendered = new StringBuilder();
         bool following = false;
-        foreach (IReadOnlyList<string> arguments in command.ToDispatchCommands())
+        foreach (IReadOnlyList<string> arguments in commands)
         {
             if (following)
             {

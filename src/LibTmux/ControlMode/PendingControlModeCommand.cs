@@ -10,6 +10,7 @@ internal sealed class PendingControlModeCommand(TmuxCommand command, string sent
     private int _replyBlocks;
     private int _replyBytes;
     private int _replyLines;
+    private string? _overflow;
 
     internal TmuxCommand Command { get; } = command;
 
@@ -45,8 +46,7 @@ internal sealed class PendingControlModeCommand(TmuxCommand command, string sent
     {
         lock (_gate)
         {
-            ReserveReply(lines.Count, blockBytes, limits);
-            if (_abandoned)
+            if (!ReserveReply(lines.Count, blockBytes, limits) || _abandoned)
             {
                 return;
             }
@@ -56,10 +56,26 @@ internal sealed class PendingControlModeCommand(TmuxCommand command, string sent
         }
     }
 
+    /// <summary>Records that a block of the reply was dropped for its size.</summary>
+    /// <param name="reason">Which limit it passed.</param>
+    internal void Overflow(string reason)
+    {
+        lock (_gate)
+        {
+            _overflow ??= reason;
+        }
+    }
+
     internal void Complete()
     {
         lock (_gate)
         {
+            if (_overflow is not null && !_abandoned)
+            {
+                Completion.TrySetException(new ControlModeReplyLimitException(_overflow));
+                return;
+            }
+
             if (!_failed)
             {
                 Completion.TrySetResult([.. OutputLines]);
@@ -75,33 +91,58 @@ internal sealed class PendingControlModeCommand(TmuxCommand command, string sent
         }
     }
 
-    private void ReserveReply(
+    // Returns false when the reply passed a limit and the session drops it
+    // rather than ending; the command then fails with the reason.
+    private bool ReserveReply(
         int lineCount,
         int bytes,
         ControlModeLimits limits)
     {
+        string? exceeded = null;
+        if (_overflow is not null)
+        {
+            return false;
+        }
+
         if (++_replyBlocks > limits.MaxReplyBlocks)
         {
-            throw new TmuxProtocolException(
-                $"A control-mode reply exceeded its {limits.MaxReplyBlocks}-block limit.",
-                TmuxDispatchState.Unknown);
+            exceeded = $"A control-mode reply exceeded its {limits.MaxReplyBlocks}-block limit.";
+        }
+        else if (lineCount > limits.MaxReplyLines - _replyLines)
+        {
+            exceeded = $"A control-mode reply exceeded its {limits.MaxReplyLines}-line limit.";
+        }
+        else if (bytes > limits.MaxReplyBytes - _replyBytes)
+        {
+            exceeded = $"A control-mode reply exceeded its {limits.MaxReplyBytes}-byte limit.";
         }
 
-        if (lineCount > limits.MaxReplyLines - _replyLines)
+        if (exceeded is not null)
         {
-            throw new TmuxProtocolException(
-                $"A control-mode reply exceeded its {limits.MaxReplyLines}-line limit.",
-                TmuxDispatchState.Unknown);
-        }
+            if (!limits.FailOnlyOversizedCommand)
+            {
+                throw new TmuxProtocolException(exceeded, TmuxDispatchState.Unknown);
+            }
 
-        if (bytes > limits.MaxReplyBytes - _replyBytes)
-        {
-            throw new TmuxProtocolException(
-                $"A control-mode reply exceeded its {limits.MaxReplyBytes}-byte limit.",
-                TmuxDispatchState.Unknown);
+            _overflow = exceeded;
+            return false;
         }
 
         _replyLines += lineCount;
         _replyBytes += bytes;
+        return true;
     }
+}
+
+/// <summary>A command's reply passed a limit; the session dropped it and went on.</summary>
+internal sealed class ControlModeReplyLimitException(string reason) : Exception(reason);
+
+/// <summary>Reports whether a request sent through <c>SendRawAsync</c> reached the point of being written.</summary>
+internal sealed class ControlModeSendProbe
+{
+    internal PendingControlModeCommand? Pending { get; set; }
+
+    /// <summary>Gets whether tmux may have received the request.</summary>
+    /// <remarks>A request that never reached the write cannot have run, so it is safe to send again.</remarks>
+    internal bool MayHaveRun => Pending is { Enqueued.IsCompleted: true };
 }

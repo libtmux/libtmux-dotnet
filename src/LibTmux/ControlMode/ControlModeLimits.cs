@@ -17,7 +17,8 @@ internal sealed class ControlModeLimits
         int maxReplyBlocks = 4096,
         int maxReplyLines = 16384,
         int maxReplyBytes = DefaultMaxReplyBytes,
-        int maxRequestBytes = DefaultMaxRequestBytes)
+        int maxRequestBytes = DefaultMaxRequestBytes,
+        bool failOnlyOversizedCommand = false)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxLineBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(standardErrorTailBytes);
@@ -37,6 +38,7 @@ internal sealed class ControlModeLimits
         MaxReplyLines = maxReplyLines;
         MaxReplyBytes = maxReplyBytes;
         MaxRequestBytes = maxRequestBytes;
+        FailOnlyOversizedCommand = failOnlyOversizedCommand;
     }
 
     internal int MaxLineBytes { get; }
@@ -56,4 +58,13 @@ internal sealed class ControlModeLimits
     internal int MaxReplyBytes { get; }
 
     internal int MaxRequestBytes { get; }
+
+    /// <summary>Gets whether a reply over a limit fails its command and nothing else.</summary>
+    /// <remarks>
+    /// A session a caller streams from ends when tmux sends more than its
+    /// limits, since it cannot tell what was lost. A session that only carries
+    /// commands can read to the end of the reply, drop it, and answer that one
+    /// command with the reason.
+    /// </remarks>
+    internal bool FailOnlyOversizedCommand { get; }
 }
