@@ -16,6 +16,34 @@ version.
 
 ### Changed
 
+### Removed
+
+### Development
+
+## [0.0.0-alpha.21] — 2026-10-11
+
+One-shot commands travel over one shared control client per server from tmux
+3.7, so a pane run or workspace build no longer starts a tmux process per
+command. The macOS lane passes without raising any timeout.
+
+### Added
+
+### Fixed
+
+- A `ServerMirror` on tmux below 3.7 no longer stops answering after it
+  attaches: it sets `no-output` and `ignore-size` on `attach-session` instead
+  of with `refresh-client` afterwards, which left queued output undrained on
+  those versions. (#61, #59)
+- The MCP spawn tools say where a pane started when tmux could not use the
+  requested directory by tmux's own rule, instead of an early read of
+  `pane_current_path` that often came back empty and missed the fallback. On
+  tmux 3.3 and 3.3a, which never fall back to HOME, the note names the
+  server's working directory. (#59)
+- A pane wait or run whose server exits while its watcher attaches reports
+  the pane gone, not an attach failure. (#59)
+
+### Changed
+
 - One-shot commands now travel over one control client the library keeps on
   each server, shared by every handle on the socket, instead of starting a tmux
   process per command. A pane run starts 3 tmux processes where it started 16,
@@ -29,11 +57,15 @@ version.
   each command. The client is used from tmux 3.7, judged by the running
   server's version; on older servers every command runs on a process as before,
   because before 3.7 attaching a control client can crash the server
-  ([tmux e5a2a25fa](https://github.com/tmux/tmux/commit/e5a2a25fa)). See [one-shot](docs/modes/one-shot.md#how-a-call-reaches-tmux).
+  ([tmux e5a2a25fa](https://github.com/tmux/tmux/commit/e5a2a25fafb8ee107c230d8acad694f6b635f8bb)). See [one-shot](docs/modes/one-shot.md#how-a-call-reaches-tmux). (#59)
 
 ### Removed
 
 ### Development
+
+- The macOS lane runs on pull requests and gates them. A `macos-stress`
+  workflow repeats the real-tmux suites and reports each test's failure count,
+  and `.github/MACOS_CI.md` lists what a test needs to pass on macOS. (#59)
 
 ## [0.0.0-alpha.20] — 2026-10-04
 
@@ -1593,7 +1625,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.20...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.21...HEAD
+[0.0.0-alpha.21]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.21
 [0.0.0-alpha.20]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.20
 [0.0.0-alpha.19]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.19
 [0.0.0-alpha.18]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.18
