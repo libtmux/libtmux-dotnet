@@ -1698,10 +1698,14 @@ public sealed class TmuxToolsTests
         string literalDirectory = Path.Combine(root, Injection);
         Directory.CreateDirectory(literalDirectory);
 
-        async Task<string?> ReadAsync(string target, string format) =>
-            (await server.ExecuteCommandAsync(
+        // A value tmux has not set yet prints as no line at all.
+        async Task<string?> ReadAsync(string target, string format)
+        {
+            TmuxCommandResult read = await server.ExecuteCommandAsync(
                 ["display-message", "-p", "-t", target, format],
-                token)).StandardOutputLines[0];
+                token);
+            return read.StandardOutputLines.Count > 0 ? read.StandardOutputLines[0] : null;
+        }
 
         // A pane that starts in a directory whose NAME contains a format is the
         // decisive proof: tmux can only chdir there if the request was never
