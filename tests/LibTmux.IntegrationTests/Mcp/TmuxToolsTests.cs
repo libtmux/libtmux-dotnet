@@ -1694,6 +1694,52 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task A_start_directory_is_judged_by_the_rule_tmux_applies_and_not_by_where_the_pane_is_yet()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        string home = (await server.ExecuteCommandAsync(["show-environment", "-g", "HOME"], token))
+            .StandardOutputLines.Single()["HOME=".Length..];
+        DirectoryInfo enterable = Directory.CreateTempSubdirectory("ltm-start-");
+        DirectoryInfo sealedOff = Directory.CreateTempSubdirectory("ltm-sealed-");
+        try
+        {
+            File.SetUnixFileMode(sealedOff.FullName, UnixFileMode.None);
+
+            // The pane is somewhere else, as a pane read part way through its
+            // start is; a directory it could enter is still honoured.
+            Assert.Equal(string.Empty, await TmuxTargets.StartDirectoryNoteAsync(scope.Pane, enterable.FullName, token));
+
+            // One it cannot enter falls back to HOME, however the pane reads,
+            // except on tmux 3.3 and 3.3a, which keep the server's directory.
+            TmuxVersion version = server.Version ?? throw new InvalidOperationException("tmux version unknown");
+            string fallback = version.IsAtLeast(TmuxVersion.Parse("3.3")) && !version.IsAtLeast(TmuxVersion.Parse("3.4"))
+                ? "It started in the tmux server's working directory;"
+                : $"It started in {home};";
+            string missing = await TmuxTargets.StartDirectoryNoteAsync(scope.Pane, "/nonexistent-libtmux-probe", token);
+            Assert.Contains(fallback, missing, StringComparison.Ordinal);
+            if (Environment.UserName != "root")
+            {
+                Assert.Contains(
+                    fallback,
+                    await TmuxTargets.StartDirectoryNoteAsync(scope.Pane, sealedOff.FullName, token),
+                    StringComparison.Ordinal);
+            }
+        }
+        finally
+        {
+            File.SetUnixFileMode(sealedOff.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            enterable.Delete();
+            sealedOff.Delete();
+        }
+    }
+
+    [UnixFact]
     public async Task Every_declared_format_literalization_is_proven_to_bite()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
