@@ -15,19 +15,29 @@ public sealed partial class Server
     /// <returns>A session that reports what tmux does until it is disposed.</returns>
     /// <remarks>
     /// This is the streaming counterpart to the one-shot methods, not a mode
-    /// they can be switched into: the rest of this type starts a client, runs
-    /// one command, and lets it exit, which is why it never sees anything it
-    /// did not ask for. Hold the returned session and read
-    /// <see cref="IControlModeSession.Events" /> to see the rest.
+    /// they can be switched into. The one-shot methods send their commands over
+    /// a control client of their own, which the library keeps on each server
+    /// and leaves out of every listing; it reports nothing and is not the
+    /// client returned here. Hold the returned session and read
+    /// <see cref="IControlModeSession.Events" /> to see what tmux does.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The handle has no connection.</exception>
     /// <exception cref="StaleServerGenerationException">
     /// The endpoint changed servers while the control client was attaching.
     /// </exception>
     [UnsupportedOSPlatform("windows")]
-    public async Task<IControlModeSession> EnterControlModeAsync(
+    public Task<IControlModeSession> EnterControlModeAsync(
         string? target = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        EnterControlModeAsync(target, attachFlags: null, cancellationToken);
+
+    // Client flags given here are set by the attach itself, before tmux can
+    // queue any pane output for the client.
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<IControlModeSession> EnterControlModeAsync(
+        string? target,
+        string? attachFlags,
+        CancellationToken cancellationToken)
     {
         TmuxConnection connection = _connection
             ?? throw new InvalidOperationException("The server handle has no connection.");
@@ -53,7 +63,8 @@ public sealed partial class Server
                 startInfo,
                 connection.Options.ChildEnvironment),
             connection.Options.ControlModeEventBufferCapacity,
-            connection.Options.ControlModeEventBufferMaxBytes);
+            connection.Options.ControlModeEventBufferMaxBytes,
+            attachFlags);
 
         // Attaching is asynchronous, and a caller who sends a command before
         // tmux has answered its own attach would be handed that answer.

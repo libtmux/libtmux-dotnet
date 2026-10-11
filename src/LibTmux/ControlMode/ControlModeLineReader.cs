@@ -7,6 +7,7 @@ internal sealed class ControlModeLineReader
 {
     private readonly byte[] _buffer;
     private readonly int _maxLineBytes;
+    private readonly bool _resynchronize;
     private readonly Stream _stream;
     private int _end;
     private int _start;
@@ -14,18 +15,21 @@ internal sealed class ControlModeLineReader
     internal ControlModeLineReader(
         Stream stream,
         int maxLineBytes,
-        int bufferSize = 4096)
+        int bufferSize = 4096,
+        bool resynchronize = false)
     {
         _stream = stream ?? throw new ArgumentNullException(nameof(stream));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxLineBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bufferSize);
         _maxLineBytes = maxLineBytes;
+        _resynchronize = resynchronize;
         _buffer = new byte[Math.Min(bufferSize, maxLineBytes)];
     }
 
     internal async Task<string?> ReadLineAsync(CancellationToken cancellationToken = default)
     {
         ArrayBufferWriter<byte>? line = null;
+        bool oversized = false;
         while (true)
         {
             int available = _end - _start;
@@ -33,7 +37,14 @@ internal sealed class ControlModeLineReader
             if (newline >= 0)
             {
                 int finalBytes = newline - _start;
-                EnsureWithinLimit((line?.WrittenCount ?? 0) + finalBytes);
+                if (oversized || (line?.WrittenCount ?? 0) + finalBytes > _maxLineBytes)
+                {
+                    // The rest of the line is read and dropped, so the next
+                    // line starts where the stream says it does.
+                    _start = newline + 1;
+                    throw Oversized();
+                }
+
                 string result = Decode(line, _buffer, _start, finalBytes);
                 _start = newline + 1;
                 return result;
@@ -42,8 +53,19 @@ internal sealed class ControlModeLineReader
             if (available > 0)
             {
                 line ??= new ArrayBufferWriter<byte>(Math.Min(_maxLineBytes, _buffer.Length));
-                EnsureWithinLimit(line.WrittenCount + available);
-                Append(line, _buffer, _start, available);
+                if (oversized || line.WrittenCount + available > _maxLineBytes)
+                {
+                    oversized = true;
+                    if (!_resynchronize)
+                    {
+                        throw Oversized();
+                    }
+                }
+                else
+                {
+                    Append(line, _buffer, _start, available);
+                }
+
                 _start = _end;
             }
 
@@ -52,6 +74,11 @@ internal sealed class ControlModeLineReader
             if (_end != 0)
             {
                 continue;
+            }
+
+            if (oversized)
+            {
+                throw Oversized();
             }
 
             return line is null ? null : Decode(line, [], 0, 0);
@@ -87,13 +114,13 @@ internal sealed class ControlModeLineReader
     private static string Decode(ReadOnlySpan<byte> bytes) =>
         Utf8BackslashDecoder.ProjectValue(bytes);
 
-    private void EnsureWithinLimit(int bytes)
-    {
-        if (bytes > _maxLineBytes)
-        {
-            throw new TmuxProtocolException(
-                $"A tmux control-mode line exceeded {_maxLineBytes} bytes.",
-                TmuxDispatchState.Unknown);
-        }
-    }
+    private Exception Oversized() => _resynchronize
+        ? new ControlModeOversizedLineException(_maxLineBytes)
+        : new TmuxProtocolException(
+            $"A tmux control-mode line exceeded {_maxLineBytes} bytes.",
+            TmuxDispatchState.Unknown);
 }
+
+/// <summary>A line longer than the reader allows, read to its end and dropped.</summary>
+internal sealed class ControlModeOversizedLineException(int limit)
+    : Exception($"A tmux control-mode line exceeded {limit} bytes.");

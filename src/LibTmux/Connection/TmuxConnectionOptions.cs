@@ -53,7 +53,23 @@ public sealed record ServerConnectionOptions
     private readonly int? _controlModeEventBufferCapacity;
     private readonly int? _controlModeEventBufferMaxBytes;
 
+    /// <summary>Gets whether one-shot commands must each run on their own tmux process.</summary>
+    /// <remarks>
+    /// Internal, for tests that exercise what a process transport shows, such as
+    /// an executable standing in for tmux that reads each command's arguments.
+    /// </remarks>
+    internal bool ForceProcessTransport { get; init; }
+
     /// <summary>Gets the tmux executable path.</summary>
+    /// <remarks>
+    /// One-shot commands travel over one control client the library keeps on
+    /// each server, so this executable is started once for that client
+    /// (<c>-C attach-session</c>) and again only for the commands that stay on a
+    /// process, such as <c>wait-for</c>, <c>new-session</c> and the
+    /// <c>kill-*</c> commands. A wrapper or shim that reads each command's
+    /// arguments does not see the commands the client carries. A wrapper that
+    /// fails or alters the client's launch leaves every command on a process.
+    /// </remarks>
     /// <exception cref="ArgumentException">The path is empty or whitespace.</exception>
     public string TmuxBinaryPath
     {

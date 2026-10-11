@@ -6,10 +6,10 @@ namespace LibTmux;
 /// <summary>Commands tmux runs together, in one process.</summary>
 /// <remarks>
 /// <para>
-/// A one-shot call starts a tmux client, runs one command, and lets it exit,
-/// which is the right shape for one command and the wrong shape for fifty: the
-/// process start dominates. A chain hands tmux the whole sequence at once, so
-/// the cost is paid once no matter how many commands are in it.
+/// A one-shot call sends one command and waits for its answer. A chain hands
+/// tmux the whole sequence at once, so the commands run back to back in the
+/// order given, and a failure skips the ones after it, without another caller's
+/// command landing between them.
 /// </para>
 /// <para>
 /// Building a chain reaches nothing; only <see cref="ExecuteAsync" /> does.

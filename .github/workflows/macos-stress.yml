@@ -1,0 +1,183 @@
+# Measures how often each real-tmux test fails on a hosted macOS runner. The
+# suite is run `repeat` times in one job, because one green pass does not show a
+# test is stable, and the org shares a small pool of macOS runners, so a single
+# looping job costs less than a wide matrix. An
+# ubuntu-latest job runs the same loop as the control: a test that fails there
+# too is not a Darwin difference.
+name: macos-stress
+
+on:
+  schedule:
+    # After the weekly tmux matrix.
+    - cron: '0 8 * * 3'
+  workflow_dispatch:
+    inputs:
+      repeat:
+        type: string
+        description: How many times to run each suite
+        default: '10'
+      targeted:
+        type: boolean
+        description: Repeat only the tests fixed for macOS flakes, 30 times unless repeat is set higher
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+  TARGETED: ${{ inputs.targeted && '1' || '0' }}
+  REPEAT: ${{ inputs.repeat || '10' }}
+
+jobs:
+  stress:
+    name: stress ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 300
+    strategy:
+      # The control finishing says what the macOS result means, so one lane
+      # failing must not stop the other.
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Install tmux
+        run: |
+          if [ "${RUNNER_OS}" = macOS ]; then
+            brew install tmux
+          else
+            sudo apt-get update
+            sudo apt-get install --yes tmux
+          fi
+          tmux -V
+
+      - name: Build
+        # The lock files are written on Linux, so the macOS lane opts out as
+        # dotnet.yml does.
+        run: |
+          for project in \
+            tests/LibTmux.UnitTests/LibTmux.UnitTests.csproj \
+            tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
+            examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj; do
+            dotnet restore "${project}" -p:RestoreLockedMode=false
+            dotnet build "${project}" --configuration Release --no-restore --framework net10.0
+          done
+          # Each standalone program is its own assembly, selected by a property.
+          for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
+            dotnet build examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
+              --configuration Release --no-restore --framework net10.0 \
+              -p:ExampleProgram="$(basename "${source}" .fs)"
+          done
+
+      - name: Repeat the real-tmux suites
+        env:
+          LIBTMUX_INTEGRATION_REQUIRED: '1'
+          # A socket path has to fit in 104 bytes on Darwin, and the runner's
+          # own temporary directory is long.
+          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
+        run: |
+          mkdir -p "${TMUX_TMPDIR}" results
+          # A run past its guard is killed, so a hang costs one repetition
+          # instead of the job, and its missing result file says so.
+          guard() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+          unit_filter=()
+          integration_filter=()
+          if [ "${TARGETED}" = 1 ]; then
+            # The pool is small and shared, so the fixed tests repeat alone.
+            [ "${REPEAT}" -ge 30 ] || REPEAT=30
+            unit_filter=(
+              -class LibTmux.UnitTests.ControlMode.ControlModeSessionFailureTests
+              -class LibTmux.UnitTests.ControlMode.ControlModeDisposalDeadlineTests
+              -class LibTmux.UnitTests.Mcp.PaneActivityHubLifecycleTests
+              -class LibTmux.UnitTests.Mcp.WaitChannelAttributionTests
+              -class LibTmux.UnitTests.Transport.TmuxProcessTransportTests
+              -class LibTmux.UnitTests.Mcp.WriteToolsExecutionSafetyTests
+            )
+            integration_filter=(
+              -method 'LibTmux.IntegrationTests.PaneEchoContractTests.*'
+              -method 'LibTmux.IntegrationTests.Query.PushdownDifferentialTests.*'
+              -method 'LibTmux.IntegrationTests.ControlMode.PaneObservationTests.*'
+              -method 'LibTmux.IntegrationTests.Waiting.ServerWaitForLockTests.*'
+              -method 'LibTmux.IntegrationTests.Snapshots.HierarchySnapshotTests.*'
+              -method '*TmuxToolsTests.Waiting_ends_on_the_text*'
+              -method 'LibTmux.IntegrationTests.Chaining.TmuxChainTests.Send_keys_preserve*'
+              -method 'LibTmux.IntegrationTests.Transport.ProcessTransportTests.*'
+              -method 'LibTmux.IntegrationTests.Connection.OwnedServerAdoptionTests.*'
+              -method 'LibTmux.IntegrationTests.ControlMode.ControlModeSessionTests.Startup_drains*'
+              -method 'LibTmux.IntegrationTests.Waiting.TmuxWaitChannelTests.*'
+              -method 'LibTmux.IntegrationTests.Waiting.PaneWaitTests.*'
+              -method 'LibTmux.IntegrationTests.Waiting.PaneRunTests.*'
+              -method 'LibTmux.IntegrationTests.Snapshots.ServerMirrorTests.*'
+              -method 'LibTmux.IntegrationTests.Chaining.ChainGenerationTests.*'
+              -method 'LibTmux.IntegrationTests.Utilities.ServerUtilitiesTests.*'
+              -method 'LibTmux.IntegrationTests.DashArgumentGuardTests.*'
+              -method 'LibTmux.IntegrationTests.WorkspaceBuilderTests.*'
+            )
+          fi
+          echo "REPEAT=${REPEAT}" >> "${GITHUB_ENV}"
+          for i in $(seq 1 "${REPEAT}"); do
+            echo "::group::repetition ${i} of ${REPEAT}"
+            guard 1200 dotnet tests/LibTmux.UnitTests/bin/Release/net10.0/LibTmux.UnitTests.dll \
+              "${unit_filter[@]}" -result-junit "results/unit-${i}.xml" || true
+            guard 1800 dotnet tests/LibTmux.IntegrationTests/bin/Release/net10.0/LibTmux.IntegrationTests.dll \
+              "${integration_filter[@]}" -result-junit "results/integration-${i}.xml" || true
+            if guard 300 dotnet examples/LibTmux.FSharp.Examples/bin/Release/net10.0/LibTmux.FSharp.Examples.dll; then
+              printf '<testsuites><testsuite><testcase name="FSharp.Examples console"/></testsuite></testsuites>\n' \
+                > "results/example-${i}.xml"
+            else
+              printf '<testsuites><testsuite><testcase name="FSharp.Examples console"><failure message="exit %s"/></testcase></testsuite></testsuites>\n' \
+                "$?" > "results/example-${i}.xml"
+            fi
+            {
+              echo '<testsuites><testsuite>'
+              for program in examples/LibTmux.FSharp.Examples/bin/Release/programs/*/; do
+                name="$(basename "${program}")"
+                echo "<testcase name=\"FSharp.Examples program ${name}\">"
+                guard 300 dotnet "${program}net10.0/LibTmux.FSharp.Examples.dll" > /dev/null \
+                  || echo "<failure message=\"exit $?\"/>"
+                echo '</testcase>'
+              done
+              echo '</testsuite></testsuites>'
+            } > "results/program-${i}.xml"
+            echo "::endgroup::"
+          done
+
+      - name: Count failures per test
+        if: always()
+        env:
+          LANE: ${{ matrix.os }}
+        run: |
+          status=0
+          for suite in unit integration example program; do
+            python3 eng/ci/stress_summary.py \
+              --results results \
+              --pattern "${suite}-*.xml" \
+              --label "${LANE} ${suite}" \
+              --repeat "${REPEAT}" \
+              --csv "results/failures-${LANE}.csv" \
+              --summary "${GITHUB_STEP_SUMMARY}" || status=1
+          done
+          exit "${status}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: stress-${{ matrix.os }}
+          path: results
+          retention-days: 30
+          if-no-files-found: error

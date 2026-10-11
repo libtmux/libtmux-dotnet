@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 // A namespace segment named Workspace would shadow LibTmux.Workspace for
 // every file in the assembly, so this sits at the assembly root instead.
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 using LibTmux.Workspace;
@@ -144,8 +145,8 @@ public sealed class WorkspaceBuilderTests
             IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
 
             Assert.Equal(2, panes.Count);
-            Assert.Equal(source, panes[0].CurrentPath);
-            Assert.Equal(tests, panes[1].CurrentPath);
+            Assert.Equal(PhysicalPath.Resolve(source), panes[0].CurrentPath);
+            Assert.Equal(PhysicalPath.Resolve(tests), panes[1].CurrentPath);
 
             WorkspaceFile native = new(
                 sessionName: "native-directories",
@@ -155,7 +156,7 @@ public sealed class WorkspaceBuilderTests
             WorkspaceResult nativeResult = await new WorkspaceBuilder(scope.Server)
                 .BuildAsync(native, token);
             Pane nativePane = Assert.Single(await nativeResult.Windows[1].GetPanesAsync(token));
-            Assert.Equal(origin, nativePane.CurrentPath);
+            Assert.Equal(PhysicalPath.Resolve(origin), nativePane.CurrentPath);
         }
         finally
         {
@@ -546,8 +547,12 @@ public sealed class WorkspaceBuilderTests
             string completed = $"workspace-held-{Guid.NewGuid():N}";
             string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
             string command = $"printf 'held' > {ShellQuote(received)}; {tmux} wait-for -S {completed}";
-            WorkspaceFile workspace = new("libtmux-held-enter", windows:
-                [new WorkspaceWindow(panes: [new WorkspacePane(commands: [new WorkspaceCommand(command, false)])])]);
+            // A pinned shell keeps the prompt short: the runner's login prompt
+            // carries its host name and pushed the typed command past the
+            // pane's width, so tmux wrapped `printf 'held'` across two rows.
+            WorkspaceFile workspace = new("libtmux-held-enter",
+                options: new Dictionary<string, string> { ["default-command"] = "exec /bin/sh" },
+                windows: [new WorkspaceWindow(panes: [new WorkspacePane(commands: [new WorkspaceCommand(command, false)])])]);
 
             WorkspaceResult result = await new WorkspaceBuilder(scope.Server).BuildAsync(workspace, token);
             Pane pane = Assert.Single(await Assert.Single(result.Windows).GetPanesAsync(token));
@@ -555,7 +560,9 @@ public sealed class WorkspaceBuilderTests
                 PaneWaitRequest.FromTextPatterns(["printf 'held'"], simpleMatch: true)
                     with
                 { Timeout = TimeSpan.FromSeconds(2) }, token);
-            Assert.True(pending.Outcome is PaneWaitOutcome.PresentAtEntry or PaneWaitOutcome.Matched);
+            Assert.True(
+                pending.Outcome is PaneWaitOutcome.PresentAtEntry or PaneWaitOutcome.Matched,
+                $"typed command not shown ({pending.Outcome}); pane tail: {string.Join(" | ", pending.Tail)}");
             Assert.Contains(pending.Tail, line => line.Contains("printf 'held'", StringComparison.Ordinal));
             Assert.False(File.Exists(received));
 
@@ -634,8 +641,8 @@ public sealed class WorkspaceBuilderTests
         IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
 
         Assert.Equal(2, panes.Count);
-        Assert.Equal("/usr", panes[0].CurrentPath);
-        Assert.Equal("/etc", panes[1].CurrentPath);
+        Assert.Equal(PhysicalPath.Resolve("/usr"), panes[0].CurrentPath);
+        Assert.Equal(PhysicalPath.Resolve("/etc"), panes[1].CurrentPath);
     }
 
     [UnixFact]

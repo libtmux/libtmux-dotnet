@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Workspace;
 
@@ -26,7 +27,7 @@ public sealed class WorkspaceHostScriptTests
 
             WorkspaceHostResult result = await WorkspaceHostScript.RunAsync(command, TestContext.Current.CancellationToken);
 
-            Assert.Equal($"{fixture.Directory}|original|missing|closed", result.StandardOutput);
+            Assert.Equal($"{PhysicalPath.Resolve(fixture.Directory)}|original|missing|closed", result.StandardOutput);
             Assert.True(result.Started);
             Assert.Equal(0, result.ExitCode);
             Assert.Equal(0, result.DroppedOutputBytes);

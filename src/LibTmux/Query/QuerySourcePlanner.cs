@@ -158,9 +158,17 @@ internal static class QuerySourcePlanner
         return null;
     }
 
+    /// <summary>Stands where a format subtracts the library's own control client from a session's attached count.</summary>
+    /// <remarks>
+    /// tmux counts that client in <c>session_attached</c>. The plan is made
+    /// without a server, so the text is filled in when the format runs: with the
+    /// client's session, or with <c>0</c> when the server has no such client.
+    /// </remarks>
+    internal const string OwnAttachedPlaceholder = "LT_OWN_ATTACHED_PLACEHOLDER_0000000000000";
+
     private static string? Boolean(string name) => name switch
     {
-        "session_attached" => "#{!=:#{session_attached},0}",
+        "session_attached" => $"#{{!=:#{{e|-:#{{session_attached}},{OwnAttachedPlaceholder}}},0}}",
         "window_active" => "#{window_active}",
         _ => null,
     };

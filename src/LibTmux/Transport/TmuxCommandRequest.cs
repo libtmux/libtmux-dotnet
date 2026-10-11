@@ -6,14 +6,21 @@ internal sealed class TmuxCommandRequest
 {
     private readonly TmuxCommandToken[] _tokens;
 
-    private TmuxCommandRequest(TmuxCommandToken[] tokens, string[] logicalArguments, bool preventServerStart = false)
+    private TmuxCommandRequest(
+        TmuxCommandToken[] tokens,
+        string[] logicalArguments,
+        IReadOnlyList<IReadOnlyList<string>> commands,
+        bool preventServerStart = false)
     {
+        Commands = commands;
         _tokens = tokens;
         LogicalArguments = logicalArguments;
         PreventServerStart = preventServerStart;
     }
 
     internal IReadOnlyList<string> LogicalArguments { get; }
+
+    internal IReadOnlyList<IReadOnlyList<string>> Commands { get; }
 
     internal bool PreventServerStart { get; }
 
@@ -24,7 +31,8 @@ internal sealed class TmuxCommandRequest
         string[] copy = [.. arguments];
         return new TmuxCommandRequest(
             [.. copy.Select(static value => TmuxCommandToken.Argument(value))],
-            copy);
+            copy,
+            [copy]);
     }
 
     internal static TmuxCommandRequest Group(params IReadOnlyList<string>[] commands) =>
@@ -64,7 +72,7 @@ internal sealed class TmuxCommandRequest
             }
         }
 
-        return new TmuxCommandRequest([.. tokens], [.. logicalArguments], preventServerStart);
+        return new TmuxCommandRequest([.. tokens], [.. logicalArguments], [.. commands], preventServerStart);
     }
 
     private static void ValidateCommand(IReadOnlyList<string> command, string parameterName)

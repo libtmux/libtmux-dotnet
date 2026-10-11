@@ -285,21 +285,13 @@ public sealed class ServerMirror : IAsyncDisposable
         SessionId anchor,
         CancellationToken cancellationToken)
     {
-        IControlModeSession control = await server
-            .EnterControlModeAsync(anchor.ToString(), cancellationToken)
+        // The flags go on the attach. Setting no-output later with
+        // refresh-client -f drops the client's per-pane state but, before tmux
+        // 3.7, not the output already queued for it, so every later reply
+        // waits behind blocks nothing drains and the client never answers.
+        return await server
+            .EnterControlModeAsync(anchor.ToString(), "no-output,ignore-size", cancellationToken)
             .ConfigureAwait(false);
-        try
-        {
-            await control
-                .SendAsync(TmuxCommand.Create("refresh-client", "-f", "no-output,ignore-size"), cancellationToken)
-                .ConfigureAwait(false);
-            return control;
-        }
-        catch
-        {
-            await control.DisposeAsync().ConfigureAwait(false);
-            throw;
-        }
     }
 
     private static async Task<(Server Server, IReadOnlyList<Client> Clients)> CaptureAsync(
