@@ -162,10 +162,14 @@ public sealed class ControlModeSessionFailureTests
         CancellationToken token = TestContext.Current.CancellationToken;
         var process = new StalledWriteProcess();
         var writeLock = new SemaphoreSlim(1, 1);
+        // The grace period before a forced kill is read from this clock, so
+        // the test fires it rather than racing it against a loaded runner.
+        var clock = new ManualTimerTimeProvider();
         var session = new ControlModeSession(
             process,
             writeLock,
-            TimeSpan.FromMilliseconds(800));
+            TimeSpan.FromSeconds(10),
+            timeProvider: clock);
 
         await session.WaitForReadyAsync(token);
         Task<IReadOnlyList<string>> send = session.SendAsync(
@@ -173,7 +177,10 @@ public sealed class ControlModeSessionFailureTests
             token);
         await process.WriteStarted.Task.WaitAsync(token);
 
-        await session.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1), token);
+        Task disposal = session.DisposeAsync().AsTask();
+        Assert.False(disposal.IsCompleted);
+        clock.Advance(TimeSpan.FromSeconds(5));
+        await disposal.WaitAsync(TimeSpan.FromSeconds(1), token);
         IOException writeFailure = await Assert.ThrowsAsync<IOException>(async () => await send);
 
         Assert.Equal("The client was killed during its write.", writeFailure.Message);
@@ -184,6 +191,30 @@ public sealed class ControlModeSessionFailureTests
         {
             _ = writeLock.Wait(0, token);
         });
+    }
+
+    [Fact]
+    public async Task Output_is_read_while_a_write_holds_the_dispatch_lock()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new StalledWriteProcess(replyOnRelease: true);
+        var session = new ControlModeSession(process);
+        await session.WaitForReadyAsync(token);
+        await using IAsyncEnumerator<TmuxEvent> events = session.Events.GetAsyncEnumerator(token);
+
+        Task<IReadOnlyList<string>> send = session.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "held"),
+            token);
+        await process.WriteStarted.Task.WaitAsync(token);
+        // tmux stops reading a pane once its control clients hold unsent
+        // output, so the reader must keep draining while the write is stuck.
+        process.EmitOutput("%output %0 still-read");
+
+        Assert.True(await events.MoveNextAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1), token));
+        Assert.Equal("still-read", Assert.IsType<TmuxOutputEvent>(events.Current).Data);
+        process.ReleaseWrite();
+        Assert.Equal(["reply"], await send.WaitAsync(token));
+        await session.DisposeAsync();
     }
 
     [Fact]
@@ -212,10 +243,12 @@ public sealed class ControlModeSessionFailureTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         var process = new StalledWriteProcess();
+        // A clock nothing advances: only the process exiting can end disposal.
         var session = new ControlModeSession(
             process,
-            disposalBudget: TimeSpan.FromMilliseconds(250),
-            limits: new ControlModeLimits(maxPendingCommands: 2));
+            disposalBudget: TimeSpan.FromSeconds(10),
+            limits: new ControlModeLimits(maxPendingCommands: 2),
+            timeProvider: new ManualTimerTimeProvider());
         await session.WaitForReadyAsync(token);
 
         Task<IReadOnlyList<string>> first = session.SendAsync(
@@ -1059,6 +1092,8 @@ public sealed class ControlModeSessionFailureTests
         public void Dispose() => DisposeCalled = true;
 
         internal void ReleaseWrite() => _releaseWrite.TrySetResult();
+
+        internal void EmitOutput(string line) => _output.Writer.TryWrite(line);
     }
 
     private sealed class AmbiguousDispatchProcess : IControlModeProcess

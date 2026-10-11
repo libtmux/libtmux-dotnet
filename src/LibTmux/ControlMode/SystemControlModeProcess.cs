@@ -48,7 +48,8 @@ internal sealed class SystemControlModeProcess : IControlModeProcess
         ArgumentNullException.ThrowIfNull(limits);
         _output = new ControlModeLineReader(
             process.StandardOutput.BaseStream,
-            limits.MaxLineBytes);
+            limits.MaxLineBytes,
+            resynchronize: limits.FailOnlyOversizedCommand);
         _standardError = new RollingByteTail(limits.StandardErrorTailBytes);
         _errorPump = PumpStandardErrorAsync(_errorPumpCancellation.Token);
     }

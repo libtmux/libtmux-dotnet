@@ -120,7 +120,12 @@ public sealed class PushdownDifferentialTests
         string[] shells = ["ops:logs.0", "ops:logs.1", "dev:edit"];
         foreach (string shell in shells)
         {
-            await ReportsAsync(raw, shell, "#{==:#{pane_current_command},sh}", token);
+            // /bin/sh is bash on macOS, and tmux names the binary it runs.
+            await ReportsAsync(
+                raw,
+                shell,
+                "#{||:#{==:#{pane_current_command},sh},#{==:#{pane_current_command},bash}}",
+                token);
         }
 
         Server server = await ConnectAsync(raw, token);

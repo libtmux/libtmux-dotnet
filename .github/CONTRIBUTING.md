@@ -159,10 +159,18 @@ $ mise exec -- dotnet test \
     --minimum-expected-tests 1
 ```
 
+One-shot commands travel over a control client the library keeps on each
+server. A test that needs every command to be a process of its own, such as one
+that reads the arguments an executable standing in for tmux receives, sets the
+internal `ServerConnectionOptions.ForceProcessTransport` and says why in a
+comment. To run a whole suite against the process transport, set
+`LIBTMUX_CONTROL_TRANSPORT=0`.
+
 ## Checks that must pass
 
 [dotnet.yml](workflows/dotnet.yml) owns the primary Linux checks and the
-Windows build/unit lane. Its `gate` job requires both `build` and `windows`.
+Windows build lane and the macOS arm64 lane. Its `gate` job requires `build`,
+`macos` and `windows`.
 Aggregate jobs reject failed, cancelled, or skipped prerequisites.
 
 | Guarantee | Owner |
@@ -509,11 +517,9 @@ The `compatibility` job requires the producer and all supported lanes. Checks
 independent of tmux versions, including packaging and README compilation, run
 outside that matrix. The scheduled tmux-master lane remains advisory.
 
-`dotnet.yml` has an advisory macOS arm64 lane on master and manual dispatch.
-It builds and runs unit/integration tests and the F# example with Homebrew
-tmux; it stays outside `gate` and restores without locked mode. Text captured
-from a pane may wrap with the host's prompt width; assertions about typed text
-use `joinWrappedLines`.
+`dotnet.yml` has a macOS arm64 lane that runs on pull requests and gates. See
+[MACOS_CI.md](MACOS_CI.md). Text captured from a pane may wrap with the
+host's prompt width; assertions about typed text use `joinWrappedLines`.
 
 Action references are pinned to commits. CodeQL also runs on pull requests;
 Scorecard runs on its configured schedule. These workflows do not replace the

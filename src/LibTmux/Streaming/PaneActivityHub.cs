@@ -42,12 +42,16 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
 
     internal CancellationToken LifetimeToken => _lifetime.Token;
 
+    /// <summary>Gets the clock a text wait measures its deadline on: the system's unless a test holds it.</summary>
+    internal TimeProvider DeadlineClock { get; }
+
     /// <summary>Initializes the hub.</summary>
     /// <param name="logger">Records why a control client could not start.</param>
     public PaneActivityHub(ILogger? logger = null)
     {
         _logger = logger;
         _timeProvider = TimeProvider.System;
+        DeadlineClock = TimeProvider.System;
     }
 
     private const string PaneDeadSubscription = "libtmux-pane-dead";
@@ -59,12 +63,14 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     internal PaneActivityHub(
         Func<Pane, CancellationToken, Task<IControlModeSession>> startPaneSession,
         ILogger? logger = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        TimeProvider? deadlineClock = null)
     {
         ArgumentNullException.ThrowIfNull(startPaneSession);
         _startPaneSession = startPaneSession;
         _logger = logger;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        DeadlineClock = deadlineClock ?? TimeProvider.System;
     }
 
     /// <summary>Gets whether any session is currently watched through control mode.</summary>

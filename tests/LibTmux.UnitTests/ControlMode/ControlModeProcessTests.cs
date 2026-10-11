@@ -17,6 +17,20 @@ public sealed class ControlModeProcessTests
         Assert.Null(await reader.ReadLineAsync(token));
     }
 
+    [Fact]
+    public async Task A_line_over_the_limit_is_dropped_whole_and_the_next_line_is_read()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var input = new MemoryStream(Encoding.UTF8.GetBytes("aaaaaaaaaaaaaaaa\nok\nbbbbbbbbbb"));
+        var reader = new ControlModeLineReader(input, maxLineBytes: 5, bufferSize: 2, resynchronize: true);
+
+        await Assert.ThrowsAsync<ControlModeOversizedLineException>(() => reader.ReadLineAsync(token));
+
+        Assert.Equal("ok", await reader.ReadLineAsync(token));
+        await Assert.ThrowsAsync<ControlModeOversizedLineException>(() => reader.ReadLineAsync(token));
+        Assert.Null(await reader.ReadLineAsync(token));
+    }
+
     // tmux escapes only control bytes and backslash in control-mode output, so
     // a pane that prints invalid UTF-8 sends those bytes raw.
     [Fact]

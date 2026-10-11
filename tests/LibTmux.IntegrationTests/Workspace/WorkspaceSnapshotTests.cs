@@ -57,6 +57,8 @@ public sealed class WorkspaceSnapshotTests
         string secondPath = Path.Combine(directory, "second space");
         Directory.CreateDirectory(firstPath);
         Directory.CreateDirectory(secondPath);
+        string physicalFirst = PhysicalPath.Resolve(firstPath);
+        string physicalSecond = PhysicalPath.Resolve(secondPath);
         try
         {
             await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
@@ -80,7 +82,7 @@ public sealed class WorkspaceSnapshotTests
             Server snapshot = await endpoint.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
             Session session = Assert.Single(snapshot.Sessions);
             Assert.Equal([0, 3, 7], session.Windows.Select(window => window.Index));
-            Assert.Equal(firstPath, session.Windows[0].Panes[0].CurrentPath);
+            Assert.Equal(physicalFirst, session.Windows[0].Panes[0].CurrentPath);
             using Process daemon = Process.GetProcessById(Assert.IsType<ServerGeneration>(snapshot.Generation).ProcessId);
             Task exited = daemon.WaitForExitAsync(token);
             Assert.Equal(0, (await raw.ExecuteAsync(["kill-server"], token)).ExitCode);
@@ -98,7 +100,7 @@ public sealed class WorkspaceSnapshotTests
             Assert.All(new[] { frozen.Windows[0], frozen.Windows[2] }, window =>
             {
                 Assert.Equal([false, true], window.Panes.Select(pane => pane.Focus));
-                Assert.Equal([firstPath.Replace("$", "$$", StringComparison.Ordinal), secondPath], window.Panes.Select(pane => pane.StartDirectory));
+                Assert.Equal([physicalFirst.Replace("$", "$$", StringComparison.Ordinal), physicalSecond], window.Panes.Select(pane => pane.StartDirectory));
                 Assert.All(window.Panes, pane => Assert.Empty(pane.ShellCommands));
             });
             string declaration = JsonSerializer.Serialize(new
@@ -109,8 +111,8 @@ public sealed class WorkspaceSnapshotTests
                 }),
             });
             WorkspaceFile restored = WorkspaceFile.Parse(declaration).Resolve(directory);
-            Assert.Equal(firstPath, restored.Windows[0].Panes[0].StartDirectory);
-            Assert.Equal(secondPath, restored.Windows[2].Panes[1].StartDirectory);
+            Assert.Equal(physicalFirst, restored.Windows[0].Panes[0].StartDirectory);
+            Assert.Equal(physicalSecond, restored.Windows[2].Panes[1].StartDirectory);
         }
         finally
         {

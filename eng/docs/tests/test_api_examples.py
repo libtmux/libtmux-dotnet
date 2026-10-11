@@ -152,6 +152,9 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
     monkeypatch.setenv("LIBTMUX_TMUX", str(wrapper))
     monkeypatch.setenv("PATH", f"{wrapper.parent}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("TMUX_TMPDIR", "/tmp/libtmux-dotnet-test")
+    # The wrapper matches argv, and the shared control client carries
+    # capture-pane without a process of its own.
+    monkeypatch.setenv("LIBTMUX_CONTROL_TRANSPORT", "0")
     manifest = json.loads((ROOT / "examples/api/manifest.json").read_text())
     manifest["examples"] = [entry for entry in manifest["examples"] if entry["id"] == f"{profile}-InputCapture"]
     output = tmp_path / "consumer"

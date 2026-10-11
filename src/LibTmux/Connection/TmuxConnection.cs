@@ -10,6 +10,7 @@ internal sealed class TmuxConnection
     internal const string GenerationFormat = ServerGeneration.DisplayFormat;
     private readonly MultiplexerDialect _dialect;
     private readonly TmuxEndpointIdentity _endpointIdentity;
+    private readonly string _endpointFingerprint;
     private readonly string? _resolvedSocketName;
     private readonly string? _resolvedSocketPath;
 
@@ -36,6 +37,7 @@ internal sealed class TmuxConnection
         _resolvedSocketPath = resolved.SocketPath;
         PrefixArguments = resolved.PrefixArguments;
         _endpointIdentity = resolved.EndpointIdentity;
+        _endpointFingerprint = _endpointIdentity.Fingerprint();
 
         (
             Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> send,
@@ -74,7 +76,8 @@ internal sealed class TmuxConnection
         CommandContext = new TmuxCommandContext(
             Options.Logger,
             Options.SocketName ?? Options.SocketPath,
-            Options.CommandTimeout);
+            Options.CommandTimeout,
+            Options.Clock);
         ServerDispatcher = new TmuxCommandDispatcher(
             ExecuteSingleAsync,
             CommandContext,
@@ -88,13 +91,15 @@ internal sealed class TmuxConnection
         Options = options;
         _dialect = source._dialect;
         _endpointIdentity = source._endpointIdentity;
+        _endpointFingerprint = source._endpointFingerprint;
         _resolvedSocketName = source._resolvedSocketName;
         _resolvedSocketPath = source._resolvedSocketPath;
         PrefixArguments = source.PrefixArguments;
         CommandContext = new TmuxCommandContext(
             options.Logger,
             options.SocketName ?? options.SocketPath,
-            options.CommandTimeout);
+            options.CommandTimeout,
+            options.Clock);
         ServerDispatcher = new TmuxCommandDispatcher(
             ExecuteSingleAsync,
             CommandContext,
@@ -111,6 +116,12 @@ internal sealed class TmuxConnection
 
     internal bool IsPsmux => _dialect.IsPsmux;
 
+    /// <summary>Gets the control client this library holds on the endpoint, or null when none is attached.</summary>
+    /// <remarks>Listings that count or show clients leave this one out.</remarks>
+    [UnsupportedOSPlatform("windows")]
+    internal OwnControlClient? OwnClient =>
+        TmuxControlClient.Find(_endpointFingerprint)?.Own;
+
     internal string VerifiedRawVersion => _dialect.VerifiedRawVersion;
 
     internal bool HasSameEndpoint(TmuxConnection other)
@@ -121,7 +132,7 @@ internal sealed class TmuxConnection
 
     internal int GetEndpointHashCode() => _endpointIdentity.GetHashCode();
 
-    internal string GetEndpointFingerprint() => _endpointIdentity.Fingerprint();
+    internal string GetEndpointFingerprint() => _endpointFingerprint;
 
     /// <summary>The socket this connection resolved to, not what was asked for.</summary>
     /// <remarks>
@@ -142,7 +153,8 @@ internal sealed class TmuxConnection
     {
         using var deadline = new TmuxCommandDispatcher.Deadline(
             Options.CommandTimeout,
-            cancellationToken);
+            cancellationToken,
+            Options.Clock);
         try
         {
             return await _dialect.DiscoverAsync(deadline.Token).ConfigureAwait(false);
@@ -271,7 +283,73 @@ internal sealed class TmuxConnection
             limits: limits,
             launcher: Launch,
             beforeStart: VerifyBeforeStartAsync);
+        if (!OperatingSystem.IsWindows()
+            && Options.PsmuxPreview is null
+            && !Options.ForceProcessTransport
+            && TmuxControlTransport.EnabledFor(Options.ChildEnvironment))
+        {
+            return (CreateControlTransport(resolved, transport.ExecuteAsync), versionTransport.ExecuteAsync);
+        }
+
         return (transport.ExecuteAsync, versionTransport.ExecuteAsync);
+    }
+
+    private TmuxVersion? RunningVersion()
+    {
+        string raw;
+        try
+        {
+            raw = _dialect.VerifiedRawVersion;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+
+        return TmuxVersion.TryParse(raw.StartsWith("tmux ", StringComparison.Ordinal) ? raw[5..] : raw, out TmuxVersion parsed)
+            ? parsed
+            : null;
+    }
+
+    // Every connection to an endpoint shares one control client; the transport
+    // falls back to this connection's own processes.
+    [UnsupportedOSPlatform("windows")]
+    private Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> CreateControlTransport(
+        ResolvedTmuxConnection resolved,
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> process)
+    {
+        int cap = Options.MaxCapturedBytesPerStream ?? new TmuxTransportLimits().MaxCapturedBytesPerStream;
+        return new TmuxControlTransport(
+            process,
+            TmuxControlClient.For(_endpointFingerprint, resolved.SocketPath),
+            () => ControlModeSession.Start(
+                Options.TmuxBinaryPath,
+                PrefixArguments,
+                target: null,
+                generation: null,
+                startInfo => ApplyChildEnvironment(startInfo, resolved.ChildEnvironment),
+                attachFlags: "ignore-size,no-output",
+                preventServerStart: true,
+                limits: new ControlModeLimits(
+                    maxLineBytes: cap,
+                    maxBlockLines: cap,
+                    maxBlockBytes: cap,
+                    maxReplyLines: cap,
+                    maxReplyBytes: cap,
+                    failOnlyOversizedCommand: true)),
+            RunningVersion,
+            async token =>
+            {
+                TmuxCommandResult answer = await process(
+                    TmuxCommandRequest.Group(true, ["display-message", "-p", "#{version}"]),
+                    token).ConfigureAwait(false);
+                return answer.ExitCode == 0
+                    && TmuxVersion.TryParse(
+                        System.Text.Encoding.UTF8.GetString(answer.StandardOutput.Span).Trim(),
+                        out TmuxVersion daemon)
+                        ? daemon
+                        : null;
+            }).ExecuteAsync;
     }
 
     /// <summary>Routes each request through an interceptor before tmux.</summary>

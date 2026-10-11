@@ -24,7 +24,11 @@ public sealed class TmuxOptionsTests
         Assert.True(await session.Options.GetAsync(TmuxOptionKey.Mouse, token));
         Assert.Equal("build", await session.Options.GetAsync(TmuxOptionKey.Text("@stage"), token));
 
-        // Never set on the window, so tmux's global default is what applies.
+        // The harness names its window, which sets automatic-rename on it.
+        // Unsetting that leaves the window with tmux's global default.
+        await raw.ExecuteAsync(
+            ["set-option", "-w", "-u", "-t", window.Id.ToString(), "automatic-rename"],
+            token);
         Assert.True(await window.Options.GetAsync(TmuxOptionKey.AutomaticRename, token));
     }
 

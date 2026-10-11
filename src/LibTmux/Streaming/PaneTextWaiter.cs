@@ -29,12 +29,15 @@ internal static class PaneTextWaiter
         ArgumentNullException.ThrowIfNull(activity);
         ArgumentNullException.ThrowIfNull(pane);
         cancellationToken.ThrowIfCancellationRequested();
-        Stopwatch elapsed = Stopwatch.StartNew();
+        // The hub names the clock the deadline runs on, so a test that holds it
+        // holds the deadline too, whatever the attach cost.
+        TimeProvider clock = activity.DeadlineClock;
+        ElapsedClock elapsed = new(clock);
         // Leave part of the timeout for the final grid read.
         TimeSpan finalReadReserve = TimeSpan.FromTicks(Math.Min(
             TimeSpan.FromMilliseconds(100).Ticks, options.Timeout.Ticks / 4));
         TimeSpan observationWindow = options.Timeout - finalReadReserve;
-        using CancellationTokenSource deadline = new(options.Timeout);
+        using CancellationTokenSource deadline = new(options.Timeout, clock);
         using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken, activity.LifetimeToken, deadline.Token);
         CancellationToken token = linked.Token;
@@ -602,7 +605,7 @@ internal static class PaneTextWaiter
 
                     bool changed = await activity.WaitForActivityAsync(
                             pane.Id.ToString(), finalSignal, remaining, token,
-                            lease, finalTimerProvider ?? TimeProvider.System)
+                            lease, finalTimerProvider ?? clock)
                         .ConfigureAwait(false);
                     if (!changed && finalSignal is Task wake)
                     {
@@ -889,6 +892,13 @@ internal static class PaneTextWaiter
         {
             return DeadlineResult();
         }
+    }
+
+    private readonly struct ElapsedClock(TimeProvider clock)
+    {
+        private readonly long _start = clock.GetTimestamp();
+
+        internal TimeSpan Elapsed => clock.GetElapsedTime(_start);
     }
 
     /// <summary>Waits for a whole-screen predicate using the same streamed grid reader.</summary>

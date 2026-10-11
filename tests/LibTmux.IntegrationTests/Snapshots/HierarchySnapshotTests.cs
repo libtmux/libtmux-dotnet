@@ -135,6 +135,22 @@ public sealed class HierarchySnapshotTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task The_harness_window_keeps_its_name_while_a_test_reads_it()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+
+        RawTmuxResult option = await raw.ExecuteAsync(
+            ["show-options", "-w", "-v", "-t", raw.SessionName, "automatic-rename"],
+            token);
+
+        Assert.Equal("off", Assert.Single(option.StandardOutputLines));
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task Captured_relations_keep_scalar_state_after_the_daemon_stops()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

@@ -105,6 +105,27 @@ internal readonly record struct PaneRunRoute(
 
         return line.ToString();
     }
+
+    /// <summary>Quotes more tmux commands as the words that follow a command line, each after a <c>;</c> separator.</summary>
+    /// <remarks>
+    /// tmux splits one client's arguments at a word ending in <c>;</c> and runs
+    /// the parts in order, so one process does the work of several. A command
+    /// that fails skips the ones after it.
+    /// </remarks>
+    internal static string Then(params string[][] commands)
+    {
+        StringBuilder words = new();
+        foreach (string[] command in commands)
+        {
+            words.Append(' ').Append(PaneRunner.ShellQuote(";"));
+            foreach (string argument in command)
+            {
+                words.Append(' ').Append(PaneRunner.ShellQuote(argument));
+            }
+        }
+
+        return words.ToString();
+    }
 }
 
 internal readonly record struct PaneRunIdentity(ServerGeneration Generation, PaneId PaneId);
@@ -742,7 +763,6 @@ internal static partial class PaneRunner
             "-t",
             dispatch.Pane.Id.ToString(),
             token.StatusOption);
-        string signalCommand = route.CommandLine("wait-for", "-S", token.Channel);
         string unsetStatusCommand = route.CommandLine(
             "set-option",
             "-p",
@@ -753,12 +773,10 @@ internal static partial class PaneRunner
             token.StatusOption);
         string cleanupDelay = ((long)Math.Ceiling(statusMarkerLifetime.TotalSeconds))
             .ToString(CultureInfo.InvariantCulture);
-        string scheduleCleanupCommand = route.CommandLine(
-            "run-shell",
-            "-b",
-            "-d",
-            cleanupDelay,
-            unsetStatusCommand);
+        // The signal goes first and is its own client apart from the status
+        // write, so a failed write still wakes the waiter, as it always did.
+        string reportCommands = route.CommandLine("wait-for", "-S", token.Channel)
+            + PaneRunRoute.Then(["run-shell", "-b", "-d", cleanupDelay, unsetStatusCommand]);
         string buffer = $"libtmux_run_{Guid.NewGuid():N}"[..24];
         Exception? primaryFailure = null;
         bool bufferMayExist = false;
@@ -782,8 +800,7 @@ internal static partial class PaneRunner
                 commandPath,
                 trapPath,
                 statusCommand,
-                scheduleCleanupCommand,
-                signalCommand);
+                reportCommands);
             await WritePrivateFileAsync(scriptPath, script, cancellationToken)
                 .ConfigureAwait(false);
             string payload = string.Concat(
@@ -1202,8 +1219,7 @@ internal static partial class PaneRunner
         string commandPath,
         string trapPath,
         string statusCommand,
-        string scheduleCleanupCommand,
-        string signalCommand)
+        string reportCommands)
     {
         string flags = $"__lt_flags_{token.Id}";
         string trapStatus = $"__lt_trap_status_{token.Id}";
@@ -1311,9 +1327,7 @@ internal static partial class PaneRunner
             " \"$",
             status,
             "\"\n",
-            scheduleCleanupCommand,
-            "\n",
-            signalCommand,
+            reportCommands,
             "\n\\exit 0\n",
             ")\n");
     }

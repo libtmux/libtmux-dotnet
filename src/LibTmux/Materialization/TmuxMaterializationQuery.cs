@@ -53,7 +53,10 @@ internal sealed class MaterializationQuery
         string predicateFormat,
         CancellationToken cancellationToken)
     {
-        FormatProjection projection = FormatProjection.Create(listCommand, _context.TmuxVersion, predicateFormat);
+        FormatProjection projection = FormatProjection.Create(
+            listCommand,
+            _context.TmuxVersion,
+            LeaveOutOwnClient(predicateFormat, _context.Server.Connection?.OwnClient));
         string[] arguments = [listCommand, .. extraArguments ?? [], "-F", projection.Template];
         return ExecuteAsync(projection, arguments, cancellationToken);
     }
@@ -209,6 +212,66 @@ internal sealed class MaterializationQuery
                 : null;
     }
 
+    // The control client the library keeps on the server is attached, so tmux
+    // lists it and counts it in its session's attached total. A caller asking
+    // who is attached means someone else, so the listing leaves it out and the
+    // count does not include it.
+    private static string LeaveOutOwnClient(string predicateFormat, OwnControlClient? own) =>
+        predicateFormat.Replace(
+            LibTmux.Query.QuerySourcePlanner.OwnAttachedPlaceholder,
+            own is null ? "0" : $"#{{?#{{==:#{{session_id}},{own.SessionId}}},1,0}}",
+            StringComparison.Ordinal);
+
+    private static MaterializedQueryRows LeaveOutOwnClient(
+        OwnControlClient? own,
+        string listCommand,
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> fields,
+        IReadOnlyList<bool>? matches)
+    {
+        if (own is null)
+        {
+            return new MaterializedQueryRows(fields, matches);
+        }
+
+        List<IReadOnlyDictionary<string, string?>> kept = [];
+        List<bool>? keptMatches = matches is null ? null : [];
+        for (int index = 0; index < fields.Count; index++)
+        {
+            IReadOnlyDictionary<string, string?> row = fields[index];
+            if (listCommand == "list-clients"
+                && row.TryGetValue("client_name", out string? name)
+                && string.Equals(name, own.Name, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            kept.Add(WithoutOwnAttachment(row, own));
+            keptMatches?.Add(matches![index]);
+        }
+
+        return new MaterializedQueryRows(kept, keptMatches);
+    }
+
+    private static IReadOnlyDictionary<string, string?> WithoutOwnAttachment(
+        IReadOnlyDictionary<string, string?> row,
+        OwnControlClient own)
+    {
+        if (!row.TryGetValue("session_id", out string? sessionId)
+            || !string.Equals(sessionId, own.SessionId, StringComparison.Ordinal)
+            || !row.TryGetValue("session_attached", out string? attached)
+            || !int.TryParse(attached, NumberStyles.None, CultureInfo.InvariantCulture, out int count)
+            || count == 0)
+        {
+            return row;
+        }
+
+        var adjusted = new Dictionary<string, string?>(row, StringComparer.Ordinal)
+        {
+            ["session_attached"] = (count - 1).ToString(CultureInfo.InvariantCulture),
+        };
+        return adjusted;
+    }
+
     private FormatProjection CreateProjection(string listCommand) =>
         FormatProjection.Create(listCommand, _context.TmuxVersion);
 
@@ -244,7 +307,7 @@ internal sealed class MaterializationQuery
             IReadOnlyList<IReadOnlyDictionary<string, string?>> fields = Materializer.MaterializeFormatFields(
                 _context, result.StandardOutput.Span, projection, out IReadOnlyList<bool>? matches);
             cancellationToken.ThrowIfCancellationRequested();
-            return new MaterializedQueryRows(fields, matches);
+            return LeaveOutOwnClient(connection.OwnClient, projection.ListCommand, fields, matches);
         }
         catch (InvalidDataException error)
         {

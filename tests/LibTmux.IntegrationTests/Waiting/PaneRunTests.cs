@@ -30,6 +30,46 @@ public sealed class PaneRunTests
     }
 
     [UnixFact]
+    public async Task A_shell_line_of_chained_commands_runs_in_order_and_stops_at_the_first_failure()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
+        PaneRunRoute route = PaneRunRoute.From(shell);
+        string good = $"{raw.SessionName}-good";
+        string bad = $"{raw.SessionName}-bad";
+
+        async Task<int> RunLineAsync(string line)
+        {
+            using Process process = Process.Start(new ProcessStartInfo("/bin/sh")
+            {
+                ArgumentList = { "-c", line },
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            })!;
+            _ = await process.StandardError.ReadToEndAsync(token);
+            await process.WaitForExitAsync(token);
+            return process.ExitCode;
+        }
+
+        Assert.Equal(0, await RunLineAsync(
+            route.CommandLine("set-option", "-p", "-t", shell.Id.ToString(), "@lt_chain", "7")
+            + PaneRunRoute.Then(["wait-for", "-S", good])));
+        Assert.NotEqual(0, await RunLineAsync(
+            route.CommandLine("set-option", "-p", "-t", "%999", "@lt_chain", "8")
+            + PaneRunRoute.Then(["wait-for", "-S", bad])));
+
+        RawTmuxResult value = await raw.ExecuteAsync(["show-options", "-pqv", "-t", shell.Id.ToString(), "@lt_chain"], token);
+        Assert.Equal("7", value.StandardOutputText.Trim());
+        using CancellationTokenSource signalled = CancellationTokenSource.CreateLinkedTokenSource(token);
+        signalled.CancelAfter(Allowed);
+        Assert.Equal(0, (await raw.ExecuteAsync(["wait-for", good], signalled.Token)).ExitCode);
+        using CancellationTokenSource silent = CancellationTokenSource.CreateLinkedTokenSource(token);
+        silent.CancelAfter(TimeSpan.FromMilliseconds(500));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => raw.ExecuteAsync(["wait-for", bad], silent.Token));
+    }
+
+    [UnixFact]
     public async Task A_run_bounds_rendered_output_and_reports_what_was_omitted()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -523,6 +563,49 @@ public sealed class PaneRunTests
     {
         RawTmuxResult options = await raw.ExecuteAsync(["show-options", "-p", "-t", pane.Id.ToString()], token);
         return options.StandardOutputLines.Where(line => line.StartsWith("@lt_s_", StringComparison.Ordinal));
+    }
+
+    // A pane whose server exits while the wait's control client attaches has
+    // ended with it; the wait says so rather than reporting a failed attach.
+    [UnixFact]
+    public async Task A_wait_whose_watcher_meets_the_servers_exit_reports_the_pane_gone()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        string directory = Directory.CreateTempSubdirectory("ltm-exit-").FullName;
+        string wrapper = Path.Combine(directory, "tmux-wrapper");
+        try
+        {
+            // Every control client launched through this takes the server down
+            // and reports what tmux's client reports when that happens.
+            await TestExecutable.WriteAsync(
+                wrapper,
+                "#!/bin/sh\nfor argument in \"$@\"; do\n  if [ \"$argument\" = -C ]; then\n"
+                + $"    '{raw.TmuxBinaryPath}' -S '{raw.SocketPath}' kill-server\n"
+                + "    printf '%%exit server exited unexpectedly\\n'\n    exit 1\n  fi\ndone\n"
+                + $"exec '{raw.TmuxBinaryPath}' \"$@\"\n",
+                token);
+            RawTmuxResult created = await raw.ExecuteAsync(
+                ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "--", "sleep", "60"],
+                token);
+            Server server = await Server.ConnectAsync(
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = wrapper,
+                    SocketPath = raw.SocketPath,
+                    ConfigurationFile = "/dev/null",
+                    ForceProcessTransport = true, // the wrapper must see every control client launch
+                },
+                token);
+            Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+
+            _ = await Assert.ThrowsAsync<TmuxObjectNotFoundException>(
+                () => pane.WaitForTextAsync("never", Allowed, token));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     // Several words run the program directly, with no shell in between.

@@ -539,7 +539,7 @@ public sealed class ControlModeSessionTests
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
-        Server server = await ConnectAsync(raw, token);
+        Server server = await ConnectAsync(raw, token, forceProcessTransport: true);
         IControlModeSession control = await server.EnterControlModeAsync(
             cancellationToken: token);
         RawTmuxResult clients = await raw.ExecuteAsync(
@@ -638,6 +638,7 @@ public sealed class ControlModeSessionTests
             Server server = Server.Open(new ServerConnectionOptions
             {
                 TmuxBinaryPath = wrapper,
+                ForceProcessTransport = true, // the wrapper stands in for every tmux launch, so each command must be one
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
             });
@@ -682,6 +683,7 @@ public sealed class ControlModeSessionTests
             Server server = Server.Open(new ServerConnectionOptions
             {
                 TmuxBinaryPath = wrapper,
+                ForceProcessTransport = true, // the wrapper stands in for every tmux launch, so each command must be one
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
                 InitializeAsync = (_, _) =>
@@ -744,6 +746,7 @@ public sealed class ControlModeSessionTests
                 new ServerConnectionOptions
                 {
                     TmuxBinaryPath = wrapper,
+                    ForceProcessTransport = true, // the wrapper stands in for every tmux launch, so each command must be one
                     SocketPath = raw.SocketPath,
                     ConfigurationFile = "/dev/null",
                 },
@@ -809,6 +812,7 @@ public sealed class ControlModeSessionTests
                 new ServerConnectionOptions
                 {
                     TmuxBinaryPath = wrapper,
+                    ForceProcessTransport = true, // the wrapper stands in for every tmux launch, so each command must be one
                     SocketPath = raw.SocketPath,
                     ConfigurationFile = "/dev/null",
                 },
@@ -827,15 +831,20 @@ public sealed class ControlModeSessionTests
         }
     }
 
+    // A test that lists the server's clients through a bare tmux, with no way to
+    // tell the library's own control client from the one it is about, keeps
+    // the library off one.
     private static Task<Server> ConnectAsync(
         RawTmuxTestContext raw,
-        CancellationToken token) =>
+        CancellationToken token,
+        bool forceProcessTransport = false) =>
         Server.ConnectAsync(
             new ServerConnectionOptions
             {
                 TmuxBinaryPath = raw.TmuxBinaryPath,
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
+                ForceProcessTransport = forceProcessTransport,
             },
             token);
 

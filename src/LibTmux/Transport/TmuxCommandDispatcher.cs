@@ -83,7 +83,7 @@ internal sealed class TmuxCommandDispatcher
         string[] flattened = [.. commands.SelectMany(static c => c)];
         string? socket = _context?.Socket;
         using Activity? activity = TmuxInstrumentation.StartCommand(flattened, socket);
-        using var deadline = new Deadline(_context?.CommandTimeout, cancellationToken);
+        using var deadline = new Deadline(_context?.CommandTimeout, cancellationToken, _context?.Clock);
         long started = Stopwatch.GetTimestamp();
         TmuxCommandResult result;
         try
@@ -141,7 +141,7 @@ internal sealed class TmuxCommandDispatcher
         string[] copy = [.. arguments];
         string? socket = _context?.Socket;
         using Activity? activity = TmuxInstrumentation.StartCommand(copy, socket);
-        using var deadline = new Deadline(limit, cancellationToken);
+        using var deadline = new Deadline(limit, cancellationToken, _context?.Clock);
         long started = Stopwatch.GetTimestamp();
         TmuxCommandResult result;
         try
@@ -202,7 +202,7 @@ internal sealed class TmuxCommandDispatcher
         private readonly CancellationTokenSource? _expiry;
         private readonly CancellationTokenSource? _linked;
 
-        internal Deadline(TimeSpan? limit, CancellationToken cancellationToken)
+        internal Deadline(TimeSpan? limit, CancellationToken cancellationToken, TimeProvider? clock = null)
         {
             if (limit is not TimeSpan span)
             {
@@ -212,7 +212,7 @@ internal sealed class TmuxCommandDispatcher
                 return;
             }
 
-            _expiry = new CancellationTokenSource(span);
+            _expiry = new CancellationTokenSource(span, clock ?? TimeProvider.System);
             _linked = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken,
                 _expiry.Token);

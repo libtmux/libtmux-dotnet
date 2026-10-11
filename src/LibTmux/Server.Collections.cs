@@ -24,7 +24,10 @@ public sealed partial class Server
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The attached sessions reported by a successful read.</returns>
     /// <exception cref="LibTmuxException">The listing failed, including an absent daemon.</exception>
-    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
+    /// <remarks>
+    /// A handle that has not found a live server yet discovers one first. The
+    /// control client this library keeps on the server is not counted as attached.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<Session>> GetAttachedSessionsAsync(
         CancellationToken cancellationToken = default)

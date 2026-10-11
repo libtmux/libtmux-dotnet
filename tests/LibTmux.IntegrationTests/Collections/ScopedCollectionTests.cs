@@ -71,7 +71,9 @@ public sealed class ScopedCollectionTests
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
-        Server server = await ConnectAsync(raw, token);
+        // A control client already attached keeps its connection when the
+        // socket's mode changes; the failure under test is a process meeting it.
+        Server server = await ConnectAsync(raw, token, forceProcessTransport: true);
 
         File.SetUnixFileMode(raw.SocketPath, UnixFileMode.None);
         try
@@ -152,13 +154,15 @@ public sealed class ScopedCollectionTests
 
     private static Task<Server> ConnectAsync(
         RawTmuxTestContext raw,
-        CancellationToken token) =>
+        CancellationToken token,
+        bool forceProcessTransport = false) =>
         Server.ConnectAsync(
             new ServerConnectionOptions
             {
                 TmuxBinaryPath = raw.TmuxBinaryPath,
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
+                ForceProcessTransport = forceProcessTransport,
             },
             token);
     [UnixFact]

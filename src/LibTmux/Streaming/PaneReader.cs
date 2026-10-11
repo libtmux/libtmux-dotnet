@@ -104,10 +104,34 @@ internal static class PaneReader
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
-            // A lookup that fails too says nothing the read's own failure does not.
+            // A lookup that fails too says nothing the read's own failure does not,
+            // unless the failure is that the server exited: the pane went with it,
+            // as when tmux 3.6 or older takes the server down because a control
+            // client connected as a notification went out.
+            if (SaysServerExited(error))
+            {
+                return new TmuxObjectNotFoundException(
+                    $"tmux no longer has pane '{pane.Id}'.",
+                    pane.Id.ToString(),
+                    error);
+            }
         }
 
         return error;
+    }
+
+    // tmux's client says so when the server hangs up on it without an exit.
+    private static bool SaysServerExited(Exception error)
+    {
+        for (Exception? current = error; current is not null; current = current.InnerException)
+        {
+            if (current.Message.Contains("server exited unexpectedly", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reads what is on screen now, with no previous position.</summary>

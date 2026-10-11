@@ -91,7 +91,7 @@ options — and all three work on every supported tmux.
 
 | Mode | Flip it on | Dispatch | What one more command costs |
 |---|---|---|---|
-| **[One-shot](docs/modes/one-shot.md)** | `session.CreateWindowAsync(…)` | one command, awaited | another process — **~2.3 ms** |
+| **[One-shot](docs/modes/one-shot.md)** | `session.CreateWindowAsync(…)` | one command, awaited | another round trip on a shared client; a process for the few commands that cannot use it |
 | **[Control](docs/modes/control-mode.md)** | `server.EnterControlModeAsync(ct)` | one client, streamed | another round trip — **~0.2 ms** |
 | **[Chained](docs/modes/chaining.md)** | `server.Chain()…ExecuteAsync(ct)` | N batched, one invocation | more bytes on one command line — **~0.02 ms** |
 

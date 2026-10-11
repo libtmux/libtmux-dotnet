@@ -224,6 +224,31 @@ internal static class PaneInputEndpoint
         return Identify(path, "pane input route socket path");
     }
 
+    /// <summary>Answers whether a process of this user can make a path its working directory.</summary>
+    /// <param name="path">An absolute path.</param>
+    /// <returns><see langword="true" /> when it is a directory this process may search.</returns>
+    /// <remarks>
+    /// That is the test tmux's chdir applies, so it decides where a spawned pane
+    /// starts without waiting for the pane to be somewhere.
+    /// </remarks>
+    internal static bool CanEnter(string path)
+    {
+        if (!Path.IsPathFullyQualified(path) || !Directory.Exists(path))
+        {
+            return false;
+        }
+
+        nint encoded = Marshal.StringToCoTaskMemUTF8(path);
+        try
+        {
+            return Access(encoded, SearchPermission) == 0;
+        }
+        finally
+        {
+            Marshal.FreeCoTaskMem(encoded);
+        }
+    }
+
     /// <summary>Answers whether two paths name one directory.</summary>
     /// <param name="first">A path.</param>
     /// <param name="second">Another path.</param>
@@ -397,6 +422,11 @@ internal static class PaneInputEndpoint
 
     [DllImport("libc", EntryPoint = "getuid")]
     private static extern uint GetUid();
+
+    private const int SearchPermission = 1;
+
+    [DllImport("libc", EntryPoint = "access")]
+    private static extern int Access(nint path, int mode);
 
     [DllImport(
         "libc",

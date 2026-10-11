@@ -104,10 +104,13 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         string tmuxBinaryPath,
         IReadOnlyList<string> prefixArguments,
         string? target,
-        ServerGeneration generation,
+        ServerGeneration? generation,
         Action<ProcessStartInfo> configureEnvironment,
         int? eventBufferCapacity = null,
-        int? eventBufferMaxBytes = null)
+        int? eventBufferMaxBytes = null,
+        string? attachFlags = null,
+        bool preventServerStart = false,
+        ControlModeLimits? limits = null)
     {
         ProcessStartInfo startInfo = new(tmuxBinaryPath)
         {
@@ -115,6 +118,11 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+
+        if (preventServerStart)
+        {
+            startInfo.ArgumentList.Add("-N");
+        }
 
         foreach (string argument in prefixArguments)
         {
@@ -127,6 +135,12 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         // told about the hierarchy but not about pane output, so %output never
         // arrives and the stream looks mysteriously quiet.
         startInfo.ArgumentList.Add("attach-session");
+        if (attachFlags is not null)
+        {
+            startInfo.ArgumentList.Add("-f");
+            startInfo.ArgumentList.Add(attachFlags);
+        }
+
         if (target is not null)
         {
             startInfo.ArgumentList.Add("-t");
@@ -139,7 +153,7 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
                 "The tmux control client did not start.",
                 startInfo.ArgumentList,
                 TmuxDispatchState.NotDispatched);
-        var limits = new ControlModeLimits();
+        limits ??= new ControlModeLimits();
         return new ControlModeSession(
             new SystemControlModeProcess(process, limits),
             generation: generation,
@@ -281,6 +295,40 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
             cancellationToken));
     }
 
+    /// <summary>Sends already-split commands as one control-input line for the one-shot transport.</summary>
+    /// <param name="commands">The commands, each as its argument vector.</param>
+    /// <param name="probe">Receives the request's state, so a failure can say whether tmux may have run it.</param>
+    /// <param name="cancellationToken">Stops waiting for the answer.</param>
+    /// <returns>The lines tmux printed.</returns>
+    internal Task<IReadOnlyList<string>> SendRawAsync(
+        IReadOnlyList<IReadOnlyList<string>> commands,
+        ControlModeSendProbe probe,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> first = commands[0];
+        var placeholder = TmuxCommand.Create(first[0], [.. first.Skip(1)]);
+        string rendered = ControlModeCommandRenderer.Render(commands);
+        ThrowIfStopping();
+        if (_process.HasExited)
+        {
+            throw new InvalidOperationException("The tmux control client has exited.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_pendingSlots.Wait(0, CancellationToken.None))
+        {
+            throw new InvalidOperationException(
+                $"The control-mode session reached its {_limits.MaxPendingCommands}-command pending limit.");
+        }
+
+        return SendAdmittedAsync(
+            placeholder,
+            rendered,
+            Encoding.UTF8.GetByteCount(rendered),
+            cancellationToken,
+            probe);
+    }
+
     private Task<IReadOnlyList<string>> SendFlowCommandAsync(TmuxCommand command) =>
         SendCoreAsync(
             command,
@@ -367,7 +415,8 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         TmuxCommand command,
         string? renderedCommand,
         long renderedByteCount,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ControlModeSendProbe? probe = null)
     {
         bool transferredSlot = false;
         try
@@ -395,6 +444,11 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
 
             renderedCommand ??= ControlModeCommandRenderer.Render(command);
             var pending = new PendingControlModeCommand(command, sentinel);
+            if (probe is not null)
+            {
+                probe.Pending = pending;
+            }
+
             Task<IReadOnlyList<string>> transaction = DispatchAndWaitAsync(
                 renderedCommand,
                 pending,
@@ -682,8 +736,26 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         bool failed = false;
         bool terminated = false;
 
-        while (await _process.ReadLineAsync().ConfigureAwait(false) is string line)
+        string? overflow = null;
+        while (true)
         {
+            string? line;
+            try
+            {
+                line = await _process.ReadLineAsync().ConfigureAwait(false);
+            }
+            catch (ControlModeOversizedLineException error)
+            {
+                // Read to the end of the line, so the block's own end is still found.
+                overflow ??= error.Message;
+                continue;
+            }
+
+            if (line is null)
+            {
+                break;
+            }
+
             if (ControlModeGuard.TryParse(line, out ControlModeGuard guard)
                 && guard.Matches(begin))
             {
@@ -701,19 +773,32 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
                 }
             }
 
+            if (overflow is not null)
+            {
+                continue;
+            }
+
             if (lines.Count >= _limits.MaxBlockLines)
             {
-                throw new TmuxProtocolException(
-                    $"A control-mode block exceeded its {_limits.MaxBlockLines}-line limit.",
-                    TmuxDispatchState.Unknown);
+                overflow = $"A control-mode block exceeded its {_limits.MaxBlockLines}-line limit.";
+                if (!_limits.FailOnlyOversizedCommand)
+                {
+                    throw new TmuxProtocolException(overflow, TmuxDispatchState.Unknown);
+                }
+
+                continue;
             }
 
             int lineBytes = Encoding.UTF8.GetByteCount(line);
             if (lineBytes > _limits.MaxBlockBytes - blockBytes)
             {
-                throw new TmuxProtocolException(
-                    $"A control-mode block exceeded its {_limits.MaxBlockBytes}-byte limit.",
-                    TmuxDispatchState.Unknown);
+                overflow = $"A control-mode block exceeded its {_limits.MaxBlockBytes}-byte limit.";
+                if (!_limits.FailOnlyOversizedCommand)
+                {
+                    throw new TmuxProtocolException(overflow, TmuxDispatchState.Unknown);
+                }
+
+                continue;
             }
 
             lines.Add(line);
@@ -744,6 +829,19 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         // control-input commands use flag 1 and belong to a pending request.
         if (begin.Flags != 1)
         {
+            return;
+        }
+
+        if (overflow is not null)
+        {
+            lock (_pending)
+            {
+                if (_pending.Count > 0)
+                {
+                    _pending.Peek().Overflow(overflow);
+                }
+            }
+
             return;
         }
 
