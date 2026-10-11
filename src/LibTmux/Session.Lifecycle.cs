@@ -17,9 +17,15 @@ public sealed partial class Session
 
     /// <summary>Gets whether a client was attached when this session was read.</summary>
     /// <remarks>
+    /// <para>
     /// This is captured state rather than a live one: it says what tmux
     /// reported when the handle was made, which is what makes a reading of a
     /// hierarchy consistent with itself.
+    /// </para>
+    /// <para>
+    /// The control client this library keeps on the server is not counted. A
+    /// format of your own that reads <c>#{session_attached}</c> counts it.
+    /// </para>
     /// </remarks>
     public bool Attached =>
         ReadSnapshot("session_attached")
