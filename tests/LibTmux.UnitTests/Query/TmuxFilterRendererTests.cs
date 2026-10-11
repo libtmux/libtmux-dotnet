@@ -78,8 +78,13 @@ public sealed class TmuxFilterRendererTests
     public void Flags_identifiers_and_counts_use_tmux_comparisons()
     {
         var window = new WindowId(4);
+        // tmux counts the library's own control client in session_attached, so
+        // the count can rule a session out but never in.
         Assert.Equal("#{session_attached}", Render<Session>(s => s.Attached));
-        Assert.Equal("#{?#{session_attached},0,1}", Render<Session>(s => !s.Attached));
+        Assert.Null(Render<Session>(s => !s.Attached));
+        Assert.Equal("#{session_attached}", Render<Session>(s => s.Attached == true));
+        Assert.Null(Render<Session>(s => s.Attached == false));
+        Assert.Null(Render<Session>(s => s.Attached != true));
         Assert.Equal("#{==:#{client_control_mode},1}", Render<Client>(c => c.IsControlClient));
         Assert.Equal("#{==:#{window_id},@4}", Render<Window>(w => w.Id == window));
         Assert.Equal("#{?#{==:#{window_id},@4},0,1}", Render<Window>(w => w.Id != window));
