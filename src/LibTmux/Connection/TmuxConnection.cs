@@ -76,7 +76,8 @@ internal sealed class TmuxConnection
         CommandContext = new TmuxCommandContext(
             Options.Logger,
             Options.SocketName ?? Options.SocketPath,
-            Options.CommandTimeout);
+            Options.CommandTimeout,
+            Options.Clock);
         ServerDispatcher = new TmuxCommandDispatcher(
             ExecuteSingleAsync,
             CommandContext,
@@ -97,7 +98,8 @@ internal sealed class TmuxConnection
         CommandContext = new TmuxCommandContext(
             options.Logger,
             options.SocketName ?? options.SocketPath,
-            options.CommandTimeout);
+            options.CommandTimeout,
+            options.Clock);
         ServerDispatcher = new TmuxCommandDispatcher(
             ExecuteSingleAsync,
             CommandContext,
@@ -151,7 +153,8 @@ internal sealed class TmuxConnection
     {
         using var deadline = new TmuxCommandDispatcher.Deadline(
             Options.CommandTimeout,
-            cancellationToken);
+            cancellationToken,
+            Options.Clock);
         try
         {
             return await _dialect.DiscoverAsync(deadline.Token).ConfigureAwait(false);

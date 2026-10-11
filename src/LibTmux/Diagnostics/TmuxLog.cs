@@ -15,9 +15,11 @@ internal sealed class TmuxCommandContext
     internal TmuxCommandContext(
         ILogger? logger,
         string? socket,
-        TimeSpan? commandTimeout = null)
+        TimeSpan? commandTimeout = null,
+        TimeProvider? clock = null)
     {
         Logger = logger;
+        Clock = clock ?? TimeProvider.System;
         Socket = socket;
         CommandTimeout = commandTimeout;
     }
@@ -30,6 +32,9 @@ internal sealed class TmuxCommandContext
 
     /// <summary>Gets how long one command may run before it is abandoned.</summary>
     internal TimeSpan? CommandTimeout { get; }
+
+    /// <summary>Gets the clock the command timeout runs on.</summary>
+    internal TimeProvider Clock { get; }
 }
 
 /// <summary>Records what tmux was asked and what it answered.</summary>

@@ -60,6 +60,13 @@ public sealed record ServerConnectionOptions
     /// </remarks>
     internal bool ForceProcessTransport { get; init; }
 
+    /// <summary>Gets the clock <see cref="CommandTimeout" /> runs on, or null for the system clock.</summary>
+    /// <remarks>
+    /// Internal, for tests that must decide when a command's time has run out
+    /// rather than leave it to how long a process takes to start.
+    /// </remarks>
+    internal TimeProvider? Clock { get; init; }
+
     /// <summary>Gets the tmux executable path.</summary>
     /// <remarks>
     /// One-shot commands travel over one control client the library keeps on

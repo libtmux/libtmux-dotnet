@@ -56,12 +56,16 @@ public sealed class ServerWaitForLockTests
         await server.WaitForAsync(new WaitForRequest(Channel, TmuxWaitMode.Unlock), token);
     }
 
+    // The command timeout runs on a clock the test holds, so how long tmux
+    // takes to start decides nothing: only the test's advance can end a command.
     [UnixFact]
     public async Task The_command_timeout_ends_neither_a_queued_lock_nor_a_wait()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        Server server = await ConnectAsync(raw, token, TimeSpan.FromMilliseconds(100));
+        var clock = new ControlledClock();
+        TimeSpan commandTimeout = TimeSpan.FromMilliseconds(100);
+        Server server = await ConnectAsync(raw, token, commandTimeout, clock);
         const string Lock = "libtmux-lock-timeout";
         const string Signal = "libtmux-signal-timeout";
 
@@ -70,9 +74,9 @@ public sealed class ServerWaitForLockTests
         Task waiting = server.WaitForAsync(new WaitForRequest(Signal, TmuxWaitMode.Wait), token);
 
         // Three command timeouts pass while both still wait for another client.
-        Task elapsed = Task.Delay(TimeSpan.FromMilliseconds(300), token);
-        Assert.Same(elapsed, await Task.WhenAny(queued, waiting, elapsed));
+        clock.Advance(3 * commandTimeout);
 
+        // A task the timeout had ended would carry its failure to these waits.
         await server.WaitForAsync(new WaitForRequest(Lock, TmuxWaitMode.Unlock), token);
         await queued.WaitAsync(TimeSpan.FromSeconds(5), token);
         await server.WaitForAsync(new WaitForRequest(Lock, TmuxWaitMode.Unlock), token);
@@ -80,10 +84,31 @@ public sealed class ServerWaitForLockTests
         await waiting.WaitAsync(TimeSpan.FromSeconds(5), token);
     }
 
+    [UnixFact]
+    public async Task The_command_timeout_ends_an_ordinary_command_that_does_not_answer()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        var clock = new ControlledClock();
+        TimeSpan commandTimeout = TimeSpan.FromMilliseconds(100);
+        Server server = await ConnectAsync(raw, token, commandTimeout, clock);
+        Task<ControlledClock.ArmedTimer> armed = clock.NextArmedAsync(span => span == commandTimeout);
+
+        // wait-for answers only when another client signals, so this one does not.
+        Task<TmuxCommandResult> silent = server.ExecuteCommandAsync(
+            ["wait-for", "libtmux-silent-channel"], token);
+        _ = await armed.WaitAsync(token);
+        clock.Advance(commandTimeout);
+
+        TmuxTransportException expired = await Assert.ThrowsAsync<TmuxTransportException>(() => silent);
+        Assert.Contains("did not answer within", expired.Message, StringComparison.Ordinal);
+    }
+
     private static Task<Server> ConnectAsync(
         RawTmuxTestContext raw,
         CancellationToken token,
-        TimeSpan? commandTimeout = null) =>
+        TimeSpan? commandTimeout = null,
+        TimeProvider? clock = null) =>
         Server.ConnectAsync(
             new ServerConnectionOptions
             {
@@ -91,6 +116,7 @@ public sealed class ServerWaitForLockTests
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
                 CommandTimeout = commandTimeout,
+                Clock = clock,
             },
             token);
 }
