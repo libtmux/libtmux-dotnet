@@ -87,7 +87,7 @@ public sealed class ServerMirrorTests
         using CancellationTokenSource bound = Bounded();
         CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        Session anchor = await AnchorAsync(raw, token);
+        Session anchor = await AnchorAsync(raw, token, forceProcessTransport: true);
         await using ServerMirror mirror = await ServerMirror.OpenAsync(anchor, cancellationToken: token);
         string[] killed = System.Text.Encoding.UTF8.GetString(
             (await raw.ExecuteAsync(["list-clients", "-F", "#{client_pid} #{client_name}"], token)).StandardOutput).Trim().Split(' ', 2);
@@ -176,7 +176,13 @@ public sealed class ServerMirrorTests
         return bound;
     }
 
-    private static async Task<Session> AnchorAsync(RawTmuxTestContext raw, CancellationToken token, string? tmux = null)
+    // A test that picks the mirror's client out of a bare list-clients keeps the
+    // library off a control client of its own, which that list would also show.
+    private static async Task<Session> AnchorAsync(
+        RawTmuxTestContext raw,
+        CancellationToken token,
+        string? tmux = null,
+        bool forceProcessTransport = false)
     {
         Server server = await Server.ConnectAsync(
             new ServerConnectionOptions
@@ -184,6 +190,7 @@ public sealed class ServerMirrorTests
                 TmuxBinaryPath = tmux ?? raw.TmuxBinaryPath,
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
+                ForceProcessTransport = forceProcessTransport || tmux is not null, // a stand-in tmux counts and refuses the -C launches itself
             },
             token);
         IReadOnlyList<Session> sessions = await server.GetSessionsAsync(token);

@@ -30,7 +30,7 @@ public sealed class SessionAttachmentTests
         string cancelChannel = $"cancel_{Guid.NewGuid():N}";
         string resultPath = Path.Combine(Path.GetTempPath(), $"attachment_{Guid.NewGuid():N}.txt");
         Assert.Equal(0, (await raw.ExecuteAsync(["respawn-pane", "-k", "-t", session.Id + ":", "exec /bin/cat"], token)).ExitCode);
-        Assert.Equal(0, (await raw.ExecuteAsync(["set-hook", "-g", "client-attached", $"wait-for -S {attachedChannel}"], token)).ExitCode);
+        Assert.Equal(0, (await raw.ExecuteAsync(["set-hook", "-g", "client-attached", $"if-shell -F '#{{==:#{{client_control_mode}},0}}' 'wait-for -S {attachedChannel}'"], token)).ExitCode);
         await using TmuxWaitChannel attached = server.OpenWaitChannel(attachedChannel);
         using Process client = Process.Start(CreateStartInfo(raw, session.Id, cancelChannel, resultPath, cancel))
             ?? throw new InvalidOperationException("The attached API test child did not start.");

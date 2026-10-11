@@ -58,7 +58,7 @@ public sealed class OwnedServerAdoptionTests
                 token);
 
             await Assert.ThrowsAsync<TmuxCommandException>(
-                () => Server.CreateOwnedAsync(Options(root, socketName: null) with { TmuxBinaryPath = tmux }, token));
+                () => Server.CreateOwnedAsync(Options(root, socketName: null) with { TmuxBinaryPath = tmux, ForceProcessTransport = true }, token));
 
             Assert.False(File.Exists(started), "a server was started without knowing whether one listened");
             Assert.True(await occupant.IsAliveAsync(token));
@@ -166,7 +166,7 @@ public sealed class OwnedServerAdoptionTests
                 + $"case \" $* \" in *\" kill-server \"*) [ -e '{refuseKill}' ] && exit 1 ;; esac\n"
                 + $"exec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
                 token);
-            OwnedServerScope owned = await Server.CreateOwnedAsync(Options(root, "owned") with { TmuxBinaryPath = tmux }, token);
+            OwnedServerScope owned = await Server.CreateOwnedAsync(Options(root, "owned") with { TmuxBinaryPath = tmux, ForceProcessTransport = true }, token);
             await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "kept" }, token);
             await File.WriteAllTextAsync(pid, stand.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), token);
             await File.WriteAllTextAsync(refuseKill, string.Empty, token);
@@ -252,7 +252,7 @@ public sealed class OwnedServerAdoptionTests
         try
         {
             using CancellationTokenSource cancelled = CancellationTokenSource.CreateLinkedTokenSource(token);
-            Task<OwnedServerScope> creating = Server.CreateOwnedAsync(options with { TmuxBinaryPath = tmux }, cancelled.Token);
+            Task<OwnedServerScope> creating = Server.CreateOwnedAsync(options with { TmuxBinaryPath = tmux, ForceProcessTransport = true }, cancelled.Token);
             await listing.WaitAsync(token);
 
             await cancelled.CancelAsync();
@@ -288,7 +288,7 @@ public sealed class OwnedServerAdoptionTests
             $"#!/bin/sh\n[ -e '{refuse}' ] && exit 1\nexec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
             cancellationToken);
         OwnedServerScope owned = await Server.CreateOwnedAsync(
-            Options(root, "owned") with { TmuxBinaryPath = tmux },
+            Options(root, "owned") with { TmuxBinaryPath = tmux, ForceProcessTransport = true },
             cancellationToken);
         await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "kept" }, cancellationToken);
         return (owned, refuse);
