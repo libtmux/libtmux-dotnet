@@ -565,6 +565,49 @@ public sealed class PaneRunTests
         return options.StandardOutputLines.Where(line => line.StartsWith("@lt_s_", StringComparison.Ordinal));
     }
 
+    // A pane whose server exits while the wait's control client attaches has
+    // ended with it; the wait says so rather than reporting a failed attach.
+    [UnixFact]
+    public async Task A_wait_whose_watcher_meets_the_servers_exit_reports_the_pane_gone()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        string directory = Directory.CreateTempSubdirectory("ltm-exit-").FullName;
+        string wrapper = Path.Combine(directory, "tmux-wrapper");
+        try
+        {
+            // Every control client launched through this takes the server down
+            // and reports what tmux's client reports when that happens.
+            await TestExecutable.WriteAsync(
+                wrapper,
+                "#!/bin/sh\nfor argument in \"$@\"; do\n  if [ \"$argument\" = -C ]; then\n"
+                + $"    '{raw.TmuxBinaryPath}' -S '{raw.SocketPath}' kill-server\n"
+                + "    printf '%%exit server exited unexpectedly\\n'\n    exit 1\n  fi\ndone\n"
+                + $"exec '{raw.TmuxBinaryPath}' \"$@\"\n",
+                token);
+            RawTmuxResult created = await raw.ExecuteAsync(
+                ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "--", "sleep", "60"],
+                token);
+            Server server = await Server.ConnectAsync(
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = wrapper,
+                    SocketPath = raw.SocketPath,
+                    ConfigurationFile = "/dev/null",
+                    ForceProcessTransport = true, // the wrapper must see every control client launch
+                },
+                token);
+            Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+
+            _ = await Assert.ThrowsAsync<TmuxObjectNotFoundException>(
+                () => pane.WaitForTextAsync("never", Allowed, token));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     // Several words run the program directly, with no shell in between.
     private static async Task<Pane> NewPaneAsync(
         RawTmuxTestContext raw,
