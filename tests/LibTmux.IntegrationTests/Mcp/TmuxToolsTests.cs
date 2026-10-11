@@ -521,14 +521,20 @@ public sealed class TmuxToolsTests
 
     [UnixFact]
     public async Task An_idle_text_wait_does_not_poll_pane_contents() =>
-        await AssertIdleWaitAsync(TimeProvider.System);
+        await AssertIdleWaitAsync(timerFiresEarly: false);
 
     [UnixFact]
     public async Task A_text_wait_timeout_does_not_read_again_when_its_timer_expires_early() =>
-        await AssertIdleWaitAsync(new EarlyTimeoutProvider());
+        await AssertIdleWaitAsync(timerFiresEarly: true);
 
-    private static async Task AssertIdleWaitAsync(TimeProvider timeProvider)
+    // The wait reads three times however long the hub took to attach: the
+    // pane as it entered, once for what followed, and the grid at the end. Its
+    // clock is the test's, so the attach cannot use up the observation window
+    // and cost the middle read; time moves once the wait reports it is
+    // subscribed.
+    private static async Task AssertIdleWaitAsync(bool timerFiresEarly)
     {
+        var clock = new ControlledClock();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         // An interactive shell can print after its creation command returns.
@@ -551,21 +557,66 @@ public sealed class TmuxToolsTests
         await using PaneActivityHub activity = new(
             static (observed, cancellation) => observed.Server.EnterControlModeAsync(
                 observed.Session.Id.ToString(), cancellation),
-            timeProvider: timeProvider);
+            timeProvider: clock,
+            deadlineClock: clock);
         using TmuxConnectionAccessor connection = new(Server.Open(
             scope.Server.ConnectionOptions with { Logger = logger }));
         ReadTools reads = new(connection, new ServerPolicy(), activity);
+        TaskCompletionSource subscribed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TimeSpan window = TimeSpan.FromMilliseconds(650);
+        TimeSpan reserve = TimeSpan.FromMilliseconds(100);
+        TimeSpan timeout = TimeSpan.FromMilliseconds(750);
+        Task<ControlledClock.ArmedTimer> observing = clock.NextArmedAsync(span => span == window);
 
-        WaitResult result = await reads.WaitForTextAsync(
+        Task<WaitResult> waiting = reads.WaitForTextAsync(
             pane.Id.ToString(),
             ["NEVER_APPEARS_ANYWHERE"],
             timeoutSeconds: 0.75,
+            progress: new Progress<ProgressNotificationValue>(_ => subscribed.TrySetResult()),
             cancellationToken: token);
+        await Task.WhenAny(subscribed.Task, waiting).WaitAsync(token);
+        Assert.False(waiting.IsCompleted);
+
+        // The observation window ends: by the time passing, or by its timer
+        // firing before its time.
+        ControlledClock.ArmedTimer observation = await ArmedBeforeEndAsync(observing, waiting, token);
+        Task<ControlledClock.ArmedTimer> finishing = clock.NextArmedAsync(
+            span => span == (timerFiresEarly ? timeout : reserve));
+        if (timerFiresEarly)
+        {
+            observation.FireEarly();
+        }
+        else
+        {
+            clock.Advance(window);
+        }
+
+        // The grid is read once more, and then only the reserve is left.
+        ControlledClock.ArmedTimer last = await ArmedBeforeEndAsync(finishing, waiting, token);
+        Assert.Equal(3, logger.Captures);
+        if (timerFiresEarly)
+        {
+            last.FireEarly();
+        }
+
+        clock.Advance(timerFiresEarly ? timeout : reserve);
+        WaitResult result = await waiting.WaitAsync(token);
 
         Assert.Equal(WaitOutcome.Timeout, result.Outcome);
         Assert.False(result.PollingFallback);
         Assert.Equal(3, logger.Captures);
         Assert.False(activity.IsStreaming);
+    }
+
+    // The wait is on the test's clock, so it ends only when the test moves it.
+    private static async Task<ControlledClock.ArmedTimer> ArmedBeforeEndAsync(
+        Task<ControlledClock.ArmedTimer> armed,
+        Task<WaitResult> waiting,
+        CancellationToken token)
+    {
+        await Task.WhenAny(armed, waiting).WaitAsync(token);
+        Assert.True(armed.IsCompleted, "the wait ended on a clock the test does not hold");
+        return await armed;
     }
 
     [UnixFact]
@@ -596,17 +647,6 @@ public sealed class TmuxToolsTests
         Assert.True(result.EventsDropped > 0);
         Assert.False(result.PollingFallback);
         Assert.False(mcp.Activity.IsStreaming);
-    }
-
-    private sealed class EarlyTimeoutProvider : TimeProvider
-    {
-        public override ITimer CreateTimer(
-            TimerCallback callback,
-            object? state,
-            TimeSpan dueTime,
-            TimeSpan period) =>
-            // Model a deadline timer firing before Stopwatch reaches the budget.
-            new Timer(callback, state, TimeSpan.Zero, Timeout.InfiniteTimeSpan);
     }
 
     private sealed class CaptureLogger : ILogger
