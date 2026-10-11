@@ -214,7 +214,8 @@ $ mise exec -- dotnet pack \
 ```
 
 ```console
-$ mise exec -- dotnet eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engineering.dll \
+$ mise exec -- dotnet \
+    eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engineering.dll \
     packages . artifacts/packages artifacts/api-inventory.json
 ```
 
@@ -303,6 +304,19 @@ Check F# source, signatures and scripts:
 $ mise exec -- dotnet fantomas check src examples tests eng
 ```
 
+Check that example code and the code in READMEs and docs stays within 80
+columns. [WRITING.md](WRITING.md#examples) says which lines count and
+`.github/example-width.toml` lists the files and the few lines allowed to stay
+wider. The self-test proves the checker can fail:
+
+```console
+$ python3 eng/docs/check_example_width.py --self-test
+```
+
+```console
+$ python3 eng/docs/check_example_width.py
+```
+
 The F# formatting, unit and packed-consumer steps run in `dotnet.build`, a
 required predecessor of `dotnet.gate`. Workflow policy rejects skipped or
 non-failing versions of those steps.
@@ -324,7 +338,8 @@ $ NUGET_PACKAGES="$(mktemp -d)" mise exec -- bash -euc '
         --configfile tests/NuGet.config
     for framework in net8.0 net10.0; do
         dotnet run \
-            --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
+            --project \
+            tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
             --configuration Release \
             --framework "$framework" \
             --no-restore
@@ -346,7 +361,8 @@ $ NUGET_PACKAGES="$(mktemp -d)" mise exec -- bash -euc '
             --framework "$framework" \
             --runtime linux-x64 \
             --no-restore
-        "tests/LibTmux.AotSmoke/bin/Release/$framework/linux-x64/native/LibTmux.AotSmoke"
+        native=tests/LibTmux.AotSmoke/bin/Release/$framework/linux-x64/native
+        "$native/LibTmux.AotSmoke"
     done'
 ```
 
@@ -391,15 +407,17 @@ The required F# trimmed smoke step publishes and runs the same static route
 with NativeAOT disabled. Reproduce it against a fresh local pack on Linux:
 
 ```console
-$ env -u TMUX -u TMUX_PANE NUGET_PACKAGES="$(mktemp -d)" mise exec -- bash -euc '
+$ env -u TMUX -u TMUX_PANE \
+    NUGET_PACKAGES="$(mktemp -d)" mise exec -- bash -euc '
     output=$(mktemp -d)
-    dotnet restore tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+    project=tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj
+    dotnet restore "$project" \
         --runtime linux-x64 \
         --configfile tests/NuGet.config \
         -p:PublishAot=false \
         -p:PublishTrimmed=true
     for framework in net8.0 net10.0; do
-        dotnet publish tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+        dotnet publish "$project" \
             --configuration Release \
             --framework "$framework" \
             --runtime linux-x64 \

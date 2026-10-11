@@ -113,7 +113,8 @@ predicate nodes; a regex already running still has its separate one-second
 match ceiling.
 
 ```csharp run
-Console.WriteLine($"depth {QueryJsonLimits.Default.MaximumDepth}, nodes {QueryJsonLimits.Default.MaximumNodes}");
+QueryJsonLimits limits = QueryJsonLimits.Default;
+Console.WriteLine($"depth {limits.MaximumDepth}, nodes {limits.MaximumNodes}");
 ```
 
 ## The field catalog is closed
@@ -141,9 +142,10 @@ Pane dimensions support numeric comparisons over the same captured objects:
 ```csharp run
 QueryDocument widePanes = QueryExtensions.Translate<Pane>(
     pane => pane.Width >= 50 && pane.Height >= 20);
-QueryDocument restoredDimensions = QueryJson.Deserialize(QueryJson.Serialize(widePanes));
-Server capturedPanes = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, ct);
-Console.WriteLine(capturedPanes.Panes.Matching(restoredDimensions).Count);
+string json = QueryJson.Serialize(widePanes);
+QueryDocument restoredDimensions = QueryJson.Deserialize(json);
+Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, ct);
+Console.WriteLine(snapshot.Panes.Matching(restoredDimensions).Count);
 ```
 
 `pane_current_path`, `window_active` and `window_index` query captured

@@ -3,7 +3,9 @@ using LibTmux.Engineering;
 
 namespace LibTmux.Examples;
 
-/// <summary>An isolated tmux server an example connects to without naming it.</summary>
+/// <summary>
+/// An isolated tmux server an example connects to without naming it.
+/// </summary>
 /// <remarks>
 /// Disposal kills the server, so the socket must never be the one a bare tmux
 /// uses: a namespace named <c>default</c> would kill the developer's own.
@@ -17,7 +19,9 @@ namespace LibTmux.Examples;
 [UnsupportedOSPlatform("windows")]
 public sealed class ExampleNamespace : IAsyncDisposable
 {
-    /// <summary>What every example socket is called before its own name.</summary>
+    /// <summary>
+    /// What every example socket is called before its own name.
+    /// </summary>
     public const string SocketPrefix = "libtmux-example-";
 
     /// <summary>The directory every example socket lives under.</summary>
@@ -25,7 +29,9 @@ public sealed class ExampleNamespace : IAsyncDisposable
         WorkspaceSocketRoot.Root,
         "examples");
 
-    /// <summary>The shortest sun_path any supported platform allows: macOS.</summary>
+    /// <summary>
+    /// The shortest sun_path any supported platform allows: macOS.
+    /// </summary>
     /// <remarks>
     /// tmux binds <c>&lt;root&gt;/tmux-&lt;uid&gt;/&lt;name&gt;</c>; over the
     /// limit it fails at bind time complaining about the address.
@@ -63,7 +69,9 @@ public sealed class ExampleNamespace : IAsyncDisposable
         _restore = restore;
     }
 
-    /// <summary>Gets the socket this example's server is listening on.</summary>
+    /// <summary>
+    /// Gets the socket this example's server is listening on.
+    /// </summary>
     public string SocketName { get; }
 
     /// <summary>Gets the server this example may reach.</summary>
@@ -82,7 +90,9 @@ public sealed class ExampleNamespace : IAsyncDisposable
     public string Directory => _directory;
 
     /// <summary>Opens a namespace named for the example about to run.</summary>
-    /// <param name="name">The example's name, which names its socket too.</param>
+    /// <param name="name">
+    /// The example's name, which names its socket too.
+    /// </param>
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
     /// <returns>The namespace, which kills its server when disposed.</returns>
     public static async Task<ExampleNamespace> EnterAsync(
@@ -97,8 +107,8 @@ public sealed class ExampleNamespace : IAsyncDisposable
 
         List<(string Name, string? Value)> restore =
         [
-            .. Variables.Select(
-                variable => (variable, Environment.GetEnvironmentVariable(variable))),
+            .. Variables.Select(variable =>
+                (variable, Environment.GetEnvironmentVariable(variable))),
         ];
 
         // TMUX and TMUX_PANE are cleared, not moved: inherited, they point a
@@ -111,7 +121,9 @@ public sealed class ExampleNamespace : IAsyncDisposable
             "LIBTMUX_MCP_COMMAND",
             Path.Combine(
                 AppContext.BaseDirectory,
-                OperatingSystem.IsWindows() ? "LibTmux.Mcp.exe" : "LibTmux.Mcp"));
+                OperatingSystem.IsWindows()
+                    ? "LibTmux.Mcp.exe"
+                    : "LibTmux.Mcp"));
         Environment.SetEnvironmentVariable("TMUX", null);
         Environment.SetEnvironmentVariable("TMUX_PANE", null);
 
@@ -125,8 +137,9 @@ public sealed class ExampleNamespace : IAsyncDisposable
             OwnedServerScope server = await Server.CreateOwnedAsync(
                 new ServerConnectionOptions
                 {
-                    TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-                        ?? "tmux",
+                    TmuxBinaryPath =
+                        Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
+                            ?? "tmux",
                     SocketName = socketName,
                     ChildEnvironment = new Dictionary<string, string?>
                     {
@@ -138,12 +151,18 @@ public sealed class ExampleNamespace : IAsyncDisposable
             if (FindSocket(socketName) is null)
             {
                 throw new InvalidOperationException(
-                    $"The tmux server for example '{name}' did not start on a socket "
-                    + $"named {socketName} under {SocketRoot}. Refusing to take ownership "
-                    + "of a server that turned up somewhere else, and leaving it running.");
+                    $"The tmux server for example '{name}' did not start on "
+                    + $"a socket named {socketName} under {SocketRoot}. "
+                    + "Refusing to take ownership of a server that turned up "
+                    + "somewhere else, and leaving it running.");
             }
 
-            ExampleNamespace world = new(socketName, directory, entered, server, restore);
+            ExampleNamespace world = new(
+                socketName,
+                directory,
+                entered,
+                server,
+                restore);
             await world.PopulateAsync(cancellationToken);
             return world;
         }
@@ -183,7 +202,9 @@ public sealed class ExampleNamespace : IAsyncDisposable
         }
     }
 
-    /// <summary>Returns the path of the named socket, or null if it is absent.</summary>
+    /// <summary>
+    /// Returns the path of the named socket, or null if it is absent.
+    /// </summary>
     public static string? FindSocket(string socketName)
     {
         if (!System.IO.Directory.Exists(SocketRoot))
@@ -199,14 +220,21 @@ public sealed class ExampleNamespace : IAsyncDisposable
 
     private static string BuildSocketName(string name, string nonce)
     {
-        // Budgets for the widest uid rather than asking the kernel for this one.
-        string prefix = Path.Combine(SocketRoot, "tmux-4294967295") + Path.DirectorySeparatorChar;
-        int room = SocketPathLimit - prefix.Length - SocketPrefix.Length - nonce.Length - 1;
+        // Budgets for the widest uid rather than asking the kernel for this
+        // one.
+        string prefix = Path.Combine(SocketRoot, "tmux-4294967295")
+            + Path.DirectorySeparatorChar;
+        int room = SocketPathLimit
+            - prefix.Length
+            - SocketPrefix.Length
+            - nonce.Length
+            - 1;
         if (room < 1)
         {
             throw new InvalidOperationException(
-                $"There is no room for an example socket name under {SocketRoot}: a Unix "
-                + $"socket path may be {SocketPathLimit} bytes and the root alone is "
+                "There is no room for an example socket name under "
+                + $"{SocketRoot}: a Unix socket path may be "
+                + $"{SocketPathLimit} bytes and the root alone is "
                 + $"{prefix.Length}.");
         }
 
@@ -226,7 +254,8 @@ public sealed class ExampleNamespace : IAsyncDisposable
         Pane = (await Window.GetPanesAsync(cancellationToken))[0];
     }
 
-    private static void Restore(IReadOnlyList<(string Name, string? Value)> restore)
+    private static void Restore(
+        IReadOnlyList<(string Name, string? Value)> restore)
     {
         foreach ((string name, string? value) in restore)
         {

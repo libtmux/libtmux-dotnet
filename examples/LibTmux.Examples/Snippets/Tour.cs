@@ -2,7 +2,9 @@ using System.Runtime.Versioning;
 
 namespace LibTmux.Examples.Snippets;
 
-/// <summary>The tour that ships with the repository, one example per idea.</summary>
+/// <summary>
+/// The tour that ships with the repository, one example per idea.
+/// </summary>
 [UnsupportedOSPlatform("windows")]
 public static class Tour
 {
@@ -10,8 +12,9 @@ public static class Tour
     [Example("Walk the hierarchy a server holds")]
     public static async Task ShowHierarchy(Server server, Session session)
     {
-        // ConnectionOptions is what the server was told, not something tmux answered.
-        Console.WriteLine($"socket           {server.ConnectionOptions.SocketName}");
+        // ConnectionOptions is what the server was told, not what tmux said.
+        Console.WriteLine(
+            $"socket           {server.ConnectionOptions.SocketName}");
         Console.WriteLine($"session          {session.Name} ({session.Id})");
         // A server holds sessions, a session holds windows, a window holds
         // panes; each accessor returns a list without re-querying tmux.
@@ -20,17 +23,24 @@ public static class Tour
             Console.WriteLine($"  window {window.Index,-3} {window.Name}");
             foreach (Pane pane in await window.GetPanesAsync())
             {
-                Console.WriteLine($"    pane {pane.Index,-3} {pane.Width}x{pane.Height}");
+                Console.WriteLine(
+                    $"    pane {pane.Index,-3} {pane.Width}x{pane.Height}");
             }
         }
     }
 
-    /// <summary>Reads a materialized window and checks optional capture state.</summary>
+    /// <summary>
+    /// Reads a materialized window and checks optional capture state.
+    /// </summary>
     [Example("Read captured state and find a window")]
-    public static async Task ReadCapturedState(Server server, Session session, CancellationToken ct)
+    public static async Task ReadCapturedState(
+        Server server,
+        Session session,
+        CancellationToken ct)
     {
         #region ReadCapturedState
-        Window created = await session.CreateWindowAsync(new NewWindowRequest { Name = "lookup" }, ct);
+        NewWindowRequest request = new() { Name = "lookup" };
+        Window created = await session.CreateWindowAsync(request, ct);
         Server connected = await server.ConnectAsync(ct);
         Window read = await connected.GetWindowAsync(created.Id, ct);
         Console.WriteLine($"{read.Name} {read.Width}x{read.Height}");
@@ -47,7 +57,9 @@ public static class Tour
         #endregion
     }
 
-    /// <summary>Types a command into a pane and waits for what it printed.</summary>
+    /// <summary>
+    /// Types a command into a pane and waits for what it printed.
+    /// </summary>
     [Example("Type into a pane and wait for what it printed")]
     public static async Task RunACommand(Pane pane)
     {
@@ -55,31 +67,41 @@ public static class Tour
 
         // tmux answers a command once it has accepted it, not once the shell
         // has finished, so the result is waited for rather than assumed.
+        const string expected = "the-pane-ran-this";
         string text = await TmuxWait.UntilAsync(
-            async token => string.Join('\n', await pane.CaptureAsync(cancellationToken: token)),
-            captured => captured.Contains("the-pane-ran-this", StringComparison.Ordinal),
+            async token => string.Join(
+                '\n',
+                await pane.CaptureAsync(cancellationToken: token)),
+            captured => captured.Contains(expected, StringComparison.Ordinal),
             TimeSpan.FromSeconds(10),
             TimeSpan.FromMilliseconds(20));
-        Console.WriteLine($"captured         {text.Contains("the-pane-ran-this", StringComparison.Ordinal)}");
+        bool seen = text.Contains(expected, StringComparison.Ordinal);
+        Console.WriteLine($"captured         {seen}");
     }
 
-    /// <summary>Sets an option, reads it back, and reads an inherited one.</summary>
+    /// <summary>
+    /// Sets an option, reads it back, and reads an inherited one.
+    /// </summary>
     [Example("Set an option, read it back, and read an inherited one")]
     public static async Task ReadAndWriteOptions(Window window)
     {
-        await window.Options.SetAsync(new SetOptionRequest("automatic-rename", "off"));
+        await window.Options.SetAsync(
+            new SetOptionRequest("automatic-rename", "off"));
         TmuxOption option = (await window.Options.GetAsync(
             new GetOptionRequest("automatic-rename")))[0];
 
         // tmux has no types, so a value carries what tmux said alongside the
         // readings that text supports.
-        Console.WriteLine($"automatic-rename {option.Value.Raw} (flag {option.Value.Boolean})");
+        TmuxOptionValue value = option.Value;
+        Console.WriteLine(
+            $"automatic-rename {value.Raw} (flag {value.Boolean})");
 
         // An option the window does not hold is inherited rather than missing,
         // and asking for inherited values is what shows it.
         IReadOnlyList<TmuxOption> inherited = await window.Options.GetAsync(
             new GetOptionRequest("mode-keys") { IncludeInherited = true });
-        Console.WriteLine($"mode-keys        {inherited[0].Value.Raw} (inherited)");
+        Console.WriteLine(
+            $"mode-keys        {inherited[0].Value.Raw} (inherited)");
     }
 
     /// <summary>Sets a hook, runs it, and checks what it did.</summary>
@@ -94,7 +116,12 @@ public static class Tour
 
         await server.Hooks.RunAsync(new HookRequest("alert-bell"));
         IReadOnlyList<TmuxOption> rang = await server.Options.GetAsync(
-            new GetOptionRequest("@rang") { Scope = OptionScope.Session, Global = true, Quiet = true });
+            new GetOptionRequest("@rang")
+            {
+                Scope = OptionScope.Session,
+                Global = true,
+                Quiet = true,
+            });
         Console.WriteLine($"hook ran         {rang.Count == 1}");
     }
 
@@ -102,8 +129,10 @@ public static class Tour
     [Example("Filter what is there")]
     public static async Task FilterWhatIsThere(Session session)
     {
-        await session.CreateWindowAsync(new NewWindowRequest { Name = "build-one" });
-        await session.CreateWindowAsync(new NewWindowRequest { Name = "build-two" });
+        NewWindowRequest first = new() { Name = "build-one" };
+        NewWindowRequest second = new() { Name = "build-two" };
+        await session.CreateWindowAsync(first);
+        await session.CreateWindowAsync(second);
 
         // Ordinary filtering is LINQ over what was read.
         IReadOnlyList<Window> windows = await session.GetWindowsAsync();

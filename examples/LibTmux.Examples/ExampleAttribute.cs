@@ -15,6 +15,8 @@ public sealed class ExampleAttribute : Attribute
     /// <summary>Gets the line saying what the example shows.</summary>
     public string Title { get; }
 
-    /// <summary>Gets or sets whether the ordinary tmux example suite runs this example.</summary>
+    /// <summary>
+    /// Gets or sets whether the ordinary tmux example suite runs this example.
+    /// </summary>
     public bool RunsInDefaultSuite { get; set; } = true;
 }

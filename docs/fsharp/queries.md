@@ -37,7 +37,12 @@ open System.Threading
 open LibTmux
 open LibTmux.FSharp
 
-let queryShapesAsync (ct: CancellationToken) (server: Server) (session: Session) (held: Pane list) =
+let queryShapesAsync
+    (ct: CancellationToken)
+    (server: Server)
+    (session: Session)
+    (held: Pane list)
+    =
     task {
         // Describing a listing reads nothing.
         let named =
@@ -46,10 +51,15 @@ let queryShapesAsync (ct: CancellationToken) (server: Server) (session: Session)
             |> Query.where (SessionFields.name |> Filter.startsWith "bu")
 
         let! (all: IReadOnlyList<Session>) = named |> Query.list ct
-        let! (one: Result<Session, CardinalityError>) = named |> Query.exactlyOne ct
+
+        let! (one: Result<Session, CardinalityError>) =
+            named |> Query.exactlyOne ct
+
         let! (maybe: Session option) = named |> Query.tryExactlyOne ct
         let! (atMost: Session option) = named |> Query.atMostOne ct
-        let! (inSession: IReadOnlyList<Pane>) = session |> Session.panes |> Query.list ct
+
+        let! (inSession: IReadOnlyList<Pane>) =
+            session |> Session.panes |> Query.list ct
 
         let! (showingError: IReadOnlyList<Pane>) =
             server
@@ -60,7 +70,11 @@ let queryShapesAsync (ct: CancellationToken) (server: Server) (session: Session)
         let! (withTail: IReadOnlyList<Session>) =
             server
             |> Server.sessions
-            |> Query.where (WindowFields.name |> Filter.eq "tail" |> Filter.any SessionFields.windows)
+            |> Query.where (
+                WindowFields.name
+                |> Filter.eq "tail"
+                |> Filter.any SessionFields.windows
+            )
             |> Query.list ct
 
         let! (active: IReadOnlyList<Pane>) =
@@ -72,9 +86,20 @@ let queryShapesAsync (ct: CancellationToken) (server: Server) (session: Session)
         // Objects already in hand are filtered locally.
         let editors: IReadOnlyList<Pane> =
             held
-            |> Query.matching (PaneFields.currentCommand |> Filter.oneOf [ "nvim"; "vim" ])
+            |> Query.matching (
+                PaneFields.currentCommand |> Filter.oneOf [ "nvim"; "vim" ]
+            )
 
-        return all, one, maybe, atMost, inSession, showingError, withTail, active, editors
+        return
+            all,
+            one,
+            maybe,
+            atMost,
+            inSession,
+            showingError,
+            withTail,
+            active,
+            editors
     }
 ```
 <!-- endfsharp-snippet -->
@@ -117,7 +142,11 @@ let runAsync () =
 
         let! build =
             owned.Value.CreateSessionAsync(
-                NewSessionRequest(Name = "build", WindowName = "make", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "build",
+                    WindowName = "make",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
@@ -141,7 +170,9 @@ let runAsync () =
 
         let! logPane = logs[0] |> Session.panes |> Query.list token
 
-        let! logged = logPane[0] |> Pane.waitForText token (TimeSpan.FromSeconds 5.) "ERROR:"
+        let! logged =
+            logPane[0]
+            |> Pane.waitForText token (TimeSpan.FromSeconds 5.) "ERROR:"
 
 
         // tmux narrows each listing itself; every row is then rechecked.
@@ -155,7 +186,11 @@ let runAsync () =
         let! tailing =
             server
             |> Server.sessions
-            |> Query.where (WindowFields.name |> Filter.eq "tail" |> Filter.any SessionFields.windows)
+            |> Query.where (
+                WindowFields.name
+                |> Filter.eq "tail"
+                |> Filter.any SessionFields.windows
+            )
             |> Query.list token
 
         // Session and window scopes use the same functions.
@@ -183,7 +218,8 @@ let runAsync () =
             |> Query.list token
 
         let! errorRow =
-            showingErrors[0] |> Pane.findOnScreen token (ScreenSearch.Text "disk full")
+            showingErrors[0]
+            |> Pane.findOnScreen token (ScreenSearch.Text "disk full")
 
         // A raw tmux filter is the escape hatch; nothing rechecks it.
         let! active =
@@ -204,7 +240,9 @@ let runAsync () =
         if existing.IsNone then
             let! _ =
                 owned.Value
-                |> Server.newSession token (SessionSpec.running "deploy" "exec sleep 60")
+                |> Server.newSession
+                    token
+                    (SessionSpec.running "deploy" "exec sleep 60")
 
             ()
 
@@ -291,13 +329,21 @@ let runAsync () =
 
         use! _demo =
             owned.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "demo", WindowName = "shell", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "demo",
+                    WindowName = "shell",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
         use! _worker =
             owned.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "worker", WindowName = "jobs", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "worker",
+                    WindowName = "jobs",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
@@ -310,7 +356,11 @@ let runAsync () =
         for session in sessions do
             printfn "Session: %s (%O)" session.Name session.Id
 
-        printfn "Windows: %d; panes: %d; clients: %d" windows.Count panes.Count clients.Count
+        printfn
+            "Windows: %d; panes: %d; clients: %d"
+            windows.Count
+            panes.Count
+            clients.Count
 
     }
 
@@ -368,7 +418,11 @@ let runAsync () =
 
         use! demo =
             owned.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "demo", WindowName = "shell", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "demo",
+                    WindowName = "shell",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
@@ -390,14 +444,30 @@ let runAsync () =
         let! missingSession =
             server |> Server.tryFindSession token (SessionId Int32.MaxValue)
 
-        let! missingWindow = server |> Server.tryFindWindow token (WindowId Int32.MaxValue)
-        let! missingPane = server |> Server.tryFindPane token (PaneId Int32.MaxValue)
-        let! missingClient = server |> Server.tryFindClient token (client.Name + "-missing")
+        let! missingWindow =
+            server |> Server.tryFindWindow token (WindowId Int32.MaxValue)
 
-        printfn "session: %A" (foundSession |> Option.map (fun found -> found.Name))
-        printfn "window: %A" (foundWindow |> Option.map (fun found -> found.Name))
-        printfn "pane: %A" (foundPane |> Option.map (fun found -> found.Id = pane.Id))
-        printfn "client: %A" (foundClient |> Option.map (fun found -> found.Name = client.Name))
+        let! missingPane =
+            server |> Server.tryFindPane token (PaneId Int32.MaxValue)
+
+        let! missingClient =
+            server |> Server.tryFindClient token (client.Name + "-missing")
+
+        printfn
+            "session: %A"
+            (foundSession |> Option.map (fun found -> found.Name))
+
+        printfn
+            "window: %A"
+            (foundWindow |> Option.map (fun found -> found.Name))
+
+        printfn
+            "pane: %A"
+            (foundPane |> Option.map (fun found -> found.Id = pane.Id))
+
+        printfn
+            "client: %A"
+            (foundClient |> Option.map (fun found -> found.Name = client.Name))
 
         printfn
             "missing: %A"

@@ -19,7 +19,11 @@ let runAsync () =
 
         let! build =
             owned.Value.CreateSessionAsync(
-                NewSessionRequest(Name = "build", WindowName = "make", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "build",
+                    WindowName = "make",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
@@ -43,7 +47,9 @@ let runAsync () =
 
         let! logPane = logs[0] |> Session.panes |> Query.list token
 
-        let! logged = logPane[0] |> Pane.waitForText token (TimeSpan.FromSeconds 5.) "ERROR:"
+        let! logged =
+            logPane[0]
+            |> Pane.waitForText token (TimeSpan.FromSeconds 5.) "ERROR:"
 
 
         // tmux narrows each listing itself; every row is then rechecked.
@@ -57,7 +63,11 @@ let runAsync () =
         let! tailing =
             server
             |> Server.sessions
-            |> Query.where (WindowFields.name |> Filter.eq "tail" |> Filter.any SessionFields.windows)
+            |> Query.where (
+                WindowFields.name
+                |> Filter.eq "tail"
+                |> Filter.any SessionFields.windows
+            )
             |> Query.list token
 
         // Session and window scopes use the same functions.
@@ -85,7 +95,8 @@ let runAsync () =
             |> Query.list token
 
         let! errorRow =
-            showingErrors[0] |> Pane.findOnScreen token (ScreenSearch.Text "disk full")
+            showingErrors[0]
+            |> Pane.findOnScreen token (ScreenSearch.Text "disk full")
 
         // A raw tmux filter is the escape hatch; nothing rechecks it.
         let! active =
@@ -106,7 +117,9 @@ let runAsync () =
         if existing.IsNone then
             let! _ =
                 owned.Value
-                |> Server.newSession token (SessionSpec.running "deploy" "exec sleep 60")
+                |> Server.newSession
+                    token
+                    (SessionSpec.running "deploy" "exec sleep 60")
 
             ()
 

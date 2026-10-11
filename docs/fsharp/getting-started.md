@@ -24,7 +24,8 @@ let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
     task {
         let options =
             ServerConnectionOptions(
-                SocketName = "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
+                SocketName =
+                    "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null"
             )
 
@@ -32,20 +33,33 @@ let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
         let server = ownedServer.Value
 
         use! ownedSession =
-            server.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/sh"), cancellationToken)
+            server.CreateOwnedSessionAsync(
+                NewSessionRequest(Name = "demo", Command = "/bin/sh"),
+                cancellationToken
+            )
 
-        let! panes = ownedSession.Value |> Session.panes |> Query.list cancellationToken
+        let! panes =
+            ownedSession.Value
+            |> Session.panes
+            |> Query.list cancellationToken
 
         let! second =
-            panes[0] |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+            panes[0]
+            |> Pane.split
+                cancellationToken
+                (SplitPaneRequest(Command = "/bin/sh"))
 
         do! second |> Pane.sendLine cancellationToken "printf 'ready\\n'"
 
-        let! found = server |> Server.tryFindPane cancellationToken second.Id
-        let! captured = server |> Server.capture cancellationToken SnapshotDepth.Panes
+        let! found =
+            server |> Server.tryFindPane cancellationToken second.Id
+
+        let! captured =
+            server |> Server.capture cancellationToken SnapshotDepth.Panes
 
         return
-            captured.Panes |> Seq.map (fun pane -> pane.Id) |> Seq.toList, found |> Option.map (fun pane -> pane.Id)
+            captured.Panes |> Seq.map (fun pane -> pane.Id) |> Seq.toList,
+            found |> Option.map (fun pane -> pane.Id)
     }
 ```
 <!-- endfsharp-snippet -->
@@ -84,7 +98,8 @@ let runAsync () =
         use! owned = options |> Server.createOwned token
 
         let! session =
-            owned.Value |> Server.newSession token (SessionSpec.running "work" "/bin/sh")
+            owned.Value
+            |> Server.newSession token (SessionSpec.running "work" "/bin/sh")
 
         let! pane = session |> Session.activePane token
 
@@ -92,22 +107,31 @@ let runAsync () =
         // the line's own echo do not count.
         let! ready =
             pane
-            |> Pane.sendAndWait token (TimeSpan.FromSeconds 5.) "echo server ready" "server ready"
+            |> Pane.sendAndWait
+                token
+                (TimeSpan.FromSeconds 5.)
+                "echo server ready"
+                "server ready"
 
         // A condition sees every visible row each time the pane changes.
         do! pane |> Pane.sendLine token "seq 3"
 
         let! counted =
             pane
-            |> Pane.waitUntil token (TimeSpan.FromSeconds 5.) (fun rows -> rows |> Seq.exists ((=) "3"))
+            |> Pane.waitUntil token (TimeSpan.FromSeconds 5.) (fun rows ->
+                rows |> Seq.exists ((=) "3"))
 
         // Running a command waits for its exit status and returns its output.
         let! listing =
-            pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'a\\nb\\n'; exit 4"
+            pane
+            |> Pane.run
+                token
+                (TimeSpan.FromSeconds 10.)
+                "printf 'a\\nb\\n'; exit 4"
 
         let! screen = pane |> Pane.capture token (CapturePaneRequest())
 
-        // One case for each way a wait can end; leaving one out draws a warning.
+        // One case for each way a wait can end; leaving one out warns.
         let describe wait =
             match wait with
             | PaneWait.Found -> "found"
@@ -120,12 +144,15 @@ let runAsync () =
         printfn "counted: %s" (describe counted)
 
         match listing with
-        | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
+        | PaneRun.Exited status ->
+            printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
         | PaneRun.Ended -> printfn "run: the shell exited first"
         | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
         | PaneRun.TimedOut -> printfn "run: still running"
 
-        printfn "screen shows the run: %b" (screen |> Seq.exists (fun row -> row = "a"))
+        printfn
+            "screen shows the run: %b"
+            (screen |> Seq.exists (fun row -> row = "a"))
     }
 
 runAsync().GetAwaiter().GetResult()
@@ -216,12 +243,17 @@ let runTestsAsync (cancellationToken: CancellationToken) (pane: Pane) =
     task {
         try
             let! result =
-                pane |> Pane.run cancellationToken (TimeSpan.FromMinutes 5.) "make test"
+                pane
+                |> Pane.run
+                    cancellationToken
+                    (TimeSpan.FromMinutes 5.)
+                    "make test"
 
             match result with
             | PaneRun.Exited 0 -> return "passed"
             | PaneRun.Exited status -> return $"failed with status {status}"
-            | PaneRun.Ended -> return "the shell exited before the tests finished"
+            | PaneRun.Ended ->
+                return "the shell exited before the tests finished"
             | PaneRun.NotStarted -> return "the shell was not at a prompt"
             | PaneRun.TimedOut -> return "still running after five minutes"
         with
@@ -229,9 +261,11 @@ let runTestsAsync (cancellationToken: CancellationToken) (pane: Pane) =
         // A tmux client cancelled mid-call matches too, even before the
         // command went, erring towards "may have run". That cancellation
         // is an OperationCanceledException, so this case comes first.
-        | TmuxFailure.MayHaveRun _ -> return "may have run; read the pane before trying again"
+        | TmuxFailure.MayHaveRun _ ->
+            return "may have run; read the pane before trying again"
         // Cancelled between tmux calls, before the command was sent.
-        | :? OperationCanceledException -> return "cancelled before it was sent"
+        | :? OperationCanceledException ->
+            return "cancelled before it was sent"
     }
 ```
 <!-- endfsharp-snippet -->
@@ -258,7 +292,8 @@ let runAsync () =
 
         let options =
             ServerConnectionOptions(
-                SocketName = "fsharp-build-session-" + Guid.NewGuid().ToString("N"),
+                SocketName =
+                    "fsharp-build-session-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null"
             )
 
@@ -342,7 +377,10 @@ open System.Threading
 open LibTmux
 open LibTmux.Workspace
 
-let buildWorkspaceAsync (cancellationToken: CancellationToken) (server: Server) =
+let buildWorkspaceAsync
+    (cancellationToken: CancellationToken)
+    (server: Server)
+    =
     task {
         let description =
             WorkspaceFile(
@@ -351,16 +389,29 @@ let buildWorkspaceAsync (cancellationToken: CancellationToken) (server: Server) 
                     [
                         WorkspaceWindow(
                             windowName = "editor",
-                            panes = [ WorkspacePane([ "printf 'editing\\n'" ]); WorkspacePane() ]
+                            panes =
+                                [
+                                    WorkspacePane([ "printf 'editing\\n'" ])
+                                    WorkspacePane()
+                                ]
                         )
-                        WorkspaceWindow(windowName = "logs", panes = [ WorkspacePane([ "printf 'tailing\\n'" ]) ])
+                        WorkspaceWindow(
+                            windowName = "logs",
+                            panes =
+                                [ WorkspacePane([ "printf 'tailing\\n'" ]) ]
+                        )
                     ]
             )
 
-        // Creates the session, its windows and panes, and sends each pane its
-        // commands once its shell is ready.
-        let! built = WorkspaceBuilder(server).BuildAsync(description, cancellationToken)
-        return built.Session.Name, [ for window in built.Windows -> window.Name ]
+        // Creates the session, its windows and panes, then sends each pane
+        // its commands once its shell is ready.
+        let! built =
+            WorkspaceBuilder(server)
+                .BuildAsync(description, cancellationToken)
+
+        return
+            built.Session.Name,
+            [ for window in built.Windows -> window.Name ]
     }
 ```
 <!-- endfsharp-snippet -->
@@ -380,11 +431,16 @@ open System.Threading
 open LibTmux
 open LibTmux.FSharp
 
-let readPaneCommandsAsync (cancellationToken: CancellationToken) (server: Server) =
+let readPaneCommandsAsync
+    (cancellationToken: CancellationToken)
+    (server: Server)
+    =
     task {
-        let! captured = server |> Server.capture cancellationToken SnapshotDepth.Panes
+        let! captured =
+            server |> Server.capture cancellationToken SnapshotDepth.Panes
 
-        return captured.Panes |> Seq.choose Pane.currentCommand |> Seq.toList
+        return
+            captured.Panes |> Seq.choose Pane.currentCommand |> Seq.toList
     }
 ```
 <!-- endfsharp-snippet -->

@@ -31,8 +31,10 @@ using LibTmux;
 // ConnectAsync() discovers one, it never starts one. With nothing
 // running yet, call Server.CreateOwnedAsync() instead.
 Server server = await Server.ConnectAsync();
-Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
-Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
+NewSessionRequest sessionRequest = new() { Name = "build" };
+Session session = await server.CreateSessionAsync(sessionRequest);
+NewWindowRequest windowRequest = new() { Name = "tests" };
+Window window = await session.CreateWindowAsync(windowRequest);
 Pane pane = (await window.GetPanesAsync())[0];
 
 await pane.SendTextAsync("dotnet test");
@@ -108,13 +110,15 @@ The same window, three ways:
 
 ```csharp run
 // One-shot: a command, a typed object back.
-Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
+NewWindowRequest request = new() { Name = "build" };
+Window built = await session.CreateWindowAsync(request, ct);
 Console.WriteLine(built.Name);
 ```
 
 ```csharp run
 // Control mode: one client, held open, streaming what tmux does.
-await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
+await using IControlModeSession control =
+    await server.EnterControlModeAsync(cancellationToken: ct);
 IReadOnlyList<string> reply = await control.SendAsync(
     TmuxCommand.Create("new-window", "-d", "-n", "build"),
     ct);
@@ -145,7 +149,8 @@ foreach (Window each in await session.GetWindowsAsync(ct))
 {
     foreach (Pane every in await each.GetPanesAsync(ct))
     {
-        Console.WriteLine($"{each.Name} pane {every.Index} {every.Width}x{every.Height}");
+        Console.WriteLine(
+            $"{each.Name} pane {every.Index} {every.Width}x{every.Height}");
     }
 }
 ```
@@ -170,7 +175,8 @@ Window sameWindow = await window.RenameAsync("integration", ct);
 Console.WriteLine($"{window == sameWindow} {window.Name} {sameWindow.Name}");
 
 // Identifiers order the way tmux issued them, oldest first.
-IEnumerable<Window> oldest = (await session.GetWindowsAsync(ct)).OrderBy(each => each.Id);
+IReadOnlyList<Window> windows = await session.GetWindowsAsync(ct);
+IEnumerable<Window> oldest = windows.OrderBy(each => each.Id);
 Console.WriteLine(string.Join(", ", oldest.Select(each => each.Id)));
 ```
 
@@ -183,7 +189,9 @@ await pane.EnterAsync(ct);
 // tmux accepts a command before the shell has finished it, so the result is
 // waited for rather than assumed.
 string output = await TmuxWait.UntilAsync(
-    async token => string.Join('\n', await pane.CaptureAsync(cancellationToken: token)),
+    async token => string.Join(
+        '\n',
+        await pane.CaptureAsync(cancellationToken: token)),
     text => text.Contains("hello-from-libtmux", StringComparison.Ordinal),
     TimeSpan.FromSeconds(10),
     TimeSpan.FromMilliseconds(20));
@@ -234,11 +242,14 @@ Every object reaches the option table tmux keeps for it. tmux has no types, so
 a value carries the text it reported alongside the readings that text supports:
 
 ```csharp run
-await window.Options.SetAsync(new SetOptionRequest("automatic-rename", "off"), ct);
+await window.Options.SetAsync(
+    new SetOptionRequest("automatic-rename", "off"),
+    ct);
 TmuxOption option = (await window.Options.GetAsync(
     new GetOptionRequest("automatic-rename"), ct))[0];
 
-Console.WriteLine($"{option.Value.Raw} flag={option.Value.Boolean} number={option.Value.Integer}");
+TmuxOptionValue value = option.Value;
+Console.WriteLine($"{value.Raw} flag={value.Boolean} number={value.Integer}");
 ```
 
 An option the window does not hold is inherited rather than missing, and hooks
@@ -261,7 +272,8 @@ which version would be needed.
 // A handle says what it read: the version is what tmux reported when this
 // server was reached, and null when it reported something unparsable.
 TmuxVersion? version = server.Version;
-Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVersion.Parse("3.4"))}");
+bool recent = version?.IsAtLeast(TmuxVersion.Parse("3.4")) ?? false;
+Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={recent}");
 ```
 
 Every measured difference between 3.2a and 3.7c is [recorded with the test that proves
@@ -277,7 +289,8 @@ killed deterministically:
 using LibTmux.Testing;
 
 TmuxTestFactory factory = new();
-await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync();
+await using TemporaryHierarchyScope scope =
+    await factory.CreateHierarchyAsync();
 
 await scope.Pane.SendTextAsync("echo hello");
 ```

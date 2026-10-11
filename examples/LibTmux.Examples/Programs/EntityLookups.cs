@@ -5,7 +5,8 @@ using LibTmux;
 
 if (OperatingSystem.IsWindows())
 {
-    throw new PlatformNotSupportedException("This example requires tmux on Linux or macOS.");
+    throw new PlatformNotSupportedException(
+        "This example requires tmux on Linux or macOS.");
 }
 
 using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(10));
@@ -20,10 +21,12 @@ ServerConnectionOptions options = new()
 };
 
 Server stoppedServer;
-await using (OwnedServerScope owned = await Server.CreateOwnedAsync(options, token))
+await using (OwnedServerScope owned =
+    await Server.CreateOwnedAsync(options, token))
 {
-    await using OwnedSessionScope session = await owned.Value.CreateOwnedSessionAsync(
-        new NewSessionRequest { Name = "demo", Command = "/bin/cat" }, token);
+    NewSessionRequest request = new() { Name = "demo", Command = "/bin/cat" };
+    await using OwnedSessionScope session =
+        await owned.Value.CreateOwnedSessionAsync(request, token);
     Server server = await Server.ConnectAsync(options, token);
     Session found = await server.GetSessionAsync(session.Value.Id, token);
     Window listedWindow = (await found.GetWindowsAsync(token)).Single();
@@ -32,24 +35,28 @@ await using (OwnedServerScope owned = await Server.CreateOwnedAsync(options, tok
     Pane pane = await server.GetPaneAsync(listedPane.Id, token);
     if (found.Id != session.Value.Id || pane.Id != listedPane.Id)
     {
-        throw new InvalidOperationException("Typed lookup returned an unexpected entity.");
+        throw new InvalidOperationException(
+            "Typed lookup returned an unexpected entity.");
     }
 
     SessionId missingId = new(int.MaxValue);
     Session? missing = await server.FindSessionAsync(missingId, token);
     if (missing is not null)
     {
-        throw new InvalidOperationException("The absent session unexpectedly exists.");
+        throw new InvalidOperationException(
+            "The absent session unexpectedly exists.");
     }
     Console.WriteLine("A successful lookup can return null.");
     try
     {
         _ = await server.GetSessionAsync(missingId, token);
-        throw new InvalidOperationException("GetSessionAsync must throw for an absent session.");
+        throw new InvalidOperationException(
+            "GetSessionAsync must throw for an absent session.");
     }
     catch (TmuxObjectNotFoundException)
     {
-        Console.WriteLine("Required lookup reports TmuxObjectNotFoundException.");
+        Console.WriteLine(
+            "Required lookup reports TmuxObjectNotFoundException.");
     }
 
     using CancellationTokenSource cancelled = new();
@@ -66,7 +73,8 @@ await using (OwnedServerScope owned = await Server.CreateOwnedAsync(options, tok
     try
     {
         _ = await window.FindPaneAsync(" ", token);
-        throw new InvalidOperationException("A blank pane target must be rejected.");
+        throw new InvalidOperationException(
+            "A blank pane target must be rejected.");
     }
     catch (ArgumentException)
     {
@@ -77,7 +85,8 @@ await using (OwnedServerScope owned = await Server.CreateOwnedAsync(options, tok
 
 try
 {
-    _ = await stoppedServer.FindSessionAsync(new SessionId(int.MaxValue), token);
+    SessionId absent = new(int.MaxValue);
+    _ = await stoppedServer.FindSessionAsync(absent, token);
     throw new InvalidOperationException("A failed read must not become null.");
 }
 catch (LibTmuxException)

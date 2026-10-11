@@ -23,3 +23,10 @@ dotnet_diagnostic.IDE0005.severity = warning
 dotnet_diagnostic.IDE0161.severity = warning
 dotnet_diagnostic.IDE0040.severity = warning
 dotnet_diagnostic.IDE1005.severity = warning
+
+[examples/**/*.{fs,fsx}]
+max_line_length = 80
+
+# A published snippet's source is held to the example width too.
+[tests/LibTmux.FSharp.Tests/FixtureTests.fs]
+max_line_length = 80

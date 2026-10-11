@@ -5,7 +5,9 @@ using ModelContextProtocol.Client;
 
 namespace LibTmux.Examples;
 
-/// <summary>One example: what it shows, where it lives, and how to run it.</summary>
+/// <summary>
+/// One example: what it shows, where it lives, and how to run it.
+/// </summary>
 /// <remarks>
 /// A parameter typed <see cref="Server"/>, <see cref="Session"/>,
 /// <see cref="Window"/>, <see cref="Pane"/>, <see cref="McpClient"/> or
@@ -27,19 +29,26 @@ public sealed class ExampleCase
     /// <summary>Gets the line saying what the example shows.</summary>
     public string Title { get; }
 
-    /// <summary>Gets the group it belongs to, which is its file's name.</summary>
+    /// <summary>
+    /// Gets the group it belongs to, which is its file's name.
+    /// </summary>
     public string Topic => Method.DeclaringType!.Name;
 
     private MethodInfo Method { get; }
 
     /// <summary>Finds the ordinary tmux examples, in a stable order.</summary>
-    /// <returns>The default-suite examples, ordered by topic and then by name.</returns>
+    /// <returns>
+    /// The default-suite examples, ordered by topic and then by name.
+    /// </returns>
     public static IReadOnlyList<ExampleCase> Discover() =>
     [
         .. typeof(ExampleCase).Assembly
             .GetTypes()
-            .SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.Static))
-            .Select(method => (Method: method, Example: method.GetCustomAttribute<ExampleAttribute>()))
+            .SelectMany(type => type.GetMethods(
+                BindingFlags.Public | BindingFlags.Static))
+            .Select(method => (
+                Method: method,
+                Example: method.GetCustomAttribute<ExampleAttribute>()))
             .Where(found => found.Example?.RunsInDefaultSuite is true)
             .Select(found => Create(found.Method, found.Example!))
             .OrderBy(example => example.Topic, StringComparer.Ordinal)
@@ -47,7 +56,9 @@ public sealed class ExampleCase
     ];
 
     /// <summary>Runs the example against a tmux server of its own.</summary>
-    /// <param name="cancellationToken">Cancels the example and its tmux commands.</param>
+    /// <param name="cancellationToken">
+    /// Cancels the example and its tmux commands.
+    /// </param>
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
         await using ExampleNamespace world = await ExampleNamespace.EnterAsync(
@@ -57,7 +68,9 @@ public sealed class ExampleCase
         ParameterInfo[] parameters = Method.GetParameters();
         await using ExampleMcpConnection? mcp = parameters.Any(
             parameter => parameter.ParameterType == typeof(McpClient))
-                ? await ExampleMcpConnection.OpenAsync(world.Server, cancellationToken)
+                ? await ExampleMcpConnection.OpenAsync(
+                    world.Server,
+                    cancellationToken)
                 : null;
         object?[] arguments = new object?[parameters.Length];
         for (int index = 0; index < parameters.Length; index++)
@@ -72,9 +85,9 @@ public sealed class ExampleCase
                 _ when wanted == typeof(McpClient) => mcp!.Client,
                 _ when wanted == typeof(CancellationToken) => cancellationToken,
                 _ => throw new InvalidOperationException(
-                    $"Example {Topic}.{Id} asks for a {wanted.Name}, and an example "
-                    + "may ask for a Server, Session, Window, Pane, McpClient "
-                    + "or CancellationToken."),
+                    $"Example {Topic}.{Id} asks for a {wanted.Name}, "
+                    + "and an example may ask for a Server, Session, "
+                    + "Window, Pane, McpClient or CancellationToken."),
             };
         }
 
@@ -82,19 +95,23 @@ public sealed class ExampleCase
         {
             await (Task)Method.Invoke(null, arguments)!;
         }
-        catch (TargetInvocationException invocation) when (invocation.InnerException is not null)
+        catch (TargetInvocationException invocation)
+            when (invocation.InnerException is not null)
         {
             ExceptionDispatchInfo.Capture(invocation.InnerException).Throw();
             throw;
         }
     }
 
-    private static ExampleCase Create(MethodInfo method, ExampleAttribute example)
+    private static ExampleCase Create(
+        MethodInfo method,
+        ExampleAttribute example)
     {
         if (method.ReturnType != typeof(Task))
         {
             throw new InvalidOperationException(
-                $"Example {method.DeclaringType!.Name}.{method.Name} must return Task.");
+                $"Example {method.DeclaringType!.Name}.{method.Name} "
+                + "must return Task.");
         }
 
         return new ExampleCase(method, example.Title);

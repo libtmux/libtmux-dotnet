@@ -19,13 +19,21 @@ let runAsync () =
 
         use! demo =
             owned.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "demo", WindowName = "shell", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "demo",
+                    WindowName = "shell",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
         use! _worker =
             owned.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "worker", WindowName = "jobs", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "worker",
+                    WindowName = "jobs",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
@@ -34,11 +42,13 @@ let runAsync () =
 
         let nativeMatches =
             sessions
-            |> Seq.filter (fun session -> session.Name.StartsWith("de", StringComparison.Ordinal))
+            |> Seq.filter (fun session ->
+                session.Name.StartsWith("de", StringComparison.Ordinal))
             |> Seq.toList
 
         let portableMatches =
-            sessions |> Query.matching (Filter.startsWith "de" SessionFields.name)
+            sessions
+            |> Query.matching (Filter.startsWith "de" SessionFields.name)
 
         let! windows = server |> Server.windows |> Query.list token
 
@@ -48,7 +58,8 @@ let runAsync () =
         let! captured = server |> Server.capture token SnapshotDepth.Panes
 
         let demoSession =
-            captured.Sessions |> Seq.find (fun session -> session.Id = demo.Value.Id)
+            captured.Sessions
+            |> Seq.find (fun session -> session.Id = demo.Value.Id)
 
         let demoPane =
             demoSession.Windows
@@ -59,7 +70,9 @@ let runAsync () =
         let matchingPanes = captured.Panes |> Query.matching paneFilter
 
         let hasDemoPane =
-            paneFilter |> Filter.any WindowFields.panes |> Filter.any SessionFields.windows
+            paneFilter
+            |> Filter.any WindowFields.panes
+            |> Filter.any SessionFields.windows
 
         let matchingParents = captured.Sessions |> Query.matching hasDemoPane
 

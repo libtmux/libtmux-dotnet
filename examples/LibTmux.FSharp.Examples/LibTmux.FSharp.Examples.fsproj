@@ -5,12 +5,15 @@
     <RootNamespace>LibTmux.FSharp.Examples</RootNamespace>
     <IsPackable>false</IsPackable>
     <UsePackageReferences>false</UsePackageReferences>
-    <ManagePackageVersionsCentrally Condition="'$(UsePackageReferences)' == 'true'">false</ManagePackageVersionsCentrally>
-    <RestorePackagesWithLockFile Condition="'$(UsePackageReferences)' == 'true'">false</RestorePackagesWithLockFile>
-    <RestoreLockedMode Condition="'$(UsePackageReferences)' == 'true'">false</RestoreLockedMode>
-    <NuGetLockFilePath Condition="'$(UsePackageReferences)' == 'true'">$(MSBuildProjectDirectory)/obj/package-mode.packages.lock.json</NuGetLockFilePath>
     <LibTmuxPackageVersion>$(VersionPrefix)</LibTmuxPackageVersion>
     <LibTmuxPackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</LibTmuxPackageVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(UsePackageReferences)' == 'true'">
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <RestoreLockedMode>false</RestoreLockedMode>
+    <NuGetLockFilePath>$(MSBuildProjectDirectory)/obj/package-mode.packages.lock.json</NuGetLockFilePath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(ExampleProgram)' != ''">
@@ -19,25 +22,41 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Snippets/GuideSnippets.fs" Condition="'$(ExampleProgram)' == ''" />
+    <Compile Include="Snippets/GuideSnippets.fs"
+             Condition="'$(ExampleProgram)' == ''" />
     <Compile Include="Program.fs" Condition="'$(ExampleProgram)' == ''" />
-    <Compile Include="Programs/$(ExampleProgram).fs" Condition="'$(ExampleProgram)' != ''" />
-    <PackageReference Include="FSharp.Core" Condition="'$(UsePackageReferences)' != 'true'" />
-    <AssemblyMetadata Include="ExpectedPackageVersion" Value="$(LibTmuxPackageVersion)" />
+    <Compile Include="Programs/$(ExampleProgram).fs"
+             Condition="'$(ExampleProgram)' != ''" />
+    <PackageReference Include="FSharp.Core"
+                      Condition="'$(UsePackageReferences)' != 'true'" />
+    <AssemblyMetadata Include="ExpectedPackageVersion"
+                      Value="$(LibTmuxPackageVersion)" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(UsePackageReferences)' != 'true'">
-    <ProjectReference Include="../../src/LibTmux.FSharp/LibTmux.FSharp.fsproj" />
-    <ProjectReference Include="../../src/LibTmux.Query.Json/LibTmux.Query.Json.csproj" />
-    <ProjectReference Include="../../src/LibTmux.Testing/LibTmux.Testing.csproj" />
-    <ProjectReference Include="../../src/LibTmux.Workspace/LibTmux.Workspace.csproj" />
+    <ProjectReference
+      Include="../../src/LibTmux.FSharp/LibTmux.FSharp.fsproj" />
+    <ProjectReference
+      Include="../../src/LibTmux.Query.Json/LibTmux.Query.Json.csproj" />
+    <ProjectReference
+      Include="../../src/LibTmux.Testing/LibTmux.Testing.csproj" />
+    <ProjectReference
+      Include="../../src/LibTmux.Workspace/LibTmux.Workspace.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(UsePackageReferences)' == 'true'">
     <PackageReference Include="FSharp.Core" Version="10.1.303" />
-    <PackageReference Include="LibTmux.FSharp" Version="[$(LibTmuxPackageVersion)]" />
-    <PackageReference Include="LibTmux.Query.Json" Version="[$(LibTmuxPackageVersion)]" />
-    <PackageReference Include="LibTmux.Testing" Version="[$(LibTmuxPackageVersion)]" />
-    <PackageReference Include="LibTmux.Workspace" Version="[$(LibTmuxPackageVersion)]" />
+    <PackageReference
+      Include="LibTmux.FSharp"
+      Version="[$(LibTmuxPackageVersion)]" />
+    <PackageReference
+      Include="LibTmux.Query.Json"
+      Version="[$(LibTmuxPackageVersion)]" />
+    <PackageReference
+      Include="LibTmux.Testing"
+      Version="[$(LibTmuxPackageVersion)]" />
+    <PackageReference
+      Include="LibTmux.Workspace"
+      Version="[$(LibTmuxPackageVersion)]" />
   </ItemGroup>
 </Project>

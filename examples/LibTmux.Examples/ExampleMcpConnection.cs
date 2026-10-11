@@ -10,7 +10,9 @@ using ModelContextProtocol.Server;
 
 namespace LibTmux.Examples;
 
-/// <summary>A real MCP client and server connected to an example's tmux server.</summary>
+/// <summary>
+/// A real MCP client and server connected to an example's tmux server.
+/// </summary>
 [UnsupportedOSPlatform("windows")]
 internal sealed class ExampleMcpConnection : IAsyncDisposable
 {
