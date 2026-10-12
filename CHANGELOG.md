@@ -14,6 +14,14 @@ version.
 
 ### Fixed
 
+- One-shot commands run as a tmux process each again unless
+  `LIBTMUX_CONTROL_TRANSPORT=1` turns on the shared control client. On by
+  default in alpha.21, the attached client changed what tmux did for every
+  caller: new panes started in its session's directory with its session's
+  `PATH`, commands without a target resolved against its session, a waiting
+  `if-shell -F` held up every other command, and it kept `exit-unattached`
+  servers and `destroy-unattached` sessions alive. (#76)
+
 ### Changed
 
 ### Removed

@@ -153,27 +153,30 @@ internal sealed class TmuxControlTransport
         _version = version ?? (static () => null);
     }
 
-    /// <summary>Gets whether one-shot commands use the control client unless a connection opts out.</summary>
+    /// <summary>Gets whether one-shot commands use the control client unless a connection decides otherwise.</summary>
     /// <remarks>
-    /// <c>LIBTMUX_CONTROL_TRANSPORT=0</c> turns it off for the process, which is
-    /// how the same suite runs against the process transport.
+    /// Off unless <c>LIBTMUX_CONTROL_TRANSPORT=1</c>. An attached client changes
+    /// what tmux does for everyone on the server: new panes take its session's
+    /// directory and PATH, commands without a target resolve against its
+    /// session, and as an attached client it keeps exit-unattached servers and
+    /// destroy-unattached sessions alive. Routing cannot undo the last of these.
     /// </remarks>
     internal static bool EnabledByDefault =>
-        Environment.GetEnvironmentVariable(EnvironmentVariable) != "0";
+        Environment.GetEnvironmentVariable(EnvironmentVariable) == "1";
 
     /// <summary>Gets whether a connection uses the control client.</summary>
     /// <param name="childEnvironment">The environment the connection hands its tmux processes.</param>
-    /// <returns>False when the connection's own environment turns the client off, else the process-wide default.</returns>
+    /// <returns>Whether the connection's own environment turns the client on, else the process-wide default.</returns>
     /// <remarks>
     /// A caller that embeds the library and passes its own environment, as the
-    /// workspace CLI does, can turn the client off for that connection alone
-    /// without touching a process other work shares.
+    /// workspace CLI does, can decide for that connection alone without
+    /// touching a process other work shares.
     /// </remarks>
     internal static bool EnabledFor(IReadOnlyDictionary<string, string?>? childEnvironment) =>
         childEnvironment is not null
         && childEnvironment.TryGetValue(EnvironmentVariable, out string? own)
         && own is not null
-            ? own != "0"
+            ? own == "1"
             : EnabledByDefault;
 
     internal async Task<TmuxCommandResult> ExecuteAsync(

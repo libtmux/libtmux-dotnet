@@ -25,9 +25,8 @@ made. Refresh is explicit, so nothing changes under you mid-function.
 
 ## When it is not
 
-Each call is still a round trip, and a few commands cost a process on top (see
-below). For fifty commands that must run back to back, [chaining](chaining.md)
-sends them in one round trip.
+Each call starts a tmux process. For fifty commands that must run back to
+back, [chaining](chaining.md) sends them in one round trip.
 
 It also only ever sees what it asked for. To notice a window appearing, or read
 what a program writes into a pane, you need a client that stays —
@@ -35,40 +34,51 @@ what a program writes into a pane, you need a client that stays —
 
 ## How a call reaches tmux
 
-The library keeps one control client per server, shared by every `Server`
-handle on the same socket, and sends one-shot commands over it. The client
-starts with the first command that can use it, only against a server that has a
-session, and attaches with the `ignore-size` and `no-output` client flags, so
-it changes no window's size and receives no pane output. It is not the client
-`EnterControlModeAsync` returns, reports nothing to you, and ends with its
-session or server; the next command starts another.
+Each call runs as a tmux process of its own, which tmux treats as a client with
+no session. With `LIBTMUX_CONTROL_TRANSPORT=1`, in the process or in a
+connection's `ServerConnectionOptions.ChildEnvironment`, the library instead
+keeps one control client per server, shared by every `Server` handle on the
+same socket, and sends one-shot commands over it. That saves a process launch
+per command, which costs 15 to 30 ms on a hosted macOS runner, but an attached
+client changes what tmux does, so it is off unless you turn it on.
 
-The client is used from tmux 3.7. On an older server every command runs on a
-process, as before, because before 3.7 a notification that fires while a
-control client is identifying itself crashes the whole server
-([tmux e5a2a25fa](https://github.com/tmux/tmux/commit/e5a2a25fa)). The library
-asks the server for its version once, on a process, before it first attaches,
-so a server started before a tmux upgrade is judged by its own version.
+The client starts with the first command that can use it, only against a server
+that has a session, and attaches with the `ignore-size` and `no-output` client
+flags. It is not the client `EnterControlModeAsync` returns, reports nothing to
+you, and ends with its session or server; the next command starts another. It
+is used from tmux 3.7, judged by the running server's version, which the
+library asks for once on a process: before 3.7 a notification that fires while
+a control client is identifying itself crashes the whole server
+([tmux e5a2a25fa](https://github.com/tmux/tmux/commit/e5a2a25fafb8ee107c230d8acad694f6b635f8bb)).
 
-These commands run on a process of their own, as before: `wait-for`,
-`run-shell`, `if-shell` without `-F`, `new-session`, `start-server`,
-`attach-session`, `kill-server`, `kill-session`, `kill-window`, `kill-pane`,
-`unlink-window`, `move-window`, `join-pane`, `move-pane`, `save-buffer`, `load-buffer`,
+These commands still run on a process of their own: `wait-for`, `run-shell`,
+`if-shell` without `-F`, `new-session`, `start-server`, `attach-session`,
+`kill-server`, `kill-session`, `kill-window`, `kill-pane`, `unlink-window`,
+`move-window`, `join-pane`, `move-pane`, `save-buffer`, `load-buffer`,
 `source-file`, the `choose-*` commands, and the commands that act on a client.
-They either wait for another client, end the client's session, read or write a
-file for the caller, or open interface on a client.
 
-What follows from it:
+What changes when you turn it on:
 
+- **New panes start where its session is.** `new-window`, `split-window` and
+  the respawn commands without `-c` start in the session's directory, a
+  relative `-c` is taken from there, and the new pane gets the session's
+  `PATH`, not the caller's. tmux gives a pane the issuing client's directory and
+  `PATH` only when that client has no session.
+- **Commands without a target resolve against its session**, not the server's
+  most recently used one. Name the target.
+- **A waiting `if-shell -F` holds up every other command** on the client,
+  because one client's commands run in order.
+- **It counts as an attached client.** A server with `exit-unattached` does not
+  exit while it is attached, and a session with `destroy-unattached` is not
+  destroyed while it is attached to it. Selecting a window makes it the
+  window's latest client, so with `window-size latest` the window stops
+  following other clients' sizes until one of them types or resizes.
 - **Listings leave the client out.** `GetClientsAsync`, `GetAttachedSessionsAsync`,
   `Session.Attached`, snapshots, and queries over `session_attached` do not
   count it. A `list-clients` you run yourself lists it, and a format of your own
   that reads `#{session_attached}`, `#{client_name}` or `#{session_clients}`
   counts it. `display-message -p` with a `client_*` format and no `-c` reads
   it as the current client.
-- **Commands without a target resolve against its session.** A command with no
-  target session, window or pane resolves against the client's session instead
-  of the server's most recently used one. Name the target.
 - **A client command with no client named does not act on it.**
   `detach-client`, `switch-client`, `lock-client`, `suspend-client`,
   `refresh-client`, `display-panes`, `display-popup`, `display-menu`,

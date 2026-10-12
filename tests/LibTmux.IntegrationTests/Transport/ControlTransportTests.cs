@@ -254,6 +254,7 @@ public sealed class ControlTransportTests
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
                 MaxCapturedBytesPerStream = 8192,
+                ChildEnvironment = SharedClient,
             },
             token);
         _ = await server.GetSessionsAsync(token);
@@ -294,6 +295,7 @@ public sealed class ControlTransportTests
                     TmuxBinaryPath = first.TmuxBinaryPath,
                     SocketPath = link,
                     ConfigurationFile = "/dev/null",
+                    ChildEnvironment = SharedClient,
                 },
                 token);
             Session session = Assert.Single(await server.GetSessionsAsync(token));
@@ -332,6 +334,7 @@ public sealed class ControlTransportTests
                     SocketPath = raw.SocketPath,
                     ConfigurationFile = "/dev/null",
                     ForceProcessTransport = forceProcessTransport,
+                    ChildEnvironment = SharedClient,
                 },
                 token);
             Session session = Assert.Single(await server.GetSessionsAsync(token));
@@ -440,6 +443,10 @@ public sealed class ControlTransportTests
 
     private static string SessionOf(string row) => row.Split('\t')[3];
 
+    // The shared client is opt-in; these tests are about it, so they opt in.
+    private static readonly IReadOnlyDictionary<string, string?> SharedClient =
+        new Dictionary<string, string?> { ["LIBTMUX_CONTROL_TRANSPORT"] = "1" };
+
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
             new ServerConnectionOptions
@@ -447,6 +454,7 @@ public sealed class ControlTransportTests
                 TmuxBinaryPath = raw.TmuxBinaryPath,
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
+                ChildEnvironment = SharedClient,
             },
             token);
 
