@@ -23,8 +23,9 @@ public sealed partial class Session
     /// hierarchy consistent with itself.
     /// </para>
     /// <para>
-    /// The control client this library keeps on the server is not counted. A
-    /// format of your own that reads <c>#{session_attached}</c> counts it.
+    /// The control client this library keeps on the server, when
+    /// <c>LIBTMUX_CONTROL_TRANSPORT=1</c> turns it on, is not counted. A format
+    /// of your own that reads <c>#{session_attached}</c> counts it.
     /// </para>
     /// </remarks>
     public bool Attached =>

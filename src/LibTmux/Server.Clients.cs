@@ -15,9 +15,10 @@ public sealed partial class Server
     /// <exception cref="LibTmuxException">The listing failed, including an absent daemon.</exception>
     /// <remarks>
     /// A handle that has not found a live server yet discovers one first. The
-    /// control client this library keeps on the server for one-shot commands is
-    /// not listed. A <c>list-clients</c> you run yourself lists it, and so does a
-    /// format of your own that reads <c>#{client_name}</c> or <c>#{session_attached}</c>.
+    /// control client this library keeps on the server for one-shot commands,
+    /// when <c>LIBTMUX_CONTROL_TRANSPORT=1</c> turns it on, is not listed. A
+    /// <c>list-clients</c> you run yourself lists it, and so does a format of
+    /// your own that reads <c>#{client_name}</c> or <c>#{session_attached}</c>.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<Client>> GetClientsAsync(

@@ -15,10 +15,10 @@ public sealed partial class Server
     /// <returns>A session that reports what tmux does until it is disposed.</returns>
     /// <remarks>
     /// This is the streaming counterpart to the one-shot methods, not a mode
-    /// they can be switched into. The one-shot methods send their commands over
-    /// a control client of their own, which the library keeps on each server
-    /// and leaves out of every listing; it reports nothing and is not the
-    /// client returned here. Hold the returned session and read
+    /// they can be switched into. With <c>LIBTMUX_CONTROL_TRANSPORT=1</c> the
+    /// one-shot methods send their commands over a control client of their
+    /// own, which the library keeps on each server and leaves out of every
+    /// listing; it reports nothing and is not the client returned here. Hold the returned session and read
     /// <see cref="IControlModeSession.Events" /> to see what tmux does.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The handle has no connection.</exception>

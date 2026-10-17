@@ -32,14 +32,14 @@ await server.Chain().Then("new-window", "-d", "-n", "build").ExecuteAsync(ct);
 
 ## What each costs
 
-One-shot sends each command over a control client the library keeps, so it pays
-a round trip, and a process only for the few commands that cannot use that
-client (see [one-shot](one-shot.md#how-a-call-reaches-tmux)). Chaining starts
-one process for the whole sequence. `EnterControlModeAsync` starts a client of
-your own and keeps it.
+One-shot starts a process per command, or, with `LIBTMUX_CONTROL_TRANSPORT=1`,
+sends it over a control client the library keeps and pays a process only for
+the few commands that cannot use that client (see
+[one-shot](one-shot.md#how-a-call-reaches-tmux)). Chaining starts one process
+for the whole sequence. `EnterControlModeAsync` starts a client of your own and
+keeps it.
 
-The recorded run below predates that shared client: its one-shot rows are a
-process per command. Run the benchmarks again to refresh them.
+The recorded run below is a process per command, the default.
 
 The number that belongs to the library is the **marginal** one: what a command
 costs *in addition to* the first, which is the difference between fifty and one
