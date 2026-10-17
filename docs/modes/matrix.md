@@ -142,3 +142,39 @@ any command. A daemon replaced in the moments between that probe and the attach
 is not fenced: the client attaches to the replacement, and the next command it
 carries is fenced like any other, so a replacement below the minimum is refused
 there and a supported one is checked afresh.
+
+## Optional features
+
+The minimum covers ordinary reads, writes, batches and workspace builds.
+A few operations are unsafe on releases above it, so each carries its own
+requirement and is refused on the daemon that would be harmed, before it has
+an effect. Nothing below raises the minimum for anything else.
+
+| Operation | Requires | Below it |
+| --- | --- | --- |
+| `Server.EnterControlModeAsync`, `ServerMirror`, pane waits and streams | tmux 3.7 | `TmuxVersionTooLowException`; a pane wait polls only when `AllowPollingFallback` is set |
+| One-shot commands over the shared control client | tmux 3.7 | Each command runs on its own process |
+| `delete-buffer -b` and `set-buffer -n`, and work that cleans up a buffer by name: `Pane.RunAsync` and the MCP `paste_text` | tmux 3.4 | Refused before the buffer is staged; `paste-buffer -d -b` stays available |
+| A foreground `Server.RunShellAsync` that names no pane | tmux 3.5 | Refused; a background or pane-targeted request is sent |
+| `break-pane` without a window name | tmux 3.7a or any release but 3.7 | Refused on exactly 3.7; the typed `Pane.BreakAsync` names the window itself |
+| Window and session names with `:` or `.` | any release but 3.7 | Refused on exactly 3.7 |
+| `split-window -p` | any release but 3.4 | Refused on 3.4; typed splits send `-l N%` |
+| `select-layout` with an unchecked layout | tmux 3.4 | Refused unless it is a checksummed layout or a unique preset name |
+
+Raw commands and batches are checked as well as typed calls. Shell text, the
+body of a user-authored tmux program and the contents of a configured
+`command-alias` are not read.
+
+Support is stated per feature and release as one of:
+
+- **Non-operative**: the behavior is absent, rejected or wrong.
+- **Timing-sensitive**: a known interleaving or workload can fail.
+- **Operative with synchronization**: it works when the caller waits on a
+  marker, a state or a signal the contract names.
+- **Qualified**: the named checks passed for that scope.
+- **Unverified**: the evidence is missing or skipped.
+
+An operation in the table is non-operative below its release. Control clients
+are qualified from 3.7 on the lanes the integration suite runs; a skipped test
+qualifies nothing. A test that only skips below its release is not evidence
+that the operation works above it.
