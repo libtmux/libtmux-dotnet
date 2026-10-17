@@ -53,6 +53,10 @@ internal static class TmuxFeatureGuard
                     RequireNamedBuffers(version, "Renaming a buffer");
                 }
             }
+            else if (Is(word, "run-shell", "run", 3))
+            {
+                CheckRunShell(version, command);
+            }
             else if (Is(word, "split-window", "splitw", 2))
             {
                 CheckSplit(version, command);
@@ -99,6 +103,21 @@ internal static class TmuxFeatureGuard
             throw new TmuxVersionTooLowException(
                 $"break-pane without -n crashes tmux {version}; name the window or use tmux {Version37a}.",
                 Version37a,
+                version,
+                TmuxDispatchState.NotDispatched);
+        }
+    }
+
+    private static void CheckRunShell(TmuxVersion version, IReadOnlyList<string> command)
+    {
+        // A foreground job that names no pane has its output shown in a
+        // view-mode pane on these releases, so there is nothing to return.
+        if (version < Version35 && !Values(command, "cdt", "bCt").Any())
+        {
+            throw new TmuxVersionTooLowException(
+                $"Foreground run-shell output needs tmux {Version35} or a named pane: earlier releases "
+                + $"show it in a pane instead of returning it; detected {version}.",
+                Version35,
                 version,
                 TmuxDispatchState.NotDispatched);
         }

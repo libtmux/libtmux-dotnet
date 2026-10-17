@@ -33,6 +33,30 @@ public sealed class OptionalFeatureGuardTests
         TmuxFeatureGuard.Check(TmuxVersion.Parse(version), [command]);
 
     [Theory]
+    [InlineData("3.3a", new[] { "run-shell", "echo hi" })]
+    [InlineData("3.4", new[] { "run", "echo hi" })]
+    [InlineData("3.4", new[] { "run-shell", "-d", "1", "echo hi" })]
+    [InlineData("3.3a", new[] { "run-shell", "--", "echo hi" })]
+    public void A_foreground_run_shell_naming_no_pane_is_refused_below_3_5(string version, string[] command)
+    {
+        TmuxVersionTooLowException refusal = Assert.Throws<TmuxVersionTooLowException>(
+            () => TmuxFeatureGuard.Check(TmuxVersion.Parse(version), [command]));
+
+        Assert.Equal(TmuxVersion.Parse("3.5"), refusal.RequiredVersion);
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+    }
+
+    [Theory]
+    [InlineData("3.3a", new[] { "run-shell", "-b", "echo hi" })]
+    [InlineData("3.3a", new[] { "run-shell", "-C", "display-message hi" })]
+    [InlineData("3.4", new[] { "run-shell", "-t", "%1", "echo hi" })]
+    [InlineData("3.4", new[] { "run-shell", "-bd", "1", "echo hi" })]
+    [InlineData("3.5", new[] { "run-shell", "echo hi" })]
+    [InlineData("3.7d", new[] { "run-shell", "echo hi" })]
+    public void A_run_shell_that_returns_its_output_or_shows_none_is_sent(string version, string[] command) =>
+        TmuxFeatureGuard.Check(TmuxVersion.Parse(version), [command]);
+
+    [Theory]
     [InlineData("3.3a", new[] { "delete-buffer", "-b", "named" })]
     [InlineData("3.3a", new[] { "deleteb", "-b", "named" })]
     [InlineData("3.3a", new[] { "delete-b", "-bnamed" })]
