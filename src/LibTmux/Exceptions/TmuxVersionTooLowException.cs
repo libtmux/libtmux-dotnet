@@ -15,6 +15,17 @@ public sealed class TmuxVersionTooLowException : LibTmuxException
         ActualVersion = actualVersion;
     }
 
+    internal TmuxVersionTooLowException(
+        string message,
+        TmuxVersion requiredVersion,
+        TmuxVersion actualVersion,
+        TmuxDispatchState dispatch)
+        : base(message, dispatch)
+    {
+        RequiredVersion = requiredVersion;
+        ActualVersion = actualVersion;
+    }
+
     /// <summary>Gets the required tmux version.</summary>
     public TmuxVersion RequiredVersion { get; }
 

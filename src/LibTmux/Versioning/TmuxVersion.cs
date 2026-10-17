@@ -195,13 +195,15 @@ public readonly partial record struct TmuxVersion : IComparable<TmuxVersion>
         line = RemoveOneLineTerminator(line);
         if (line.Contains('\r', StringComparison.Ordinal)
             || line.Contains('\n', StringComparison.Ordinal)
-            || !line.StartsWith("tmux ", StringComparison.Ordinal))
+            || !TmuxVersionBannerParser.TryReadVersion(
+                line,
+                Path.GetFileName(tmuxBinaryPath),
+                out TmuxVersion reported))
         {
             throw new FormatException("tmux did not report exactly one canonical version line.");
         }
 
-        string token = line[5..];
-        return Parse(token).Raw;
+        return reported.Raw;
     }
 
     /// <summary>Detects the selected tmux executable version.</summary>

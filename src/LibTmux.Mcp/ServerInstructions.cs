@@ -36,7 +36,7 @@ public static class ServerInstructions
         ArgumentNullException.ThrowIfNull(policy);
 
         StringBuilder text = new();
-        Append(text, Purpose);
+        Append(text, Purpose(LibTmuxInfo.MinimumTmuxVersion));
         Append(text, Scope);
         Append(text, MetadataVersusContent);
         Append(text, PaneModes);
@@ -73,8 +73,8 @@ public static class ServerInstructions
         return text.ToString();
     }
 
-    private const string Purpose =
-        "Drives tmux: terminal sessions, windows and panes on this machine. "
+    private static string Purpose(TmuxVersion minimum) =>
+        $"Drives tmux {minimum} or newer: terminal sessions, windows and panes. "
         + "Hierarchy is Server > Session > Window > Pane. Target by id — %1 is a pane, "
         + "@1 a window, $1 a session — because ids survive renames and layout changes. "
         + "Every tool uses the one socket pinned when this MCP process starts.";

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json.Nodes;
+using LibTmux.IntegrationTests.Infrastructure;
 using Spectre.Console;
 
 namespace LibTmux.Workspace.Cli.Tests;
@@ -584,6 +585,235 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal("completed", records[^1]["event"]!.ToString());
         Assert.Contains(records, item => item["event"]!.ToString() == "script-output" && item["data"]!["stream"]!.ToString() == "stdout" && item["data"]!["text"]!.ToString().Contains('\u2603'));
         Assert.Contains(records, item => item["event"]!.ToString() == "script-output" && item["data"]!["stream"]!.ToString() == "stderr");
+    }
+
+    // The Python bridge starts or reaches tmux on its own, past the library's
+    // version check, so the CLI checks the tmux it will run before it spawns one.
+    // The 3.3a row is the control: the same run goes through when the tmux is
+    // supported, so the refusal is the version and not the stand-ins.
+    [Theory]
+    [InlineData("3.2a", false)]
+    [InlineData("3.3", false)]
+    [InlineData("3.3a", true)]
+    public async Task The_python_bridge_is_spawned_only_against_a_supported_tmux(string version, bool spawned)
+    {
+        string bin = Path.Join(_root, "bridge-bin");
+        Directory.CreateDirectory(bin);
+        string trace = Path.Join(_root, "bridge-ran");
+        string python = Path.Join(bin, "python");
+        await TestExecutable.WriteAsync(Path.Join(bin, "tmux"), $$"""
+            #!/bin/sh
+            if test "$1" = -V; then printf 'tmux {{version}}\n'; exit 0; fi
+            printf 'no server running on %s\n' "$*" >&2
+            exit 1
+            """, TestContext.Current.CancellationToken);
+        await TestExecutable.WriteAsync(python, $$"""
+            #!/bin/sh
+            if test "$1" = -V; then exit 0; fi
+            if test "$1" = -c; then printf '1.74.0\n'; exit 0; fi
+            printf ran > '{{trace}}'
+            """, TestContext.Current.CancellationToken);
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["PATH"] = bin + Path.PathSeparator + Context(TextWriter.Null).Environment["PATH"],
+            ["TMUX_WORKSPACE_PYTHON"] = python,
+        };
+        environment.Remove("LIBTMUX_TMUX");
+        environment.Remove("TMUX");
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        int code = await CliRunner.RunAsync(
+            ["shell", "-S", Path.Join(_root, "bridge.socket"), "-c", "print()", "--json"],
+            output, error, _root, environment, TestContext.Current.CancellationToken);
+
+        Assert.Equal(spawned, File.Exists(trace));
+        if (spawned)
+        {
+            Assert.Equal(0, code);
+            return;
+        }
+
+        Assert.Equal(1, code);
+        JsonNode refusal = JsonNode.Parse(error.ToString())!;
+        Assert.Equal("tmux_unsupported", refusal["code"]!.ToString());
+        Assert.Contains("Upgrade tmux and restart the tmux server", refusal["message"]!.ToString(), StringComparison.Ordinal);
+    }
+
+    // A probe that cannot be read leaves the version unknown, and a bridge
+    // started past it would run a tmux nothing checked. The failure is
+    // reported as it is, and the bridge is never spawned.
+    [Fact]
+    public async Task The_python_bridge_is_not_spawned_when_the_version_probe_fails()
+    {
+        string bin = Path.Join(_root, "bridge-probe-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(bin);
+        string trace = Path.Join(bin, "ran");
+        string python = Path.Join(bin, "python");
+        await TestExecutable.WriteAsync(Path.Join(bin, "tmux"), """
+            #!/bin/sh
+            if test "$1" = -V; then printf 'tmux 3.3a\n'; exit 0; fi
+            printf 'weird failure\n' >&2
+            exit 1
+            """, TestContext.Current.CancellationToken);
+        await TestExecutable.WriteAsync(python, $$"""
+            #!/bin/sh
+            if test "$1" = -V; then exit 0; fi
+            if test "$1" = -c; then printf '1.74.0\n'; exit 0; fi
+            printf ran > '{{trace}}'
+            """, TestContext.Current.CancellationToken);
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["PATH"] = bin + Path.PathSeparator + Context(TextWriter.Null).Environment["PATH"],
+            ["TMUX_WORKSPACE_PYTHON"] = python,
+        };
+        environment.Remove("LIBTMUX_TMUX");
+        environment.Remove("TMUX");
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        int code = await CliRunner.RunAsync(
+            ["shell", "-S", Path.Join(bin, "bridge.socket"), "-c", "print()", "--json"],
+            output, error, _root, environment, TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(trace), "the Python bridge ran against a tmux whose version could not be read");
+        Assert.Equal(1, code);
+        JsonNode failure = JsonNode.Parse(error.ToString())!;
+        Assert.Equal("tmux_failed", failure["code"]!.ToString());
+        Assert.Contains("The tmux version probe failed: weird failure", failure["message"]!.ToString(), StringComparison.Ordinal);
+    }
+
+    // The bridge runs the tmux the CLI is configured with, not whichever one
+    // happens to lead PATH: LIBTMUX_TMUX is judged, and then handed over as the
+    // `tmux` the bridge finds.
+    [Theory]
+    [InlineData("3.2a", "3.3a", false)]
+    [InlineData("3.3a", "3.2a", true)]
+    public async Task The_python_bridge_is_judged_and_run_against_the_configured_tmux(string configured, string onPath, bool spawned)
+    {
+        string bin = Path.Join(_root, "configured-path");
+        string chosen = Path.Join(_root, "configured-tmux");
+        Directory.CreateDirectory(bin);
+        Directory.CreateDirectory(chosen);
+        string trace = Path.Join(_root, "configured-ran");
+        string python = Path.Join(bin, "python");
+        foreach ((string folder, string version) in new[] { (bin, onPath), (chosen, configured) })
+        {
+            string tmux = Path.Join(folder, "tmux");
+            await TestExecutable.WriteAsync(tmux, $$"""
+                #!/bin/sh
+                if test "$1" = -V; then printf 'tmux {{version}}\n'; exit 0; fi
+                printf 'no server running on %s\n' "$*" >&2
+                exit 1
+                """, TestContext.Current.CancellationToken);
+        }
+        await TestExecutable.WriteAsync(python, $$"""
+            #!/bin/sh
+            if test "$1" = -V; then exit 0; fi
+            if test "$1" = -c; then printf '1.74.0\n'; exit 0; fi
+            tmux -V > '{{trace}}'
+            """, TestContext.Current.CancellationToken);
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["PATH"] = bin + Path.PathSeparator + Context(TextWriter.Null).Environment["PATH"],
+            ["TMUX_WORKSPACE_PYTHON"] = python,
+            ["LIBTMUX_TMUX"] = Path.Join(chosen, "tmux"),
+        };
+        environment.Remove("TMUX");
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        int code = await CliRunner.RunAsync(
+            ["shell", "-S", Path.Join(_root, "configured.socket"), "-c", "print()", "--json"],
+            output, error, _root, environment, TestContext.Current.CancellationToken);
+
+        Assert.Equal(spawned, File.Exists(trace));
+        if (spawned)
+        {
+            Assert.Equal(0, code);
+            Assert.Equal($"tmux {configured}\n", await File.ReadAllTextAsync(trace, TestContext.Current.CancellationToken));
+            return;
+        }
+
+        Assert.Equal(1, code);
+        Assert.Equal("tmux_unsupported", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+    }
+
+    // load is the primary command and builds its own failure record, so the
+    // refusal has to be mapped there as well as in the catch every other
+    // command shares. The 3.3a row is the control: a tmux that is supported
+    // but cannot start a server stays tmux_failed.
+    [Theory]
+    [InlineData("3.2a", "tmux_unsupported")]
+    [InlineData("3.3", "tmux_unsupported")]
+    [InlineData("3.3a", "tmux_failed")]
+    public async Task Load_reports_a_tmux_below_the_minimum_as_tmux_unsupported(string version, string expected)
+    {
+        (int code, JsonNode record, JsonNode diagnostic) = await LoadAgainstFakeTmuxAsync($"tmux {version}");
+
+        Assert.Equal(1, code);
+        Assert.Equal(expected, diagnostic["code"]!.ToString());
+        Assert.Equal(expected, record["errors"]![0]!["code"]!.ToString());
+        if (expected != "tmux_unsupported") return;
+
+        string message = diagnostic["message"]!.ToString();
+        Assert.Contains($"reports {version}", message, StringComparison.Ordinal);
+        Assert.Contains("Upgrade tmux and restart the tmux server", message, StringComparison.Ordinal);
+        Assert.Contains("or use LibTmux.Workspace.Cli 0.0.0", message, StringComparison.Ordinal);
+        Assert.Equal(message, record["errors"]![0]!["message"]!.ToString());
+    }
+
+    private async Task<(int Code, JsonNode Record, JsonNode Diagnostic)> LoadAgainstFakeTmuxAsync(string banner)
+    {
+        string bin = Path.Join(_root, "load-bin-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(bin);
+        string tmux = Path.Join(bin, "tmux");
+        await TestExecutable.WriteAsync(tmux, $$"""
+            #!/bin/sh
+            if test "$1" = -V; then printf '{{banner}}\n'; exit 0; fi
+            printf 'no server running on %s\n' "$*" >&2
+            exit 1
+            """, TestContext.Current.CancellationToken);
+        string workspace = Path.Join(bin, "workspace.yaml");
+        await File.WriteAllTextAsync(workspace, "session_name: refused\nwindows:\n  - panes: [null]\n", TestContext.Current.CancellationToken);
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["PATH"] = bin + Path.PathSeparator + Context(TextWriter.Null).Environment["PATH"],
+        };
+        environment.Remove("LIBTMUX_TMUX");
+        environment.Remove("TMUX");
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        int code = await CliRunner.RunAsync(
+            ["load", "-d", "-S", Path.Join(bin, "load.socket"), "-f", "/dev/null", workspace, "--json"],
+            output, error, _root, environment, TestContext.Current.CancellationToken);
+
+        return (code, JsonNode.Parse(output.ToString())!, JsonNode.Parse(error.ToString())!);
+    }
+
+    // Attaching is the one tmux this CLI starts itself, outside the library's
+    // dispatch. Without -N a client handed a server that has since exited would
+    // start a new one, from an executable nothing checked.
+    [Fact]
+    public async Task The_attach_handoff_passes_no_start_before_its_command()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Join(_root, "handoff.socket");
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "handoff");
+            Session session = Assert.Single(await server.GetSessionsAsync(token));
+
+            IReadOnlyList<string> arguments = ProcessCommands.AttachArguments(session);
+
+            int noStart = arguments.ToList().IndexOf("-N");
+            Assert.True(noStart >= 0, "the attach hands off without -N");
+            Assert.True(noStart < arguments.ToList().IndexOf("attach-session"), "-N must be a client flag, before the command");
+            Assert.Contains("-S", arguments);
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
     [Fact]

@@ -40,6 +40,26 @@ public sealed class ToolResponseBudgetFilterTests
             StringComparison.Ordinal);
     }
 
+    // The refusal itself says which version it found and what to do; the
+    // generic "may have acted" warning would contradict it, because nothing
+    // was sent.
+    [Fact]
+    public void A_version_refusal_gives_an_actionable_result_and_says_nothing_was_sent()
+    {
+        TmuxVersionTooLowException refusal = Assert.Throws<TmuxVersionTooLowException>(
+            () => LibTmux.Support.Versions.Require(TmuxVersion.Parse("3.2a"), "the connected daemon"));
+
+        string advice = ToolFailureFilter.AdviceFor(refusal);
+        string actionable = ToolFailureFilter.ActionableAdvice("new_session", refusal, mayModify: true, advice);
+
+        Assert.Contains("reports 3.2a", actionable, StringComparison.Ordinal);
+        Assert.Contains("Upgrade tmux and restart the tmux server", actionable, StringComparison.Ordinal);
+        Assert.Contains("Nothing was sent to tmux", actionable, StringComparison.Ordinal);
+        Assert.Contains("tmux://capabilities", actionable, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_server_info", actionable, StringComparison.Ordinal);
+        Assert.DoesNotContain("may have acted", actionable, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Mutation_advice_is_separated_from_tmux_own_wording()
     {

@@ -111,6 +111,7 @@ internal sealed class CapabilityResource
                 ["serverState"] = _runtime.ServerState,
                 ["configurationProvenance"] = _runtime.ConfigurationProvenance,
                 ["attachCommand"] = _runtime.AttachCommand,
+                ["minimumTmuxVersion"] = LibTmuxInfo.MinimumTmuxVersion.Raw,
             },
             ["toolsets"] = JsonSerializer.SerializeToNode(
                 Enum.GetValues<Toolset>()

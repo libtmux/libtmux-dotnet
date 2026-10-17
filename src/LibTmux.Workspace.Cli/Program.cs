@@ -44,6 +44,11 @@ internal static class Program
 
 internal static class CliRunner
 {
+    // The library's remedy names the library package; this tool installs as
+    // LibTmux.Workspace.Cli.
+    internal static string RefusalMessage(Exception failure) =>
+        failure.Message.Replace("or use LibTmux ", "or use LibTmux.Workspace.Cli ", StringComparison.Ordinal);
+
     internal static async Task<int> RunAsync(string[] args, TextWriter output, TextWriter error, string? directory = null, IReadOnlyDictionary<string, string?>? environment = null, CancellationToken cancellationToken = default)
     {
         environment ??= Environment.GetEnvironmentVariables().Cast<DictionaryEntry>().ToDictionary(entry => (string)entry.Key, entry => entry.Value?.ToString(), StringComparer.Ordinal);
@@ -109,6 +114,7 @@ internal static class CliRunner
         catch (OperationCanceledException) { await renderer.DiagnosticAsync("interrupted", "Operation cancelled.").ConfigureAwait(false); return 130; }
         catch (CliException failure) { await renderer.DiagnosticAsync(failure.Code, failure.Message).ConfigureAwait(false); return failure.ExitCode; }
         catch (StaleServerGenerationException failure) { await renderer.DiagnosticAsync("stale_server", failure.Message).ConfigureAwait(false); return 1; }
+        catch (TmuxVersionTooLowException failure) { await renderer.DiagnosticAsync("tmux_unsupported", RefusalMessage(failure)).ConfigureAwait(false); return 1; }
         catch (LibTmuxException failure)
         {
             await renderer.DiagnosticAsync("tmux_failed", failure.Message).ConfigureAwait(false);

@@ -8,6 +8,13 @@
     <NoWarn>$(NoWarn);CS1591;CA1707</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Fake executables are written by the helper the integration tests use. -->
+    <Compile Include="../LibTmux.IntegrationTests/Infrastructure/TestExecutable.cs"
+             Link="Infrastructure/TestExecutable.cs" />
+    <Compile Include="../LibTmux.IntegrationTests/Infrastructure/TestBudget.cs"
+             Link="Infrastructure/TestBudget.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="../Fixtures/layouts.json" LogicalName="LibTmux.Tests.Layouts.json" />
     <ProjectReference Include="../../src/LibTmux.Workspace.Cli/LibTmux.Workspace.Cli.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="all" />

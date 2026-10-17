@@ -138,13 +138,15 @@ internal sealed class TmuxProcessTransport
                 // Concurrent Process.Exited handler updates can lose notifications.
                 // Keep one native exit wait alive through cancellation and cleanup.
                 wait = process.WaitForExitAsync(CancellationToken.None);
-                stdout = ReadBoundedAsync(process.StandardOutput, outputLifetime.Token);
-                stderr = ReadBoundedAsync(process.StandardError, outputLifetime.Token);
+                var pulse = new OutputPulse();
+                stdout = ReadBoundedAsync(process.StandardOutput, pulse, outputLifetime.Token);
+                stderr = ReadBoundedAsync(process.StandardError, pulse, outputLifetime.Token);
                 await AwaitProcessAndPumpsAsync(
                     cancellationToken,
                     wait,
                     stdout,
-                    stderr).ConfigureAwait(false);
+                    stderr,
+                    EndQuietPumpsAsync(wait, stdout, stderr, pulse, outputLifetime)).ConfigureAwait(false);
 
                 byte[] standardOutput = await stdout.ConfigureAwait(false);
                 byte[] standardError = await stderr.ConfigureAwait(false);
@@ -253,7 +255,55 @@ internal sealed class TmuxProcessTransport
         return startInfo;
     }
 
-    private async Task<byte[]> ReadBoundedAsync(Stream stream, CancellationToken cancellationToken)
+    // A server older than tmux 3.2 keeps the client's stdout pipe open after
+    // the client exits, so stdout never reaches end of file (stderr closes).
+    // Once the process has exited and nothing has arrived for this long, the
+    // readers stop.
+    internal static readonly TimeSpan QuietAfterExit = TimeSpan.FromSeconds(1);
+
+    private static async Task EndQuietPumpsAsync(
+        Task exit,
+        Task stdout,
+        Task stderr,
+        OutputPulse pulse,
+        CancellationTokenSource lifetime)
+    {
+        await exit.ConfigureAwait(false);
+        pulse.Touch();
+        Task pumps = Task.WhenAll(stdout, stderr);
+        using var ticks = new CancellationTokenSource();
+        try
+        {
+            while (!pumps.IsCompleted)
+            {
+                // Return at once when the pipes reach end of file; only a pipe
+                // that stays open is waited on, one tick at a time.
+                await Task.WhenAny(
+                        pumps, Task.Delay(QuietAfterExit / 10, ticks.Token))
+                    .ConfigureAwait(false);
+                if (!pumps.IsCompleted && pulse.Quiet >= QuietAfterExit)
+                {
+                    await lifetime.CancelAsync().ConfigureAwait(false);
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            await ticks.CancelAsync().ConfigureAwait(false);
+        }
+    }
+
+    private sealed class OutputPulse
+    {
+        private long _stamp = Stopwatch.GetTimestamp();
+
+        internal TimeSpan Quiet => Stopwatch.GetElapsedTime(Interlocked.Read(ref _stamp));
+
+        internal void Touch() => Interlocked.Exchange(ref _stamp, Stopwatch.GetTimestamp());
+    }
+
+    private async Task<byte[]> ReadBoundedAsync(Stream stream, OutputPulse pulse, CancellationToken cancellationToken)
     {
         using var captured = new MemoryStream();
         byte[] buffer = new byte[81920];
@@ -277,6 +327,7 @@ internal sealed class TmuxProcessTransport
                 return captured.ToArray();
             }
 
+            pulse.Touch();
             if (captured.Length + read > _limits.MaxCapturedBytesPerStream)
             {
                 throw new InvalidDataException(

@@ -52,21 +52,24 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
     {
         bool interactive = invocation.Text("code") is null;
         if (interactive && (invocation.Machine || !context.Terminal)) throw new CliException("terminal_required", "An interactive Python shell requires a terminal. Use -c for machine output.", 2);
+        using BridgeTmux? bridge = OperatingSystem.IsWindows() ? null : await PrepareBridgeTmuxAsync().ConfigureAwait(false);
         string python = await PythonAsync().ConfigureAwait(false);
         string[] args = StripExtensions(invocation.Arguments);
-        ChildResult result = await RunProcessAsync(context, output, python, BridgeArguments(args), context.Directory, stream: !interactive, interactive: interactive).ConfigureAwait(false);
+        ChildResult result = await RunProcessAsync(bridge?.Context ?? context, output, python, BridgeArguments(args), context.Directory, stream: !interactive, interactive: interactive).ConfigureAwait(false);
         var summary = new { schema_version = 1, command = "shell", status = result.ExitCode == 0 ? "ok" : "error", child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated, encoding = "utf-8-replacement" };
         await output.EventAsync(result.ExitCode == 0 ? "completed" : "failed", summary).ConfigureAwait(false);
         if (invocation.Machine && !invocation.Flag("ndjson")) await output.ResultAsync(summary).ConfigureAwait(false);
         return result.ExitCode;
     }
 
+    [UnsupportedOSPlatform("windows")]
     internal async Task<int> BridgeLoadAsync(bool detached)
     {
+        using BridgeTmux bridge = await PrepareBridgeTmuxAsync().ConfigureAwait(false);
         string python = await PythonAsync().ConfigureAwait(false);
         await output.EventAsync("started", new { bridge = "tmuxp", version = "1.74.0" }).ConfigureAwait(false);
         await output.ProgressAsync(progress => progress.StartBridge(), force: true).ConfigureAwait(false);
-        CliContext childContext = context with { Environment = new Dictionary<string, string?>(context.Environment, StringComparer.Ordinal) { [ProgressOptions.EnabledEnvironment] = "0" } };
+        CliContext childContext = bridge.Context with { Environment = new Dictionary<string, string?>(bridge.Context.Environment, StringComparer.Ordinal) { [ProgressOptions.EnabledEnvironment] = "0" } };
         List<string> arguments = [.. StripExtensions(invocation.Arguments)];
         if (detached && !invocation.Flag("detached"))
         {
@@ -92,22 +95,78 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         return result.ExitCode;
     }
 
+    // The attach is the one tmux this CLI starts itself rather than through
+    // the library, so the library's version fence is not in front of it. -N
+    // keeps it from starting a server if the one it was handed has gone.
     [UnsupportedOSPlatform("windows")]
-    internal async Task<int> AttachAsync(Session target)
-    {
-        IReadOnlyList<string> command = Server.BuildGuardedCommandLine(
+    internal static IReadOnlyList<string> AttachArguments(Session target) =>
+    [
+        "-N",
+        .. target.Server.EndpointArguments,
+        .. Server.BuildGuardedCommandLine(
             target.Generation,
             "workspace-server-replaced",
-            ["attach-session", "-t", target.Id.ToString()]);
-        return (await RunProcessAsync(
+            ["attach-session", "-t", target.Id.ToString()]),
+    ];
+
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<int> AttachAsync(Session target) =>
+        (await RunProcessAsync(
                 context,
                 output,
                 target.Server.ConnectionOptions.TmuxBinaryPath,
-                [.. target.Server.EndpointArguments, .. command],
+                AttachArguments(target),
                 context.Directory,
                 stream: false,
                 interactive: true)
             .ConfigureAwait(false)).ExitCode;
+
+    // The Python bridge starts or reaches tmux itself, past the library's
+    // version check, so the tmux it will run is checked before it is spawned.
+    // That is the tmux the CLI itself uses: LIBTMUX_TMUX when it is set, else
+    // the one on PATH. The bridge looks `tmux` up on its own PATH, so a
+    // configured tmux is handed to it as `tmux` in a private directory placed
+    // first on that PATH.
+    [UnsupportedOSPlatform("windows")]
+    private async Task<BridgeTmux> PrepareBridgeTmuxAsync()
+    {
+        ServerConnectionOptions options = new ExecutionCommands(context, invocation, output).Connection();
+
+        // Inspecting reads the version first and throws when it cannot be read;
+        // a liveness check would take an unreadable probe for an absent server.
+        _ = await Server.Open(options).InspectAsync(context.CancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(context.Environment.GetValueOrDefault("LIBTMUX_TMUX"))) return new BridgeTmux(context, null);
+        string directory = Directory.CreateTempSubdirectory("libtmux-bridge-").FullName;
+        try
+        {
+            File.CreateSymbolicLink(Path.Join(directory, "tmux"), options.TmuxBinaryPath!);
+        }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+        {
+            Directory.Delete(directory, true);
+            throw new CliException("tmux_unavailable", $"Cannot hand '{options.TmuxBinaryPath}' to the Python bridge: {failure.Message}");
+        }
+        Dictionary<string, string?> environment = new(context.Environment, StringComparer.Ordinal)
+        {
+            ["PATH"] = directory + Path.PathSeparator + context.Environment.GetValueOrDefault("PATH"),
+        };
+        return new BridgeTmux(context with { Environment = environment }, directory);
+    }
+
+    private sealed class BridgeTmux(CliContext context, string? directory) : IDisposable
+    {
+        internal CliContext Context => context;
+
+        public void Dispose()
+        {
+            if (directory is null) return;
+            try { Directory.Delete(directory, true); }
+            catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+            {
+                // Best effort: the command has already run, and a temporary
+                // directory left behind costs nothing.
+            }
+        }
     }
 
     private async Task<string> PythonAsync()

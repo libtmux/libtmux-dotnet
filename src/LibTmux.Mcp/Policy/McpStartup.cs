@@ -401,6 +401,19 @@ internal sealed record McpStartup(
             result = await server.ExecuteCommandAsync(["list-sessions"], cancellationToken)
                 .ConfigureAwait(false);
         }
+        catch (TmuxVersionTooLowException error)
+        {
+            // The refusal already says which version it found and what to do.
+            throw new McpException(ToolFailureFilter.RefusalMessage(error), error);
+        }
+        catch (TmuxProtocolException error) when (error.Dispatch is TmuxDispatchState.NotDispatched)
+        {
+            // The version probe failed before any command went out, and its
+            // message says why.
+            throw new McpException(
+                $"Could not establish tmux daemon provenance: {error.Message}",
+                error);
+        }
         catch (LibTmuxException error)
         {
             throw new McpException("Could not establish tmux daemon provenance.", error);
