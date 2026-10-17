@@ -158,7 +158,8 @@ internal sealed record PaneCursor(
     {
         bool canonicalPaneId = LibTmux.PaneId.TryParse(PaneId, out LibTmux.PaneId parsedPane)
             && string.Equals(parsedPane.ToString(), PaneId, StringComparison.Ordinal);
-        bool canonicalPanePid = int.TryParse(
+        // tmux 3.8 reports no pid for a dead pane that stays on screen.
+        bool canonicalPanePid = PanePid.Length == 0 || int.TryParse(
                 PanePid,
                 NumberStyles.None,
                 CultureInfo.InvariantCulture,
