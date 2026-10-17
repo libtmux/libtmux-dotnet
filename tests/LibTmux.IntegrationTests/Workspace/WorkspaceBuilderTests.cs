@@ -68,7 +68,11 @@ public sealed class WorkspaceBuilderTests
         Assert.Equal(window.Id, result.Session.ActiveWindow.Value.Id);
         WorkspaceActionOutcome finalLayout = Assert.Single(result.Journal, outcome => outcome.Action.Kind == WorkspaceActionKind.SelectLayout);
         Assert.Equal(layout, Assert.IsType<WorkspaceAction<SelectLayoutRequest>>(finalLayout.Action).Request.Layout);
-        Assert.Equal(window.Layout, Assert.IsType<Window>(finalLayout.Result).Layout);
+        // tmux 3.8's JSON layout also records which pane is active or was last
+        // active, and focus moved after the layout was selected.
+        Assert.Equal(
+            WithoutFocus(window.Layout),
+            WithoutFocus(Assert.IsType<Window>(finalLayout.Result).Layout));
         Assert.All(window.Panes, pane => Assert.True(pane.Width < window.Width));
         if (layout == "even-horizontal")
             Assert.All(window.Panes, pane => Assert.Equal(window.Height, pane.Height));
@@ -706,4 +710,7 @@ public sealed class WorkspaceBuilderTests
 
     private static string ShellQuote(string value) =>
         $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";
+
+    private static string WithoutFocus(string layout) =>
+        System.Text.RegularExpressions.Regex.Replace(layout, ",\"(?:a|l)\":(?:true|[0-9]+)", string.Empty);
 }
