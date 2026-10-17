@@ -187,6 +187,18 @@ public sealed partial class Pane
                 () => _commandDispatcher.ExecuteAsync(arguments, cancellationToken),
                 static value => TmuxCommandFailure.ThrowIfFailed(value, "break-pane"))
             .ConfigureAwait(false);
+        // Breaking out a window's only pane relinks the window, and tmux 3.3a
+        // through 3.5 print no identifier for it. The pane names its window.
+        if (result.StandardOutputLines.Count == 0)
+        {
+            result = await sequence.MutateAsync(
+                    () => _commandDispatcher.ExecuteAsync(
+                        ["display-message", "-p", "-t", Target, "#{window_id}"],
+                        cancellationToken),
+                    static value => TmuxCommandFailure.ThrowIfFailed(value, "break-pane"))
+                .ConfigureAwait(false);
+        }
+
         WindowId created = sequence.Observe(() =>
             result.StandardOutputLines.Count > 0
                 && WindowId.TryParse(result.StandardOutputLines[0], out WindowId parsed)

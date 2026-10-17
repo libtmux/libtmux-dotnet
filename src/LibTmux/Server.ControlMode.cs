@@ -54,6 +54,22 @@ public sealed partial class Server
                 "psmux control mode does not provide the attach readiness framing LibTmux requires.");
         }
 
+        // Decided on the checked daemon before any client attaches: a control
+        // client that attaches to a server older than this can crash it.
+        TmuxVersion daemon = live.Version
+            ?? throw new TmuxProtocolException(
+                "The server reported no version.",
+                TmuxDispatchState.NotDispatched);
+        if (daemon < TmuxControlTransport.FirstSafeVersion)
+        {
+            throw new TmuxVersionTooLowException(
+                $"A library-managed control client needs tmux {TmuxControlTransport.FirstSafeVersion}: "
+                + $"earlier servers can crash while it attaches; detected {daemon}.",
+                TmuxControlTransport.FirstSafeVersion,
+                daemon,
+                TmuxDispatchState.NotDispatched);
+        }
+
         ControlModeSession session = ControlModeSession.Start(
             connection.Options.TmuxBinaryPath,
             connection.PrefixArguments,

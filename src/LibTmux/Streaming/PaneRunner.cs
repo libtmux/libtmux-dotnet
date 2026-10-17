@@ -251,6 +251,10 @@ internal static partial class PaneRunner
                     TmuxDispatchState.NotDispatched);
             }
 
+            // The command travels in a named buffer whose abort cleanup deletes
+            // it by name, so staging is admitted before anything is created.
+            await server.RequireBufferStagingAsync("Running a command in a pane", cancellationToken)
+                .ConfigureAwait(false);
             reservation = await ReserveAsync(
                     pane, route, hooks.Completed, hooks.Unresolved, cancellationToken)
                 .ConfigureAwait(false);

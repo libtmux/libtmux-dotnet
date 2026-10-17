@@ -391,7 +391,7 @@ public sealed class MinimumTmuxVersionTests
         Assert.Empty(daemon.Commands);
     }
 
-    private sealed class FakeDaemon
+    internal sealed class FakeDaemon
     {
         private static readonly Encoding Utf8 = new UTF8Encoding(false);
 
