@@ -128,7 +128,7 @@ throws `TmuxCommandException` carrying the result. Missing executables throw
 Malformed successful output remains `FormatException`.
 
 `master` names the advisory matrix lane, not a version token; development
-source reports `next-X.Y`. Minimum support is inclusive at 3.2a.
+source reports `next-X.Y`. Minimum support is inclusive at 3.3a.
 `MaximumTestedTmuxVersion` is 3.7b and is informational rather than a support
 ceiling. Capability profiles select exact parsed identities, including
 distinct 3.7, 3.7a, and 3.7b identities, and never fall back to the nearest
@@ -172,7 +172,7 @@ ordinary parameters. Presence flags use `bool`; nullable Boolean values are
 reserved for commands where omission and explicit false differ. Paired flags
 use enums or validated request invariants.
 
-tmux removed 88-colour support before the supported 3.2a–3.7b range.
+tmux removed 88-colour support before the supported 3.3a–3.7b range.
 `TmuxColorMode` therefore exposes only modes with valid tmux mappings; numeric
 value 1 is reserved and `ServerConnectionOptions` rejects undefined values with
 `ArgumentOutOfRangeException`.
@@ -240,7 +240,7 @@ Documentation and executable examples must cover:
 - snapshot capture, local query, and JSON round trip; and
 - an isolated real-tmux test using the public testkit.
 
-The supported required tmux range is 3.2a through 3.7b on `net8.0` and
+The supported required tmux range is 3.3a through 3.7b on `net8.0` and
 `net10.0`. The development branch is advisory and unknown until an explicit
 capability profile is approved. Native Windows tmux execution is unsupported;
 portable APIs and pure tests remain supported.
