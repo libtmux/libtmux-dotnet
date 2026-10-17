@@ -320,6 +320,48 @@ public sealed class ServerPolicyTests
         }
     }
 
+    // The startup refusal of a tmux that reports no release carries the
+    // library's own sentence: the floor and what to use, not the generic
+    // "could not establish" the probe's other failures get.
+    [UnixTheory]
+    [InlineData("master")]
+    [InlineData("openbsd-3.8")]
+    public async Task Startup_says_why_a_tmux_with_no_recognized_version_is_refused(string version)
+    {
+        string root = SocketRoots.Reserve("unrecognized");
+        Directory.CreateDirectory(root);
+        string tmux = Path.Join(root, "tmux");
+        await TestExecutable.WriteAsync(tmux, $$"""
+            #!/bin/sh
+            if test "$1" = -V; then printf 'tmux {{version}}\n'; exit 0; fi
+            printf 'no server running on %s\n' "$*" >&2
+            exit 1
+            """, TestContext.Current.CancellationToken);
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        {
+            [McpStartup.SocketPathVariable] = Path.Join(root, "tmux.sock"),
+            ["LIBTMUX_TMUX"] = tmux,
+            ["TMUX_TMPDIR"] = root,
+            ["PATH"] = Environment.GetEnvironmentVariable("PATH"),
+        };
+
+        try
+        {
+            ModelContextProtocol.McpException error = await Assert.ThrowsAsync<ModelContextProtocol.McpException>(() =>
+                McpStartup.ResolveAsync(
+                    name => environment.GetValueOrDefault(name),
+                    TestContext.Current.CancellationToken));
+            Assert.Contains("unrecognized version '", error.Message, StringComparison.Ordinal);
+            Assert.Contains(version, error.Message, StringComparison.Ordinal);
+            Assert.Contains("3.3a or newer", error.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("Could not establish", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [UnixFact]
     public async Task Tmux_routes_reject_every_ascii_control_and_del_before_probe()
     {

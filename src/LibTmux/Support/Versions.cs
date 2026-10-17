@@ -35,6 +35,20 @@ internal static class Versions
     // with commas rather than spaces.
     private const string Report = "#{version},#{pid},#{start_time}";
 
+    // run-shell gained -C in tmux 3.2, so a 3.1 daemon answers the probe with
+    // its usage line (cmd-run-shell.c takes "bt:"). A 3.0 or older daemon
+    // speaks a protocol the client refuses before it runs anything.
+    private const string RunShellUsage = "usage: run-shell [-b] [-t target-pane] shell-command";
+    private const string OldProtocol = "server version is too old for client";
+
+    // A client older than 3.2 does not know -N, which the probe passes.
+    private const string UnknownNoStartFlag = ": unknown option -- N";
+
+    /// <summary>Tells a refused caller what to do about it.</summary>
+    internal const string Remedy =
+        "Upgrade tmux and restart the tmux server, or use LibTmux 0.0.0-alpha.21,"
+        + " the last release that supports older tmux.";
+
     /// <summary>Gets the lowest tmux release whose daemon this library supports.</summary>
     internal static TmuxVersion Minimum => LibTmuxInfo.MinimumTmuxVersion;
 
@@ -64,7 +78,7 @@ internal static class Versions
         {
             string reported = line[answer.Length..];
             string[] fields = reported.Split(',');
-            if (fields.Length != 3 || !TmuxVersion.TryParse(fields[0], out TmuxVersion version))
+            if (fields.Length != 3 || !TmuxVersion.TryParseReported(fields[0], out TmuxVersion version))
             {
                 return ProbeOutcome.Unrecognized(reported, result);
             }
@@ -75,6 +89,31 @@ internal static class Versions
                 && start > 0
                     ? ProbeOutcome.Reported(version, new ServerGeneration(pid, start), result)
                     : ProbeOutcome.Unrecognized(reported, result);
+        }
+
+        if (result.ExitCode != 0
+            && result.StandardOutput.IsEmpty
+            && result.StandardErrorLines is [string only])
+        {
+            // The newest release that answers this way, since an older daemon
+            // cannot name itself.
+            if (string.Equals(only, RunShellUsage, StringComparison.Ordinal))
+            {
+                return ProbeOutcome.DaemonTooOld(TmuxVersion.Parse("3.1c"), result);
+            }
+
+            if (string.Equals(only, OldProtocol, StringComparison.Ordinal))
+            {
+                return ProbeOutcome.DaemonTooOld(TmuxVersion.Parse("3.0a"), result);
+            }
+        }
+
+        if (result.ExitCode != 0
+            && result.StandardOutput.IsEmpty
+            && result.StandardErrorLines is [string flag, ..]
+            && flag.EndsWith(UnknownNoStartFlag, StringComparison.Ordinal))
+        {
+            return ProbeOutcome.ClientTooOld(result);
         }
 
         return NamesAbsentEndpoint(result) ? ProbeOutcome.Absent(result) : ProbeOutcome.Failed(result);
@@ -103,13 +142,39 @@ internal static class Versions
     {
         if (version < Minimum)
         {
-            throw new TmuxVersionTooLowException(
-                $"tmux {Minimum} or newer is required; {subject} reports {version}.",
-                Minimum,
-                version,
-                TmuxDispatchState.NotDispatched);
+            throw Refusal($"{subject} reports {version}.", version);
         }
     }
+
+    /// <summary>Builds the refusal of a tmux below the minimum, which sent nothing.</summary>
+    /// <param name="problem">The sentence naming what is too old.</param>
+    /// <param name="actual">The version, or the newest one that fits the evidence.</param>
+    /// <returns>The exception, with the remedy.</returns>
+    internal static TmuxVersionTooLowException Refusal(string problem, TmuxVersion actual) =>
+        new(
+            $"tmux {Minimum} or newer is required; {problem} {Remedy}",
+            Minimum,
+            actual,
+            TmuxDispatchState.NotDispatched);
+
+    /// <summary>Builds the refusal of a version report that names no release, which sent nothing.</summary>
+    /// <param name="reported">What the executable or daemon reported.</param>
+    /// <returns>The exception, whose <c>ActualVersion</c> is not valid.</returns>
+    /// <remarks>
+    /// A report that names no release is not "too old": saying the server
+    /// needs the minimum would blame a build that may be newer.
+    /// </remarks>
+    internal static TmuxVersionTooLowException Unrecognized(string reported) =>
+        new(
+            $"tmux reported an unrecognized version '{WithoutProgramName(reported)}', so its support cannot be checked. "
+            + $"Use a tmux release, {Minimum} or newer, and restart the tmux server if one is running.",
+            Minimum,
+            default,
+            TmuxDispatchState.NotDispatched);
+
+    // The banner is "tmux master"; the message already says tmux reported it.
+    private static string WithoutProgramName(string reported) =>
+        reported.StartsWith("tmux ", StringComparison.Ordinal) ? reported["tmux ".Length..] : reported;
 
     /// <summary>Builds the command that fails unless the daemon reports a version.</summary>
     /// <param name="version">The daemon's version.</param>
@@ -118,13 +183,18 @@ internal static class Versions
     internal static IReadOnlyList<string> Fence(TmuxVersion version, string marker) =>
         ["if-shell", "-F", $"#{{==:#{{version}},{version.Raw}}}", string.Empty, marker];
 
-    /// <summary>Reports whether a result is a fence refusing a changed daemon.</summary>
+    /// <summary>Reports whether a result is a fence refusing a changed daemon, or a daemon too old to reach it.</summary>
     internal static bool IsFenceFailure(TmuxCommandResult result, string marker)
     {
         ArgumentNullException.ThrowIfNull(result);
         string failure = "unknown command: " + marker;
+
+        // A daemon replaced by one older than tmux 3.1 never reaches the
+        // fence: the client turns the connection away first.
         return result.ExitCode != 0
-            && result.StandardErrorLines.Any(line => string.Equals(line, failure, StringComparison.Ordinal));
+            && result.StandardErrorLines.Any(line =>
+                string.Equals(line, failure, StringComparison.Ordinal)
+                || string.Equals(line, OldProtocol, StringComparison.Ordinal));
     }
 
     /// <summary>Builds the request a fenced command list becomes.</summary>
@@ -168,6 +238,12 @@ internal static class Versions
 
         internal static ProbeOutcome Unrecognized(string text, TmuxCommandResult result) =>
             new(ProbeKind.Unrecognized, default, default, text, result);
+
+        internal static ProbeOutcome DaemonTooOld(TmuxVersion newest, TmuxCommandResult result) =>
+            new(ProbeKind.DaemonTooOld, newest, default, newest.Raw, result);
+
+        internal static ProbeOutcome ClientTooOld(TmuxCommandResult result) =>
+            new(ProbeKind.ClientTooOld, default, default, string.Empty, result);
     }
 
     internal enum ProbeKind
@@ -175,6 +251,12 @@ internal static class Versions
         Version,
         Absent,
         Unrecognized,
+
+        /// <summary>The daemon is older than tmux 3.2 and cannot run the probe.</summary>
+        DaemonTooOld,
+
+        /// <summary>The client is older than tmux 3.2 and rejects the probe's flags.</summary>
+        ClientTooOld,
         Failed,
     }
 }

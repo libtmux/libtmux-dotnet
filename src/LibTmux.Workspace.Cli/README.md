@@ -273,8 +273,9 @@ $ tmux-workspace --generate fish > ~/.config/fish/completions/tmux-workspace.fis
 | OS | Linux and macOS |
 | Workspace files | tmuxp's format, in YAML or JSON |
 
-A tmux below 3.3a exits 1 with the `tmux_unsupported` code, before any
-command and before the Python bridge of `shell` and extension loads is started.
+A tmux below 3.3a, or one that reports a version no release uses, such as
+`master`, exits 1 with the `tmux_unsupported` code, before any command and
+before the Python bridge of `shell` and extension loads is started.
 Upgrade tmux and restart the tmux server, or use an earlier release of the
 CLI. The Python bridge runs the tmux the CLI uses: `LIBTMUX_TMUX` when it is
 set, otherwise the `tmux` on `PATH`. The attach that ends a load passes `-N`,

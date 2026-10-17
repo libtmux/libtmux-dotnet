@@ -435,6 +435,28 @@ public sealed class TmuxCapabilitiesTests
         Assert.False(TmuxCapabilities.IsSupported(version, "new_pane_command"));
     }
 
+    // A gate asks "is this tmux 3.4 or newer", and a development build or a
+    // release candidate of 3.4 is not yet. The expected side comes from the
+    // library's own ranking, so the test cannot agree with a second copy of
+    // the grammar that is wrong in the same way. A candidate is not ranked
+    // against the capability table at all, so its state is unknown rather
+    // than unsupported; either way it does not pass the gate.
+    [Theory]
+    [InlineData("next-3.4", false)]
+    [InlineData("3.4-rc", false)]
+    [InlineData("3.4-rc2", false)]
+    [InlineData("3.4", true)]
+    [InlineData("3.4a", true)]
+    public void A_gate_ranks_development_and_candidate_builds_below_their_release(
+        string rawVersion,
+        bool passes)
+    {
+        TmuxVersion version = TmuxVersion.Parse(rawVersion);
+
+        Assert.Equal(passes, version >= TmuxVersion.Parse("3.4"));
+        Assert.Equal(passes, TmuxCapabilities.IsSupported(version, "option_dollar_double_escape"));
+    }
+
     [Theory]
     [InlineData("next-3.7", "new_pane_command", "Unsupported")]
     [InlineData("next-3.8", "new_pane_command", "Supported")]

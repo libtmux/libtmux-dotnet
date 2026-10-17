@@ -1,6 +1,11 @@
 namespace LibTmux;
 
 /// <summary>Reports an unsupported tmux version.</summary>
+/// <remarks>
+/// A report that names no release the library can rank, such as <c>master</c>,
+/// is refused the same way with an <see cref="ActualVersion" /> that is not
+/// valid: the build may be newer than the minimum, but nothing can say so.
+/// </remarks>
 public sealed class TmuxVersionTooLowException : LibTmuxException
 {
     /// <summary>Initializes an unsupported-version exception.</summary>

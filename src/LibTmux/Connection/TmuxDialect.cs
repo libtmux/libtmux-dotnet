@@ -338,17 +338,22 @@ internal sealed class TmuxDialect : MultiplexerDialect
         return supported;
     }
 
-    private static Exception Unreadable(ProbeOutcome outcome) =>
-        outcome.Kind is ProbeKind.Unrecognized
-            ? new TmuxProtocolException(
-                $"tmux reported an unrecognized version '{outcome.Text}'.",
-                TmuxDispatchState.NotDispatched)
-            : new TmuxCommandException(
-                "The tmux version probe failed: "
-                + (outcome.Result.StandardErrorLines.Count > 0
-                    ? string.Join('\n', outcome.Result.StandardErrorLines)
-                    : $"exit {outcome.Result.ExitCode}"),
-                outcome.Result);
+    // Neither answer says the user's command was sent: the probe runs before it.
+    private static LibTmuxException Unreadable(ProbeOutcome outcome)
+    {
+        if (outcome.Kind is ProbeKind.Unrecognized)
+        {
+            return Unrecognized(outcome.Text);
+        }
+
+        string reported = outcome.Result.StandardErrorLines.Count > 0
+            ? string.Join('\n', outcome.Result.StandardErrorLines)
+            : $"exit {outcome.Result.ExitCode}";
+        return new TmuxProtocolException(
+            "The tmux version probe failed: " + reported,
+            reported,
+            TmuxDispatchState.NotDispatched);
+    }
 
     private async Task<bool> IsAbsentAsync(CancellationToken cancellationToken)
     {
@@ -368,7 +373,25 @@ internal sealed class TmuxDialect : MultiplexerDialect
         string marker = NewMarker() + "-";
         TmuxCommandResult result = await _probe!(ProbeRequest(marker), cancellationToken)
             .ConfigureAwait(false);
-        return ReadProbe(result, marker);
+        ProbeOutcome outcome = ReadProbe(result, marker);
+        switch (outcome.Kind)
+        {
+            case ProbeKind.DaemonTooOld:
+                throw Refusal(
+                    $"the connected daemon is older than tmux 3.2 (it cannot run the version check)"
+                    + $" and is at most {outcome.Version}.",
+                    outcome.Version);
+            case ProbeKind.ClientTooOld:
+                // The executable names its own version; it is below the 3.2
+                // that knows -N, so no daemon can be reached through it.
+                string client = await EnsureVerifiedAsync(cancellationToken).ConfigureAwait(false);
+                TmuxVersion executable = ReadClientVersion(client);
+                throw Refusal(
+                    $"the executable reports {executable} and cannot run the version check.",
+                    executable);
+            default:
+                return outcome;
+        }
     }
 
     /// <summary>Reads what replaced a checked daemon, refusing one below the minimum.</summary>
@@ -400,10 +423,9 @@ internal sealed class TmuxDialect : MultiplexerDialect
 
     private TmuxVersion ReadClientVersion(string rawVersion) =>
         TmuxVersionBannerParser.TryReadVersion(rawVersion, ExecutableName, out TmuxVersion version)
+        && TmuxVersion.TryParseReported(version.Raw, out _)
             ? version
-            : throw new TmuxProtocolException(
-                "The tmux executable reported an unrecognized version.",
-                TmuxDispatchState.NotDispatched);
+            : throw Unrecognized(rawVersion);
 
     private void Forget(Supported? supported) =>
         Interlocked.CompareExchange(ref _supported, null, supported);

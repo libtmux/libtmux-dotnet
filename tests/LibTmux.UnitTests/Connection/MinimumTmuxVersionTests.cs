@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
+using LibTmux.Support;
 
 namespace LibTmux.UnitTests.Connection;
 
@@ -9,7 +10,6 @@ public sealed class MinimumTmuxVersionTests
 {
     [Theory]
     [InlineData("3.3a")]
-    [InlineData("3.3a-openbsd")]
     [InlineData("3.3b")]
     [InlineData("3.4")]
     [InlineData("3.7d")]
@@ -31,11 +31,8 @@ public sealed class MinimumTmuxVersionTests
     [InlineData("3.2")]
     [InlineData("3.2a")]
     [InlineData("3.3")]
-    [InlineData("3.3.1")]
     [InlineData("3.3-rc")]
     [InlineData("3.3-rc1")]
-    [InlineData("3.3-dev")]
-    [InlineData("3.3-openbsd")]
     [InlineData("next-3.3")]
     [InlineData("next-3.2")]
     [InlineData("2.9a")]
@@ -56,6 +53,9 @@ public sealed class MinimumTmuxVersionTests
     [InlineData("master")]
     [InlineData("openbsd")]
     [InlineData("openbsd-3.8")]
+    [InlineData("3.4.1")]
+    [InlineData("3.4-dev")]
+    [InlineData("3.3a-openbsd")]
     [InlineData("next-3.3a")]
     [InlineData("3.x")]
     [InlineData("next-")]
@@ -65,11 +65,63 @@ public sealed class MinimumTmuxVersionTests
     {
         var daemon = new FakeDaemon(version);
 
-        TmuxProtocolException refusal = await Assert.ThrowsAsync<TmuxProtocolException>(
+        TmuxVersionTooLowException refusal = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
             () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
 
-        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        AssertUnrecognized(refusal);
         Assert.Empty(daemon.Commands);
+    }
+
+    // The executable's own banner is read before the daemon is asked, and a
+    // banner that names no release meets the same refusal.
+    [Theory]
+    [InlineData("tmux master\n")]
+    [InlineData("tmux openbsd-3.8\n")]
+    [InlineData("tmux 3.3a-dev\n")]
+    [InlineData("not a banner\n")]
+    public async Task A_banner_nothing_can_rank_is_refused_before_any_command(string banner)
+    {
+        var daemon = new FakeDaemon("3.8") { Executable = banner };
+
+        TmuxVersionTooLowException refusal = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
+
+        AssertUnrecognized(refusal);
+        Assert.Empty(daemon.Commands);
+    }
+
+    // With no daemon to ask, the executable's banner decides, and a banner
+    // that parses but is not a release tmux reports is refused too.
+    [Theory]
+    [InlineData("tmux 3.4-dev\n")]
+    [InlineData("tmux 3.4.1\n")]
+    [InlineData("tmux 3.3a-openbsd\n")]
+    public async Task An_executable_nothing_can_rank_is_refused_when_no_daemon_answers(string banner)
+    {
+        var daemon = new FakeDaemon("3.8") { Executable = banner, Absent = true };
+
+        TmuxVersionTooLowException refusal = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
+
+        AssertUnrecognized(refusal);
+        Assert.Empty(daemon.Commands);
+    }
+
+    // A report that names no release is not "too old": saying the server
+    // needs 3.3a would blame a build that may be newer. It still gives the
+    // floor and what to do, and says nothing was sent.
+    private static void AssertUnrecognized(TmuxVersionTooLowException refusal)
+    {
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.Equal(TmuxVersion.Parse("3.3a"), refusal.RequiredVersion);
+        Assert.False(refusal.ActualVersion.IsValid);
+        Assert.Contains("unrecognized version", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("3.3a or newer", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("restart the tmux server", refusal.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("or newer is required", refusal.Message, StringComparison.Ordinal);
+
+        // The banner's program name is not part of the version it reports.
+        Assert.DoesNotContain("'tmux ", refusal.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -359,9 +411,10 @@ public sealed class MinimumTmuxVersionTests
     {
         var daemon = new FakeDaemon("3.8") { ExtraProbeLine = "extra" };
 
-        await Assert.ThrowsAsync<TmuxCommandException>(
+        TmuxProtocolException failure = await Assert.ThrowsAsync<TmuxProtocolException>(
             () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
 
+        Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
         Assert.Empty(daemon.Commands);
     }
 
@@ -370,10 +423,13 @@ public sealed class MinimumTmuxVersionTests
     {
         var daemon = new FakeDaemon("3.8") { ProbeError = "protocol version mismatch\n" };
 
-        TmuxCommandException failure = await Assert.ThrowsAsync<TmuxCommandException>(
+        TmuxProtocolException failure = await Assert.ThrowsAsync<TmuxProtocolException>(
             () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
 
         Assert.Contains("protocol version mismatch", failure.Message, StringComparison.Ordinal);
+
+        // The probe runs before the command, so the failure sent nothing.
+        Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
         Assert.Empty(daemon.Commands);
     }
 
@@ -395,14 +451,121 @@ public sealed class MinimumTmuxVersionTests
     }
 
     [Fact]
-    public async Task An_executable_that_reports_another_name_is_not_a_tmux()
+    public async Task An_executable_that_reports_another_name_is_refused_as_unrecognized()
     {
         var daemon = new FakeDaemon("3.8") { Absent = true, Executable = "other 3.8\n" };
 
-        await Assert.ThrowsAsync<TmuxCommandException>(
+        TmuxVersionTooLowException refusal = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
             () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
 
+        AssertUnrecognized(refusal);
         Assert.Empty(daemon.Commands);
+    }
+
+    [Fact]
+    public async Task A_refusal_says_to_upgrade_and_restart_the_server_or_use_the_previous_release()
+    {
+        var daemon = new FakeDaemon("3.2a");
+
+        TmuxVersionTooLowException refusal = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
+
+        Assert.Contains("Upgrade tmux and restart the tmux server", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("0.0.0-alpha.21", refusal.Message, StringComparison.Ordinal);
+    }
+
+    // run-shell took -C in tmux 3.2 (cmd-run-shell.c: "bt:" before, "bCt:"
+    // after), so a 3.1 daemon answers the probe with its usage line; a 3.0
+    // daemon speaks a protocol the client turns away. Both lines were read
+    // from real 3.1c and 3.0a daemons behind a 3.3a client.
+    [Theory]
+    [InlineData("usage: run-shell [-b] [-t target-pane] shell-command\n", "3.1c")]
+    [InlineData("server version is too old for client\n", "3.0a")]
+    public async Task A_daemon_too_old_to_run_the_probe_is_refused_as_below_the_minimum(
+        string answer,
+        string newest)
+    {
+        var daemon = new FakeDaemon("3.8") { ProbeError = answer };
+
+        TmuxVersionTooLowException refusal = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
+
+        Assert.Equal(TmuxVersion.Parse("3.3a"), refusal.RequiredVersion);
+        Assert.Equal(TmuxVersion.Parse(newest), refusal.ActualVersion);
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.Contains("older than tmux 3.2", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("Upgrade tmux and restart the tmux server", refusal.Message, StringComparison.Ordinal);
+        Assert.Empty(daemon.Commands);
+    }
+
+    [Fact]
+    public async Task A_daemon_replaced_by_one_too_old_to_run_the_probe_is_refused()
+    {
+        var daemon = new FakeDaemon("3.8");
+        await daemon.Server.ExecuteCommandAsync(["list-sessions"], TestContext.Current.CancellationToken);
+        daemon.Version = "3.1c";
+        daemon.ProbeError = "usage: run-shell [-b] [-t target-pane] shell-command\n";
+
+        TmuxVersionTooLowException refusal = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
+
+        Assert.Equal(TmuxVersion.Parse("3.1c"), refusal.ActualVersion);
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.Equal(1, daemon.Effects);
+    }
+
+    // A client older than 3.2 does not know -N, which the probe passes, so it
+    // cannot reach any daemon safely; its own banner names the version.
+    [Fact]
+    public async Task An_executable_older_than_the_probe_can_run_is_refused_by_its_own_version()
+    {
+        var daemon = new FakeDaemon("3.8")
+        {
+            Executable = "tmux 3.1c\n",
+            ProbeError = "tmux: unknown option -- N\nusage: tmux [-2CluvV] [-c shell-command] [-f file]\n",
+        };
+
+        TmuxVersionTooLowException refusal = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
+
+        Assert.Equal(TmuxVersion.Parse("3.1c"), refusal.ActualVersion);
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.Contains("the executable reports 3.1c", refusal.Message, StringComparison.Ordinal);
+        Assert.Empty(daemon.Commands);
+    }
+
+    // One unrelated line is a failure to report, not an old daemon: guessing
+    // would send users to upgrade a tmux that is fine.
+    [Fact]
+    public async Task An_unrelated_probe_error_is_not_mistaken_for_an_old_daemon()
+    {
+        var daemon = new FakeDaemon("3.8") { ProbeError = "usage: run-shell [-b] shell-command\n" };
+
+        _ = await Assert.ThrowsAsync<TmuxProtocolException>(
+            () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
+    }
+
+    // Each phrase tmux uses for an endpoint nothing answers on counts, and a
+    // refusal that merely looks similar does not.
+    [Theory]
+    [InlineData("no server running on /tmp/s", true)]
+    [InlineData("error connecting to /tmp/s (No such file or directory)", true)]
+    [InlineData("error connecting to /tmp/s (Connection refused)", true)]
+    [InlineData("error connecting to /tmp/s (Permission denied)", false)]
+    [InlineData("(Connection refused)", false)]
+    [InlineData("unknown command: no server running on /tmp/s", false)]
+    public void An_endpoint_nothing_answers_on_is_told_apart_from_other_failures(string error, bool absent)
+    {
+        byte[] stderr = Encoding.UTF8.GetBytes(error + "\n");
+        var result = new TmuxCommandResult(
+            ["list-sessions"],
+            1,
+            ReadOnlyMemory<byte>.Empty,
+            stderr,
+            [],
+            [error]);
+
+        Assert.Equal(absent, Versions.NamesAbsentEndpoint(result));
     }
 
     private sealed class FakeDaemon

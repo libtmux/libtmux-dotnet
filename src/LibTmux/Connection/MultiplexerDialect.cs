@@ -1,3 +1,5 @@
+using LibTmux.Support;
+
 namespace LibTmux.Internal;
 
 /// <summary>The multiplexer a connection speaks to, and how it is addressed.</summary>
@@ -110,9 +112,7 @@ internal abstract class MultiplexerDialect
                 out TmuxVersionBanner banner,
                 ExecutableName))
         {
-            throw new TmuxCommandException(
-                "The multiplexer did not report a recognized version banner.",
-                result);
+            throw Versions.Unrecognized(string.Join('\n', result.StandardOutputLines));
         }
 
         AcceptBanner(banner);

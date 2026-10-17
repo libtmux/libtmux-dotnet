@@ -763,6 +763,61 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal(message, record["errors"]![0]!["message"]!.ToString());
     }
 
+    // A tmux that reports no release (a source build, an OpenBSD base tmux) is
+    // not too old, but the library cannot rank it, so every command that
+    // reaches tmux refuses it the same way, and the Python bridge is never
+    // spawned against it.
+    [Theory]
+    [InlineData("master")]
+    [InlineData("openbsd-3.8")]
+    [InlineData("3.3a-dev")]
+    public async Task A_tmux_with_no_recognized_version_is_refused_as_tmux_unsupported(string version)
+    {
+        (int loadCode, JsonNode record, JsonNode diagnostic) = await LoadAgainstFakeTmuxAsync($"tmux {version}");
+
+        Assert.Equal(1, loadCode);
+        Assert.Equal("tmux_unsupported", diagnostic["code"]!.ToString());
+        Assert.Equal("tmux_unsupported", record["errors"]![0]!["code"]!.ToString());
+        string message = diagnostic["message"]!.ToString();
+        Assert.Contains("unrecognized version '", message, StringComparison.Ordinal);
+        Assert.Contains(version, message, StringComparison.Ordinal);
+        Assert.Contains("3.3a or newer", message, StringComparison.Ordinal);
+
+        string bin = Path.Join(_root, "bridge-unrecognized-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(bin);
+        string trace = Path.Join(bin, "ran");
+        string python = Path.Join(bin, "python");
+        await TestExecutable.WriteAsync(Path.Join(bin, "tmux"), $$"""
+            #!/bin/sh
+            if test "$1" = -V; then printf 'tmux {{version}}\n'; exit 0; fi
+            printf 'no server running on %s\n' "$*" >&2
+            exit 1
+            """, TestContext.Current.CancellationToken);
+        await TestExecutable.WriteAsync(python, $$"""
+            #!/bin/sh
+            if test "$1" = -V; then exit 0; fi
+            if test "$1" = -c; then printf '1.74.0\n'; exit 0; fi
+            printf ran > '{{trace}}'
+            """, TestContext.Current.CancellationToken);
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["PATH"] = bin + Path.PathSeparator + Context(TextWriter.Null).Environment["PATH"],
+            ["TMUX_WORKSPACE_PYTHON"] = python,
+        };
+        environment.Remove("LIBTMUX_TMUX");
+        environment.Remove("TMUX");
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        int shellCode = await CliRunner.RunAsync(
+            ["shell", "-S", Path.Join(bin, "bridge.socket"), "-c", "print()", "--json"],
+            output, error, _root, environment, TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(trace), "the Python bridge ran against a tmux the library refuses");
+        Assert.Equal(1, shellCode);
+        Assert.Equal("tmux_unsupported", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+    }
+
     private async Task<(int Code, JsonNode Record, JsonNode Diagnostic)> LoadAgainstFakeTmuxAsync(string banner)
     {
         string bin = Path.Join(_root, "load-bin-" + Guid.NewGuid().ToString("N")[..8]);
