@@ -152,12 +152,13 @@ panes is showing the stack trace, lay out a workspace and drive it.
 | `LIBTMUX_MCP_WAIT_MAX_SECONDS` | `30` | Ceiling on any one wait |
 | `LIBTMUX_MCP_MAX_LINES` | `500` | Default line budget |
 | `LIBTMUX_MCP_MAX_BYTES` | `128000` | Byte budget per result |
-| `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK` | `false` | Permit pane text waits to poll after control observation fails |
+| `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK` | `false` | Permit pane text waits to poll after control observation fails (tmux 3.7 and newer; older releases always poll) |
 
 ### Waiting
 
-- A text wait needs tmux's control mode. If it cannot start or the stream is
-  lost, the wait ends.
+- On tmux 3.7 and newer a text wait uses tmux's control mode. If it cannot
+  start or the stream is lost, the wait ends. Below 3.7 no control client is
+  attached, so waits poll without the setting below.
 - Set `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` only when repeated pane reads
   are acceptable.
   [`wait_for_text`](https://libtmux.org/en/csharp/latest/mcp/tools/wait_for_text/)

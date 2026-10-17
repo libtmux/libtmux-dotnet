@@ -330,8 +330,9 @@ It is built so an assistant never gets stuck and never wastes context:
 - [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/)
   returns the shell's real exit status.
 - [`wait_for_text`](https://libtmux.org/en/csharp/latest/mcp/tools/wait_for_text/)
-  wakes from tmux's control-mode stream. If that stream cannot start, the wait
-  ends unless you set `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true`.
+  wakes from tmux's control-mode stream on tmux 3.7 and newer, and polls on
+  older releases. If that stream cannot start, the wait ends unless you set
+  `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true`.
 - Nothing returns unbounded output.
   [`capture_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_pane/)
   reads visible text and scrollback, while
