@@ -96,6 +96,24 @@ internal sealed class TmuxDialect : MultiplexerDialect
         return (TmuxConnection.ParseGeneration(result.StandardOutputLines[0]), VerifiedRawVersion);
     }
 
+    internal override async Task<(ServerGeneration? Generation, TmuxVersion Version)?> ReadIdentityAsync(
+        CancellationToken cancellationToken)
+    {
+        if (_probe is null)
+        {
+            return null;
+        }
+
+        string client = await EnsureVerifiedAsync(cancellationToken).ConfigureAwait(false);
+        ProbeOutcome found = await ProbeAsync(cancellationToken).ConfigureAwait(false);
+        return found.Kind switch
+        {
+            ProbeKind.Version => (found.Generation, found.Version),
+            ProbeKind.Absent => (null, ReadClientVersion(client)),
+            _ => throw Unreadable(found),
+        };
+    }
+
     internal override async Task<TmuxCommandResult> ExecuteSingleAsync(
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken)

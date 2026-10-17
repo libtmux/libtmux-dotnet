@@ -47,6 +47,16 @@ internal abstract class MultiplexerDialect
     internal abstract Task<(ServerGeneration Generation, string RawVersion)> DiscoverAsync(
         CancellationToken cancellationToken);
 
+    /// <summary>Reads the daemon's generation and version without a user-visible command.</summary>
+    /// <returns>
+    /// Null when this dialect has no such read, in which case a caller asks
+    /// the daemon itself. A null generation means no daemon is running and the
+    /// version is the executable's.
+    /// </returns>
+    internal virtual Task<(ServerGeneration? Generation, TmuxVersion Version)?> ReadIdentityAsync(
+        CancellationToken cancellationToken) =>
+        Task.FromResult<(ServerGeneration? Generation, TmuxVersion Version)?>(null);
+
     /// <summary>Runs one command.</summary>
     internal abstract Task<TmuxCommandResult> ExecuteSingleAsync(
         IReadOnlyList<string> arguments,
