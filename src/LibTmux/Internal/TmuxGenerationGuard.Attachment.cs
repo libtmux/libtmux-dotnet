@@ -12,7 +12,8 @@ internal sealed partial class TmuxGenerationGuard
         ServerGeneration expected,
         IReadOnlyList<string> arguments,
         TimeSpan acknowledgementBudget,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<string>? fence = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(acknowledgementBudget.Ticks);
@@ -20,7 +21,7 @@ internal sealed partial class TmuxGenerationGuard
         ArgumentException.ThrowIfNullOrWhiteSpace(marker);
         string channel = $"libtmux_attach_{Guid.NewGuid():N}";
         var receiptServer = new Server(new TmuxCommandDispatcher(
-            (command, token) => ExecuteAsync(expected, [command], token)));
+            (command, token) => ExecuteAsync(expected, [command], fence, token)));
         using var clientLifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         using var receiptLifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         TmuxWaitChannel? wait = null;
@@ -39,7 +40,7 @@ internal sealed partial class TmuxGenerationGuard
             }
 
             TmuxCommandRequest request = CreateRequest(expected,
-                [arguments, ["wait-for", "-S", channel]], marker);
+                [arguments, ["wait-for", "-S", channel]], marker, fence);
             client = ExecuteRequestAsync(request, arguments, clientLifetime.Token);
             Task first = await Task.WhenAny(client, receipt).ConfigureAwait(false);
             if (first == client && (await client.ConfigureAwait(false)).ExitCode != 0)

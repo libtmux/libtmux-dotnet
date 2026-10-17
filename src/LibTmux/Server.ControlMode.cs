@@ -64,7 +64,10 @@ public sealed partial class Server
                 connection.Options.ChildEnvironment),
             connection.Options.ControlModeEventBufferCapacity,
             connection.Options.ControlModeEventBufferMaxBytes,
-            attachFlags);
+            attachFlags,
+            // The daemon's version was just checked, so a client that finds it gone
+            // must not start another one.
+            preventServerStart: true);
 
         // Attaching is asynchronous, and a caller who sends a command before
         // tmux has answered its own attach would be handed that answer.

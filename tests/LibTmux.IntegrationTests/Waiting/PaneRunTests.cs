@@ -580,7 +580,7 @@ public sealed class PaneRunTests
             // and reports what tmux's client reports when that happens.
             await TestExecutable.WriteAsync(
                 wrapper,
-                "#!/bin/sh\nfor argument in \"$@\"; do\n  if [ \"$argument\" = -C ]; then\n"
+                "#!/bin/sh\nfor argument in \"$@\"; do\n  if [ \"$argument\" = attach-session ]; then\n"
                 + $"    '{raw.TmuxBinaryPath}' -S '{raw.SocketPath}' kill-server\n"
                 + "    printf '%%exit server exited unexpectedly\\n'\n    exit 1\n  fi\ndone\n"
                 + $"exec '{raw.TmuxBinaryPath}' \"$@\"\n",

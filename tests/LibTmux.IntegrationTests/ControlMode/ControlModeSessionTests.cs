@@ -729,7 +729,7 @@ public sealed class ControlModeSessionTests
             string script = $"""
                 #!/bin/sh
                 for argument in "$@"; do
-                    if [ "$argument" = "-C" ]; then
+                    if [ "$argument" = "attach-session" ]; then
                         echo "$$" > {ShellQuote(pidFile)}
                         IFS= read -r ignored
                         exit 0
@@ -796,7 +796,7 @@ public sealed class ControlModeSessionTests
             string script = $"""
                 #!/bin/sh
                 for argument in "$@"; do
-                    if [ "$argument" = "-C" ]; then
+                    if [ "$argument" = "attach-session" ]; then
                         dd if=/dev/zero bs=65536 count=4 1>&2 2>/dev/null
                         exec {ShellQuote(raw.TmuxBinaryPath)} "$@"
                     fi

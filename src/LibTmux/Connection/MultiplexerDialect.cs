@@ -24,8 +24,19 @@ internal abstract class MultiplexerDialect
     /// <summary>Gets whether this dialect speaks to the psmux preview.</summary>
     internal abstract bool IsPsmux { get; }
 
-    internal string VerifiedRawVersion => Volatile.Read(ref _rawVersion)
+    /// <summary>Gets the version that governs what this dialect may send.</summary>
+    /// <remarks>
+    /// The executable's report unless a dialect checks a daemon, which answers
+    /// for itself.
+    /// </remarks>
+    internal virtual string VerifiedRawVersion => ClientRawVersion;
+
+    /// <summary>Gets the version the client executable reported.</summary>
+    private protected string ClientRawVersion => Volatile.Read(ref _rawVersion)
         ?? throw new InvalidOperationException("The multiplexer version has not been verified.");
+
+    /// <summary>Gets the file name the configured executable is known by.</summary>
+    private protected abstract string ExecutableName { get; }
 
     /// <summary>Gets the transport every command ultimately reaches.</summary>
     private protected Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>
@@ -86,7 +97,8 @@ internal abstract class MultiplexerDialect
 
         if (!TmuxVersionBannerParser.TryParse(
                 result.StandardOutputLines,
-                out TmuxVersionBanner banner))
+                out TmuxVersionBanner banner,
+                ExecutableName))
         {
             throw new TmuxCommandException(
                 "The multiplexer did not report a recognized version banner.",

@@ -27,6 +27,8 @@ internal sealed class PsmuxDialect : MultiplexerDialect
 
     internal override bool IsPsmux => true;
 
+    private protected override string ExecutableName => Path.GetFileName(_options.TmuxBinaryPath);
+
     internal override async Task<(ServerGeneration Generation, string RawVersion)> DiscoverAsync(
         CancellationToken cancellationToken)
     {

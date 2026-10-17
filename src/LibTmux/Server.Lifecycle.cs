@@ -41,8 +41,10 @@ public sealed partial class Server
                 .ConfigureAwait(false);
             return result.ExitCode == 0;
         }
-        catch (LibTmuxException)
+        catch (LibTmuxException error) when (error is not TmuxVersionTooLowException)
         {
+            // A daemon below the minimum is answering; reporting it as absent
+            // would hide that it was refused.
             return false;
         }
     }
