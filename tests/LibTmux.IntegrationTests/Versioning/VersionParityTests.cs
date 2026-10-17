@@ -720,16 +720,14 @@ public sealed class VersionParityTests
 
     private static async Task ExerciseCaptureModeScreenAsync(RawTmuxTestContext context)
     {
-        await using PtyAttachedClientScope client = await PtyAttachedClientScope.StartAsync(
-            context,
-            TestContext.Current.CancellationToken);
+        // run-shell with a target shows its output in that pane's view mode.
+        // Reached through a bound key it went to the caller's stdout from 3.8.
         await RequireSuccessAsync(
             context,
             [
-                "bind-key", "-n", "F11", "run-shell",
+                "run-shell", "-t", TargetPane(context),
                 "printf 'libtmux-mode-only-marker\\n'",
             ]);
-        await RequireSuccessAsync(context, ["send-keys", "-K", "-c", client.Tty, "F11"]);
         await WaitForFormatAsync(context, TargetPane(context), "#{pane_in_mode}", "1");
 
         RawTmuxResult baseScreen = await RequireSuccessAsync(
