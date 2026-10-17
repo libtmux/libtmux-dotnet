@@ -4,6 +4,10 @@
   "minimum": "3.3a",
   "maximumTested": "3.7c",
   "transition": "3.7",
+  "rejected": [
+    "3.2a",
+    "3.3"
+  ],
   "supported": [
     "3.3a",
     "3.4",
