@@ -38,7 +38,7 @@ public sealed class ServerSessionLifecycleTests
             Assert.Equal("renamed", (await scope.Value.RefreshAsync(token)).Name);
             Assert.True(await server.HasSessionAsync("renamed", true, token));
 
-            // tmux 3.2a rewrites ':' to '_' and 3.7b stores it verbatim, so the
+            // tmux 3.3a rewrites ':' to '_' and 3.7b stores it verbatim, so the
             // name is refused before either server sees it.
             await Assert.ThrowsAsync<ArgumentException>(
                 () => scope.Value.RenameAsync("a:b", token));
@@ -176,12 +176,7 @@ public sealed class ServerSessionLifecycleTests
             Path.GetFullPath(new DirectoryInfo("/tmp").ResolveLinkTarget(true)?.FullName ?? "/tmp"),
             Path.GetFullPath(new DirectoryInfo(observed[2]).ResolveLinkTarget(true)?.FullName ?? observed[2]));
 
-        // tmux 3.2a ignores -x/-y for a second session, sizing it from the
-        // existing session's height minus the status line; 3.3a+ honours -x/-y.
-        string[] expectedSize = server.Version!.Value < TmuxVersion.Parse("3.3a")
-            ? ["80", "23"]
-            : ["132", "40"];
-        Assert.Equal(expectedSize, observed[..2]);
+        Assert.Equal(["132", "40"], observed[..2]);
 
         // tmux hands -c straight to chdir, so a surviving '~' would fail there
         // and silently drop the pane in the home directory instead.

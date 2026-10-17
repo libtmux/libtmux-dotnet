@@ -11,7 +11,7 @@
 
 A typed, async-first [tmux](https://github.com/tmux/tmux) client for .NET.
 Servers, sessions, windows, panes, clients, options, hooks and buffers, against
-every tmux from **3.2a to 3.7c**, on **net8.0** and **net10.0**.
+every tmux from **3.3a to 3.7c**, on **net8.0** and **net10.0**.
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version. The behaviour is proven against all
@@ -421,7 +421,7 @@ actual daemon version and generation before acquisition, and never initializes
 or starts an absent daemon.
 
 Source evaluation currently supports canonical ID equality, `Session.Attached`
-and `Window.IsActive` on stable tmux 3.2a through 3.7c. Text, numbers and graph
+and `Window.IsActive` on stable tmux 3.3a through 3.7c. Text, numbers and graph
 predicates use the local interpreter. Ordered conjunctions preserve earlier
 local errors; partial disjunctions and negations stay local.
 
@@ -604,7 +604,7 @@ broke, and `Unknown` is the default for exactly that reason. A
 
 | | |
 |---|---|
-| tmux | 3.2a to 3.7c |
+| tmux | 3.3a to 3.7c |
 | .NET | net8.0, net10.0 |
 | OS | Linux and macOS. `Server`, `Session`, `Window` and `Pane` are annotated unsupported on Windows, because their lifecycle, mutation and control-mode contracts need a real tmux |
 | Trimming / NativeAOT | Core APIs are analyzer-gated. Query `Compile` and `Matching` resolve properties by name, so they warn trimmed callers to preserve the filtered types' public properties |

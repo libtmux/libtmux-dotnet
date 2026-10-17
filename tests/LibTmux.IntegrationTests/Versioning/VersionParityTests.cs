@@ -29,19 +29,14 @@ public sealed class VersionParityTests
         new("capture_pane_trim_trailing", "capture-pane", ["-T"]),
         new("clear_history_hyperlinks", "clear-history", ["-H"]),
         new("choose_tree_sort_time", "choose-tree", ["-O"]),
-        new("clear_prompt_history_command", "clear-prompt-history", []),
         new("command_prompt_3_7_behavior", "command-prompt", ["-e", "-C"]),
-        new("command_prompt_background", "command-prompt", ["-b", "-F"]),
         new("command_prompt_literal", "command-prompt", ["-l"]),
         new("confirm_before_acceptance", "confirm-before", ["-c", "-y"]),
-        new("confirm_before_background", "confirm-before", ["-b"]),
         new("copy_mode_page_down", "copy-mode", ["-d"]),
         new("display_menu_mouse", "display-menu", ["-M"]),
         new("display_menu_styles", "display-menu", ["-C", "-b", "-s", "-S", "-H"]),
-        new("display_message_client", "display-message", ["-c"]),
         new("display_message_literal", "display-message", ["-l"]),
         new("display_message_update_pane", "display-message", ["-C"]),
-        new("display_popup_3_3_options", "display-popup", ["-T", "-b", "-s", "-S", "-e", "-B"]),
         new("display_popup_3_6_key_policy", "display-popup", ["-k", "-N"]),
         new("hook_scope_pane_window_set", "set-hook", ["-p", "-w"]),
         new("hook_scope_pane_window_show", "show-hooks", ["-p", "-w"]),
@@ -55,8 +50,6 @@ public sealed class VersionParityTests
         new("run_shell_show_stderr", "run-shell", ["-E"]),
         new("run_shell_working_directory", "run-shell", ["-c"]),
         new("send_keys_client_keys", "send-keys", ["-K", "-c"]),
-        new("server_access_command", "server-access", []),
-        new("show_prompt_history_command", "show-prompt-history", []),
         new("split_window_appearance", "split-window", ["-s", "-S", "-R", "-m", "-k"]),
         new("split_window_empty", "split-window", ["-E"]),
     ];
@@ -225,37 +218,6 @@ public sealed class VersionParityTests
     }
 
     [UnixFact]
-    public async Task MissingTargetFormatSafety()
-    {
-        await using RawTmuxTestContext context = await StartAsync();
-        TmuxVersion version = await GetVersionAsync(context);
-        bool safe = TmuxCapabilities.IsSupported(version, "missing_target_format_safety");
-
-        RawTmuxResult result = await ExecuteAsync(
-            context,
-            ["display-message", "-p", "-t", "%99999", "#{pane_bg}"]);
-
-        if (version != TmuxVersion.Parse("3.2a"))
-        {
-            if (version.IsStableRelease)
-            {
-                Assert.True(safe);
-            }
-
-            Assert.Equal(0, result.ExitCode);
-            Assert.Equal("\n", result.StandardOutputText);
-            Assert.Empty(result.StandardOutputLines);
-            Assert.Empty(result.StandardErrorLines);
-        }
-        else
-        {
-            Assert.False(safe);
-            Assert.NotEqual(0, result.ExitCode);
-            Assert.Contains("server exited unexpectedly", result.StandardErrorText);
-        }
-    }
-
-    [UnixFact]
     public async Task OptionDollarDoubleEscape()
     {
         await using RawTmuxTestContext context = await StartAsync();
@@ -335,22 +297,13 @@ public sealed class VersionParityTests
     public Task ChooseTreeSortTime() => ExerciseGateAsync("choose_tree_sort_time");
 
     [UnixFact]
-    public Task ClearPromptHistoryCommand() => ExerciseGateAsync("clear_prompt_history_command");
-
-    [UnixFact]
     public Task CommandPrompt37Behavior() => ExerciseGateAsync("command_prompt_3_7_behavior");
-
-    [UnixFact]
-    public Task CommandPromptBackground() => ExerciseGateAsync("command_prompt_background");
 
     [UnixFact]
     public Task CommandPromptLiteral() => ExerciseGateAsync("command_prompt_literal");
 
     [UnixFact]
     public Task ConfirmBeforeAcceptance() => ExerciseGateAsync("confirm_before_acceptance");
-
-    [UnixFact]
-    public Task ConfirmBeforeBackground() => ExerciseGateAsync("confirm_before_background");
 
     [UnixFact]
     public Task CopyModePageDown() => ExerciseGateAsync("copy_mode_page_down");
@@ -362,9 +315,6 @@ public sealed class VersionParityTests
     public Task DisplayMenuStyles() => ExerciseGateAsync("display_menu_styles");
 
     [UnixFact]
-    public Task DisplayMessageClient() => ExerciseGateAsync("display_message_client");
-
-    [UnixFact]
     public Task DisplayMessageLiteral() => ExerciseGateAsync("display_message_literal");
 
     [UnixFact]
@@ -372,9 +322,6 @@ public sealed class VersionParityTests
 
     [UnixFact]
     public Task DisplayMessageUpdatePane() => ExerciseGateAsync("display_message_update_pane");
-
-    [UnixFact]
-    public Task DisplayPopup33Options() => ExerciseGateAsync("display_popup_3_3_options");
 
     [UnixFact]
     public Task DisplayPopup36KeyPolicy() => ExerciseGateAsync("display_popup_3_6_key_policy");
@@ -412,12 +359,6 @@ public sealed class VersionParityTests
 
     [UnixFact]
     public Task SendKeysClientKeys() => ExerciseGateAsync("send_keys_client_keys");
-
-    [UnixFact]
-    public Task ServerAccessCommand() => ExerciseGateAsync("server_access_command");
-
-    [UnixFact]
-    public Task ShowPromptHistoryCommand() => ExerciseGateAsync("show_prompt_history_command");
 
     [UnixFact]
     public Task SplitWindowAppearance() => ExerciseGateAsync("split_window_appearance");
@@ -464,17 +405,7 @@ public sealed class VersionParityTests
             context,
             ["list-commands", gate.Command]);
         bool isPresent;
-        if (string.Equals(gate.Capability, "display_message_client", StringComparison.Ordinal))
-        {
-            // tmux 3.2a lists -c in its own usage text and then refuses the
-            // command carrying it, so the usage string is not evidence and
-            // only running it is.
-            RawTmuxResult targeted = await ExecuteAsync(
-                context,
-                ["display-message", "-c", UnattachedClient, "-p", "gate"]);
-            isPresent = targeted.ExitCode == 0;
-        }
-        else if (string.Equals(gate.Capability, "choose_tree_sort_time", StringComparison.Ordinal))
+        if (string.Equals(gate.Capability, "choose_tree_sort_time", StringComparison.Ordinal))
         {
             // Every supported tmux carries -O. What 3.7 dropped is one value
             // it accepts, so the usage text cannot tell them apart and only
@@ -604,23 +535,14 @@ public sealed class VersionParityTests
                     ["capture-pane", "-p", "-S", "-", "-t", TargetPane(context)]);
                 Assert.Contains("linked-text", visibleText.StandardOutputText);
                 break;
-            case "clear_prompt_history_command":
-                await ExercisePromptHistoryAsync(context, clear: true);
-                break;
             case "command_prompt_3_7_behavior":
                 await ExerciseCommandPrompt37Async(context);
-                break;
-            case "command_prompt_background":
-                await ExerciseCommandPromptBackgroundAsync(context);
                 break;
             case "command_prompt_literal":
                 await ExerciseLiteralPromptAsync(context);
                 break;
             case "confirm_before_acceptance":
                 await ExerciseConfirmAcceptanceAsync(context);
-                break;
-            case "confirm_before_background":
-                await ExerciseConfirmBackgroundAsync(context);
                 break;
             case "copy_mode_page_down":
                 await SeedScrollbackAsync(context);
@@ -647,9 +569,6 @@ public sealed class VersionParityTests
                 }
             case "display_message_update_pane":
                 await ExerciseDisplayMessageUpdateAsync(context);
-                break;
-            case "display_popup_3_3_options":
-                await ExercisePopupOptionsAsync(context);
                 break;
             case "display_popup_3_6_key_policy":
                 await ExercisePopupKeyPolicyAsync(context);
@@ -734,20 +653,6 @@ public sealed class VersionParityTests
             case "send_keys_client_keys":
                 await ExerciseSendClientKeysAsync(context);
                 break;
-            case "server_access_command":
-                RawTmuxResult access = await RequireSuccessAsync(context, ["server-access", "-l"]);
-                Assert.Single(access.StandardOutputLines);
-                // tmux 3.8 added group-based access control (its args string
-                // gained `g`), so a listed entry carries a `U` or `G` marker
-                // beside the `R`/`W` mode it always had: `d (W)` became
-                // `d (U,W)`. Both spellings are correct for the release that
-                // prints them, and this gate only asks that the owner is listed
-                // with write access, not which release's spelling it used.
-                Assert.Matches("^[^ ]+ \\((?:[UG],)?W\\)$", access.StandardOutputLines[0]);
-                break;
-            case "show_prompt_history_command":
-                await ExercisePromptHistoryAsync(context, clear: false);
-                break;
             case "split_window_appearance":
                 string styledPane = await SplitPaneAsync(
                     context,
@@ -791,12 +696,6 @@ public sealed class VersionParityTests
                     ["split-window", "-d", "-t", TargetPane(context), "-E", "true"]);
                 Assert.NotEqual(0, rejectedCommand.ExitCode);
                 break;
-            case "display_message_client":
-                RawTmuxResult addressed = await RequireSuccessAsync(
-                    context,
-                    ["display-message", "-c", UnattachedClient, "-p", "addressed"]);
-                Assert.Equal(["addressed"], addressed.StandardOutputLines);
-                break;
             case "choose_tree_sort_time":
                 // Where tmux still carries the order it takes it without
                 // complaint, and the other orders keep working beside it, so
@@ -817,31 +716,6 @@ public sealed class VersionParityTests
                 throw new InvalidOperationException(
                     $"No behavioral exercise exists for capability '{capability}'.");
         }
-    }
-
-    private static async Task ExerciseCommandPromptBackgroundAsync(
-        RawTmuxTestContext context)
-    {
-        await using PtyAttachedClientScope client = await PtyAttachedClientScope.StartAsync(
-            context,
-            TestContext.Current.CancellationToken);
-        Task<RawTmuxResult> prompt = ExecuteAsync(
-            context,
-            [
-                "command-prompt", "-b", "-F", "-I", "prompt-value", "-t", client.Tty,
-                "set-option -g @libtmux_prompt '#{session_name}:%%'",
-            ]);
-        RawTmuxResult opened = await prompt.WaitAsync(
-            CommandTimeout,
-            TestContext.Current.CancellationToken);
-        Assert.Equal(0, opened.ExitCode);
-        Assert.Null(await ShowOptionAsync(context, "@libtmux_prompt"));
-        int outputOffset = client.ReadOutputSnapshot().Length;
-        await client.WriteAsync("\r"u8.ToArray(), TestContext.Current.CancellationToken);
-        Assert.Equal(
-            $"{context.SessionName}:prompt-value",
-            await WaitForOptionAsync(context, "@libtmux_prompt"));
-        Assert.True(client.ReadOutputSnapshot().Length >= outputOffset);
     }
 
     private static async Task ExerciseCaptureModeScreenAsync(RawTmuxTestContext context)
@@ -940,25 +814,6 @@ public sealed class VersionParityTests
         Assert.Equal("enter", await WaitForOptionValueAsync(context, "@libtmux_confirm", "enter"));
     }
 
-    private static async Task ExerciseConfirmBackgroundAsync(RawTmuxTestContext context)
-    {
-        await using PtyAttachedClientScope client = await PtyAttachedClientScope.StartAsync(
-            context,
-            TestContext.Current.CancellationToken);
-        RawTmuxResult opened = await RequireSuccessAsync(
-            context,
-            [
-                "confirm-before", "-b", "-t", client.Tty,
-                "set-option -g @libtmux_confirm_background accepted",
-            ]);
-        Assert.Equal(0, opened.ExitCode);
-        Assert.Null(await ShowOptionAsync(context, "@libtmux_confirm_background"));
-        await client.WriteAsync("y"u8.ToArray(), TestContext.Current.CancellationToken);
-        Assert.Equal(
-            "accepted",
-            await WaitForOptionAsync(context, "@libtmux_confirm_background"));
-    }
-
     private static async Task ExerciseDisplayMessageUpdateAsync(RawTmuxTestContext context)
     {
         await using PtyAttachedClientScope client = await PtyAttachedClientScope.StartAsync(
@@ -1028,52 +883,6 @@ public sealed class VersionParityTests
         Assert.Equal(
             0,
             (await menu.WaitAsync(CommandTimeout, TestContext.Current.CancellationToken)).ExitCode);
-    }
-
-    private static async Task ExercisePopupOptionsAsync(RawTmuxTestContext context)
-    {
-        await using PtyAttachedClientScope client = await PtyAttachedClientScope.StartAsync(
-            context,
-            TestContext.Current.CancellationToken);
-        await WaitForClientOutputToSettleAsync(client);
-        int offset = client.ReadOutputSnapshot().Length;
-        RawTmuxResult popup = await RequireSuccessAsync(
-            context,
-            [
-                "display-popup", "-T", "libtmux-title", "-b", "simple", "-s", "fg=red",
-                "-S", "fg=green", "-e", "LIBTMUX_POPUP=observed", "-t", TargetPane(context),
-                "-E", "tmux set-option -g @libtmux_popup \"$LIBTMUX_POPUP\"; sleep 0.1",
-            ]);
-        Assert.Equal(0, popup.ExitCode);
-        Assert.Equal("observed", await WaitForOptionAsync(context, "@libtmux_popup"));
-        byte[] rendered = client.ReadOutputSnapshot()[offset..];
-        string renderedText = Encoding.UTF8.GetString(rendered);
-        Assert.Contains(
-            "libtmux-title",
-            renderedText,
-            StringComparison.Ordinal);
-        AssertSgrColor(renderedText, ansiColor: 31, paletteColor: 1);
-        AssertSgrColor(renderedText, ansiColor: 32, paletteColor: 2);
-        AssertSimpleBorder(renderedText);
-
-        await WaitForClientOutputToSettleAsync(client);
-        int noBorderOffset = client.ReadOutputSnapshot().Length;
-        await RequireSuccessAsync(
-            context,
-            [
-                "display-popup", "-B", "-T", "libtmux-no-border-title", "-s", "fg=blue",
-                "-t", TargetPane(context), "-E", "sleep 0.1",
-            ]);
-        string noBorderRendered = Encoding.UTF8.GetString(
-            client.ReadOutputSnapshot()[noBorderOffset..]);
-        AssertSgrColor(noBorderRendered, ansiColor: 34, paletteColor: 4);
-        Assert.False(
-            HasSimpleBorder(noBorderRendered),
-            "display-popup -B rendered a simple border inside the isolated PTY slice.");
-        Assert.DoesNotContain(
-            "libtmux-no-border-title",
-            noBorderRendered,
-            StringComparison.Ordinal);
     }
 
     private static async Task ExercisePopupKeyPolicyAsync(RawTmuxTestContext context)
@@ -1315,42 +1124,6 @@ public sealed class VersionParityTests
             ["bind-key", "-n", "F12", "set-option", "-g", "@libtmux_client_key", "seen"]);
         await RequireSuccessAsync(context, ["send-keys", "-K", "-c", client.Tty, "F12"]);
         Assert.Equal("seen", await WaitForOptionAsync(context, "@libtmux_client_key"));
-    }
-
-    private static async Task ExercisePromptHistoryAsync(
-        RawTmuxTestContext context,
-        bool clear)
-    {
-        await using PtyAttachedClientScope client = await PtyAttachedClientScope.StartAsync(
-            context,
-            TestContext.Current.CancellationToken);
-        await RequireSuccessAsync(
-            context,
-            [
-                "command-prompt", "-b", "-I", "libtmux-history-value", "-t", client.Tty,
-                "display-message %%",
-            ]);
-        await client.WriteAsync("\r"u8.ToArray(), TestContext.Current.CancellationToken);
-
-        // The prompt records what was entered when it accepts it, which is not
-        // when the return key was written to the client's terminal.
-        RawTmuxResult shown = await WaitForResultAsync(
-            context,
-            ["show-prompt-history", "-T", "command"],
-            result => result.StandardOutputLines.Count == 3);
-        Assert.Equal(
-            ["History for command:", "", "1: libtmux-history-value"],
-            shown.StandardOutputLines);
-        if (!clear)
-        {
-            return;
-        }
-
-        await RequireSuccessAsync(context, ["clear-prompt-history", "-T", "command"]);
-        RawTmuxResult cleared = await RequireSuccessAsync(
-            context,
-            ["show-prompt-history", "-T", "command"]);
-        Assert.Equal(["History for command:"], cleared.StandardOutputLines);
     }
 
     private static void AssertSgrColor(string rendered, int ansiColor, int paletteColor)
@@ -1855,11 +1628,6 @@ public sealed class VersionParityTests
             searchFrom = optionIndex;
         }
     }
-
-    // From 3.3 tmux accepts -c and simply prints for a client it cannot
-    // resolve, while 3.2a refuses the flag outright. That difference is the
-    // gate, so the probe needs no attached client of its own.
-    private const string UnattachedClient = "/dev/null";
 
     private static string TargetPane(RawTmuxTestContext context) =>
         $"{context.SessionName}:0.0";

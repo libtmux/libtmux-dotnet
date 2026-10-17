@@ -21,17 +21,6 @@ internal static class TmuxCapabilities
         "hook_scope_pane_window_set",
         "hook_scope_pane_window_show",
     ];
-    private static readonly string[] Added33 =
-    [
-        "clear_prompt_history_command",
-        "command_prompt_background",
-        "confirm_before_background",
-        "display_message_client",
-        "display_popup_3_3_options",
-        "missing_target_format_safety",
-        "server_access_command",
-        "show_prompt_history_command",
-    ];
     private static readonly string[] Added34 =
     [
         "capture_pane_trim_trailing",
@@ -108,7 +97,6 @@ internal static class TmuxCapabilities
     private static FrozenDictionary<string, CapabilityInterval> CreateIntervals()
     {
         TmuxVersion minimum = LibTmuxInfo.MinimumTmuxVersion;
-        TmuxVersion version33 = TmuxVersion.Parse("3.3");
         TmuxVersion version34 = TmuxVersion.Parse("3.4");
         TmuxVersion version35 = TmuxVersion.Parse("3.5");
         TmuxVersion version36 = TmuxVersion.Parse("3.6");
@@ -118,7 +106,6 @@ internal static class TmuxCapabilities
 
         Add(intervals, Baseline, minimum);
         Add(intervals, ["choose_tree_sort_time"], minimum, version37);
-        Add(intervals, Added33, version33);
         Add(intervals, Added34, version34);
         Add(intervals, ["option_dollar_double_escape"], version34, version35);
         Add(intervals, Added35, version35);

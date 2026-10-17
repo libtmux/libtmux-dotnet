@@ -22,7 +22,7 @@ public sealed class DashArgumentGuardTests
 {
     /// <summary>
     /// Shaped like a flag no command in this file recognizes (verified against
-    /// tmux 3.2a through 3.7d), so an unguarded call is refused with "unknown
+    /// tmux 3.3a through 3.7d), so an unguarded call is refused with "unknown
     /// flag -z" and a guarded one reaches whatever check comes after parsing.
     /// </summary>
     private const string DashMarker = "-zqamarker";
@@ -338,16 +338,11 @@ public sealed class DashArgumentGuardTests
             () => server.SourceFileAsync(DashMarker, cancellationToken: token));
         Assert.Contains("no such file", sourceFailure.Message, StringComparison.OrdinalIgnoreCase);
 
-        // server-access needs tmux 3.3; older lanes in the matrix skip it
-        // rather than fail on an unrelated version gate.
-        if (server.Version is { } version && version >= TmuxVersion.Parse("3.3"))
-        {
-            TmuxCommandException accessFailure = await Assert.ThrowsAsync<TmuxCommandException>(
-                () => server.ConfigureAccessAsync(
-                    new ServerAccessRequest { AllowUser = DashMarker },
-                    token));
-            Assert.Contains("unknown user", accessFailure.Message, StringComparison.OrdinalIgnoreCase);
-        }
+        TmuxCommandException accessFailure = await Assert.ThrowsAsync<TmuxCommandException>(
+            () => server.ConfigureAccessAsync(
+                new ServerAccessRequest { AllowUser = DashMarker },
+                token));
+        Assert.Contains("unknown user", accessFailure.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [UnixFact]

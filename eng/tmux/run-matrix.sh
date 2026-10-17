@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly REQUIRED_VERSIONS=(3.2a 3.3a 3.4 3.5 3.6 3.7a 3.7b 3.7c)
+readonly REQUIRED_VERSIONS=(3.3a 3.4 3.5 3.6 3.7a 3.7b 3.7c)
 # xUnit runs one collection per logical processor by default, so a lane drives
 # that many tmux servers and shells at once. dotnet-tmux.yml gets away with it
 # on a dedicated runner; anywhere else the readiness budgets are starved by the
@@ -439,7 +439,7 @@ if [[ -n "${candidate}" ]]; then
         --argjson capabilityCohortPresent "${capability_cohort_json}" \
         --argjson includeMasterAdvisory "${include_master_json}" \
         --argjson transitionProof "${transition_proof_json}" \
-        '({evaluatedCommit:$evaluatedCommit,frameworks:["net10.0","net8.0"],includeMasterAdvisory:$includeMasterAdvisory,platform:$platform,redactionProof:true,schemaVersion:1,sdkVersion:$sdkVersion,sourceState:$sourceState,sourceTreeFingerprint:$sourceTreeFingerprint,tmuxVersions:["3.2a","3.3a","3.4","3.5","3.6","3.7a","3.7b","3.7c"]} + (if $capabilityCohortPresent then {capabilityCohort:$capabilityCohort,evaluatedCommitTree:$evaluatedCommitTree} else {} end) + (if $transitionProof then {transitionTmuxSourceCommits:{"3.7":$transitionTmuxSourceCommit}} else {} end))' \
+        '({evaluatedCommit:$evaluatedCommit,frameworks:["net10.0","net8.0"],includeMasterAdvisory:$includeMasterAdvisory,platform:$platform,redactionProof:true,schemaVersion:1,sdkVersion:$sdkVersion,sourceState:$sourceState,sourceTreeFingerprint:$sourceTreeFingerprint,tmuxVersions:["3.3a","3.4","3.5","3.6","3.7a","3.7b","3.7c"]} + (if $capabilityCohortPresent then {capabilityCohort:$capabilityCohort,evaluatedCommitTree:$evaluatedCommitTree} else {} end) + (if $transitionProof then {transitionTmuxSourceCommits:{"3.7":$transitionTmuxSourceCommit}} else {} end))' \
         > "${candidate}/environment.json"
     jq -n '{passed:true,rejected:["absolute-paths","emails","environment-values","executable-paths","hostnames","socket-names","temporary-directories","terminal-device-names","tokens","usernames"]}' \
         > "${candidate}/redaction-proof.json"

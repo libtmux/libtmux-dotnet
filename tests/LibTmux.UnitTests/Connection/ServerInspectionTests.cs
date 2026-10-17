@@ -20,7 +20,7 @@ public sealed class ServerInspectionTests
         Assert.Equal(0, fixture.InitializerCalls);
         Assert.Equal(new ServerGeneration(91, 901), inspected.Generation);
         Assert.Equal(TmuxVersion.Parse("3.7c"), inspected.Version);
-        Assert.Equal(TmuxVersion.Parse("3.2a"), inspected.DaemonVersion);
+        Assert.Equal(TmuxVersion.Parse("3.3a"), inspected.DaemonVersion);
         Assert.Null(inspected.SnapshotMetadata);
         Assert.False(inspected.Sessions.IsCaptured);
         Assert.Single(fixture.Requests);
@@ -73,8 +73,8 @@ public sealed class ServerInspectionTests
 
     [Theory]
     [InlineData("91:901\tbogus\n")]
-    [InlineData("91:0\t3.2a\n")]
-    [InlineData("91:901\t3.2a\nextra\n")]
+    [InlineData("91:0\t3.3a\n")]
+    [InlineData("91:901\t3.3a\nextra\n")]
     public async Task Malformed_inspection_does_not_publish_an_identity(string output)
     {
         var fixture = new Fixture { Output = output };
@@ -118,7 +118,7 @@ public sealed class ServerInspectionTests
         internal int InitializerCalls { get; private set; }
         internal List<TmuxCommandRequest> Requests { get; } = [];
         internal string? Diagnostic { get; init; }
-        internal string Output { get; init; } = "91:901\t3.2a\n";
+        internal string Output { get; init; } = "91:901\t3.3a\n";
         internal bool Replaced { get; set; }
         internal Action? Replied { get; set; }
 

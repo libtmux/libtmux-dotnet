@@ -34,7 +34,6 @@ public sealed class FormatProjectionTests
     }
 
     [Theory]
-    [InlineData("3.2a", 123)]
     [InlineData("3.3a", 125)]
     [InlineData("3.6", 125)]
     [InlineData("3.7a", 136)]
@@ -53,7 +52,6 @@ public sealed class FormatProjectionTests
     }
 
     [Theory]
-    [InlineData("3.2a", 146)]
     [InlineData("3.3a", 150)]
     [InlineData("3.6", 150)]
     [InlineData("3.7a", 161)]
@@ -71,12 +69,12 @@ public sealed class FormatProjectionTests
     {
         FormatProjection oldest = FormatProjection.Create(
             "list-panes",
-            TmuxVersion.Parse("3.2a"));
+            TmuxVersion.Parse("3.3a"));
         FormatProjection newest = FormatProjection.Create(
             "list-panes",
             TmuxVersion.Parse("3.7b"));
 
-        Assert.False(oldest.Contains("pane_dead_signal"));
+        Assert.True(oldest.Contains("pane_dead_signal"));
         Assert.False(oldest.Contains("bracket_paste_flag"));
         Assert.True(newest.Contains("pane_dead_signal"));
         Assert.True(newest.Contains("bracket_paste_flag"));

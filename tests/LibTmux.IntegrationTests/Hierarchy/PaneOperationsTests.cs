@@ -473,18 +473,6 @@ public sealed class PaneOperationsTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
-    public Task DisplayPopup33OptionsVersionPolicy() =>
-        // A popup needs a client, so both branches end in tmux's refusal; the
-        // gate is proved by whether a warning was logged before dispatch.
-        GatedAsync(
-            "display_popup_3_3_options",
-            (pane, token) => Assert.ThrowsAsync<TmuxCommandException>(
-                () => pane.DisplayPopupAsync(new DisplayPopupRequest { Title = "t" }, token)));
-
-    [Fact(
-        Skip = "Requires a Unix process environment.",
-        SkipType = typeof(UnixTestEnvironment),
-        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public Task DisplayPopup36KeyPolicyVersionPolicy() =>
         GatedAsync(
             "display_popup_3_6_key_policy",

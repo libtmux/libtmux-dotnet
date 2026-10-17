@@ -3,7 +3,7 @@ namespace LibTmux;
 /// <summary>Reports package identity and supported tmux range.</summary>
 public static class LibTmuxInfo
 {
-    private static readonly TmuxVersion Minimum = TmuxVersion.Parse("3.2a");
+    private static readonly TmuxVersion Minimum = TmuxVersion.Parse("3.3a");
     private static readonly TmuxVersion MaximumTested = TmuxVersion.Parse("3.7c");
 
     /// <summary>Gets the library assembly version.</summary>

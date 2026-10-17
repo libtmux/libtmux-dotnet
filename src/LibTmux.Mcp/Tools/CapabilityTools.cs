@@ -789,7 +789,7 @@ internal sealed class CapabilityTools
         // already gets that right, and it takes the id this returns.
         // tmux does not break the only pane out of its window. It relinks that
         // window at a new index and unlinks the old one (cmd-break-pane.c:81),
-        // so 3.7 answers with the id the caller already had while 3.2a prints
+        // so 3.7 answers with the id the caller already had while 3.3a prints
         // no id at all and the call fails. Either way the pane already has the
         // window to itself, which is what was asked for.
         IReadOnlyList<Pane> siblings = await pane.Window
