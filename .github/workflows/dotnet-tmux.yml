@@ -245,6 +245,12 @@ jobs:
           dotnet "examples/LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
           for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
             program="$(basename "${source}" .fs)"
+            # The manifest names a release for each program that needs one.
+            minimum="$(jq -r --arg id "fsharp-${program}" '.examples[] | select(.id == $id) | .requiresTmux // empty' examples/api/manifest.json)"
+            if [[ -n "${minimum}" && "$(printf '%s\n' "${minimum}" "${LIBTMUX_EXPECTED_TMUX_VERSION}" | sort -V | head -1)" != "${minimum}" ]]; then
+              echo "skip ${program}: needs tmux ${minimum}"
+              continue
+            fi
             # Each program prints what it found; its guide shows what it must print.
             printed="$(dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll")"
             printf '%s\n' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output "${program}"

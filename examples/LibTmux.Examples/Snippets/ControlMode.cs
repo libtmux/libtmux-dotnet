@@ -7,7 +7,7 @@ namespace LibTmux.Examples.Snippets;
 public static class ControlMode
 {
     /// <summary>Waits for a command's rendered ready line.</summary>
-    [Example("Wait for text rendered by a pane")]
+    [Example("Wait for text rendered by a pane", RequiresTmux = "3.7")]
     public static async Task WaitForPaneText()
     {
         #region WaitForPaneText
@@ -41,7 +41,7 @@ public static class ControlMode
     }
 
     /// <summary>Waits for tmux to announce the window this created.</summary>
-    [Example("Hold a client open and read an event nobody asked for")]
+    [Example("Hold a client open and read an event nobody asked for", RequiresTmux = "3.7")]
     public static async Task WatchForWindowAdd(Server server, CancellationToken ct)
     {
         #region WatchForWindowAdd
@@ -61,7 +61,7 @@ public static class ControlMode
     }
 
     /// <summary>Reads the marker that says the event buffer discarded events.</summary>
-    [Example("React to a control stream that fell behind")]
+    [Example("React to a control stream that fell behind", RequiresTmux = "3.7")]
     public static async Task NoticeDroppedEvents(Server server, CancellationToken ct)
     {
         #region NoticeDroppedEvents

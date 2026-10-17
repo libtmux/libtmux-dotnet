@@ -170,23 +170,31 @@ let private runAsync () =
         use! scope =
             TmuxTestFactory().CreateHierarchyAsync(TmuxTestOptions(connection), cancellationToken)
 
+        // Control clients are promised from tmux 3.7 and running a command in a
+        // pane from 3.4, so older daemons skip the parts that need them.
+        let controlOk = scope.Server.Version.Value.IsAtLeast(TmuxVersion.Parse "3.7")
+
         let! tour =
-            task {
-                use! owned =
-                    ServerConnectionOptions(
-                        SocketName = "libtmux-fsharp-tour-" + Guid.NewGuid().ToString("N"),
-                        ConfigurationFile = "/dev/null"
-                    )
-                    |> Server.createOwned cancellationToken
+            if not controlOk then
+                Task.FromResult None
+            else
+                task {
+                    use! owned =
+                        ServerConnectionOptions(
+                            SocketName = "libtmux-fsharp-tour-" + Guid.NewGuid().ToString("N"),
+                            ConfigurationFile = "/dev/null"
+                        )
+                        |> Server.createOwned cancellationToken
 
-                let! _ =
-                    owned.Value
-                    |> Server.newSession cancellationToken (SessionSpec.running "tour" "/bin/sh")
+                    let! _ =
+                        owned.Value
+                        |> Server.newSession cancellationToken (SessionSpec.running "tour" "/bin/sh")
 
-                return! GuideSnippets.runInShellAsync cancellationToken owned.Value
-            }
+                    return! GuideSnippets.runInShellAsync cancellationToken owned.Value
+                }
 
         match tour with
+        | None when not controlOk -> printfn "SKIP README tour: needs tmux 3.7"
         | Some(true, 0, listing) when listing |> Seq.exists (fun line -> line.Contains "usr") -> ()
         | unexpected -> failwithf "The README tour did not send, wait and run: %A" unexpected
 
@@ -242,10 +250,13 @@ let private runAsync () =
         | Ok names when names |> List.contains scope.Session.Name -> ()
         | other -> failwithf "The retry guide read %A." other
 
-        let! greeting = GuideSnippets.greetingAsync cancellationToken
+        if scope.Server.Version.Value.IsAtLeast(TmuxVersion.Parse "3.4") then
+            let! greeting = GuideSnippets.greetingAsync cancellationToken
 
-        if greeting <> [ "hello" ] then
-            failwithf "The testing guide read %A." greeting
+            if greeting <> [ "hello" ] then
+                failwithf "The testing guide read %A." greeting
+        else
+            printfn "SKIP testing guide: running a command in a pane needs tmux 3.4"
 
         let ciOptions = GuideSnippets.testOptionsWith "tmux"
 
@@ -384,50 +395,53 @@ let private runAsync () =
             scope.Pane
             |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
-        // The async guide runs a command in a shell of its own.
-        let! shell =
-            scope.Pane
-            |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+        if controlOk then
+            // The async guide runs a command in a shell of its own.
+            let! shell =
+                scope.Pane
+                |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
-        let! _ =
-            shell
-            |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
+            let! _ =
+                shell
+                |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
 
-        let! ran =
-            Async.StartAsTask(GuideSnippets.runInAsync shell "exit 3", cancellationToken = cancellationToken)
+            let! ran =
+                Async.StartAsTask(GuideSnippets.runInAsync shell "exit 3", cancellationToken = cancellationToken)
 
-        if ran <> "exited 3" then
-            failwithf "The async guide did not report the command's exit status: %s" ran
+            if ran <> "exited 3" then
+                failwithf "The async guide did not report the command's exit status: %s" ran
 
-        let! watcher = scope.Session |> Control.enterSession cancellationToken
+            let! watcher = scope.Session |> Control.enterSession cancellationToken
 
-        let! watched =
-            watcher
-            |> Control.useSession (fun control ->
-                task {
-                    let reading =
-                        GuideSnippets.readPaneUntilAsync cancellationToken "watched" watchedPane control
+            let! watched =
+                watcher
+                |> Control.useSession (fun control ->
+                    task {
+                        let reading =
+                            GuideSnippets.readPaneUntilAsync cancellationToken "watched" watchedPane control
 
-                    do! watchedPane |> Pane.sendLine cancellationToken "printf 'watch''ed\\n'"
+                        do! watchedPane |> Pane.sendLine cancellationToken "printf 'watch''ed\\n'"
 
-                    return! reading
-                })
+                        return! reading
+                    })
 
-        if not (watched.Contains "watched") then
-            failwithf "The pane watch guide did not read the pane's output: %A" watched
+            if not (watched.Contains "watched") then
+                failwithf "The pane watch guide did not read the pane's output: %A" watched
 
-        let! observed =
-            scope.Server
-            |> Control.withSession cancellationToken (fun control ->
-                task {
-                    let events = GuideSnippets.readUntilTerminalAsync cancellationToken control
-                    do! scope.Server.KillAsync(cancellationToken)
-                    return! events
-                })
+            let! observed =
+                scope.Server
+                |> Control.withSession cancellationToken (fun control ->
+                    task {
+                        let events = GuideSnippets.readUntilTerminalAsync cancellationToken control
+                        do! scope.Server.KillAsync(cancellationToken)
+                        return! events
+                    })
 
-        match List.tryLast observed with
-        | Some(:? TmuxExitEvent) -> ()
-        | _ -> failwith "The control-mode guide did not observe tmux exiting."
+            match List.tryLast observed with
+            | Some(:? TmuxExitEvent) -> ()
+            | _ -> failwith "The control-mode guide did not observe tmux exiting."
+        else
+            printfn "SKIP async guide and control-mode guides: need tmux 3.7"
 
         printfn "PASS F# snapshot and portable query example"
     }

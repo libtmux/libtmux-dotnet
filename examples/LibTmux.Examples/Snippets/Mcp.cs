@@ -81,7 +81,7 @@ public static class Mcp
     }
 
     /// <summary>Runs a command and reads the status the shell actually returned.</summary>
-    [Example("Run a command and get its real exit status")]
+    [Example("Run a command and get its real exit status", RequiresTmux = "3.4")]
     public static async Task RunAndReadExitStatus(
         McpClient client,
         Pane pane,

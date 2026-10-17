@@ -45,6 +45,13 @@ internal static class Program
         {
             Console.WriteLine();
             Console.WriteLine($"── {example.Topic}.{example.Id} — {example.Title}");
+            if (example.WhyNotOn(await TmuxVersion.DetectAsync(
+                    Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux")) is { } reason)
+            {
+                Console.WriteLine($"   skipped: {reason}");
+                continue;
+            }
+
             long started = Stopwatch.GetTimestamp();
             try
             {

@@ -129,7 +129,13 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
     if not isinstance(manifest["examples"], list) or not manifest["examples"]:
         raise ValueError("At least one complete API example is required")
     for entry in manifest["examples"]:
-        keys(entry, {"id", "profile", "title", "description", "sourceFile", "targets", "output"}, "example")
+        keys(
+            {name: value for name, value in entry.items() if name != "requiresTmux"},
+            {"id", "profile", "title", "description", "sourceFile", "targets", "output"},
+            "example",
+        )
+        if "requiresTmux" in entry and not re.fullmatch(r"[0-9]+\.[0-9]+[a-z]?", str(entry["requiresTmux"])):
+            raise ValueError(f"Example {entry['id']} needs a tmux release in requiresTmux")
         if not isinstance(entry["id"], str) or not re.fullmatch(r"[a-z]+-[A-Za-z0-9]+", entry["id"]):
             raise ValueError(f"Invalid example ID: {entry['id']!r}")
         if entry["id"] in identifiers or entry["sourceFile"] in sources:
@@ -163,6 +169,15 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
         declared = {entry["sourceFile"] for entry in manifest["examples"] if entry["profile"] == name}
         if declared != complete:
             raise ValueError(f"Manifest must cover every complete program for {name}: {sorted(declared ^ complete)}")
+
+
+def release_key(text: str) -> tuple[int, int, int]:
+    """Order tmux releases, including the patch letter: 3.3 sorts below 3.3a."""
+    match = re.fullmatch(r"(?:tmux )?(\d+)\.(\d+)([a-z]*)(?:-.*)?", text.strip())
+    if match is None:
+        return (0, 0, 0)
+    letters = match.group(3)
+    return (int(match.group(1)), int(match.group(2)), sum(ord(c) - 96 for c in letters) + len(letters))
 
 
 def digest(path: Path) -> str:
@@ -227,6 +242,12 @@ def run_consumers(
     try:
         for entry in manifest["examples"]:
             profile = manifest["profiles"][entry["profile"]]
+            if "requiresTmux" in entry and release_key(receipt["tmuxVersion"]) < release_key(entry["requiresTmux"]):
+                receipt["programs"].append({
+                    "id": entry["id"],
+                    "skipped": f"needs tmux {entry['requiresTmux']}; running {receipt['tmuxVersion']}",
+                })
+                continue
             consumer = output / entry["id"]
             consumer.mkdir()
             files = [*manifest["setupFiles"], profile["projectFile"], entry["sourceFile"]]
