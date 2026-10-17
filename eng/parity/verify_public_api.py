@@ -13,7 +13,7 @@ INVENTORY_PATH = ROOT / "artifacts/api-inventory.json"
 FSHARP_BASELINE_PATH = ROOT / "src/LibTmux.FSharp/PublicAPI.json"
 TMUX_MAX_VERSION_ADAPTATION = (
     "Semantic adaptation: map Python TMUX_MAX_VERSION 3.7 to "
-    "MaximumTestedTmuxVersion 3.7c, the highest required tested version"
+    "MaximumTestedTmuxVersion 3.8, the highest required tested version"
 )
 
 

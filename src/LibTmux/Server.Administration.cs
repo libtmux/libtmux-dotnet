@@ -6,16 +6,9 @@ namespace LibTmux;
 public sealed partial class Server
 {
     /// <summary>Builds the arguments an access request sends.</summary>
-    /// <remarks>
-    /// The command itself arrived in tmux 3.3, so the refusal belongs here
-    /// rather than beside the dispatch: a chained request that skipped it
-    /// would send a command older servers do not have.
-    /// </remarks>
-    /// <exception cref="TmuxVersionTooLowException">tmux is older than 3.3.</exception>
-    internal List<string> BuildServerAccessArguments(ServerAccessRequest request)
+    internal static List<string> BuildServerAccessArguments(ServerAccessRequest request)
     {
         string? user = request.ResolveUser();
-        RequireCommand(ServerUtilities.ServerAccessCapability, "server-access");
         List<string> arguments = ["server-access"];
         ServerUtilities.AddFlag(arguments, request.AllowUser is not null, "-a");
         ServerUtilities.AddFlag(arguments, request.DenyUser is not null, "-d");
@@ -35,7 +28,6 @@ public sealed partial class Server
     /// <param name="request">Who, and what they may do.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The current list when it was asked for, and null otherwise.</returns>
-    /// <exception cref="TmuxVersionTooLowException">tmux is older than 3.3.</exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<string>?> ConfigureAccessAsync(
         ServerAccessRequest request,

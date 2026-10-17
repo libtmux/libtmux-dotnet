@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 
@@ -124,6 +125,11 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pane);
+        if (ControlIsUnsupported(pane.Server))
+        {
+            return new NullLease(null);
+        }
+
         SessionWatchKey key = SessionWatchKey.From(pane);
         return await WatchAsync(
                 key,
@@ -140,6 +146,11 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     internal async Task<IAsyncDisposable> WatchAsync(Session session, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
+        if (ControlIsUnsupported(session.Server))
+        {
+            return new NullLease(null);
+        }
+
         SessionWatchKey key = SessionWatchKey.From(session);
         return await WatchAsync(
                 key,
@@ -150,6 +161,11 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                 cancellationToken)
             .ConfigureAwait(false);
     }
+
+    // Below the first release that is safe to attach a control client to,
+    // the library does not attach one, so a wait polls without being asked to.
+    private static bool ControlIsUnsupported(Server server) =>
+        server.Version is { } version && version < TmuxControlTransport.FirstSafeVersion;
 
     private Task<IControlModeSession> StartPaneSessionAsync(
         Pane pane,
@@ -543,12 +559,12 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                 // from one a human actually attached - tmux counts both the
                 // same way, and a wait or a capture must never read as a
                 // session someone is watching.
-                IReadOnlyList<string> selfName = await starting.SendAsync(
-                        TmuxCommand.Create("display-message", "-p", "#{client_name}"),
-                        cancellationToken)
-                    .WaitAsync(cancellationToken)
-                    .ConfigureAwait(false);
-                ownedClientName = selfName.Count > 0 ? selfName[0] : null;
+                // tmux names a client with no terminal after its process, so
+                // the name is known without asking: a query would run the
+                // user's after-hooks on every watch.
+                ownedClientName = starting is ControlModeSession { ClientProcessId: int clientPid }
+                    ? "client-" + clientPid.ToString(CultureInfo.InvariantCulture)
+                    : null;
                 if (ownedClientName is not null)
                 {
                     hub.RegisterOwnedControlClient(ownedClientName);

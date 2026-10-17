@@ -51,10 +51,13 @@ def verify(root: pathlib.Path) -> list[str]:
     supported: list[str] = manifest["supported"]
     minimum: str = manifest["minimum"]
     newest: str = manifest["maximumTested"]
+    rejected: list[str] = manifest["rejected"]
     violations: list[str] = []
 
     if supported[0] != minimum:
         violations.append(f"{MANIFEST}: minimum {minimum} is not the first supported")
+    if any(each in supported for each in rejected):
+        violations.append(f"{MANIFEST}: a rejected version is also supported")
     if supported[-1] != newest:
         violations.append(f"{MANIFEST}: maximumTested {newest} is not the last supported")
 
@@ -74,8 +77,10 @@ def verify(root: pathlib.Path) -> list[str]:
             " ".join(supported))),
         ("eng/tmux/run-matrix.sh", 'tmuxVersions:[{}]'.format(
             ",".join(f'"{version}"' for version in supported))),
+        (".github/workflows/dotnet-tmux.yml", "rejected-version: [{}]".format(
+            ", ".join(f"'{version}'" for version in rejected))),
         ("eng/tmux/build-version.sh", "<{}|master>".format(
-            "|".join(buildable(supported, manifest["transition"])))),
+            "|".join([*rejected, *buildable(supported, manifest["transition"])]))),
     )
     for relative, rendering in renderings:
         text = read(relative)

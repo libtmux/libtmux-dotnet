@@ -33,6 +33,17 @@ internal sealed record PaneGridState(
         "#{pane_pid}\t#{history_size}\t#{history_limit}\t#{pane_height}"
         + "\t#{cursor_y}\t#{pane_dead}\t#{alternate_on}\t#{pane_width}";
 
+    /// <summary>Tells whether this state belongs to the process a baseline named.</summary>
+    /// <param name="expected">The process id read earlier.</param>
+    /// <returns>True when the ids match, or when the pane has died.</returns>
+    /// <remarks>
+    /// tmux 3.8 reports an empty <c>pane_pid</c> for a dead pane that stays
+    /// on screen, which is the same pane and not a replacement.
+    /// </remarks>
+    internal bool IsProcess(string expected) =>
+        string.Equals(PanePid, expected, StringComparison.Ordinal)
+        || (Dead && PanePid.Length == 0 && expected.Length > 0);
+
     /// <summary>Gets the absolute position of the row the cursor is on.</summary>
     /// <remarks>
     /// Counted from the oldest line tmux still holds. It survives scrolling,

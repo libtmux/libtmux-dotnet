@@ -600,12 +600,14 @@ public sealed class ControlModeSessionTests
                 set -eu
                 generation_probe=0
                 for argument in "$@"; do
-                    if [ "$argument" = '#{pid}:#{start_time}' ]; then
-                        generation_probe=1
-                    fi
+                    case "$argument" in
+                        *'#{version},#{pid},#{start_time}') generation_probe=1 ;;
+                    esac
                 done
                 if [ "$generation_probe" = 1 ]; then
-                    {{ShellQuote(raw.TmuxBinaryPath)}} "$@"
+                    # The probe reports through its failure, which is passed on.
+                    probe_status=0
+                    {{ShellQuote(raw.TmuxBinaryPath)}} "$@" || probe_status=$?
                     {{ShellQuote(raw.TmuxBinaryPath)}} \
                         -S {{ShellQuote(raw.SocketPath)}} \
                         kill-server
@@ -629,7 +631,7 @@ public sealed class ControlModeSessionTests
                         -S {{ShellQuote(raw.SocketPath)}} \
                         set-option -s 'command-alias[200]' \
                         {{ShellQuote(forgedGenerationAlias)}}
-                    exit 0
+                    exit "$probe_status"
                 fi
                 exec {{ShellQuote(raw.TmuxBinaryPath)}} "$@"
                 """;
@@ -729,7 +731,7 @@ public sealed class ControlModeSessionTests
             string script = $"""
                 #!/bin/sh
                 for argument in "$@"; do
-                    if [ "$argument" = "-C" ]; then
+                    if [ "$argument" = "attach-session" ]; then
                         echo "$$" > {ShellQuote(pidFile)}
                         IFS= read -r ignored
                         exit 0
@@ -796,7 +798,7 @@ public sealed class ControlModeSessionTests
             string script = $"""
                 #!/bin/sh
                 for argument in "$@"; do
-                    if [ "$argument" = "-C" ]; then
+                    if [ "$argument" = "attach-session" ]; then
                         dd if=/dev/zero bs=65536 count=4 1>&2 2>/dev/null
                         exec {ShellQuote(raw.TmuxBinaryPath)} "$@"
                     fi

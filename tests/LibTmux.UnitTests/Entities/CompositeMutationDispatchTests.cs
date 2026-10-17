@@ -326,7 +326,7 @@ public sealed class CompositeMutationDispatchTests
     }
 
     [Fact]
-    public async Task Pane_display_message_client_flag_is_refused_before_3_3()
+    public async Task Pane_display_message_client_flag_dispatches()
     {
         int dispatches = 0;
         Pane pane = CreatePane(
@@ -335,33 +335,7 @@ public sealed class CompositeMutationDispatchTests
                 Interlocked.Increment(ref dispatches);
                 return Task.FromResult(Success(request));
             },
-            rawVersion: "tmux 3.2a");
-
-        TmuxVersionTooLowException failure = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
-            () => pane.DisplayMessageAsync(
-                new DisplayMessageRequest { Message = "#{pane_id}", TargetClient = "/dev/tty0" },
-                TestContext.Current.CancellationToken));
-
-        // tmux 3.2a declares -c as a bare flag with no value, so naming a
-        // client is refused here rather than silently addressing a
-        // different one. The flag takes a value starting at 3.3 itself
-        // (tmux's own history: commit 4cc6db72 is tagged 3.3, 3.3a and
-        // 3.4), not 3.3a.
-        Assert.Equal(TmuxVersion.Parse("3.3"), failure.RequiredVersion);
-        Assert.Equal(0, Volatile.Read(ref dispatches));
-    }
-
-    [Fact]
-    public async Task Pane_display_message_client_flag_dispatches_from_3_3()
-    {
-        int dispatches = 0;
-        Pane pane = CreatePane(
-            (request, _) =>
-            {
-                Interlocked.Increment(ref dispatches);
-                return Task.FromResult(Success(request));
-            },
-            rawVersion: "tmux 3.3");
+            rawVersion: "tmux 3.3a");
 
         await pane.DisplayMessageAsync(
             new DisplayMessageRequest { Message = "#{pane_id}", TargetClient = "/dev/tty0" },
@@ -371,7 +345,7 @@ public sealed class CompositeMutationDispatchTests
     }
 
     [Fact]
-    public async Task Window_display_message_client_flag_is_refused_before_3_3()
+    public async Task Window_display_message_client_flag_dispatches()
     {
         int dispatches = 0;
         Window window = CreateWindow(
@@ -380,28 +354,7 @@ public sealed class CompositeMutationDispatchTests
                 Interlocked.Increment(ref dispatches);
                 return Task.FromResult(Success(request));
             },
-            rawVersion: "tmux 3.2a");
-
-        TmuxVersionTooLowException failure = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
-            () => window.DisplayMessageAsync(
-                new DisplayMessageRequest { Message = "#{window_id}", TargetClient = "/dev/tty0" },
-                TestContext.Current.CancellationToken));
-
-        Assert.Equal(TmuxVersion.Parse("3.3"), failure.RequiredVersion);
-        Assert.Equal(0, Volatile.Read(ref dispatches));
-    }
-
-    [Fact]
-    public async Task Window_display_message_client_flag_dispatches_from_3_3()
-    {
-        int dispatches = 0;
-        Window window = CreateWindow(
-            (request, _) =>
-            {
-                Interlocked.Increment(ref dispatches);
-                return Task.FromResult(Success(request));
-            },
-            rawVersion: "tmux 3.3");
+            rawVersion: "tmux 3.3a");
 
         await window.DisplayMessageAsync(
             new DisplayMessageRequest { Message = "#{window_id}", TargetClient = "/dev/tty0" },
@@ -571,7 +524,7 @@ public sealed class CompositeMutationDispatchTests
     public async Task Select_existing_returns_the_expanded_name_match_when_detached()
     {
         var requests = new ConcurrentQueue<string[]>();
-        TmuxVersion floor = TmuxVersion.Parse("3.2a");
+        TmuxVersion floor = TmuxVersion.Parse("3.3a");
         Session session = CreateSession((request, _) =>
         {
             string[] arguments = [.. request.LogicalArguments];
@@ -592,7 +545,7 @@ public sealed class CompositeMutationDispatchTests
                         ("@3", "-#{session_name}-x", false)))),
                 _ => throw new InvalidOperationException($"Unexpected command '{command}'."),
             };
-        }, "tmux 3.2a");
+        }, "tmux 3.3a");
 
         Window selected = await session.CreateWindowAsync(
             new NewWindowRequest { Name = "-#{session_name}-x", SelectExisting = true },

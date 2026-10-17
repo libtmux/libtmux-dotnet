@@ -5,7 +5,9 @@ namespace LibTmux.Internal;
 
 internal static class FormatCatalog
 {
-    private static readonly TmuxVersion Minimum = TmuxVersion.Parse("3.2a");
+    // The first release whose format fields the catalog models, below the
+    // support floor so that the psmux preview, which reports 3.3.8, keeps them.
+    private static readonly TmuxVersion Minimum = TmuxVersion.Parse("3.3");
     private static readonly TmuxVersion Minimum37 = TmuxVersion.Parse("3.7");
     private static readonly FrozenSet<string> FieldsIntroducedIn37 = new[]
     {
@@ -20,14 +22,6 @@ internal static class FormatCatalog
         "pane_pipe_pid",
         "bracket_paste_flag",
         "synchronized_output_flag",
-    }.ToFrozenSet(StringComparer.Ordinal);
-    private static readonly TmuxVersion Minimum33 = TmuxVersion.Parse("3.3");
-    private static readonly FrozenSet<string> FieldsIntroducedIn33 = new[]
-    {
-        "client_uid",
-        "client_user",
-        "pane_dead_signal",
-        "pane_dead_time",
     }.ToFrozenSet(StringComparer.Ordinal);
     private static readonly string[] UniversalObjFields =
     [
@@ -344,15 +338,8 @@ internal static class FormatCatalog
                 scopes))];
     }
 
-    private static TmuxVersion MinimumVersionFor(string wireName)
-    {
-        if (FieldsIntroducedIn37.Contains(wireName))
-        {
-            return Minimum37;
-        }
-
-        return FieldsIntroducedIn33.Contains(wireName) ? Minimum33 : Minimum;
-    }
+    private static TmuxVersion MinimumVersionFor(string wireName) =>
+        FieldsIntroducedIn37.Contains(wireName) ? Minimum37 : Minimum;
 
     private static FrozenSet<string> CreateScopeSet(params string[] scopes) =>
         scopes.ToFrozenSet(StringComparer.Ordinal);

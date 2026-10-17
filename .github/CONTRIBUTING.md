@@ -46,7 +46,7 @@ Parity tests read a pinned revision of the Python library. Point
 [tmux-python/libtmux](https://github.com/tmux-python/libtmux) that contains it,
 or they fail saying which revision they wanted.
 
-You also need a real `tmux`, version 3.2a or newer. The suite drives one
+You also need a real `tmux`, version 3.3a or newer. The suite drives one
 rather than mocking it, because this library's job is being right about tmux
 and only tmux can say whether it is.
 
@@ -578,7 +578,7 @@ $ uv run python eng/parity/verify_tmux_versions.py
 ```
 
 **A version-dependent behaviour needs a row in the ledger.** Anything that
-differs between 3.2a and 3.7c goes through the capability model, and each
+differs between 3.3a and 3.8 goes through the capability model, and each
 difference names the test that proves it in
 [`docs/parity/version-deltas.json`](../docs/parity/version-deltas.json). A
 gate on a raw `TmuxVersion.Parse("...")` comparison anywhere else in
@@ -774,8 +774,8 @@ hour.
 
 ## Compatibility
 
-Stable tmux **3.2a and newer**, on **net8.0** and **net10.0**. The required
-Linux matrix covers 3.2a through 3.7c; the advisory macOS lane uses the current
+Stable tmux **3.3a and newer**, on **net8.0** and **net10.0**. The required
+Linux matrix covers 3.3a through 3.8; the advisory macOS lane uses the current
 Homebrew tmux. Windows is unsupported. The `LibTmux` core package and the
 static `LibTmux.FSharp` snapshot route have Linux NativeAOT execution smoke
 tests. Optional packages make narrower compatibility claims in their project

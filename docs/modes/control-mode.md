@@ -84,7 +84,8 @@ With no match, the wait reserves a final grid read and stays subscribed
 until the effective timeout, so late output can still match. The result includes a bounded
 `Tail` and reports `EventsDropped`, `LinesMissed`, `AnchorLost`, and
 `PollingFallback` when observation loses information. Control loss is an error
-unless the request sets `AllowPollingFallback = true`.
+unless the request sets `AllowPollingFallback = true`. Below tmux 3.7 the
+library attaches no control client, so a wait polls without being asked.
 
 ## Two things worth knowing
 

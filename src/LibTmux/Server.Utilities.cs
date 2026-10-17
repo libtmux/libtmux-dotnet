@@ -45,12 +45,6 @@ public sealed partial class Server
     private static partial void LogConfirmAcceptance(ILogger logger, string? tmuxVersion);
 
     [LoggerMessage(
-        EventId = 41,
-        Level = LogLevel.Warning,
-        Message = "message target client omitted, tmux {TmuxVersion} does not carry it")]
-    private static partial void LogMessageClient(ILogger logger, string? tmuxVersion);
-
-    [LoggerMessage(
         EventId = 25,
         Level = LogLevel.Warning,
         Message = "menu mouse flag omitted, tmux {TmuxVersion} does not carry it")]
@@ -112,21 +106,6 @@ public sealed partial class Server
         }
 
         return false;
-    }
-
-    private void RequireCommand(string capability, string command)
-    {
-        if (Supports(capability))
-        {
-            return;
-        }
-
-        // The whole command is missing rather than one of its flags, so there
-        // is nothing to send that would mean the same thing.
-        throw new TmuxVersionTooLowException(
-            $"The tmux command '{command}' requires tmux 3.3.",
-            TmuxVersion.Parse("3.3"),
-            Version ?? default);
     }
 
     [UnsupportedOSPlatform("windows")]

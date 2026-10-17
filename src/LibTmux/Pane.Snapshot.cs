@@ -48,8 +48,14 @@ public sealed partial class Pane
     public bool InMode => ReadSnapshot("pane_in_mode") is not (null or "" or "0");
 
     /// <summary>Gets the process ID of the program the pane started.</summary>
-    /// <remarks>A dead pane keeps the ID of the program that exited.</remarks>
-    public int ProcessId => ReadCapturedInt("pane_pid", "process ID");
+    /// <remarks>
+    /// A dead pane keeps the ID of the program that exited. tmux 3.8 reports
+    /// none for a dead pane that stays on screen, which reads as 0.
+    /// </remarks>
+    public int ProcessId =>
+        Dead && string.IsNullOrEmpty(ReadSnapshot("pane_pid"))
+            ? 0
+            : ReadCapturedInt("pane_pid", "process ID");
 
     /// <summary>Gets the pane height captured with this handle.</summary>
     public int Height => ReadCapturedInt("pane_height", "height");

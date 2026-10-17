@@ -202,7 +202,7 @@ public sealed class ExecutionTests : IDisposable
         Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
-            // tmux 3.7 alone refuses this outright; 3.2a-3.6b accept it and
+            // tmux 3.7 alone refuses this outright; 3.3a-3.6b accept it and
             // rewrite the dot to an underscore; 3.7a onward keep it verbatim,
             // reachable only with an explicit "name:" terminator that this
             // CLI never emits. The named form takes the caller's literal

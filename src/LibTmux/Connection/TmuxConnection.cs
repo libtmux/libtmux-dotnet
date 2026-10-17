@@ -19,18 +19,29 @@ internal sealed class TmuxConnection
     {
     }
 
+    /// <summary>Creates a connection that sends every request to a stand-in transport.</summary>
+    /// <param name="options">The connection options.</param>
+    /// <param name="execute">The transport standing in for tmux.</param>
+    /// <param name="markerFactory">Names the marker a generation guard fails with.</param>
+    /// <param name="daemonVersionCheck">
+    /// Whether the stand-in also answers the daemon's version and sees the
+    /// fence every command list carries, as a real daemon does. Without it
+    /// the executable's reported version is the only version check.
+    /// </param>
     internal TmuxConnection(
         ServerConnectionOptions options,
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
-        Func<string>? markerFactory = null)
-        : this(TmuxConnectionEndpoint.Resolve(options), execute, markerFactory)
+        Func<string>? markerFactory = null,
+        bool daemonVersionCheck = false)
+        : this(TmuxConnectionEndpoint.Resolve(options), execute, markerFactory, daemonVersionCheck)
     {
     }
 
     private TmuxConnection(
         ResolvedTmuxConnection resolved,
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>? execute,
-        Func<string>? markerFactory)
+        Func<string>? markerFactory,
+        bool daemonVersionCheck = false)
     {
         Options = resolved.Options;
         _resolvedSocketName = resolved.SocketName;
@@ -41,10 +52,11 @@ internal sealed class TmuxConnection
 
         (
             Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> send,
-            Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> sendVersion) =
+            Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> sendVersion,
+            Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>? sendProbe) =
             execute is null
                 ? CreateProcessTransports(resolved)
-                : (execute, execute);
+                : (execute, execute, daemonVersionCheck ? execute : null);
 
         // Counted below the interceptor, as tmux receives each command. The
         // version probe answers from the client and changes nothing.
@@ -58,6 +70,7 @@ internal sealed class TmuxConnection
             // every client the connection starts, as tmux receives it.
             send = Intercept(send, interceptor);
             sendVersion = Intercept(sendVersion, interceptor);
+            sendProbe = sendProbe is null ? null : Intercept(sendProbe, interceptor);
         }
 
         // The psmux preview is reached only through its own facade, which
@@ -68,7 +81,8 @@ internal sealed class TmuxConnection
                 sendVersion,
                 markerFactory ?? (static () => $"libtmux_stale_{Guid.NewGuid():N}"),
                 processBacked: execute is null,
-                Options.TmuxBinaryPath)
+                Options.TmuxBinaryPath,
+                sendProbe)
             : new PsmuxDialect(send, sendVersion, Options, _resolvedSocketName);
 
         // Built whether or not a logger is set: the socket and the timeout it
@@ -170,6 +184,16 @@ internal sealed class TmuxConnection
         }
     }
 
+    internal async Task<(ServerGeneration? Generation, TmuxVersion Version)?> ReadIdentityAsync(
+        CancellationToken cancellationToken)
+    {
+        using var deadline = new TmuxCommandDispatcher.Deadline(
+            Options.CommandTimeout,
+            cancellationToken,
+            Options.Clock);
+        return await _dialect.ReadIdentityAsync(deadline.Token).ConfigureAwait(false);
+    }
+
     internal Task<string> ReadClientVersionAsync(CancellationToken cancellationToken) =>
         _dialect.EnsureVerifiedAsync(cancellationToken);
 
@@ -251,7 +275,8 @@ internal sealed class TmuxConnection
     /// </remarks>
     private (
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> Send,
-        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> SendVersion)
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> SendVersion,
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>? SendProbe)
         CreateProcessTransports(ResolvedTmuxConnection resolved)
     {
         Process Launch(ProcessStartInfo startInfo)
@@ -288,10 +313,13 @@ internal sealed class TmuxConnection
             && !Options.ForceProcessTransport
             && TmuxControlTransport.EnabledFor(Options.ChildEnvironment))
         {
-            return (CreateControlTransport(resolved, transport.ExecuteAsync), versionTransport.ExecuteAsync);
+            return (
+                CreateControlTransport(resolved, transport.ExecuteAsync),
+                versionTransport.ExecuteAsync,
+                transport.ExecuteAsync);
         }
 
-        return (transport.ExecuteAsync, versionTransport.ExecuteAsync);
+        return (transport.ExecuteAsync, versionTransport.ExecuteAsync, transport.ExecuteAsync);
     }
 
     private TmuxVersion? RunningVersion()
@@ -321,14 +349,18 @@ internal sealed class TmuxConnection
         int cap = Options.MaxCapturedBytesPerStream ?? new TmuxTransportLimits().MaxCapturedBytesPerStream;
         return new TmuxControlTransport(
             process,
-            TmuxControlClient.For(_endpointFingerprint, resolved.SocketPath),
+            TmuxControlClient.For(
+                _endpointFingerprint,
+                resolved.SocketPath ?? (resolved.SocketName is { } named ? UnixFileIdentity.NamedSocketPath(named) : null)),
             () => ControlModeSession.Start(
                 Options.TmuxBinaryPath,
                 PrefixArguments,
                 target: null,
                 generation: null,
                 startInfo => ApplyChildEnvironment(startInfo, resolved.ChildEnvironment),
-                attachFlags: "ignore-size,no-output",
+                // new-layouts keeps a read here agreeing with a plain client's on 3.8+;
+                // earlier tmux ignores the flag.
+                attachFlags: "ignore-size,no-output,new-layouts",
                 preventServerStart: true,
                 limits: new ControlModeLimits(
                     maxLineBytes: cap,
@@ -340,15 +372,11 @@ internal sealed class TmuxConnection
             RunningVersion,
             async token =>
             {
-                TmuxCommandResult answer = await process(
-                    TmuxCommandRequest.Group(true, ["display-message", "-p", "#{version}"]),
-                    token).ConfigureAwait(false);
-                return answer.ExitCode == 0
-                    && TmuxVersion.TryParse(
-                        System.Text.Encoding.UTF8.GetString(answer.StandardOutput.Span).Trim(),
-                        out TmuxVersion daemon)
-                        ? daemon
-                        : null;
+                string marker = Support.Versions.NewMarker() + "-";
+                Support.Versions.ProbeOutcome answer = Support.Versions.ReadProbe(
+                    await process(Support.Versions.ProbeRequest(marker), token).ConfigureAwait(false),
+                    marker);
+                return answer.Kind is Support.Versions.ProbeKind.Version ? answer.Version : null;
             }).ExecuteAsync;
     }
 

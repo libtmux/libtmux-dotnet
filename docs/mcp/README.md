@@ -131,7 +131,8 @@ Control startup failure or later stream loss ends a text wait by default.
 Set `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` to permit fallback. It waits 60 ms
 between captures, bounded by the same deadline and cancellation token. The
 extra reads cost tmux processes and can miss intermediate screen states; they
-do not provide event-driven observation.
+do not provide event-driven observation. On a daemon older than tmux 3.7 no
+control client is attached, so waits poll without this setting.
 
 `tmux://capabilities` discloses the startup policy and polling interval. A wait
 that activates fallback returns `pollingFallback: true`, including an immediate

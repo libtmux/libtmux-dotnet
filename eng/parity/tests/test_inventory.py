@@ -318,7 +318,7 @@ def test_ledger_generation_emits_maximum_version_adaptation() -> None:
 
     assert row["behavior"] == (
         "Semantic adaptation: map Python TMUX_MAX_VERSION 3.7 to "
-        "MaximumTestedTmuxVersion 3.7c, the highest required tested version"
+        "MaximumTestedTmuxVersion 3.8, the highest required tested version"
     )
 
 

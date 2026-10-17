@@ -101,8 +101,8 @@ internal sealed class TmuxCommandRequest
     }
 
     // MAX_IMSGSIZE minus imsg header (16) and msg_command header (4).
-    internal bool FitsNativeArgumentBudget() =>
-        EncodeArguments().Sum(static argument => Encoding.UTF8.GetByteCount(argument) + 1L) <= 16_364;
+    internal bool FitsNativeArgumentBudget(int reserve = 0) =>
+        EncodeArguments().Sum(static argument => Encoding.UTF8.GetByteCount(argument) + 1L) + reserve <= 16_364;
 
     private static string EncodeLiteral(string value)
     {

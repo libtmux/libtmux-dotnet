@@ -43,7 +43,7 @@ STABLE_VERSION = re.compile(
     r"(?P<major>0|[1-9][0-9]*)\.(?P<minor>0|[1-9][0-9]*)"
     r"(?:\.(?P<micro>0|[1-9][0-9]*)|(?P<patch>[a-z]+))?",
 )
-MINIMUM_VERSION = "3.2a"
+MINIMUM_VERSION = "3.3a"
 # A proof is an xunit fact, which is a public method on a test class. The
 # modifiers are listed rather than skipped over, so the return type cannot be
 # mistaken for the name.

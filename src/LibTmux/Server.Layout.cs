@@ -115,6 +115,24 @@ public sealed partial class Server
         ServerGeneration? generation,
         CancellationToken cancellationToken)
     {
+        // The probe names the version and generation without display-message,
+        // which would fire the owner's after hook.
+        (ServerGeneration? Generation, TmuxVersion Version)? identity = _connection is null
+            ? null
+            : await _connection.ReadIdentityAsync(cancellationToken).ConfigureAwait(false);
+        if (identity is { } read)
+        {
+            if (generation is ServerGeneration wanted
+                && read.Generation is ServerGeneration seen
+                && wanted != seen)
+            {
+                throw new StaleServerGenerationException(
+                    "The tmux server generation changed before layout validation.", wanted, seen);
+            }
+
+            return read.Version;
+        }
+
         TmuxCommandResult result = await ExecuteCommandAsync(
                 ["display-message", "-p", "#{pid}:#{start_time}\t#{version}"],
                 cancellationToken)

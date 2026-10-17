@@ -13,7 +13,7 @@ on:
         required: true
         default: '3.7c'
         type: choice
-        options: ['3.2a', '3.3a', '3.4', '3.5', '3.6', '3.7a', '3.7b', '3.7c']
+        options: ['3.3a', '3.4', '3.5', '3.6', '3.7a', '3.7b', '3.7c', '3.8']
   # A push that changes what is measured, the query, snapshot and
   # control-mode code the gates and the pane watch time, or how a run is
   # recorded, records and gates a run.

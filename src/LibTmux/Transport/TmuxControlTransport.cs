@@ -123,13 +123,15 @@ internal sealed class TmuxControlTransport
 
     private const string EnvironmentVariable = "LIBTMUX_CONTROL_TRANSPORT";
 
-    // Two reasons keep the client off older servers. tmux 3.2a sizes a new
-    // window by the client that asked for it, so a window made over the shared
-    // client would be 80x24. And before 3.7 a notification that fires while a
-    // control client is identifying itself crashes the server, taking every
-    // session with it (tmux e5a2a25fa, issue 4980); the client attaches lazily,
-    // on a command the caller did not expect to start one.
+    // The client stays off older servers: before 3.7 a notification that
+    // fires while a control client is identifying itself crashes the server,
+    // taking every session with it (tmux e5a2a25fa, issue 4980); the client
+    // attaches lazily, on a command the caller did not expect to start one.
     internal static readonly TmuxVersion FirstSafeVersion = TmuxVersion.Parse("3.7");
+
+    // From this release display-panes is a mode on the target pane and no
+    // longer draws on a client, so it needs none.
+    private static readonly TmuxVersion PaneNumbersAsMode = TmuxVersion.Parse("3.8");
 
     private static readonly string[] Named = [.. OnProcess, .. Reads];
 
@@ -266,7 +268,7 @@ internal sealed class TmuxControlTransport
         CancellationToken cancellationToken)
     {
         TmuxCommandRequest sent = request;
-        if (_client.Own is { } own && request.Commands.Any(static c => ClientCommandOf(c) is not null))
+        if (_client.Own is { } own && request.Commands.Any(NeedsAClient))
         {
             IReadOnlyList<IReadOnlyList<string>>? pointed = await PointAtAnotherClientAsync(request, own, cancellationToken)
                 .ConfigureAwait(false);
@@ -569,6 +571,10 @@ internal sealed class TmuxControlTransport
         // A shell condition runs in the foreground and holds the client's queue.
         return name == "if-shell" && !HasFlag(command, "t", 'F');
     }
+
+    private bool NeedsAClient(IReadOnlyList<string> command) =>
+        ClientCommandOf(command) is not null
+        && !(Canonical(command[0]) == "display-panes" && _version() is { } running && running >= PaneNumbersAsMode);
 
     private static ClientCommand? ClientCommandOf(IReadOnlyList<string> command) =>
         ClientCommands.TryGetValue(Canonical(command[0]), out ClientCommand? spec)

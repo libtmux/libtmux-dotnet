@@ -159,10 +159,10 @@ public sealed class PaneActivityHubLifecycleTests
         Assert.Throws<TmuxTransportException>(() =>
             PaneActivityHub.RequireObservation(firstLease, hub.CaptureSignal("%1")));
         Assert.Equal(
-            ["refresh-client -f ignore-size", "refresh-client -B libtmux-pane-dead:%*:#{pane_dead}", "display-message -p #{client_name}"],
+            ["refresh-client -f ignore-size", "refresh-client -B libtmux-pane-dead:%*:#{pane_dead}"],
             first.Commands);
         Assert.Equal(
-            ["refresh-client -f ignore-size", "refresh-client -B libtmux-pane-dead:%*:#{pane_dead}", "display-message -p #{client_name}"],
+            ["refresh-client -f ignore-size", "refresh-client -B libtmux-pane-dead:%*:#{pane_dead}"],
             second.Commands);
 
         await firstLease.DisposeAsync();

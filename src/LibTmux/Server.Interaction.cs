@@ -6,29 +6,8 @@ namespace LibTmux;
 public sealed partial class Server
 {
     /// <summary>Builds the arguments a prompt request sends.</summary>
-    /// <remarks>
-    /// The refusal below 3.3 belongs here rather than beside the dispatch,
-    /// because tmux 3.2a reads the type flag as a pair of booleans meaning
-    /// something else: a chained prompt that skipped the check would ask a
-    /// different question rather than fail.
-    /// </remarks>
-    /// <exception cref="TmuxVersionTooLowException">
-    /// The request asks for a format or a prompt type and tmux is older than 3.3.
-    /// </exception>
     internal List<string> BuildCommandPromptArguments(CommandPromptRequest request)
     {
-        // tmux 3.2a spells the type flag as a pair of booleans meaning
-        // something else, so sending one there would ask a different question
-        // rather than fail. Nothing is sent instead.
-        if ((request.ExpandFormat || request.Type is not null)
-            && !Supports(ServerUtilities.CommandPromptBackgroundCapability))
-        {
-            throw new TmuxVersionTooLowException(
-                "Expanding a command prompt as a format, or naming what it asks for, requires tmux 3.3.",
-                TmuxVersion.Parse("3.3"),
-                Version ?? default);
-        }
-
         List<string> arguments = ["command-prompt"];
         ServerUtilities.AddFlag(arguments, request.OneKey, "-1");
         ServerUtilities.AddFlag(arguments, request.Numeric, "-N");
@@ -69,9 +48,6 @@ public sealed partial class Server
     /// <summary>Asks a client for input and runs a command with the answer.</summary>
     /// <param name="request">What to ask, and how.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <exception cref="TmuxVersionTooLowException">
-    /// The request asks for a format or a prompt type and tmux is older than 3.3.
-    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public Task ShowCommandPromptAsync(
         CommandPromptRequest request,
@@ -86,15 +62,11 @@ public sealed partial class Server
     /// <summary>Forgets what has been typed at command prompts.</summary>
     /// <param name="type">Which history to clear, or null for all of them.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <exception cref="TmuxVersionTooLowException">tmux is older than 3.3.</exception>
     [UnsupportedOSPlatform("windows")]
     public Task ClearPromptHistoryAsync(
         PromptType? type = null,
         CancellationToken cancellationToken = default)
     {
-        RequireCommand(
-            ServerUtilities.ClearPromptHistoryCapability,
-            "clear-prompt-history");
         List<string> arguments = ["clear-prompt-history"];
         ServerUtilities.AddValue(
             arguments,
@@ -107,13 +79,11 @@ public sealed partial class Server
     /// <param name="type">Which history to read, or null for all of them.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>One line per remembered entry.</returns>
-    /// <exception cref="TmuxVersionTooLowException">tmux is older than 3.3.</exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<string>> GetPromptHistoryAsync(
         PromptType? type = null,
         CancellationToken cancellationToken = default)
     {
-        RequireCommand(ServerUtilities.ShowPromptHistoryCapability, "show-prompt-history");
         List<string> arguments = ["show-prompt-history"];
         ServerUtilities.AddValue(
             arguments,

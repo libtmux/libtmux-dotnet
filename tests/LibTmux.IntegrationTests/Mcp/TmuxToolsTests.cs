@@ -499,8 +499,8 @@ public sealed class TmuxToolsTests
             }
         }
 
-        // 3.2a knows 52 of the 76 and 3.7a knows all of them, so a floor here
-        // catches a list that stopped matching tmux without pinning a version.
+        // The oldest supported tmux knows fewer of them than 3.7a, which knows
+        // all of them, so a floor here catches a list that stopped matching tmux without pinning a version.
         Assert.InRange(known, 50, InertOptions.Names.Count);
     }
 
@@ -834,7 +834,7 @@ public sealed class TmuxToolsTests
             (await mcp.Capabilities.GetPaneInfoAsync(moved, token)).WindowId);
 
         // tmux does not break the only pane out of its window: 3.7 answers with
-        // the id the caller already had, and 3.2a prints no id and fails. The
+        // the id the caller already had, and 3.3a prints no id and fails. The
         // pane already has that window to itself either way.
         // Joining into a synchronized window enrols the pane in its input
         // cohort, which changes the blast radius of every later send_keys
@@ -1648,7 +1648,7 @@ public sealed class TmuxToolsTests
             // One it cannot enter falls back to HOME, however the pane reads,
             // except on tmux 3.3 and 3.3a, which keep the server's directory.
             TmuxVersion version = server.Version ?? throw new InvalidOperationException("tmux version unknown");
-            string fallback = version.IsAtLeast(TmuxVersion.Parse("3.3")) && !version.IsAtLeast(TmuxVersion.Parse("3.4"))
+            string fallback = !version.IsAtLeast(TmuxVersion.Parse("3.4"))
                 ? "It started in the tmux server's working directory;"
                 : $"It started in {home};";
             string missing = await TmuxTargets.StartDirectoryNoteAsync(scope.Pane, "/nonexistent-libtmux-probe", token);

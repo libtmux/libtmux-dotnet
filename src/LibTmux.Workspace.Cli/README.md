@@ -11,7 +11,7 @@
 
 [![NuGet](https://img.shields.io/nuget/vpre/LibTmux.Workspace.Cli?logo=nuget&label=LibTmux.Workspace.Cli)](https://www.nuget.org/packages/LibTmux.Workspace.Cli)
 [![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
-[![tmux 3.2a – 3.7c](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
+[![tmux 3.3a – 3.8](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
 
 Describe a tmux session once, in YAML, and open it with one command.
 `tmux-workspace` reads [tmuxp](https://github.com/tmux-python/tmuxp)
@@ -241,7 +241,7 @@ $ tmux-workspace --generate fish > ~/.config/fish/completions/tmux-workspace.fis
 
 | | |
 |---|---|
-| tmux | 3.2a and newer |
+| tmux | 3.3a and newer |
 | .NET | .NET 8 or .NET 10 runtime |
 | OS | Linux and macOS |
 | Workspace files | tmuxp's format, in YAML or JSON |

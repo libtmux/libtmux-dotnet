@@ -14,9 +14,39 @@ version.
 
 ### Fixed
 
+- `Server.IsAliveAsync` now throws `TmuxVersionTooLowException` for a daemon
+  below the minimum instead of answering `false`.
+
+- A pane wait on a daemon older than tmux 3.7 polls without
+  `AllowPollingFallback`, because no control client is attached there.
+
 ### Changed
 
+- The library names its own control client `client-<pid>` from the process it
+  started and learns its session from the attach, so no `list-clients` or
+  `display-message` runs and no user `after-*` hook fires when a client attaches
+  or a pane is watched.
+- A tmux version is read only as `X.Y`, `X.Ya`, `X.Y-rc[N]` or `next-X.Y`;
+  `3.4.1`, `3.4-dev` and `3.3a-openbsd` are refused.
+- **The minimum tmux is now 3.3a, checked against the daemon.** The library
+  reads the connected daemon's version with a probe that fires no hook,
+  throws `TmuxVersionTooLowException` for 3.3, 3.2a and older, and fences
+  every command list so a daemon replaced by an older one is refused before
+  any command runs. A client executable that reports a different version no
+  longer decides what is allowed. An absent endpoint takes its version from the
+  executable that would start it, `kill-server` on one does nothing, and the
+  explicit control client no longer starts a server. `LibTmuxInfo.MinimumTmuxVersion`
+  is 3.3a, and `Server.Version` is the version the handle was checked on.
+- `TmuxVersion.DetectAsync` accepts the file name tmux 3.3a prints in place
+  of `tmux`.
+
 ### Removed
+
+- The 3.2a and 3.3 adaptations: `Server.ConfigureAccessAsync`, the prompt
+  history methods, the prompt `Type` and `ExpandFormat`, the display-message
+  target client and the popup appearance options no longer check the version
+  and no longer throw `TmuxVersionTooLowException` or drop a flag with a
+  warning, and an entity is read with one `display-message` on every release.
 
 ### Development
 

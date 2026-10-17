@@ -31,10 +31,11 @@ def write(root: pathlib.Path, supported: list[str]) -> pathlib.Path:
         "maximumTested": supported[-1],
         "transition": transition,
         "supported": supported,
+        "rejected": ["3.2a", "3.3"],
     }
     files = {
         "eng/tmux/versions.json": json.dumps(manifest),
-        ".github/workflows/dotnet-tmux.yml": "tmux: [{}]".format(
+        ".github/workflows/dotnet-tmux.yml": "tmux: [{}]\nrejected-version: ['3.2a', '3.3']".format(
             ", ".join(f"'{version}'" for version in supported)
         ),
         "eng/tmux/run-matrix.sh": "REQUIRED_VERSIONS=({})\ntmuxVersions:[{}]".format(
@@ -42,7 +43,7 @@ def write(root: pathlib.Path, supported: list[str]) -> pathlib.Path:
             ",".join(f'"{version}"' for version in supported),
         ),
         "eng/tmux/build-version.sh": "<{}|master>".format(
-            "|".join(checker["buildable"](supported, transition))
+            "|".join(["3.2a", "3.3", *checker["buildable"](supported, transition)])
         ),
     }
     both = f"{supported[0]} {supported[-1]}"
@@ -65,7 +66,7 @@ def write(root: pathlib.Path, supported: list[str]) -> pathlib.Path:
     return root
 
 
-VERSIONS = ["3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b", "3.7c"]
+VERSIONS = ["3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b", "3.7c", "3.8"]
 
 
 def test_the_repository_agrees_with_its_manifest() -> None:
@@ -87,4 +88,20 @@ def test_a_version_no_consumer_carries_is_reported(tmp_path: pathlib.Path) -> No
         'eng/tmux/run-matrix.sh: does not carry tmuxVersions:[{}]'.format(
             ",".join(f'"{version}"' for version in [*VERSIONS, "3.8"])
         ),
+    ]
+
+
+def test_a_rejection_lane_that_drifted_is_reported(tmp_path: pathlib.Path) -> None:
+    """The versions the workflow proves are refused must be the manifest's."""
+    root = write(tmp_path, VERSIONS)
+    (root / ".github" / "workflows" / "dotnet-tmux.yml").write_text(
+        "tmux: [{}]\nrejected-version: ['3.2a']".format(
+            ", ".join(f"'{version}'" for version in VERSIONS)
+        ),
+        encoding="utf-8",
+    )
+
+    assert verify(root) == [
+        ".github/workflows/dotnet-tmux.yml: does not carry "
+        "rejected-version: ['3.2a', '3.3']"
     ]
