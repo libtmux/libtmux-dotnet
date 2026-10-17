@@ -542,6 +542,7 @@ public sealed class WorkspaceBuilderTests
     [UnixFact]
     public async Task Enter_false_types_a_command_without_running_it_until_explicit_enter()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         string directory = Directory.CreateTempSubdirectory("libtmux-workspace-held-").FullName;
         try

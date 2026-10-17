@@ -608,7 +608,10 @@ module internal GuideSnippets =
 
             do! server.Buffers.SetAsync("fsharp-ready", "fsharp-guide", cancellationToken = cancellationToken)
             let! contents = server.Buffers.GetAsync("fsharp-guide", cancellationToken)
-            do! server.Buffers.DeleteAsync("fsharp-guide", cancellationToken)
+
+            // Deleting a buffer by name is exact from tmux 3.4.
+            if server.Version.Value.IsAtLeast(TmuxVersion.Parse "3.4") then
+                do! server.Buffers.DeleteAsync("fsharp-guide", cancellationToken)
 
             do! pane.EnterCopyModeAsync(cancellationToken = cancellationToken)
             let! copying = pane.RefreshAsync(cancellationToken)

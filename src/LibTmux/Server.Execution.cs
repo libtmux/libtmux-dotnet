@@ -6,6 +6,8 @@ namespace LibTmux;
 
 public sealed partial class Server
 {
+    private static readonly TmuxVersion CapturedRunShellOutput = TmuxVersion.Parse("3.5");
+
     /// <summary>Builds the arguments a shell request sends.</summary>
     /// <remarks>
     /// Three of these flags arrived at different tmux versions, so this stays
@@ -68,9 +70,12 @@ public sealed partial class Server
     /// <remarks>
     /// The directory flag arrived in tmux 3.4, the error-output flag in 3.6,
     /// and passing arguments without a shell in 3.7.
-    /// On tmux 3.3a and 3.4, shell text goes to pane view mode, so the process
-    /// request can return an empty collection even when the shell printed lines.
+    /// A foreground request that names no pane needs tmux 3.5: on 3.3a and 3.4
+    /// the shell's text goes to a pane in view mode and cannot be returned.
     /// </remarks>
+    /// <exception cref="TmuxVersionTooLowException">
+    /// The request waits for output, names no pane, and tmux is older than 3.5.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<string>?> RunShellAsync(
         RunShellRequest request,
@@ -78,6 +83,22 @@ public sealed partial class Server
     {
         ArgumentNullException.ThrowIfNull(request);
         List<string> arguments = BuildRunShellArguments(request);
+
+        // tmux 3.3a and 3.4 send a foreground job's output to a view-mode
+        // pane unless a pane is named, so there is nothing to capture.
+        if (!request.Background && !request.AsTmuxCommand && request.TargetPane is null)
+        {
+            TmuxVersion running = await ServerVersionAsync(cancellationToken).ConfigureAwait(false);
+            if (running < CapturedRunShellOutput)
+            {
+                throw new TmuxVersionTooLowException(
+                    $"Captured run-shell output needs tmux {CapturedRunShellOutput}: earlier releases "
+                    + $"show it in a pane instead of returning it; detected {running}.",
+                    CapturedRunShellOutput,
+                    running,
+                    TmuxDispatchState.NotDispatched);
+            }
+        }
 
         TmuxCommandResult result = await _commandDispatcher
             .ExecuteAsync(arguments, cancellationToken)

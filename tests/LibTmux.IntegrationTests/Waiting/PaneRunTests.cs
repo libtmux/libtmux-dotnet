@@ -15,6 +15,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task A_run_reports_its_exit_status_and_only_its_own_output()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
@@ -32,6 +33,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task A_shell_line_of_chained_commands_runs_in_order_and_stops_at_the_first_failure()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
@@ -72,6 +74,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task A_run_bounds_rendered_output_and_reports_what_was_omitted()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
@@ -102,6 +105,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task Sending_a_command_waits_for_its_output_not_the_screen_before_or_its_echo()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
@@ -126,6 +130,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task A_send_wait_ignores_old_patterns_when_new_text_extends_the_same_row()
     {
+        TmuxFeatureSupport.RequireControl();
         using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         deadline.CancelAfter(Allowed);
         CancellationToken token = deadline.Token;
@@ -164,6 +169,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task A_run_that_outlasts_its_timeout_says_so_and_is_followed_to_completion()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
@@ -187,6 +193,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task A_run_that_never_finishes_is_followed_only_until_its_limit()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
@@ -221,6 +228,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task An_unresolved_run_stays_reserved_then_late_status_allows_the_next_run()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
@@ -269,6 +277,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task An_unresolved_run_releases_ownership_when_its_pane_ends()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
@@ -311,6 +320,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task A_run_ends_soon_after_its_panes_program_exits()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane closing = await NewPaneAsync(raw, ["/bin/sh"], token);
@@ -332,6 +342,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task A_pane_not_at_a_shell_is_refused_before_anything_is_sent()
     {
+        TmuxFeatureSupport.RequireNamedBuffers();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane busy = await NewPaneAsync(raw, ["sleep", "60"], token);
@@ -347,6 +358,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task A_failed_run_preserves_its_primary_error_and_reports_an_owned_buffer_cleanup_failure()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         var primary = new LibTmuxException("The paste was refused before dispatch.", TmuxDispatchState.NotDispatched);
@@ -431,6 +443,7 @@ public sealed class PaneRunTests
     public async Task A_completed_run_reports_private_directory_cleanup_failure_but_allows_an_already_removed_directory(
         bool denyDeletion)
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         string? directory = null;
@@ -570,6 +583,7 @@ public sealed class PaneRunTests
     [UnixFact]
     public async Task A_wait_whose_watcher_meets_the_servers_exit_reports_the_pane_gone()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         string directory = Directory.CreateTempSubdirectory("ltm-exit-").FullName;

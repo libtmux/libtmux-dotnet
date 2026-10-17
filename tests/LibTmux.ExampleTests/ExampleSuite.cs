@@ -22,6 +22,10 @@ public sealed class ExampleSuite
     public async Task Example_runs_against_live_tmux(string name)
     {
         ExampleCase example = Find(name);
+        TmuxVersion running = await TmuxVersion.DetectAsync(
+            Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TestContext.Current.CancellationToken);
+        Assert.SkipWhen(example.WhyNotOn(running) is not null, $"This example {example.WhyNotOn(running)}.");
         await example.RunAsync(TestContext.Current.CancellationToken);
     }
 

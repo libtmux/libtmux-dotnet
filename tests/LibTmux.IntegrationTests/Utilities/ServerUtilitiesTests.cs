@@ -37,14 +37,14 @@ public sealed class ServerUtilitiesTests
             buffer => buffer.Name == "libtmux-buffer" && buffer.Size == 13);
 
         // A shell command runs, and where tmux hands its output back it is the
-        // command's own. tmux 3.3a and 3.4 keep it to themselves, so the run
+        // command's own. tmux 3.3a and 3.4 refuse to return it, so the run
         // itself is proved by what it changed.
-        IReadOnlyList<string>? output = await server.RunShellAsync(
-            new RunShellRequest("echo libtmux-ran"),
-            token);
-        Assert.NotNull(output);
-        if (output.Count > 0)
+        if (TmuxFeatureSupport.Version >= TmuxVersion.Parse("3.5"))
         {
+            IReadOnlyList<string>? output = await server.RunShellAsync(
+                new RunShellRequest("echo libtmux-ran"),
+                token);
+            Assert.NotNull(output);
             Assert.Contains("libtmux-ran", string.Join('\n', output), StringComparison.Ordinal);
         }
 
@@ -62,6 +62,7 @@ public sealed class ServerUtilitiesTests
     [UnixFact]
     public async Task Cancelling_RunShellAsync_stops_waiting_but_not_the_tmux_side_command()
     {
+        TmuxFeatureSupport.RequireCapturedRunShell();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -120,6 +121,7 @@ public sealed class ServerUtilitiesTests
     [UnixFact]
     public async Task Killing_the_server_does_not_reap_a_run_shell_childs_process()
     {
+        TmuxFeatureSupport.RequireCapturedRunShell();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -266,6 +268,7 @@ public sealed class ServerUtilitiesTests
     [UnixFact]
     public async Task Buffer_flags_emit_exact_argv()
     {
+        TmuxFeatureSupport.RequireNamedBuffers();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -546,7 +549,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.RunShellWorkingDirectoryCapability,
             (server, token) => server.RunShellAsync(
-                new RunShellRequest("pwd") { WorkingDirectory = "/" },
+                new RunShellRequest("pwd") { WorkingDirectory = "/", Background = true },
                 token));
 
     [UnixFact]
@@ -554,7 +557,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.RunShellStandardErrorCapability,
             (server, token) => server.RunShellAsync(
-                new RunShellRequest("true") { ShowStandardError = true },
+                new RunShellRequest("true") { ShowStandardError = true, Background = true },
                 token));
 
     [UnixFact]
@@ -562,7 +565,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.RunShellArgumentsCapability,
             (server, token) => server.RunShellAsync(
-                new RunShellRequest("echo") { Arguments = ["libtmux"] },
+                new RunShellRequest("echo") { Arguments = ["libtmux"], Background = true },
                 token));
 
     private static async Task ReadMessagesAsync(

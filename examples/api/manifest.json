@@ -44,7 +44,8 @@
         "M:LibTmux.FSharp.Server.tryFindPane(System.Threading.CancellationToken,LibTmux.PaneId,LibTmux.Server)",
         "M:LibTmux.FSharp.Server.tryFindClient(System.Threading.CancellationToken,System.String,LibTmux.Server)"
       ],
-      "output": "session: Some \"demo\"\nwindow: Some \"shell\"\npane: Some true\nclient: Some true\nmissing: [false; false; false; false]\n"
+      "output": "session: Some \"demo\"\nwindow: Some \"shell\"\npane: Some true\nclient: Some true\nmissing: [false; false; false; false]\n",
+      "requiresTmux": "3.7"
     },
     {
       "id": "fsharp-ServerFilters",
@@ -58,7 +59,8 @@
         "M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})",
         "M:LibTmux.FSharp.Filter.any``2(LibTmux.FSharp.Relation{``0,``1},LibTmux.FSharp.Filter{``1})"
       ],
-      "output": "native: [\"demo\"]\nportable: [\"demo\"]\nwindows: [\"shell\"]\npanes: 1\nparents: [\"demo\"]\ncontrol clients: 1\n"
+      "output": "native: [\"demo\"]\nportable: [\"demo\"]\nwindows: [\"shell\"]\npanes: 1\nparents: [\"demo\"]\ncontrol clients: 1\n",
+      "requiresTmux": "3.7"
     },
     {
       "id": "fsharp-SnapshotAccess",
@@ -112,7 +114,8 @@
         "M:LibTmux.FSharp.Options.get``1(System.Threading.CancellationToken,LibTmux.TmuxOptionKey{``0},LibTmux.TmuxOptions)",
         "M:LibTmux.FSharp.Options.set``1(System.Threading.CancellationToken,LibTmux.TmuxOptionKey{``0},``0,LibTmux.TmuxOptions)"
       ],
-      "output": "history-limit: 50000\nA server that is not running: NotSent\nA value tmux refuses: Ran\nA run cancelled after it was sent: MayHaveRun\nRetried while NotSent: 3 attempts, then NotSent\nRetried after Ran: 1 attempt, then Ran\n"
+      "output": "history-limit: 50000\nA server that is not running: NotSent\nA value tmux refuses: Ran\nA run cancelled after it was sent: MayHaveRun\nRetried while NotSent: 3 attempts, then NotSent\nRetried after Ran: 1 attempt, then Ran\n",
+      "requiresTmux": "3.7"
     },
     {
       "id": "fsharp-CreateWindowPane",
@@ -160,7 +163,8 @@
         "M:LibTmux.FSharp.Filter.any``2(LibTmux.FSharp.Relation{``0,``1},LibTmux.FSharp.Filter{``1})",
         "M:LibTmux.FSharp.Query.atMostOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})"
       ],
-      "output": "logged: true\nnamed: Ok \"build\"\ntailing: [\"logs\"]\nmake panes: Some 1\nerror row: Some 1\nactive panes: 2\ndeploy: absent true, then found true\nat most one of every session: refused\n"
+      "output": "logged: true\nnamed: Ok \"build\"\ntailing: [\"logs\"]\nmake panes: Some 1\nerror row: Some 1\nactive panes: 2\ndeploy: absent true, then found true\nat most one of every session: refused\n",
+      "requiresTmux": "3.7"
     },
     {
       "id": "fsharp-SendWaitRead",
@@ -174,7 +178,8 @@
         "M:LibTmux.FSharp.Pane.run(System.Threading.CancellationToken,System.TimeSpan,System.String,LibTmux.Pane)",
         "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)"
       ],
-      "output": "ready: found\ncounted: found\nrun: exit 4, output [\"a\"; \"b\"]\nscreen shows the run: true\n"
+      "output": "ready: found\ncounted: found\nrun: exit 4, output [\"a\"; \"b\"]\nscreen shows the run: true\n",
+      "requiresTmux": "3.7"
     },
     {
       "id": "fsharp-LiveState",
@@ -186,7 +191,8 @@
         "M:LibTmux.FSharp.Mirror.startRefreshing(System.Threading.CancellationToken,System.TimeSpan,LibTmux.Session)",
         "M:LibTmux.FSharp.Mirror.waitUntil(System.Threading.CancellationToken,System.TimeSpan,Microsoft.FSharp.Core.FSharpFunc{LibTmux.ServerMirrorView,System.Boolean},LibTmux.ServerMirror)"
       ],
-      "output": "windows: shell, logs\nsleeping panes: 1\nnewer view: true\n"
+      "output": "windows: shell, logs\nsleeping panes: 1\nnewer view: true\n",
+      "requiresTmux": "3.7"
     },
     {
       "id": "fsharp-WatchPanes",
@@ -199,7 +205,8 @@
         "M:LibTmux.FSharp.Control.watchPanes(Microsoft.FSharp.Collections.FSharpList{LibTmux.Pane},LibTmux.IControlModeSession)",
         "M:LibTmux.FSharp.Control.foldWhile``2(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,System.Threading.Tasks.Task{LibTmux.FSharp.StreamStep{``0}}}},``0,System.Collections.Generic.IAsyncEnumerable{``1})"
       ],
-      "output": "build: ok\ntest: ok\nended in order given: true\n"
+      "output": "build: ok\ntest: ok\nended in order given: true\n",
+      "requiresTmux": "3.7"
     },
     {
       "id": "fsharp-BuildSession",

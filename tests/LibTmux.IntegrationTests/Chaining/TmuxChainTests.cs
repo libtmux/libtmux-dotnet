@@ -19,6 +19,7 @@ public sealed class TmuxChainTests
     [InlineData("control")]
     public async Task Send_keys_preserve_payload_boundaries_and_enter_sequence(string mode)
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -628,20 +629,20 @@ public sealed class TmuxChainTests
         // Showing standard error arrived in 3.6 and passing arguments in 3.7,
         // so asking for both has to drop what the running tmux lacks rather
         // than send a flag it refuses.
-        TmuxCommandResult result = await new RunShellRequest("echo chained-shell")
-        {
-            ShowStandardError = true,
-        }.ExecuteAsync(server, token);
+        RunShellRequest request = new("echo chained-shell") { ShowStandardError = true };
 
-        // tmux 3.3a/3.4 accept run-shell but report nothing; 3.5+
-        // return what it printed, so output is asserted only where sent.
+        // tmux 3.3a/3.4 show a foreground job's output in a pane rather than
+        // returning it, so the request is refused there as the typed call is;
+        // 3.5+ return what it printed.
         string reported = server.Version!.Value.ToString();
         if (reported is "3.3a" or "3.4")
         {
-            Assert.Empty(result.StandardOutputLines);
+            _ = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+                () => request.ExecuteAsync(server, token));
             return;
         }
 
+        TmuxCommandResult result = await request.ExecuteAsync(server, token);
         Assert.Contains("chained-shell", result.StandardOutputLines);
     }
 

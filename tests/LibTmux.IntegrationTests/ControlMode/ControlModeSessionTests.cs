@@ -11,6 +11,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task A_control_client_answers_commands_and_reports_what_it_saw()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -39,6 +40,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task A_pane_id_inside_a_block_is_data_rather_than_a_notification()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -65,6 +67,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task A_guard_looking_line_inside_a_block_is_data()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -85,6 +88,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task A_failing_command_faults_only_its_own_caller()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -106,6 +110,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task A_command_alias_cannot_move_a_reply_to_the_next_caller()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -136,6 +141,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task Typed_arguments_are_literal_tmux_arguments()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -170,6 +176,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task Hook_blocks_do_not_replace_command_output()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -201,6 +208,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task Cancellation_keeps_later_callers_behind_the_request_fence()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -231,6 +239,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task Pane_output_arrives_decoded()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -276,6 +285,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task Pane_output_that_is_not_utf8_arrives_projected_and_the_session_survives()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -316,6 +326,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task The_event_stream_ends_with_an_exit()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -343,6 +354,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task An_exit_from_a_server_killed_underneath_the_client_names_no_reason()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -371,6 +383,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task Layout_change_notifications_agree_with_a_plain_clients_layout_format()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -415,6 +428,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task SubscribeSessionAsync_fires_on_every_supported_version()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -450,6 +464,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task WatchAsync_ends_cleanly_and_typed_when_the_observed_pane_is_killed()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -501,6 +516,7 @@ public sealed class ControlModeSessionTests
     [InlineData(false)]
     public async Task Stopping_a_borrowed_pane_watch_leaves_control_commands_usable(bool cancel)
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -536,6 +552,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task A_killed_control_client_faults_without_an_exit_event()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -579,6 +596,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task Startup_rejects_a_server_restart_between_discovery_and_attach()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server original = await ConnectAsync(raw, token);
@@ -716,6 +734,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task A_canceled_attach_is_disposed_before_the_call_returns()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         string directory = Path.Combine(
@@ -785,6 +804,7 @@ public sealed class ControlModeSessionTests
     [UnixFact]
     public async Task Startup_drains_standard_error_before_waiting_for_attach()
     {
+        TmuxFeatureSupport.RequireControl();
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         string directory = Path.Combine(

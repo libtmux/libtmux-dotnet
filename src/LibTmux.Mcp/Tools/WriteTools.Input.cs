@@ -395,6 +395,7 @@ internal sealed partial class WriteTools
             }
         }
 
+        await server.RequireBufferStagingAsync("paste_text", cancellationToken).ConfigureAwait(false);
         string buffer = $"libtmux_mcp_{Guid.NewGuid():N}"[..24];
         Exception? primaryFailure = null;
         Exception? cleanupFailure = null;

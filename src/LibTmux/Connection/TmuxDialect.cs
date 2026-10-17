@@ -225,6 +225,7 @@ internal sealed class TmuxDialect : MultiplexerDialect
         while (true)
         {
             Supported supported = await CheckVersionAsync(cancellationToken).ConfigureAwait(false);
+            TmuxFeatureGuard.Check(supported.Version, commands);
             if (_probe is null)
             {
                 return await send(
@@ -279,6 +280,7 @@ internal sealed class TmuxDialect : MultiplexerDialect
         CancellationToken cancellationToken)
     {
         Supported supported = await CheckVersionAsync(cancellationToken).ConfigureAwait(false);
+        TmuxFeatureGuard.Check(supported.Version, commands);
         if (_probe is null)
         {
             return await send(null, cancellationToken).ConfigureAwait(false);

@@ -15,11 +15,23 @@ namespace LibTmux.Examples;
 [UnsupportedOSPlatform("windows")]
 public sealed class ExampleCase
 {
-    private ExampleCase(MethodInfo method, string title)
+    private ExampleCase(MethodInfo method, string title, TmuxVersion? minimumTmux)
     {
         Method = method;
         Title = title;
+        MinimumTmux = minimumTmux;
     }
+
+    /// <summary>Gets the first tmux release the example runs on, or null when every supported one.</summary>
+    public TmuxVersion? MinimumTmux { get; }
+
+    /// <summary>Says why an example cannot run on a tmux release, or returns null when it can.</summary>
+    /// <param name="running">The release the examples run against.</param>
+    /// <returns>The reason, or null.</returns>
+    public string? WhyNotOn(TmuxVersion running) =>
+        MinimumTmux is { } minimum && running < minimum
+            ? $"needs tmux {minimum}; running {running}"
+            : null;
 
     /// <summary>Gets the example's name, which is its method's name.</summary>
     public string Id => Method.Name;
@@ -97,6 +109,9 @@ public sealed class ExampleCase
                 $"Example {method.DeclaringType!.Name}.{method.Name} must return Task.");
         }
 
-        return new ExampleCase(method, example.Title);
+        return new ExampleCase(
+            method,
+            example.Title,
+            example.RequiresTmux is null ? null : TmuxVersion.Parse(example.RequiresTmux));
     }
 }

@@ -12,11 +12,13 @@ version.
 
 ### Added
 
+- `ExampleAttribute.RequiresTmux` and `requiresTmux` in the API example
+  manifest name the first tmux an example runs on.
+
 ### Fixed
 
 - `Server.IsAliveAsync` now throws `TmuxVersionTooLowException` for a daemon
   below the minimum instead of answering `false`.
-
 - A pane wait on a daemon older than tmux 3.7 polls without
   `AllowPollingFallback`, because no control client is attached there.
 
@@ -28,6 +30,19 @@ version.
   or a pane is watched.
 - A tmux version is read only as `X.Y`, `X.Ya`, `X.Y-rc[N]` or `next-X.Y`;
   `3.4.1`, `3.4-dev` and `3.3a-openbsd` are refused.
+- **Operations that are unsafe on a supported tmux are now refused on that
+  tmux, without raising the minimum.** `Server.EnterControlModeAsync`, and
+  with it `ServerMirror`, throws `TmuxVersionTooLowException` below 3.7
+  before a client attaches; pane waits and streams poll there instead.
+  Deleting or renaming a buffer by name, `Pane.RunAsync` and the MCP
+  `paste_text` need 3.4, a foreground `run-shell` that names no pane, typed or
+  raw, needs 3.5, and raw commands and
+  batches are refused on the release that mishandles them: an unnamed
+  `break-pane` and names with `:` or `.` on exactly 3.7, `split-window -p` on
+  3.4, and an unchecked `select-layout` below 3.4. See
+  [the matrix](docs/modes/matrix.md#optional-features).
+- `Pane.BreakAsync` reads the new window from the pane when tmux prints no
+  identifier for a window's only pane.
 - **The minimum tmux is now 3.3a, checked against the daemon.** The library
   reads the connected daemon's version with a probe that fires no hook,
   throws `TmuxVersionTooLowException` for 3.3, 3.2a and older, and fences

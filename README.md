@@ -112,7 +112,7 @@ Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "bu
 Console.WriteLine(built.Name);
 ```
 
-```csharp run
+```csharp run tmux-3.7
 // Control mode: one client, held open, streaming what tmux does.
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
 IReadOnlyList<string> reply = await control.SendAsync(

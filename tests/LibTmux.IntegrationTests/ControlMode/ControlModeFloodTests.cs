@@ -19,6 +19,7 @@ public sealed class ControlModeFloodTests
     [UnixFact]
     public async Task A_flooding_pane_loses_only_output_and_is_paused_until_the_reader_catches_up()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await Server.ConnectAsync(

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using LibTmux.Engineering;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Mcp;
 using Microsoft.Extensions.DependencyInjection;
@@ -136,6 +137,7 @@ public sealed class McpProtocolTests
     [UnixFact]
     public async Task Stdin_eof_cancels_a_pending_wait_and_removes_the_owned_daemon()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = Path.Combine(WorkspaceSocketRoot.Root, $"mcp-eof-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -237,6 +239,7 @@ public sealed class McpProtocolTests
     [UnixFact]
     public async Task The_wire_surface_is_the_pinned_cross_port_inventory()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         string[] expected =
         [
@@ -1154,6 +1157,7 @@ public sealed class McpProtocolTests
     [UnixFact]
     public async Task A_call_that_waits_does_not_hold_up_another()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         using CancellationTokenSource waitCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
         await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
