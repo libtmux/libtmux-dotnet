@@ -6,7 +6,7 @@ internal static class QuerySourcePlanner
 {
     private const string TrueFormat = "#{==:1,1}";
     private const string FalseFormat = "#{==:1,0}";
-    private static readonly TmuxVersion LastVerifiedVersion = TmuxVersion.Parse("3.7c");
+    private static readonly TmuxVersion LastVerifiedVersion = TmuxVersion.Parse("3.8");
 
     internal static QuerySourceParts Prepare<T>(QueryDocument document, TmuxVersion version, QueryPushdown pushdown)
     {
@@ -36,7 +36,7 @@ internal static class QuerySourcePlanner
         else if (!version.IsStableRelease || version > LastVerifiedVersion
             || !TmuxCapabilities.IsSupported(version, "format_fields_and_operators"))
         {
-            reasons.Add("Exact source evaluation is verified only for stable tmux 3.3a through 3.7c.");
+            reasons.Add("Exact source evaluation is verified only for stable tmux 3.3a through 3.8.");
         }
         else if (fields.Any(field => QueryFieldCatalog.IsRelation(field.WireName)))
         {
