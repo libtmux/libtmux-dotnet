@@ -129,6 +129,10 @@ internal sealed class TmuxControlTransport
     // attaches lazily, on a command the caller did not expect to start one.
     internal static readonly TmuxVersion FirstSafeVersion = TmuxVersion.Parse("3.7");
 
+    // From this release display-panes is a mode on the target pane and no
+    // longer draws on a client, so it needs none.
+    private static readonly TmuxVersion PaneNumbersAsMode = TmuxVersion.Parse("3.8-rc2");
+
     private static readonly string[] Named = [.. OnProcess, .. Reads];
 
     private readonly Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> _process;
@@ -264,7 +268,7 @@ internal sealed class TmuxControlTransport
         CancellationToken cancellationToken)
     {
         TmuxCommandRequest sent = request;
-        if (_client.Own is { } own && request.Commands.Any(static c => ClientCommandOf(c) is not null))
+        if (_client.Own is { } own && request.Commands.Any(NeedsAClient))
         {
             IReadOnlyList<IReadOnlyList<string>>? pointed = await PointAtAnotherClientAsync(request, own, cancellationToken)
                 .ConfigureAwait(false);
@@ -567,6 +571,10 @@ internal sealed class TmuxControlTransport
         // A shell condition runs in the foreground and holds the client's queue.
         return name == "if-shell" && !HasFlag(command, "t", 'F');
     }
+
+    private bool NeedsAClient(IReadOnlyList<string> command) =>
+        ClientCommandOf(command) is not null
+        && !(Canonical(command[0]) == "display-panes" && _version() is { } running && running >= PaneNumbersAsMode);
 
     private static ClientCommand? ClientCommandOf(IReadOnlyList<string> command) =>
         ClientCommands.TryGetValue(Canonical(command[0]), out ClientCommand? spec)

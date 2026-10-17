@@ -372,7 +372,7 @@ public sealed class Component12ParityTests
         // tmux 3.8 turned display-panes from an overlay into a mode, which
         // runs without a client, so only earlier versions still refuse it.
         bool displayPanesStillAnOverlay = pane.Server.Version is not TmuxVersion version
-            || version < TmuxVersion.Parse("3.8");
+            || version < TmuxVersion.Parse("3.8-rc2");
         if (displayPanesStillAnOverlay)
         {
             await Assert.ThrowsAsync<TmuxCommandException>(
