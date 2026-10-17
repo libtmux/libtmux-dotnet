@@ -358,7 +358,9 @@ internal sealed class TmuxConnection
                 target: null,
                 generation: null,
                 startInfo => ApplyChildEnvironment(startInfo, resolved.ChildEnvironment),
-                attachFlags: "ignore-size,no-output",
+                // new-layouts keeps a read here agreeing with a plain client's on 3.8+;
+                // earlier tmux ignores the flag.
+                attachFlags: "ignore-size,no-output,new-layouts",
                 preventServerStart: true,
                 limits: new ControlModeLimits(
                     maxLineBytes: cap,
