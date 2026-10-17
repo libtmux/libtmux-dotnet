@@ -177,6 +177,7 @@ public sealed class Component16ParityTests
 
     private static async Task<bool> ProvesRunShellAsync(Server server, CancellationToken token)
     {
+        TmuxFeatureSupport.RequireCapturedRunShell();
         // tmux 3.3a and 3.4 run the command and keep its output to themselves,
         // so what proves the run on every lane is an effect rather than a
         // returned line.
@@ -330,6 +331,7 @@ public sealed class Component16ParityTests
 
     private static async Task<bool> ProvesDeleteBufferAsync(Server server, CancellationToken token)
     {
+        TmuxFeatureSupport.RequireNamedBuffers();
         await server.Buffers.SetAsync("temporary", "libtmux-parity", cancellationToken: token);
         await server.Buffers.DeleteAsync("libtmux-parity", token);
         return !(await server.Buffers.GetAllAsync(token)).Any(

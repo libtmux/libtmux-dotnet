@@ -186,7 +186,7 @@ It prints `True`, both names, and the window IDs in the order tmux issued them.
 It runs a shell command in a pane and returns its real exit status and the lines
 it printed. A command that exits nonzero returns normally with that status:
 
-```csharp run
+```csharp run tmux-3.4
 PaneRunResult result = await pane.RunAsync("echo hello; exit 3", TimeSpan.FromSeconds(10), ct);
 if (result.ExitStatus != 3 || !result.Output.Contains("hello"))
 {
@@ -338,7 +338,7 @@ Console.WriteLine(built.Name);
 
 ### [`Server.EnterControlModeAsync`][api-server-entercontrolmodeasync]: one client, held open
 
-```csharp run
+```csharp run tmux-3.7
 // Control mode: one client, held open, streaming what tmux does.
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
 IReadOnlyList<string> reply = await control.SendAsync(

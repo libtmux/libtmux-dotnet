@@ -13,6 +13,7 @@ public sealed class PaneWaitConsistencyTests
     [UnixFact]
     public async Task A_core_pane_wait_reads_rendered_output_and_preserves_the_daemon()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();
@@ -53,6 +54,7 @@ public sealed class PaneWaitConsistencyTests
     [UnixFact]
     public async Task An_established_wait_recovers_after_unstable_captures()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();

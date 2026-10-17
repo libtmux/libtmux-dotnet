@@ -108,6 +108,7 @@ public sealed class WindowPlacementGuardTests
     [InlineData(true)]
     public async Task Typed_control_commands_guard_the_captured_placement(bool link)
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         await PrepareAsync(raw, token);

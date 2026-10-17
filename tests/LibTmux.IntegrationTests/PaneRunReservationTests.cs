@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 
@@ -10,6 +11,7 @@ public sealed class PaneRunReservationTests
     [UnixFact]
     public async Task Public_pane_run_reports_status_retains_timeout_and_borrows_server()
     {
+        TmuxFeatureSupport.RequireNamedBuffers();
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         string binary = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
         var options = new TmuxTestOptions(new ServerConnectionOptions

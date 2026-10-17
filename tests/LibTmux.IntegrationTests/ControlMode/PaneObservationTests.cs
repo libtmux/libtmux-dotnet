@@ -13,6 +13,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task An_already_gone_pane_ends_without_a_new_arrangement_event()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -34,6 +35,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task A_pane_in_another_session_is_refused_rather_than_watched_in_silence()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -57,6 +59,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task A_pane_moved_to_another_session_ends_the_watch_rather_than_silencing_it()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -94,6 +97,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task A_generic_async_event_source_cannot_silently_discard_buffered_output()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -119,6 +123,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task A_generic_reader_ignoring_cancellation_cannot_hold_a_gone_pane_watch_open()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -157,6 +162,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task A_generic_continuous_source_fails_after_losing_the_arrangement_event()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -214,6 +220,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task A_restarted_server_cannot_watch_a_reused_pane_id()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server original = await ConnectAsync(raw, token);
@@ -240,6 +247,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task A_real_control_buffer_overflow_reaches_the_pane_watcher()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -279,6 +287,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task Loss_and_buffered_output_precede_the_gone_event()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -308,6 +317,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task One_client_watches_several_panes_and_ends_each_after_its_output()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -355,6 +365,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task Panes_gone_together_each_end_once_in_the_order_given()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -398,6 +409,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task A_lost_arrangement_notification_still_terminates_the_watch()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -428,6 +440,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task Post_check_unrelated_events_do_not_delay_pane_termination()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -469,6 +482,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task Continuous_unrelated_events_do_not_delay_pane_termination()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -562,6 +576,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task Real_continuous_unrelated_notifications_do_not_delay_pane_termination()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -654,6 +669,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task Early_stop_and_cancellation_dispose_only_the_reader()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -681,6 +697,7 @@ public sealed class PaneObservationTests
     [UnixFact]
     public async Task Buffered_output_precedes_a_stream_fault_and_disposes_the_reader()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
@@ -709,6 +726,7 @@ public sealed class PaneObservationTests
 
     private static async Task CheckStoppedClientAsync(bool fail)
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);

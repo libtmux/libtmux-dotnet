@@ -47,6 +47,7 @@ public sealed class ChildEnvironmentTests
     [UnixFact]
     public async Task C_locale_clients_preserve_numeric_tabs_and_unicode()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await Server.ConnectAsync(new ServerConnectionOptions
