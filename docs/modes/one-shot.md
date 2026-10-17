@@ -6,7 +6,8 @@ and `Pane` does unless you asked for something else.
 
 <!-- snippet: CreateWindow -->
 ```csharp
-Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
+NewWindowRequest request = new() { Name = "build" };
+Window window = await session.CreateWindowAsync(request, ct);
 Console.WriteLine($"{window.Id} {window.Index}:{window.Name}");
 ```
 <!-- endsnippet -->
@@ -106,8 +107,9 @@ using LibTmux;
 
 await using OwnedServerScope ownedServer = await Server.CreateOwnedAsync(
     new ServerConnectionOptions { SocketName = "work" });
+NewSessionRequest request = new() { Name = "work" };
 await using OwnedSessionScope ownedSession =
-    await ownedServer.Value.CreateOwnedSessionAsync(new NewSessionRequest { Name = "work" });
+    await ownedServer.Value.CreateOwnedSessionAsync(request);
 Session original = ownedSession.Value;
 Session renamed = await original.RenameAsync("review");
 Console.WriteLine($"{original.Name} -> {renamed.Name}");

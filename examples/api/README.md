@@ -47,9 +47,13 @@ $ cd "$consumer"
 $ cp libtmux-source/global.json .
 $ cp libtmux-source/examples/api/NuGet.config .
 $ cp libtmux-source/examples/api/fsharp/Example.fsproj .
-$ cp libtmux-source/examples/LibTmux.FSharp.Examples/Programs/InputCapture.fs Program.fs
+$ cp \
+    libtmux-source/examples/LibTmux.FSharp.Examples/Programs/InputCapture.fs \
+    Program.fs
 $ export NUGET_PACKAGES="$consumer/packages"
-$ dotnet restore libtmux-source/src/LibTmux.FSharp/LibTmux.FSharp.fsproj --locked-mode
+$ dotnet restore \
+    libtmux-source/src/LibTmux.FSharp/LibTmux.FSharp.fsproj \
+    --locked-mode
 $ dotnet pack libtmux-source/src/LibTmux/LibTmux.csproj \
     --configuration Release --no-restore -p:ContinuousIntegrationBuild=true \
     --output "$consumer/libtmux-source/artifacts/api-example-packages"
@@ -112,7 +116,9 @@ $ cd "$consumer"
 $ cp libtmux-source/global.json .
 $ cp libtmux-source/examples/api/NuGet.config .
 $ cp libtmux-source/examples/api/csharp/Example.csproj .
-$ cp libtmux-source/examples/LibTmux.Examples/Programs/InputCapture.cs Program.cs
+$ cp \
+    libtmux-source/examples/LibTmux.Examples/Programs/InputCapture.cs \
+    Program.cs
 $ export NUGET_PACKAGES="$consumer/packages"
 $ dotnet restore libtmux-source/src/LibTmux/LibTmux.csproj --locked-mode
 $ dotnet pack libtmux-source/src/LibTmux/LibTmux.csproj \

@@ -191,7 +191,11 @@ terminal it is talking through.
 ## Confirm a build without a client
 
 ```console
-$ { printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}'; sleep 1; } | libtmux-mcp
+$ { printf '%s%s%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize",' \
+    '"params":{"protocolVersion":"2025-06-18","capabilities":{},' \
+    '"clientInfo":{"name":"probe","version":"1"}}}'; \
+    sleep 1; } | libtmux-mcp
 ```
 
 The pause matters. Closing standard input immediately is a different test: the

@@ -11,7 +11,8 @@ let runAsync () =
 
         let options =
             ServerConnectionOptions(
-                SocketName = "fsharp-watch-panes-" + Guid.NewGuid().ToString("N"),
+                SocketName =
+                    "fsharp-watch-panes-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null"
             )
 
@@ -19,7 +20,9 @@ let runAsync () =
 
         let! session =
             owned.Value
-            |> Server.newSession token (SessionSpec.running "work" "exec sleep 60")
+            |> Server.newSession
+                token
+                (SessionSpec.running "work" "exec sleep 60")
 
         // The client buffers everything from the moment it attaches, so the
         // panes it should see can start afterwards.
@@ -43,10 +46,21 @@ let runAsync () =
                         match event with
                         | PaneWatch.Output output ->
                             let pane = output.PaneId.ToString()
-                            let sofar = printed |> Map.tryFind pane |> Option.defaultValue ""
-                            let printed = printed |> Map.add pane (sofar + output.Data)
 
-                            if printed.Count = 2 && printed |> Map.forall (fun _ text -> text.Contains '\n') then
+                            let sofar =
+                                printed
+                                |> Map.tryFind pane
+                                |> Option.defaultValue ""
+
+                            let printed =
+                                printed |> Map.add pane (sofar + output.Data)
+
+                            if
+                                printed.Count = 2
+                                && printed
+                                   |> Map.forall (fun _ text ->
+                                       text.Contains '\n')
+                            then
                                 return StreamStep.Stop printed
                             else
                                 return StreamStep.Continue printed
@@ -67,7 +81,8 @@ let runAsync () =
                 (fun ended event ->
                     task {
                         match event with
-                        | PaneWatch.Gone pane -> return StreamStep.Continue(ended @ [ pane ])
+                        | PaneWatch.Gone pane ->
+                            return StreamStep.Continue(ended @ [ pane ])
                         | _ -> return StreamStep.Continue ended
                     })
                 []

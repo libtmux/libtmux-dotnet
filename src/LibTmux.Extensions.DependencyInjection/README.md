@@ -39,7 +39,8 @@ using LibTmux;
 
 public sealed class Builder(Server server)
 {
-    public Task<IReadOnlyList<Session>> SessionsAsync(CancellationToken cancellationToken) =>
+    public Task<IReadOnlyList<Session>> SessionsAsync(
+        CancellationToken cancellationToken) =>
         server.GetSessionsAsync(cancellationToken);
 }
 ```
@@ -63,9 +64,11 @@ using LibTmux;
 using Microsoft.Extensions.DependencyInjection;
 
 var services = new ServiceCollection();
-var configuration = new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build();
+var configuration =
+    new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build();
 configuration["LibTmux:SocketName"] = "build";
-services.Configure<ServerConnectionOptions>(configuration.GetSection("LibTmux"));
+var section = configuration.GetSection("LibTmux");
+services.Configure<ServerConnectionOptions>(section);
 services.AddLibTmux();
 ```
 
@@ -77,7 +80,8 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 
 var services = new ServiceCollection();
-services.AddLibTmux(options => options with { CommandTimeout = TimeSpan.FromSeconds(5) });
+services.AddLibTmux(
+    options => options with { CommandTimeout = TimeSpan.FromSeconds(5) });
 ```
 
 When the options name no logger and the provider has an `ILoggerFactory`, one

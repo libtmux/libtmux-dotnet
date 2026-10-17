@@ -19,22 +19,31 @@ let runAsync () =
 
         let! session =
             owned.Value.CreateSessionAsync(
-                NewSessionRequest(Name = "work", WindowName = "shell", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "work",
+                    WindowName = "shell",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
         // Captures again on each change tmux announces, and every 200 ms for
         // changes it does not, such as the command a pane runs.
         use! mirror =
-            session |> Mirror.startRefreshing token (TimeSpan.FromMilliseconds 200.)
+            session
+            |> Mirror.startRefreshing token (TimeSpan.FromMilliseconds 200.)
 
         let! _ =
-            session.CreateWindowAsync(NewWindowRequest(Name = "logs", Command = "/bin/sh"), token)
+            session.CreateWindowAsync(
+                NewWindowRequest(Name = "logs", Command = "/bin/sh"),
+                token
+            )
 
         let! withLogs =
             mirror
             |> Mirror.waitUntil token (TimeSpan.FromSeconds 5.) (fun view ->
-                view.Server.Windows |> Seq.exists (fun window -> window.Name = "logs"))
+                view.Server.Windows
+                |> Seq.exists (fun window -> window.Name = "logs"))
 
         let! panes = session |> Session.panes |> Query.list token
 
@@ -44,9 +53,15 @@ let runAsync () =
         let! sleeping =
             mirror
             |> Mirror.tryWaitUntil token (TimeSpan.FromSeconds 5.) (fun view ->
-                view.Server.Panes |> Seq.exists (fun pane -> pane.CurrentCommand = "sleep"))
+                view.Server.Panes
+                |> Seq.exists (fun pane -> pane.CurrentCommand = "sleep"))
 
-        printfn "windows: %s" (String.Join(", ", [ for window in withLogs.Server.Windows -> window.Name ]))
+        printfn
+            "windows: %s"
+            (String.Join(
+                ", ",
+                [ for window in withLogs.Server.Windows -> window.Name ]
+            ))
 
         match sleeping with
         | Some sleeping ->

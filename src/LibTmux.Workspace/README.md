@@ -217,12 +217,14 @@ queued input. Use the selected tmux executable so the pane and client agree:
 ```csharp run
 string tmux = "'" + server.ConnectionOptions.TmuxBinaryPath
     .Replace("'", "'\"'\"'", StringComparison.Ordinal) + "'";
+string signal = $"{tmux} wait-for -S \"$LIBTMUX_WORKSPACE_READY\"";
+WorkspacePane pane = new(["first line"]);
 WorkspaceFile receiver = new("receiver",
     options: new Dictionary<string, string>
     {
-        ["default-command"] = $"{tmux} wait-for -S \"$LIBTMUX_WORKSPACE_READY\"; exec /bin/cat",
+        ["default-command"] = $"{signal}; exec /bin/cat",
     },
-    windows: [new WorkspaceWindow("input", panes: [new WorkspacePane(["first line"])])]);
+    windows: [new WorkspaceWindow("input", panes: [pane])]);
 WorkspaceBuilder builder = new(server);
 WorkspacePlan plan = await builder.PlanAsync(receiver, new WorkspacePlanOptions
 {

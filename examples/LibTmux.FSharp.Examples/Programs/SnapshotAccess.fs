@@ -16,7 +16,7 @@ let runAsync () =
 
         use! owned = options |> Server.createOwned token
 
-        // A relation is either captured, holding what tmux reported, or not read at all.
+        // A relation is captured, holding what tmux reported, or never read.
         let describe (relation: CapturedRelation<'T>) =
             match relation |> Snapshot.relation with
             | Captured items -> "captured " + string items.Count
@@ -25,17 +25,29 @@ let runAsync () =
         let! server =
             task {
                 use! session =
-                    owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/cat"), token)
+                    owned.Value.CreateOwnedSessionAsync(
+                        NewSessionRequest(Name = "demo", Command = "/bin/cat"),
+                        token
+                    )
 
                 let server = owned.Value
-                printfn "Connected handle's sessions: %s" (describe server.Sessions)
 
-                let! captured = server |> Server.capture token SnapshotDepth.Panes
-                printfn "Captured handle's sessions: %s" (describe captured.Sessions)
+                printfn
+                    "Connected handle's sessions: %s"
+                    (describe server.Sessions)
+
+                let! captured =
+                    server |> Server.capture token SnapshotDepth.Panes
+
+                printfn
+                    "Captured handle's sessions: %s"
+                    (describe captured.Sessions)
 
                 match captured.Sessions |> Snapshot.relation with
                 | Captured sessions ->
-                    match (Seq.exactlyOne sessions).ActivePane |> Snapshot.value with
+                    match
+                        (Seq.exactlyOne sessions).ActivePane |> Snapshot.value
+                    with
                     | Captured pane ->
                         printfn
                             "Active pane reports a path: %b; a command: %b"
@@ -44,11 +56,16 @@ let runAsync () =
                     | Uncaptured _ -> printfn "Active pane: not captured"
                 | Uncaptured _ -> ()
 
-                // Capturing returns a new handle; the one it was taken from is unchanged.
-                printfn "Original handle's sessions: %s" (describe server.Sessions)
+                // Capturing returns a new handle; the original is unchanged.
+                printfn
+                    "Original handle's sessions: %s"
+                    (describe server.Sessions)
 
-                // Keep this private server alive after its only session is disposed.
-                do! server.Options |> Options.set token (TmuxOptionKey.Flag "exit-empty") false
+                // Keep this private server alive once its session is disposed.
+                do!
+                    server.Options
+                    |> Options.set token (TmuxOptionKey.Flag "exit-empty") false
+
                 return server
             }
 

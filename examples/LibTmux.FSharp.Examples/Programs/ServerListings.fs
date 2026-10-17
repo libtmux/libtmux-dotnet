@@ -19,13 +19,21 @@ let runAsync () =
 
         use! _demo =
             owned.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "demo", WindowName = "shell", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "demo",
+                    WindowName = "shell",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
         use! _worker =
             owned.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "worker", WindowName = "jobs", Command = "/bin/sh"),
+                NewSessionRequest(
+                    Name = "worker",
+                    WindowName = "jobs",
+                    Command = "/bin/sh"
+                ),
                 token
             )
 
@@ -38,7 +46,11 @@ let runAsync () =
         for session in sessions do
             printfn "Session: %s (%O)" session.Name session.Id
 
-        printfn "Windows: %d; panes: %d; clients: %d" windows.Count panes.Count clients.Count
+        printfn
+            "Windows: %d; panes: %d; clients: %d"
+            windows.Count
+            panes.Count
+            clients.Count
 
     }
 

@@ -25,8 +25,10 @@ being made:
 
 - For changes to documentation or user-facing prose — `README.md`,
   `CHANGELOG.md`, release notes, commit messages, CLI and help text, error
-  messages, XML documentation, or source comments — follow
-  [`.github/WRITING.md`](.github/WRITING.md).
+  messages, XML documentation, source comments, or any code example (example
+  programs, XML documentation code, Markdown code blocks) — follow
+  [`.github/WRITING.md`](.github/WRITING.md), and its
+  [Examples](.github/WRITING.md#examples) section for code a reader sees.
 - For building, testing, the gates, pull requests, and releases, follow
   [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).
 - For a security-sensitive change, or to report a vulnerability, follow

@@ -11,7 +11,8 @@ let runAsync () =
 
         let options =
             ServerConnectionOptions(
-                SocketName = "fsharp-build-session-" + Guid.NewGuid().ToString("N"),
+                SocketName =
+                    "fsharp-build-session-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null"
             )
 

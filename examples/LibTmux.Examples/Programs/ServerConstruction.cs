@@ -4,7 +4,8 @@ using LibTmux;
 
 if (OperatingSystem.IsWindows())
 {
-    throw new PlatformNotSupportedException("This example requires tmux on Linux or macOS.");
+    throw new PlatformNotSupportedException(
+        "This example requires tmux on Linux or macOS.");
 }
 
 using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(10));
@@ -25,21 +26,30 @@ if (endpoint.IsMaterialized)
     throw new InvalidOperationException("Open must not discover a server.");
 }
 
-await using OwnedServerScope owned = await Server.CreateOwnedAsync(options, token);
-await using OwnedSessionScope session = await owned.Value.CreateOwnedSessionAsync(
-    new NewSessionRequest { Name = "demo", Command = "/bin/cat" }, token);
+await using OwnedServerScope owned =
+    await Server.CreateOwnedAsync(options, token);
+NewSessionRequest request = new() { Name = "demo", Command = "/bin/cat" };
+await using OwnedSessionScope session =
+    await owned.Value.CreateOwnedSessionAsync(request, token);
 
 // Connect discovers the live daemon and returns a new materialized handle.
 Server connected = await endpoint.ConnectAsync(token);
 Server sameEndpoint = await Server.ConnectAsync(options, token);
-if (!connected.IsMaterialized || !sameEndpoint.IsMaterialized || endpoint.IsMaterialized)
+if (!connected.IsMaterialized
+    || !sameEndpoint.IsMaterialized
+    || endpoint.IsMaterialized)
 {
-    throw new InvalidOperationException("Connecting must leave the original handle unchanged.");
+    throw new InvalidOperationException(
+        "Connecting must leave the original handle unchanged.");
 }
-if (connected.Generation != sameEndpoint.Generation || connected.Sessions.IsCaptured)
+if (connected.Generation != sameEndpoint.Generation
+    || connected.Sessions.IsCaptured)
 {
-    throw new InvalidOperationException("Connection discovery must not capture the hierarchy.");
+    throw new InvalidOperationException(
+        "Connection discovery must not capture the hierarchy.");
 }
 
-Console.WriteLine("Open records an endpoint; Connect discovers the running server.");
-Console.WriteLine("The original handle stays unmaterialized; relations remain uncaptured.");
+Console.WriteLine(
+    "Open records an endpoint; Connect discovers the running server.");
+Console.WriteLine(
+    "The original handle stays unmaterialized; relations remain uncaptured.");
