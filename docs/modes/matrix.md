@@ -131,3 +131,14 @@ which may report its own file name in place of `tmux`. `kill-server` on an
 absent endpoint does nothing. `-V` and `-h` describe the executable and check
 nothing. Aliases that redefine the commands the library uses are outside this
 contract.
+
+A version is read only in the forms tmux has reported: `X.Y`, `X.Ya`,
+`X.Y-rc` or `X.Y-rcN`, and `next-X.Y`. Anything else, such as `3.4.1`,
+`3.4-dev` or `3.3a-openbsd`, cannot be ranked and is refused.
+
+A control client's version is checked by a probe on a separate process just before it
+attaches, because a refusal printed over a control connection arrives outside
+any command. A daemon replaced in the moments between that probe and the attach
+is not fenced: the client attaches to the replacement, and the next command it
+carries is fenced like any other, so a replacement below the minimum is refused
+there and a supported one is checked afresh.
