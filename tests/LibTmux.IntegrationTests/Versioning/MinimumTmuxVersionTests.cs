@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
+using LibTmux.Internal;
 
 namespace LibTmux.IntegrationTests.Versioning;
 
@@ -267,13 +268,60 @@ public sealed class MinimumTmuxVersionTests
             Assert.True(version < TmuxVersion.Parse("3.5"));
         }
 
-        // The shared control client attaches on its own account; this proves
-        // the probe and the fence, which every transport sends.
         Server server = Server.Open(daemon.Options(Qualified()) with { ForceProcessTransport = true });
         await server.ExecuteCommandAsync(["list-sessions"], token);
 
         Assert.Equal(string.Empty, await daemon.OptionAsync("@after-display", token));
         Assert.Equal(string.Empty, await daemon.OptionAsync("@command-error", token));
+    }
+
+    [UnixFact]
+    public async Task Attaching_and_watching_through_a_control_client_fires_no_hook()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var daemon = await TestDaemon.StartAsync(Qualified(), token);
+        TmuxVersion version = TmuxVersion.Parse(await daemon.VersionAsync(token));
+        Assert.SkipWhen(
+            version < TmuxVersion.Parse("3.7"),
+            "Library-managed control clients need tmux 3.7.");
+        await daemon.RequireAsync(["new-session", "-d", "-s", "hooked", "exec /bin/cat"], token);
+        Server explicitly = await Server.ConnectAsync(daemon.Options(Qualified()), token);
+        Session session = Assert.Single(await explicitly.GetSessionsAsync(token), s => s.Name == "hooked");
+        Pane pane = Assert.Single(await Assert.Single(await session.GetWindowsAsync(token)).GetPanesAsync(token));
+        string[] hooks =
+        [
+            "after-list-clients",
+            "after-display-message",
+            "after-list-commands",
+            "command-error",
+        ];
+        foreach (string hook in hooks)
+        {
+            // command-error does not exist before tmux 3.5.
+            _ = await daemon.RunAsync(["set-hook", "-g", hook, $"set-option -g @fired-{hook} yes"], token);
+        }
+
+        // The shared client attaches on the first one-shot command; an
+        // explicit client and a pane watch each attach their own.
+        Server shared = Server.Open(daemon.Options(Qualified()));
+        await shared.ExecuteCommandAsync(["list-sessions"], token);
+        await using IControlModeSession control = await explicitly.EnterControlModeAsync(
+            cancellationToken: token);
+        // The watch a wait, a stream or a mirror takes. The wait's own reads
+        // of the pane (its grid) are ordinary display-message calls, so the
+        // watch is taken alone here.
+        await using IAsyncDisposable watch = await PaneActivityHub.Shared.WatchAsync(
+            pane, allowPollingFallback: false, token);
+        Assert.False(PaneActivityHub.FallbackAtAcquisition(watch));
+        await Task.Delay(TimeSpan.FromMilliseconds(300), token);
+
+        Assert.True(control.IsRunning);
+        foreach (string hook in hooks)
+        {
+            Assert.True(
+                string.IsNullOrEmpty(await daemon.OptionAsync($"@fired-{hook}", token)),
+                $"{hook} fired");
+        }
     }
 
     private static async Task WaitUntilExecutableAsync(string path, CancellationToken token)

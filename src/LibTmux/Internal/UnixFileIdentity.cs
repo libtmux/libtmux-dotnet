@@ -54,6 +54,28 @@ internal static class UnixFileIdentity
             ? StatDarwinInode64(path, buffer)
             : Stat(path, buffer);
 
+    /// <summary>Gets the path tmux gives a named socket, or null where it has none.</summary>
+    /// <param name="name">The socket name given with -L.</param>
+    /// <returns>The path, derived as tmux derives it.</returns>
+    internal static string? NamedSocketPath(string name)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return null;
+        }
+
+        string directory = Environment.GetEnvironmentVariable("TMUX_TMPDIR") is { Length: > 0 } configured
+            ? configured
+            : "/tmp";
+        return System.IO.Path.Join(
+            directory,
+            "tmux-" + GetUid().ToString(System.Globalization.CultureInfo.InvariantCulture),
+            name);
+    }
+
+    [DllImport("libc", EntryPoint = "getuid")]
+    private static extern uint GetUid();
+
     [DllImport("libc", EntryPoint = "stat")]
     private static extern int Stat(nint path, nint buffer);
 

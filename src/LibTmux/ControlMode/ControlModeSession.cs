@@ -97,6 +97,9 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
     ControlModeEventBuffer.Reader IControlModeEventWatermarkSource.CreateEventReader(
         CancellationToken cancellationToken) => _events.CreateReader(cancellationToken);
 
+    /// <summary>Gets the process id tmux reports as this client's <c>client_pid</c>, when known.</summary>
+    internal int? ClientProcessId => _process.ProcessId;
+
     public bool IsRunning => Volatile.Read(ref _stopRequested) == 0 && !_process.HasExited;
 
     [UnsupportedOSPlatform("windows")]

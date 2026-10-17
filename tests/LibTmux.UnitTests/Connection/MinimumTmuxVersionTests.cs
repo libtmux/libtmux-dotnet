@@ -82,7 +82,7 @@ public sealed class MinimumTmuxVersionTests
         string[] probe = Assert.Single(daemon.Probes);
         Assert.Equal(["run-shell", "-C"], probe[..2]);
         Assert.StartsWith("libtmux-version-", probe[2], StringComparison.Ordinal);
-        Assert.EndsWith("#{version}", probe[2], StringComparison.Ordinal);
+        Assert.EndsWith("#{version},#{pid},#{start_time}", probe[2], StringComparison.Ordinal);
         Assert.DoesNotContain("display-message", daemon.Probes.SelectMany(static each => each));
     }
 
@@ -320,12 +320,49 @@ public sealed class MinimumTmuxVersionTests
             () => daemon.Server.IsAliveAsync(TestContext.Current.CancellationToken));
     }
 
+    // tmux joins the -L name onto its socket directory as it is given, so a
+    // rooted name stays beneath that directory instead of replacing it.
+    [Fact]
+    public void A_named_socket_that_is_rooted_stays_beneath_the_socket_directory()
+    {
+        string? path = UnixFileIdentity.NamedSocketPath("/rooted/name");
+
+        Assert.NotNull(path);
+        Assert.NotEqual("/rooted/name", path);
+        Assert.Contains("/tmux-", path, StringComparison.Ordinal);
+        Assert.EndsWith("/rooted/name", path, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task A_liveness_check_still_reports_an_absent_daemon_as_not_alive()
     {
         var daemon = new FakeDaemon("3.8") { Absent = true, Executable = "tmux 3.8\n" };
 
         Assert.False(await daemon.Server.IsAliveAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Connecting_reads_the_generation_with_the_probe_not_display_message()
+    {
+        var daemon = new FakeDaemon("3.8");
+
+        Server connected = await daemon.Server.ConnectAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(new ServerGeneration(91, 901), connected.Generation);
+        Assert.Equal(TmuxVersion.Parse("3.8"), connected.Version);
+        Assert.Empty(daemon.Requests);
+        Assert.DoesNotContain("display-message", daemon.Probes.SelectMany(static each => each));
+    }
+
+    [Fact]
+    public async Task A_probe_report_over_more_than_one_line_is_refused()
+    {
+        var daemon = new FakeDaemon("3.8") { ExtraProbeLine = "extra" };
+
+        await Assert.ThrowsAsync<TmuxCommandException>(
+            () => daemon.Server.ExecuteCommandAsync(["new-session", "-d"], TestContext.Current.CancellationToken));
+
+        Assert.Empty(daemon.Commands);
     }
 
     [Fact]
@@ -399,6 +436,8 @@ public sealed class MinimumTmuxVersionTests
 
         internal string? ProbeError { get; set; }
 
+        internal string? ExtraProbeLine { get; set; }
+
         internal List<TmuxCommandRequest> Requests { get; } = [];
 
         internal List<string[]> Probes { get; } = [];
@@ -429,8 +468,12 @@ public sealed class MinimumTmuxVersionTests
                     return Result(request, 1, string.Empty, "no server running on /tmp/version-unit\n");
                 }
 
-                string marker = expression[..^"#{version}".Length];
-                return Result(request, 1, string.Empty, $"unknown command: {marker}{Version}\n");
+                string marker = expression[..^"#{version},#{pid},#{start_time}".Length];
+                return Result(
+                    request,
+                    1,
+                    string.Empty,
+                    $"unknown command: {marker}{Version},91,901\n" + (ExtraProbeLine is null ? string.Empty : ExtraProbeLine + "\n"));
             }
 
             Requests.Add(request);

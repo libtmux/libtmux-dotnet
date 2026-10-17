@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 
@@ -543,12 +544,12 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                 // from one a human actually attached - tmux counts both the
                 // same way, and a wait or a capture must never read as a
                 // session someone is watching.
-                IReadOnlyList<string> selfName = await starting.SendAsync(
-                        TmuxCommand.Create("display-message", "-p", "#{client_name}"),
-                        cancellationToken)
-                    .WaitAsync(cancellationToken)
-                    .ConfigureAwait(false);
-                ownedClientName = selfName.Count > 0 ? selfName[0] : null;
+                // tmux names a client with no terminal after its process, so
+                // the name is known without asking: a query would run the
+                // user's after-hooks on every watch.
+                ownedClientName = starting is ControlModeSession { ClientProcessId: int clientPid }
+                    ? "client-" + clientPid.ToString(CultureInfo.InvariantCulture)
+                    : null;
                 if (ownedClientName is not null)
                 {
                     hub.RegisterOwnedControlClient(ownedClientName);

@@ -8,6 +8,9 @@ internal interface IControlModeProcess : IDisposable
 {
     public bool HasExited { get; }
 
+    /// <summary>Gets the operating-system process the control client runs as, when it has one.</summary>
+    public int? ProcessId => null;
+
     public string StandardErrorTail => string.Empty;
 
     public Task WriteLineAsync(
@@ -55,6 +58,8 @@ internal sealed class SystemControlModeProcess : IControlModeProcess
     }
 
     public bool HasExited => _process.HasExited;
+
+    public int? ProcessId => _process.Id;
 
     public string StandardErrorTail => Encoding.UTF8.GetString(_standardError.Snapshot());
 

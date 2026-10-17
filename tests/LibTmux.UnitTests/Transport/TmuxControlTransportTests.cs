@@ -264,7 +264,7 @@ public sealed class TmuxControlTransportTests
 
         Assert.Equal([["move-window", "-s", "@1", "-t", "other:"]], probe.Processed);
         Assert.Contains(probe.Client.Commands, command => command.Contains("'rename-window'", StringComparison.Ordinal));
-        Assert.Contains(probe.Client.Commands, command => command.Contains("'display-message' '-p' ''", StringComparison.Ordinal));
+        Assert.Contains(probe.Client.Commands, command => command.Contains("'if-shell' '-F' '1' ''", StringComparison.Ordinal));
     }
 
     private sealed class Probe
@@ -334,7 +334,7 @@ public sealed class TmuxControlTransportTests
             () => new ControlModeSession(new ScriptedClient(endAfterIdentity, endOnCommand)));
     }
 
-    // Answers the attach and the identity query, then ends as scripted.
+    // Answers the attach, then ends as scripted.
     private sealed class ScriptedClient : IControlModeProcess
     {
         private readonly Channel<string> _output = Channel.CreateUnbounded<string>();
@@ -350,7 +350,15 @@ public sealed class TmuxControlTransportTests
             _endOnCommand = endOnCommand;
             _output.Writer.TryWrite("%begin 1 1 0");
             _output.Writer.TryWrite("%end 1 1 0");
+            _output.Writer.TryWrite("%session-changed $1 main");
+            if (endAfterIdentity)
+            {
+                // The client attached, then went before it took anything.
+                Stop();
+            }
         }
+
+        public int? ProcessId => 1;
 
         // What the client answers a command with, by the command's text.
         internal Func<string, string[]>? Replies { get; set; }
@@ -374,19 +382,7 @@ public sealed class TmuxControlTransportTests
 
             string sentinel = command.ToString().Split('\n')[^1];
             int write = Interlocked.Increment(ref _writes);
-            if (write == 1)
-            {
-                // The identity query, then the fence that closes the request.
-                _output.Writer.TryWrite("%begin 1 2 1");
-                _output.Writer.TryWrite("client-1\t$1\t/nonexistent/socket");
-                _output.Writer.TryWrite("%end 1 2 1");
-                Fence(3, sentinel);
-                if (_endAfterIdentity)
-                {
-                    Stop();
-                }
-            }
-            else if (_endOnCommand)
+            if (_endOnCommand)
             {
                 Stop();
             }

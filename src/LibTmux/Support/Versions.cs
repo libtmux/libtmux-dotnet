@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using LibTmux.Internal;
 
 namespace LibTmux.Support;
@@ -29,6 +31,10 @@ internal static class Versions
     private const string NoSuchFile = "(No such file or directory)";
     private const string ConnectionRefused = "(Connection refused)";
 
+    // tmux names only the first word it cannot parse, so the fields are joined
+    // with commas rather than spaces.
+    private const string Report = "#{version},#{pid},#{start_time}";
+
     /// <summary>Gets the lowest tmux release whose daemon this library supports.</summary>
     internal static TmuxVersion Minimum => LibTmuxInfo.MinimumTmuxVersion;
 
@@ -41,7 +47,7 @@ internal static class Versions
     internal static TmuxCommandRequest ProbeRequest(string marker) =>
         TmuxCommandRequest.Group(
             preventServerStart: true,
-            ["run-shell", "-C", marker + "#{version}"]);
+            ["run-shell", "-C", marker + Report]);
 
     /// <summary>Reads a probe's answer.</summary>
     /// <param name="result">What the probing client reported.</param>
@@ -57,9 +63,18 @@ internal static class Versions
             && line.StartsWith(answer, StringComparison.Ordinal))
         {
             string reported = line[answer.Length..];
-            return TmuxVersion.TryParse(reported, out TmuxVersion version)
-                ? ProbeOutcome.Reported(version, result)
-                : ProbeOutcome.Unrecognized(reported, result);
+            string[] fields = reported.Split(',');
+            if (fields.Length != 3 || !TmuxVersion.TryParse(fields[0], out TmuxVersion version))
+            {
+                return ProbeOutcome.Unrecognized(reported, result);
+            }
+
+            return int.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out int pid)
+                && long.TryParse(fields[2], NumberStyles.None, CultureInfo.InvariantCulture, out long start)
+                && pid > 0
+                && start > 0
+                    ? ProbeOutcome.Reported(version, new ServerGeneration(pid, start), result)
+                    : ProbeOutcome.Unrecognized(reported, result);
         }
 
         return NamesAbsentEndpoint(result) ? ProbeOutcome.Absent(result) : ProbeOutcome.Failed(result);
@@ -135,20 +150,24 @@ internal static class Versions
     internal readonly record struct ProbeOutcome(
         ProbeKind Kind,
         TmuxVersion Version,
+        ServerGeneration Generation,
         string Text,
         TmuxCommandResult Result)
     {
         internal static ProbeOutcome Absent(TmuxCommandResult result) =>
-            new(ProbeKind.Absent, default, string.Empty, result);
+            new(ProbeKind.Absent, default, default, string.Empty, result);
 
         internal static ProbeOutcome Failed(TmuxCommandResult result) =>
-            new(ProbeKind.Failed, default, string.Empty, result);
+            new(ProbeKind.Failed, default, default, string.Empty, result);
 
-        internal static ProbeOutcome Reported(TmuxVersion version, TmuxCommandResult result) =>
-            new(ProbeKind.Version, version, version.Raw, result);
+        internal static ProbeOutcome Reported(
+            TmuxVersion version,
+            ServerGeneration generation,
+            TmuxCommandResult result) =>
+            new(ProbeKind.Version, version, generation, version.Raw, result);
 
         internal static ProbeOutcome Unrecognized(string text, TmuxCommandResult result) =>
-            new(ProbeKind.Unrecognized, default, text, result);
+            new(ProbeKind.Unrecognized, default, default, text, result);
     }
 
     internal enum ProbeKind
