@@ -204,7 +204,7 @@ the pause imitates.
 ## Which tmux it drives
 
 Whatever `tmux` resolves to on the path, or the binary `LIBTMUX_TMUX` names.
-The supported range is 3.3a to 3.7c, proven from source on every commit.
+The supported range is 3.3a to 3.8, proven from source on every commit.
 
 ## Related packages
 
