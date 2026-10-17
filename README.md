@@ -12,7 +12,7 @@
 [![LibTmux](https://img.shields.io/nuget/vpre/LibTmux?logo=nuget&label=LibTmux)](https://www.nuget.org/packages/LibTmux)
 [![downloads](https://img.shields.io/nuget/dt/LibTmux?logo=nuget&label=downloads)](https://www.nuget.org/packages/LibTmux)
 [![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
-[![tmux 3.3a – 3.7c](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
+[![tmux 3.3a – 3.8](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Drive [tmux](https://github.com/tmux/tmux) from C#. [Servers][api-server],
@@ -268,7 +268,7 @@ TmuxVersion? version = server.Version;
 Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVersion.Parse("3.4"))}");
 ```
 
-Every measured difference between 3.3a and 3.7c is [recorded with the test that proves
+Every measured difference between 3.3a and 3.8 is [recorded with the test that proves
 it](docs/parity/version-deltas.json), and [dotnet-tmux.yml](.github/workflows/dotnet-tmux.yml)
 builds each supported release from source on every commit.
 
@@ -633,7 +633,7 @@ as `env`:
 
 | | |
 |---|---|
-| tmux | Stable 3.3a and newer. CI builds 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, and 3.7c; development, release-candidate, and `next-*` versions have unknown capability state |
+| tmux | Stable 3.3a and newer. CI builds 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, 3.7c, and 3.8; development, release-candidate, and `next-*` versions have unknown capability state |
 | .NET | net8.0, net10.0 |
 | OS | Linux, macOS. The bounded [`Psmux*` native-Windows and WSL query preview](docs/psmux.md) is experimental; its release gate runs both paths on net8.0 and net10.0 |
 | Trimming / NativeAOT | `LibTmux` core is analyzer-gated and its smoke app is published and run for `linux-x64` on net8.0 and net10.0. [`Compile`][api-query-queryextensions-compile] and [`Matching`][api-query-queryextensions-matching] resolve properties by name, so they warn trimmed callers to preserve the filtered types' public properties. The proof does not cover the other packages, macOS, or native Windows/psmux |

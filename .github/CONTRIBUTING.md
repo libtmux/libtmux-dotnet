@@ -578,7 +578,7 @@ $ uv run python eng/parity/verify_tmux_versions.py
 ```
 
 **A version-dependent behaviour needs a row in the ledger.** Anything that
-differs between 3.3a and 3.7c goes through the capability model, and each
+differs between 3.3a and 3.8 goes through the capability model, and each
 difference names the test that proves it in
 [`docs/parity/version-deltas.json`](../docs/parity/version-deltas.json). A
 gate on a raw `TmuxVersion.Parse("...")` comparison anywhere else in
@@ -775,7 +775,7 @@ hour.
 ## Compatibility
 
 Stable tmux **3.3a and newer**, on **net8.0** and **net10.0**. The required
-Linux matrix covers 3.3a through 3.7c; the advisory macOS lane uses the current
+Linux matrix covers 3.3a through 3.8; the advisory macOS lane uses the current
 Homebrew tmux. Windows is unsupported. The `LibTmux` core package and the
 static `LibTmux.FSharp` snapshot route have Linux NativeAOT execution smoke
 tests. Optional packages make narrower compatibility claims in their project
