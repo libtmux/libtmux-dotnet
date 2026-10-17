@@ -285,6 +285,31 @@ public sealed class MinimumTmuxVersionTests
     }
 
     [UnixFact]
+    public async Task A_pane_wait_below_the_control_floor_polls_without_being_asked()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string floor = FloorBuild();
+        await using var daemon = await TestDaemon.StartAsync(floor, token);
+        await daemon.RequireAsync(["new-session", "-d", "-s", "polled", "exec /bin/cat"], token);
+        Server server = await Server.ConnectAsync(daemon.Options(floor), token);
+        Session session = Assert.Single(await server.GetSessionsAsync(token), s => s.Name == "polled");
+        Pane pane = Assert.Single(await Assert.Single(await session.GetWindowsAsync(token)).GetPanesAsync(token));
+        const string Marker = "polled-ready";
+
+        Task<PaneWaitResult> waiting = pane.WaitForTextAsync(
+            PaneWaitRequest.FromTextPatterns([Marker], simpleMatch: true) with
+            {
+                Timeout = TimeSpan.FromSeconds(5),
+            },
+            token);
+        await pane.SendTextAsync(Marker, enter: true, cancellationToken: token);
+        PaneWaitResult result = await waiting;
+
+        Assert.True(result.Outcome is PaneWaitOutcome.Matched or PaneWaitOutcome.PresentAtEntry);
+        Assert.True(result.PollingFallback);
+    }
+
+    [UnixFact]
     public async Task Attaching_and_watching_through_a_control_client_fires_no_hook()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
