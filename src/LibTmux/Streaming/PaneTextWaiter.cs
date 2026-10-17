@@ -77,6 +77,20 @@ internal static class PaneTextWaiter
                 bounded.OmittedBytes);
         }
 
+        // The deadline timer can fire a fraction of a millisecond before the
+        // monotonic clock shows the whole timeout. A timeout is reported only
+        // once the clock does, so wait out what is left.
+        async Task WaitOutResidualAsync()
+        {
+            while (elapsed.Elapsed < options.Timeout)
+            {
+                TimeSpan residual = options.Timeout - elapsed.Elapsed;
+                await Task.Delay(
+                    residual < TimeSpan.FromMilliseconds(1) ? TimeSpan.FromMilliseconds(1) : residual,
+                    clock, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+
         try
         {
             if (typedEcho is { Length: > 0 })
@@ -862,6 +876,7 @@ internal static class PaneTextWaiter
             && !cancellationToken.IsCancellationRequested
             && !activity.LifetimeToken.IsCancellationRequested)
         {
+            await WaitOutResidualAsync().ConfigureAwait(false);
             return DeadlineResult();
         }
         catch (RegexMatchTimeoutException) when ((elapsed.Elapsed >= options.Timeout

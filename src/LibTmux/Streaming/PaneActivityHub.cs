@@ -125,6 +125,11 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pane);
+        if (ControlIsUnsupported(pane.Server))
+        {
+            return new NullLease(null);
+        }
+
         SessionWatchKey key = SessionWatchKey.From(pane);
         return await WatchAsync(
                 key,
@@ -141,6 +146,11 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     internal async Task<IAsyncDisposable> WatchAsync(Session session, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
+        if (ControlIsUnsupported(session.Server))
+        {
+            return new NullLease(null);
+        }
+
         SessionWatchKey key = SessionWatchKey.From(session);
         return await WatchAsync(
                 key,
@@ -151,6 +161,11 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                 cancellationToken)
             .ConfigureAwait(false);
     }
+
+    // Below the first release that is safe to attach a control client to,
+    // the library does not attach one, so a wait polls without being asked to.
+    private static bool ControlIsUnsupported(Server server) =>
+        server.Version is { } version && version < TmuxControlTransport.FirstSafeVersion;
 
     private Task<IControlModeSession> StartPaneSessionAsync(
         Pane pane,

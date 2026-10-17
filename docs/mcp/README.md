@@ -140,6 +140,8 @@ to follow only new output.
   `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` to re-read the pane every 60 ms
   instead. The result then says `pollingFallback: true`, a warning goes to
   stderr, and [`tmux://capabilities`][api-mcp-capabilities] reports the policy.
+  Below tmux 3.7 no control client is attached, so waits poll without this
+  setting.
 - `eventsDropped` counts notifications lost during the wait, possibly from other
   panes in the session. The server re-reads the pane, but a match shows what the
   capture held, not a complete terminal transcript.
