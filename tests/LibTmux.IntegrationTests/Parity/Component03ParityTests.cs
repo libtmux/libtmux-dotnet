@@ -90,7 +90,7 @@ public sealed class Component03ParityTests
         bool proved = pythonSymbolId switch
         {
             "libtmux.common:TMUX_MAX_VERSION" =>
-                LibTmuxInfo.MaximumTestedTmuxVersion == TmuxVersion.Parse("3.7c"),
+                LibTmuxInfo.MaximumTestedTmuxVersion == TmuxVersion.Parse("3.8"),
             "libtmux.common:TMUX_MIN_VERSION" =>
                 LibTmuxInfo.MinimumTmuxVersion == TmuxVersion.Parse("3.3a"),
             "libtmux.common:get_libtmux_version" => LibTmuxInfo.Version.Major >= 0,

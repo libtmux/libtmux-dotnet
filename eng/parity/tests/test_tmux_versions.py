@@ -66,7 +66,7 @@ def write(root: pathlib.Path, supported: list[str]) -> pathlib.Path:
     return root
 
 
-VERSIONS = ["3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b", "3.7c"]
+VERSIONS = ["3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b", "3.7c", "3.8"]
 
 
 def test_the_repository_agrees_with_its_manifest() -> None:

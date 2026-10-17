@@ -217,13 +217,16 @@ REQUIRED_TMUX_VERSIONS = (
     "3.7a",
     "3.7b",
     "3.7c",
+    "3.8",
 )
 LEGACY_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-1]
+OLDER_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-2]
 # Recorded evidence keeps the SDK it ran under; run-matrix.sh stamps new
 # runs with the pinned SDK, the newest of these.
 KNOWN_SDK_VERSIONS = {"10.0.302", "10.0.303"}
 
 KNOWN_REQUIRED_TMUX_VERSION_SETS = {
+    OLDER_REQUIRED_TMUX_VERSIONS,
     LEGACY_REQUIRED_TMUX_VERSIONS,
     REQUIRED_TMUX_VERSIONS,
 }

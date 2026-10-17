@@ -167,7 +167,7 @@ public sealed class TmuxCapabilitiesTests
     public void Package_support_metadata_is_inclusive_and_not_a_ceiling()
     {
         Assert.Equal(TmuxVersion.Parse("3.3a"), LibTmuxInfo.MinimumTmuxVersion);
-        Assert.Equal(TmuxVersion.Parse("3.7c"), LibTmuxInfo.MaximumTestedTmuxVersion);
+        Assert.Equal(TmuxVersion.Parse("3.8"), LibTmuxInfo.MaximumTestedTmuxVersion);
         Assert.NotNull(LibTmuxInfo.Version);
         Assert.True(TmuxVersion.Parse("next-3.8").IsAtLeast(LibTmuxInfo.MinimumTmuxVersion));
     }
