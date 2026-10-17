@@ -137,7 +137,6 @@ def write_fixture(
             "byte_length_framing",
             "control_notifications",
             "format_fields_and_operators",
-            "missing_target_format_safety",
             "option_dollar_double_escape",
             "semicolon_grouping",
         }
@@ -297,23 +296,17 @@ def test_cohort_maps_only_protocol_observations_to_frozen_production_tests(
         "choose_tree_sort_time": "ChooseTreeSortTime",
         "capture_pane_trim_trailing": "CapturePaneTrimTrailing",
         "clear_history_hyperlinks": "ClearHistoryHyperlinks",
-        "clear_prompt_history_command": "ClearPromptHistoryCommand",
         "command_prompt_3_7_behavior": "CommandPrompt37Behavior",
-        "command_prompt_background": "CommandPromptBackground",
         "command_prompt_literal": "CommandPromptLiteral",
         "confirm_before_acceptance": "ConfirmBeforeAcceptance",
-        "confirm_before_background": "ConfirmBeforeBackground",
         "control_notifications": "ControlNotifications",
         "copy_mode_page_down": "CopyModePageDown",
         "display_menu_mouse": "DisplayMenuMouse",
         "display_menu_styles": "DisplayMenuStyles",
-        "display_message_client": "DisplayMessageClient",
         "display_message_literal": "DisplayMessageLiteral",
         "display_message_update_pane": "DisplayMessageUpdatePane",
-        "display_popup_3_3_options": "DisplayPopup33Options",
         "display_popup_3_6_key_policy": "DisplayPopup36KeyPolicy",
         "format_fields_and_operators": "FormatFieldsAndOperators",
-        "missing_target_format_safety": "MissingTargetFormatSafety",
         "hook_scope_pane_window_set": "HookScopePaneWindowSet",
         "hook_scope_pane_window_show": "HookScopePaneWindowShow",
         "kill_session_group": "KillSessionGroup",
@@ -329,8 +322,6 @@ def test_cohort_maps_only_protocol_observations_to_frozen_production_tests(
         "run_shell_working_directory": "RunShellWorkingDirectory",
         "semicolon_grouping": "SemicolonGrouping",
         "send_keys_client_keys": "SendKeysClientKeys",
-        "server_access_command": "ServerAccessCommand",
-        "show_prompt_history_command": "ShowPromptHistoryCommand",
         "split_window_appearance": "SplitWindowAppearance",
         "split_window_empty": "SplitWindowEmpty",
     }
@@ -376,7 +367,6 @@ def test_cohort_maps_only_protocol_observations_to_frozen_production_tests(
             "byte_length_framing",
             "control_notifications",
             "format_fields_and_operators",
-            "missing_target_format_safety",
             "option_dollar_double_escape",
             "semicolon_grouping",
         )
@@ -661,7 +651,7 @@ def test_closure_cohort_uses_only_exact_wrapper_policy_proofs(
         row for row in reconciled["capabilities"] if row.get("kind") == "command_gate"
     ]
 
-    assert len(policies) == 36
+    assert len(policies) == 29
     assert {row["evidenceStatus"] for row in policies} == {"verified"}
     assert {row["evidence"]["capabilityCohort"] for row in policies} == {CLOSURE_COHORT}
     assert {
@@ -675,8 +665,8 @@ def test_workspace_cohort_reconciles_exact_complete_native_proofs(
     """Admit fresh layout, protocol, and wrapper proofs without changing old cohorts."""
     namespace = load_reconciler()
     cohorts = namespace["EVIDENCE_COHORT_TESTS"]
-    assert len(cohorts[CAPABILITY_COHORT]) == 7
-    assert len(cohorts[CLOSURE_COHORT]) == 36
+    assert len(cohorts[CAPABILITY_COHORT]) == 6
+    assert len(cohorts[CLOSURE_COHORT]) == 29
     mapping = cohorts["workspace"]
     assert mapping == {
         **cohorts[CAPABILITY_COHORT],
@@ -718,7 +708,7 @@ def test_workspace_cohort_reconciles_exact_complete_native_proofs(
         repository=tmp_path,
         document_path=document_path,
     )
-    assert len(reconciled["capabilities"]) == 44
+    assert len(reconciled["capabilities"]) == 36
     assert {row["evidenceStatus"] for row in reconciled["capabilities"]} == {"verified"}
     assert {
         row["capability"]: tuple(row["evidence"]["tests"])
@@ -1394,15 +1384,6 @@ def test_command_flag_capabilities_freeze_version_and_fallback_behavior() -> Non
             "warn_and_ignore",
             ("libtmux.pane:Pane.clear_history",),
         ),
-        "clear_prompt_history_command": (
-            "command",
-            "clear-prompt-history",
-            (),
-            "3.3",
-            "unknown",
-            "throw_unsupported_version",
-            ("libtmux.server:Server.clear_prompt_history",),
-        ),
         "command_prompt_3_7_behavior": (
             "flags",
             "command-prompt",
@@ -1410,15 +1391,6 @@ def test_command_flag_capabilities_freeze_version_and_fallback_behavior() -> Non
             "3.7",
             "unknown",
             "warn_and_ignore",
-            ("libtmux.server:Server.command_prompt",),
-        ),
-        "command_prompt_background": (
-            "flags",
-            "command-prompt",
-            ("-b", "-F"),
-            "3.3",
-            "unknown",
-            "throw_unsupported_version",
             ("libtmux.server:Server.command_prompt",),
         ),
         "command_prompt_literal": (
@@ -1437,15 +1409,6 @@ def test_command_flag_capabilities_freeze_version_and_fallback_behavior() -> Non
             "3.4",
             "unknown",
             "warn_and_ignore",
-            ("libtmux.server:Server.confirm_before",),
-        ),
-        "confirm_before_background": (
-            "flag",
-            "confirm-before",
-            ("-b",),
-            "3.3",
-            "unknown",
-            "throw_unsupported_version",
             ("libtmux.server:Server.confirm_before",),
         ),
         "copy_mode_page_down": (
@@ -1475,15 +1438,6 @@ def test_command_flag_capabilities_freeze_version_and_fallback_behavior() -> Non
             "warn_and_ignore",
             ("libtmux.server:Server.display_menu",),
         ),
-        "display_message_client": (
-            "flag",
-            "display-message",
-            ("-c",),
-            "3.3",
-            "unknown",
-            "warn_and_ignore",
-            ("libtmux.server:Server.cmd",),
-        ),
         "display_message_literal": (
             "flag",
             "display-message",
@@ -1505,15 +1459,6 @@ def test_command_flag_capabilities_freeze_version_and_fallback_behavior() -> Non
             "unknown",
             "warn_and_ignore",
             ("libtmux.pane:Pane.display_message",),
-        ),
-        "display_popup_3_3_options": (
-            "flags",
-            "display-popup",
-            ("-T", "-b", "-s", "-S", "-e", "-B"),
-            "3.3",
-            "unknown",
-            "warn_and_ignore",
-            ("libtmux.pane:Pane.display_popup",),
         ),
         "display_popup_3_6_key_policy": (
             "flags",
@@ -1639,24 +1584,6 @@ def test_command_flag_capabilities_freeze_version_and_fallback_behavior() -> Non
             "warn_and_ignore",
             ("libtmux.pane:Pane.send_keys",),
         ),
-        "server_access_command": (
-            "command",
-            "server-access",
-            (),
-            "3.3",
-            "unknown",
-            "throw_unsupported_version",
-            ("libtmux.server:Server.server_access",),
-        ),
-        "show_prompt_history_command": (
-            "command",
-            "show-prompt-history",
-            (),
-            "3.3",
-            "unknown",
-            "throw_unsupported_version",
-            ("libtmux.server:Server.show_prompt_history",),
-        ),
         "split_window_appearance": (
             "flags",
             "split-window",
@@ -1724,19 +1651,14 @@ def test_command_policies_have_exact_later_component_owners() -> None:
         "choose_tree_sort_time": (12,),
         "capture_pane_trim_trailing": (12,),
         "clear_history_hyperlinks": (12,),
-        "clear_prompt_history_command": (16,),
         "command_prompt_3_7_behavior": (16,),
-        "command_prompt_background": (16,),
         "command_prompt_literal": (16,),
         "confirm_before_acceptance": (16,),
-        "confirm_before_background": (16,),
         "copy_mode_page_down": (12,),
         "display_menu_mouse": (16,),
         "display_menu_styles": (16,),
-        "display_message_client": (16,),
         "display_message_literal": (11, 12, 16),
         "display_message_update_pane": (12,),
-        "display_popup_3_3_options": (12,),
         "display_popup_3_6_key_policy": (12,),
         "hook_scope_pane_window_set": (15,),
         "hook_scope_pane_window_show": (15,),
@@ -1750,8 +1672,6 @@ def test_command_policies_have_exact_later_component_owners() -> None:
         "run_shell_show_stderr": (16,),
         "run_shell_working_directory": (16,),
         "send_keys_client_keys": (12,),
-        "server_access_command": (16,),
-        "show_prompt_history_command": (16,),
         "split_window_appearance": (12,),
         "split_window_empty": (12,),
     }

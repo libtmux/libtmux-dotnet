@@ -84,7 +84,6 @@ def _matrix_producer(
                 "sourceState": source_state,
                 "sourceTreeFingerprint": fingerprint,
                 "tmuxVersions": [
-                    "3.2a",
                     "3.3a",
                     "3.4",
                     "3.5",
@@ -108,7 +107,7 @@ def _matrix_producer(
             "tmuxSourceCommit": "e" * 40,
             "tmuxVersion": version,
         }
-        for version in ["3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b"]
+        for version in ["3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b"]
         for framework in ["net10.0", "net8.0"]
     ]
     (producer / "results.ndjson").write_text(
