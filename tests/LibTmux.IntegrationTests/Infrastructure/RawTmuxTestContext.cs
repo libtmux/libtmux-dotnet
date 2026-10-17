@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.Versioning;
 using System.Text;
+using LibTmux.Internal;
 
 namespace LibTmux.IntegrationTests.Infrastructure;
 
@@ -28,6 +30,25 @@ internal sealed class RawTmuxTestContext : IAsyncDisposable
 
     internal string SessionName { get; }
 
+    internal static string ConfiguredBinary
+    {
+        get
+        {
+            string configured = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? string.Empty;
+            return string.IsNullOrWhiteSpace(configured) ? "tmux" : configured;
+        }
+    }
+
+    // The library attaches no control client to a server older than 3.7 (a
+    // tmux before then can crash on the attach), and a wait there polls. A
+    // test about the control client has nothing to observe on those servers.
+    [UnsupportedOSPlatform("windows")]
+    internal static async Task SkipBelowControlClientAsync(CancellationToken cancellationToken) =>
+        Assert.SkipWhen(
+            await TmuxVersion.DetectAsync(ConfiguredBinary, cancellationToken)
+                < TmuxControlTransport.FirstSafeVersion,
+            "The library attaches no control client before tmux 3.7.");
+
     public static async Task<RawTmuxTestContext> StartAsync(
         CancellationToken cancellationToken)
     {
@@ -38,10 +59,7 @@ internal sealed class RawTmuxTestContext : IAsyncDisposable
                 "Real tmux integration tests require Linux or macOS.");
         }
 
-        string configuredBinary = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? string.Empty;
-        string tmuxBinaryPath = string.IsNullOrWhiteSpace(configuredBinary)
-            ? "tmux"
-            : configuredBinary;
+        string tmuxBinaryPath = ConfiguredBinary;
         string nonce = Guid.NewGuid().ToString("N")[..16];
         string socketPath = Path.Combine(Path.GetTempPath(), $"ltcs-{nonce}.sock");
         string sessionName = $"ltcs-{nonce}";

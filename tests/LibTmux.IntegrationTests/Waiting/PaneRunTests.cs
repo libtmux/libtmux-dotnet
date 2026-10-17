@@ -571,6 +571,7 @@ public sealed class PaneRunTests
     public async Task A_wait_whose_watcher_meets_the_servers_exit_reports_the_pane_gone()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         string directory = Directory.CreateTempSubdirectory("ltm-exit-").FullName;
         string wrapper = Path.Combine(directory, "tmux-wrapper");

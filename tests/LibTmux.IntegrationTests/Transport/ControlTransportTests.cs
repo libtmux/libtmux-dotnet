@@ -13,7 +13,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         Server server = await ConnectAsync(raw, token);
         Server sameSocket = await ConnectAsync(raw, token);
 
@@ -42,7 +42,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         Server server = await ConnectAsync(raw, token);
         _ = await server.GetSessionsAsync(token);
         string before = Assert.Single(await ControlClientsAsync(raw, token));
@@ -65,7 +65,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         Server server = await ConnectAsync(raw, token);
         _ = await server.GetSessionsAsync(token);
         string before = Assert.Single(await ControlClientsAsync(raw, token));
@@ -89,7 +89,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         Server server = await ConnectAsync(raw, token);
         _ = await server.CreateSessionAsync(new NewSessionRequest { Name = "spare" }, token);
         IReadOnlyList<Session> sessions = await server.GetSessionsAsync(token);
@@ -114,7 +114,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         Server server = await ConnectAsync(raw, token);
         _ = await server.GetSessionsAsync(token);
         string[] first = (await ControlClientsAsync(raw, token))[0].Split('\t');
@@ -136,7 +136,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         Server server = await ConnectAsync(raw, token);
         _ = await server.GetSessionsAsync(token);
         string client = Assert.Single(await ControlClientsAsync(raw, token));
@@ -166,7 +166,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         Server server = await ConnectAsync(raw, token);
         Session session = Assert.Single(await server.GetSessionsAsync(token));
         string before = Assert.Single(await ControlClientsAsync(raw, token));
@@ -193,7 +193,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         Server server = await ConnectAsync(raw, token);
         _ = await server.GetSessionsAsync(token);
 
@@ -223,7 +223,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         Server server = await ConnectAsync(raw, token);
         _ = await server.CreateSessionAsync(new NewSessionRequest { Name = "spare" }, token);
         IReadOnlyList<Session> sessions = await server.GetSessionsAsync(token);
@@ -246,7 +246,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         Server server = await Server.ConnectAsync(
             new ServerConnectionOptions
             {
@@ -282,7 +282,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext first = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(first, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using RawTmuxTestContext second = await RawTmuxTestContext.StartAsync(token);
         string link = Path.Combine(Path.GetTempPath(), $"ltcs-link-{Guid.NewGuid():N}.sock");
         File.CreateSymbolicLink(link, first.SocketPath);
@@ -355,7 +355,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
 
         async Task<int> ClientsAfterAReadAsync(string? setting)
         {
@@ -384,7 +384,7 @@ public sealed class ControlTransportTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        await SkipWhereTheClientIsOffAsync(raw, token);
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         _ = await raw.ExecuteAsync(
             [
                 "set-hook", "-g", "client-attached",
@@ -411,14 +411,6 @@ public sealed class ControlTransportTests
         _ = await server.GetSessionsAsync(token);
         Assert.Equal("2", await AttachCountAsync(raw, token));
     }
-
-    // The shared client stays off servers older than 3.7: before 3.7 attaching
-    // can crash the server (tmux e5a2a25fa), so there is no client to look for
-    // there.
-    private static async Task SkipWhereTheClientIsOffAsync(RawTmuxTestContext raw, CancellationToken token) =>
-        Assert.SkipWhen(
-            await TmuxVersion.DetectAsync(raw.TmuxBinaryPath, token) < TmuxVersion.Parse("3.7"),
-            "The shared control client is off before tmux 3.7.");
 
     private static async Task<string> AttachCountAsync(RawTmuxTestContext raw, CancellationToken token) =>
         (await raw.ExecuteAsync(["show-options", "-gqv", "@attached"], token)).StandardOutputText.Trim();

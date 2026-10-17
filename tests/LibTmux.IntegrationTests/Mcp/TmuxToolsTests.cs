@@ -508,6 +508,7 @@ public sealed class TmuxToolsTests
     public async Task A_wait_streams_from_tmux_rather_than_falling_back_to_polling()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
 
@@ -536,6 +537,7 @@ public sealed class TmuxToolsTests
     {
         var clock = new ControlledClock();
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();
         // An interactive shell can print after its creation command returns.
         // Keep this fixture silent while the wait observes its deadline.
@@ -623,6 +625,7 @@ public sealed class TmuxToolsTests
     public async Task A_text_wait_refreshes_after_notification_loss_and_discloses_it()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await new TmuxTestFactory()
             .CreateHierarchyAsync(mcp.Options, token);
@@ -1453,6 +1456,7 @@ public sealed class TmuxToolsTests
     public async Task List_sessions_excludes_this_servers_own_observation_from_attached()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
         string pane = scope.Pane.Id.ToString();

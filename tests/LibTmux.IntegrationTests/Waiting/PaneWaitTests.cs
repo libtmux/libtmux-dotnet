@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
+using LibTmux.Internal;
 
 namespace LibTmux.IntegrationTests.Waiting;
 
@@ -45,6 +46,7 @@ public sealed class PaneWaitTests
     public async Task A_wait_reads_the_pane_through_its_control_client()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         RawTmuxResult created = await raw.ExecuteAsync(
             ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sh"],
@@ -144,6 +146,7 @@ public sealed class PaneWaitTests
     public async Task A_wide_row_of_combining_marks_leaves_the_held_client_running()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         string name = raw.SessionName + "-wide";
         RawTmuxResult created = await raw.ExecuteAsync(
@@ -262,6 +265,7 @@ public sealed class PaneWaitTests
     public async Task A_held_wait_client_serves_a_series_of_waits_and_then_detaches()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         RawTmuxResult created = await raw.ExecuteAsync(
             ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sh"],
@@ -314,6 +318,39 @@ public sealed class PaneWaitTests
         Assert.Equal(PaneWaitOutcome.TimedOut, absent.Outcome);
         Assert.True(absent.Elapsed >= TimeSpan.FromMilliseconds(200),
             $"Elapsed={absent.Elapsed.TotalMilliseconds:F4}ms, Timeout={absent.EffectiveTimeout.TotalMilliseconds:F4}ms");
+    }
+
+    [UnixFact]
+    public async Task A_timeout_is_reported_only_once_the_clock_shows_it_whichever_way_tmux_is_read()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Pane pane = await NewPaneAsync(raw, "idle", "printf 'quiet\\n'", token);
+        await raw.ExecuteAsync(["wait-for", "-S", Channel(raw, "idle")], token);
+        await raw.ExecuteAsync(["wait-for", Channel(raw, "idle-done")], token);
+        TimeSpan timeout = TimeSpan.FromMilliseconds(300);
+        await using PaneActivityHub hub = new(
+            static (observed, cancellation) => observed.Server.EnterControlModeAsync(
+                observed.Session.Id.ToString(), cancellation),
+            deadlineClock: new EarlyTimerClock(TimeSpan.FromMilliseconds(40)));
+
+        PaneWaitResult result = await PaneTextWaiter.WaitAsync(
+            hub, pane, new PaneWaitRequest { Patterns = [new Regex("never")], Timeout = timeout }.Snapshot(),
+            matchLines: null, tailLines: null, progress: null, cancellationToken: token);
+
+        Assert.Equal(PaneWaitOutcome.TimedOut, result.Outcome);
+        Assert.True(result.Elapsed >= timeout,
+            $"Elapsed={result.Elapsed.TotalMilliseconds:F4}ms, Timeout={timeout.TotalMilliseconds:F4}ms");
+    }
+
+    // A deadline timer that fires before its time, as a system timer can by a
+    // fraction of a millisecond, while the clock it reads stays honest.
+    private sealed class EarlyTimerClock(TimeSpan early) : TimeProvider
+    {
+        public override ITimer CreateTimer(
+            TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) =>
+            base.CreateTimer(
+                callback, state, dueTime > early * 2 ? dueTime - early : dueTime, period);
     }
 
     [UnixFact]

@@ -86,6 +86,58 @@ public sealed class MinimumTmuxVersionTests
         Assert.Equal(0, (await daemon.RunAsync(["has-session", "-t", $"={Sentinel}"], token)).ExitCode);
     }
 
+    // A server older than tmux 3.2 keeps the client's stdout pipe open after
+    // the client exits (stderr closes), so reading stdout to the end never
+    // returns. The refusal has to come back once the client is gone and the
+    // pipes go quiet.
+    [UnixFact]
+    public async Task A_daemon_before_3_2_that_holds_the_clients_pipes_is_refused_promptly()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string rejected = Rejected();
+        await using var daemon = await TestDaemon.StartAsync(rejected, token);
+        Server server = Server.Open(daemon.Options(Qualified()));
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(token);
+        budget.CancelAfter(TimeSpan.FromSeconds(20));
+        Stopwatch clock = Stopwatch.StartNew();
+
+        _ = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            () => server.ExecuteCommandAsync(["new-session", "-d", "-s", "effect"], budget.Token));
+
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(8), $"The refusal took {clock.Elapsed}.");
+    }
+
+    // A client older than tmux 3.2 does not know -N, which every probe passes,
+    // so it cannot be used to reach any daemon and is refused by its own
+    // version, with nothing started.
+    [UnixFact]
+    public async Task A_client_before_3_2_is_refused_by_its_own_version()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string rejected = Rejected();
+        await using var daemon = await TestDaemon.StartAsync(FloorBuild(), token);
+        Server live = Server.Open(daemon.Options(rejected));
+        using var directory = new ScratchDirectory();
+        string socket = Path.Join(directory.Path, "s");
+        Server absent = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = rejected,
+            SocketPath = socket,
+            ConfigurationFile = "/dev/null",
+        });
+
+        foreach (Server server in new[] { live, absent })
+        {
+            TmuxVersionTooLowException refusal = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+                () => server.ExecuteCommandAsync(["new-session", "-d", "-s", "effect"], token));
+            Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+            Assert.Contains("Upgrade tmux and restart the tmux server", refusal.Message, StringComparison.Ordinal);
+        }
+
+        Assert.Equal([Sentinel], await daemon.SessionsAsync(token));
+        Assert.False(File.Exists(socket));
+    }
+
     [UnixFact]
     public async Task A_daemon_below_the_minimum_is_refused_whatever_its_client_reports()
     {
@@ -150,8 +202,18 @@ public sealed class MinimumTmuxVersionTests
 
         await daemon.ReplaceAsync(rejected, token);
 
-        await Assert.ThrowsAsync<StaleServerGenerationException>(() => session.GetWindowsAsync(token));
-        await Assert.ThrowsAsync<StaleServerGenerationException>(
+        // A replacement that is itself below the minimum is refused as that;
+        // any other is a different daemon than the handle was bound to.
+        static async Task RefusedAsync(Func<Task> operation)
+        {
+            Exception refusal = await Assert.ThrowsAnyAsync<Exception>(operation);
+            Assert.True(
+                refusal is StaleServerGenerationException or TmuxVersionTooLowException,
+                $"{refusal.GetType().Name}: {refusal.Message}");
+        }
+
+        await RefusedAsync(() => session.GetWindowsAsync(token));
+        await RefusedAsync(
             () => session.CreateWindowAsync(new NewWindowRequest { Name = "effect" }, token));
         _ = Assert.Single((await daemon.RunAsync(["list-windows", "-a"], token)).StandardOutputLines);
     }
@@ -282,6 +344,31 @@ public sealed class MinimumTmuxVersionTests
 
         Assert.Equal(string.Empty, await daemon.OptionAsync("@after-display", token));
         Assert.Equal(string.Empty, await daemon.OptionAsync("@command-error", token));
+    }
+
+    [UnixFact]
+    public async Task A_pane_wait_below_the_control_floor_polls_without_being_asked()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string floor = FloorBuild();
+        await using var daemon = await TestDaemon.StartAsync(floor, token);
+        await daemon.RequireAsync(["new-session", "-d", "-s", "polled", "exec /bin/cat"], token);
+        Server server = await Server.ConnectAsync(daemon.Options(floor), token);
+        Session session = Assert.Single(await server.GetSessionsAsync(token), s => s.Name == "polled");
+        Pane pane = Assert.Single(await Assert.Single(await session.GetWindowsAsync(token)).GetPanesAsync(token));
+        const string Marker = "polled-ready";
+
+        Task<PaneWaitResult> waiting = pane.WaitForTextAsync(
+            PaneWaitRequest.FromTextPatterns([Marker], simpleMatch: true) with
+            {
+                Timeout = TimeSpan.FromSeconds(5),
+            },
+            token);
+        await pane.SendTextAsync(Marker, enter: true, cancellationToken: token);
+        PaneWaitResult result = await waiting;
+
+        Assert.True(result.Outcome is PaneWaitOutcome.Matched or PaneWaitOutcome.PresentAtEntry);
+        Assert.True(result.PollingFallback);
     }
 
     [UnixFact]
@@ -546,7 +633,17 @@ public sealed class MinimumTmuxVersionTests
             Task<string> stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
             Task<string> stderr = process.StandardError.ReadToEndAsync(cancellationToken);
             await process.WaitForExitAsync(cancellationToken);
-            return new RawProcessResult(process.ExitCode, await stdout, await stderr);
+
+            // A server older than tmux 3.2 keeps the stdout pipe it inherited
+            // open after the client that started it has exited, so it never ends.
+            // That client prints nothing, so what has not arrived is empty.
+            await Task.WhenAny(
+                Task.WhenAll(stdout, stderr),
+                Task.Delay(TimeSpan.FromSeconds(2), cancellationToken));
+            return new RawProcessResult(
+                process.ExitCode,
+                stdout.IsCompletedSuccessfully ? stdout.Result : string.Empty,
+                stderr.IsCompletedSuccessfully ? stderr.Result : string.Empty);
         }
     }
 
