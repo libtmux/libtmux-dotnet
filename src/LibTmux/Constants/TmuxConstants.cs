@@ -4,7 +4,7 @@ namespace LibTmux;
 public static class LibTmuxInfo
 {
     private static readonly TmuxVersion Minimum = TmuxVersion.Parse("3.3a");
-    private static readonly TmuxVersion MaximumTested = TmuxVersion.Parse("3.7c");
+    private static readonly TmuxVersion MaximumTested = TmuxVersion.Parse("3.8");
 
     /// <summary>Gets the library assembly version.</summary>
     public static Version Version => typeof(LibTmuxInfo).Assembly.GetName().Version!;

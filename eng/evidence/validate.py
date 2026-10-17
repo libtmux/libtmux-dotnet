@@ -28,11 +28,13 @@ def _supported_tmux_versions() -> tuple[str, ...]:
 
 REQUIRED_TMUX_VERSIONS = _supported_tmux_versions()
 LEGACY_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-1]
+OLDER_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-2]
 # Recorded evidence keeps the SDK it ran under; run-matrix.sh stamps new
 # runs with the pinned SDK, the newest of these.
 KNOWN_SDK_VERSIONS = {"10.0.302", "10.0.303"}
 
 KNOWN_REQUIRED_TMUX_VERSION_SETS = {
+    OLDER_REQUIRED_TMUX_VERSIONS,
     LEGACY_REQUIRED_TMUX_VERSIONS,
     REQUIRED_TMUX_VERSIONS,
 }

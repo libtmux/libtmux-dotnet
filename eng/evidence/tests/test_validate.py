@@ -41,6 +41,7 @@ REQUIRED_TMUX_VERSIONS = [
     "3.7a",
     "3.7b",
     "3.7c",
+    "3.8",
 ]
 REQUIRED_FRAMEWORKS = ["net10.0", "net8.0"]
 REQUIRED_MATRIX_ROWS = len(REQUIRED_TMUX_VERSIONS) * len(REQUIRED_FRAMEWORKS)
@@ -1076,7 +1077,7 @@ def test_matrix_phase_rejects_duplicate_and_unknown_rows(
     with pytest.raises(validate.EvidenceValidationError, match="duplicate"):
         validate.validate_bundle(bundle, phase="matrix")
 
-    rows[-1]["tmuxVersion"] = "3.8"
+    rows[-1]["tmuxVersion"] = "3.9"
     _write_rows(bundle, rows)
     with pytest.raises(validate.EvidenceValidationError, match="unknown"):
         validate.validate_bundle(bundle, phase="matrix")

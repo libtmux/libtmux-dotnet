@@ -29,6 +29,7 @@ REQUIRED_TMUX_VERSIONS = [
     "3.7a",
     "3.7b",
     "3.7c",
+    "3.8",
 ]
 
 
