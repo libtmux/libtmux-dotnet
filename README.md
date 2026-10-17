@@ -324,8 +324,10 @@ generated from the server itself. Pin one socket for the process with
 
 What it is built around is that an assistant should never get stuck and never
 waste context. `run_shell_command` returns the shell's real exit status, and
-`wait_for_text` normally wakes from tmux's control-mode stream, with a bounded
-polling fallback when that stream cannot start. Nothing returns unbounded
+`wait_for_text` wakes from tmux's control-mode stream on tmux 3.7 and newer,
+and polls on older releases, where the library attaches no control client; on
+3.7 and newer a bounded polling fallback is opt-in when that stream cannot
+start. Nothing returns unbounded
 output: `capture_pane` reads visible text and scrollback, while `snapshot_pane`,
 `search_panes`, and `capture_since` provide structured and incremental
 observation. Pane modes belong to attached humans: the MCP never enters,

@@ -123,9 +123,11 @@ cannot describe a tool that is not there:
 | `LIBTMUX_MCP_WAIT_MAX_SECONDS` | `30` | Ceiling on any one wait |
 | `LIBTMUX_MCP_MAX_LINES` | `500` | Default line budget |
 | `LIBTMUX_MCP_MAX_BYTES` | `128000` | Byte budget per result |
-| `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK` | `false` | Permit pane text waits to poll after control observation fails |
+| `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK` | `false` | Permit pane text waits to poll after control observation fails (tmux 3.7 and newer; older releases always poll) |
 
-Set `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` only when timed pane reads are
+On a daemon older than tmux 3.7 no control client is attached and waits poll
+without this setting. On 3.7 and newer, set
+`LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` only when timed pane reads are
 acceptable. Fallback waits 60 ms between repeated captures,
 reports `pollingFallback: true` in the wait result, and logs a warning to stderr.
 `tmux://capabilities` reports the startup policy and interval. This replaces

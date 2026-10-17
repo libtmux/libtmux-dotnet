@@ -92,6 +92,7 @@ internal sealed class CapabilityResource
             {
                 ["controlRequired"] = !_policy.AllowPollingFallback,
                 ["pollingFallbackAllowed"] = _policy.AllowPollingFallback,
+                ["pollsWithoutOptInBelow"] = "3.7",
                 ["pollIntervalMilliseconds"] = _policy.AllowPollingFallback
                     ? PaneActivityHub.PollInterval.TotalMilliseconds : null,
                 ["activationResultField"] = "pollingFallback",
