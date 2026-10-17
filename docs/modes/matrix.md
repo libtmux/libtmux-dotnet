@@ -109,3 +109,25 @@ and for the warmup mistake that once put an impossible number in this table.
 Known behavior differences from tmux 3.3a onward go through the capability
 model. Each measured difference has a row with a real-server proof in
 [the parity ledger](../parity/version-deltas.json).
+
+## Minimum version
+
+The library supports tmux 3.3a and newer, and decides it from the daemon a
+command reaches, not from the client executable. The 3.3 release without its
+patch letter is below the minimum. A release candidate or `next-X.Y` build
+ranks just below the release it names.
+
+Before the first command, the library asks the daemon for its version with
+`run-shell -C`, which fires no `after-*` or `command-error` hook, and throws
+`TmuxVersionTooLowException` for a daemon below the minimum or a report it
+cannot rank, such as `master`. Every command list then opens with an `if-shell`
+that fails unless the daemon still reports that version, so a replaced daemon
+is checked again before anything runs. On a replacement below the minimum the
+command is refused with no effect, a supported replacement is checked afresh,
+and a failed fence on tmux 3.5 or newer fires `command-error`.
+
+An endpoint with no daemon takes its version from the executable that would start one,
+which may report its own file name in place of `tmux`. `kill-server` on an
+absent endpoint does nothing. `-V` and `-h` describe the executable and check
+nothing. Aliases that redefine the commands the library uses are outside this
+contract.
