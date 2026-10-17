@@ -10,6 +10,35 @@ open LibTmux.Internal
 open LibTmux.FSharp
 open Xunit
 
+module AbsentEntity =
+    /// What tmux answers for a target it cannot resolve: its own fields
+    /// resolve and every entity field is empty.
+    let reply (arguments: string array) =
+        let guarded = "17:29\n"
+
+        match Array.tryFindIndexBack ((=) "-t") arguments with
+        | Some index when index + 1 < arguments.Length ->
+            let command =
+                match arguments.[index + 1].[0] with
+                | '@' -> "list-windows"
+                | '%' -> "list-panes"
+                | _ -> "list-sessions"
+
+            let projection = FormatProjection.Create(command, TmuxVersion.Parse "3.3a")
+
+            let value (name: string) =
+                match name with
+                | "pid" -> "17"
+                | "start_time" -> "29"
+                | _ -> ""
+
+            guarded
+            + (projection.Fields
+               |> Seq.map (fun field -> value field.WireName + FormatProjection.RowSeparator)
+               |> String.concat "")
+            + "\n"
+        | _ -> guarded
+
 module ContractTests =
     let private versionReply (arguments: string array) =
         let output = Encoding.UTF8.GetBytes("tmux 3.7\n")
@@ -175,7 +204,7 @@ module ContractTests =
                                     TmuxCommandResult(
                                         arguments,
                                         0,
-                                        ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("17:29\n")),
+                                        ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(AbsentEntity.reply arguments)),
                                         ReadOnlyMemory<byte>.Empty,
                                         [||],
                                         [||]
@@ -183,8 +212,8 @@ module ContractTests =
                                 ))
                 )
 
-            // tmux 3.2a resolves missing IDs through an empty successful listing.
-            let server = LibTmux.Server(connection, ServerGeneration(17, 29), "tmux 3.2a")
+            // tmux answers a missing ID with a successful row whose entity fields are empty.
+            let server = LibTmux.Server(connection, ServerGeneration(17, 29), "tmux 3.3a")
 
             let! absent =
                 task {
