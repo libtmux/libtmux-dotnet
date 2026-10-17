@@ -33,9 +33,10 @@ version.
 - **Operations that are unsafe on a supported tmux are now refused on that
   tmux, without raising the minimum.** `Server.EnterControlModeAsync`, and
   with it `ServerMirror`, throws `TmuxVersionTooLowException` below 3.7
-  before a client attaches; pane waits and streams poll there instead. Deleting or renaming a buffer
-  by name, `Pane.RunAsync` and the MCP `paste_text` need 3.4, a foreground
-  `Server.RunShellAsync` that names no pane needs 3.5, and raw commands and
+  before a client attaches; pane waits and streams poll there instead.
+  Deleting or renaming a buffer by name, `Pane.RunAsync` and the MCP
+  `paste_text` need 3.4, a foreground `run-shell` that names no pane, typed or
+  raw, needs 3.5, and raw commands and
   batches are refused on the release that mishandles them: an unnamed
   `break-pane` and names with `:` or `.` on exactly 3.7, `split-window -p` on
   3.4, and an unchecked `select-layout` below 3.4. See
