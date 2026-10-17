@@ -349,7 +349,9 @@ internal sealed class TmuxConnection
         int cap = Options.MaxCapturedBytesPerStream ?? new TmuxTransportLimits().MaxCapturedBytesPerStream;
         return new TmuxControlTransport(
             process,
-            TmuxControlClient.For(_endpointFingerprint, resolved.SocketPath),
+            TmuxControlClient.For(
+                _endpointFingerprint,
+                resolved.SocketPath ?? (resolved.SocketName is { } named ? UnixFileIdentity.NamedSocketPath(named) : null)),
             () => ControlModeSession.Start(
                 Options.TmuxBinaryPath,
                 PrefixArguments,
