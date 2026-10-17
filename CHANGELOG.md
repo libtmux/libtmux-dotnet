@@ -17,8 +17,17 @@ version.
 - `Server.IsAliveAsync` now throws `TmuxVersionTooLowException` for a daemon
   below the minimum instead of answering `false`.
 
+- A pane wait on a daemon older than tmux 3.7 polls without
+  `AllowPollingFallback`, because no control client is attached there.
+
 ### Changed
 
+- The library names its own control client `client-<pid>` from the process it
+  started and learns its session from the attach, so no `list-clients` or
+  `display-message` runs and no user `after-*` hook fires when a client attaches
+  or a pane is watched.
+- A tmux version is read only as `X.Y`, `X.Ya`, `X.Y-rc[N]` or `next-X.Y`;
+  `3.4.1`, `3.4-dev` and `3.3a-openbsd` are refused.
 - **The minimum tmux is now 3.3a, checked against the daemon.** The library
   reads the connected daemon's version with a probe that fires no hook,
   throws `TmuxVersionTooLowException` for 3.3, 3.2a and older, and fences
