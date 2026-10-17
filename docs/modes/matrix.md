@@ -169,7 +169,7 @@ an effect. Nothing below raises the minimum for anything else.
 | Pane waits: `Pane.WaitForTextAsync` and the MCP `wait_for_text` | none | The wait polls, with no opt-in. From 3.7 it listens to a control client, and a lost stream on a live pane needs `AllowPollingFallback` to keep going |
 | One-shot commands over the shared control client | tmux 3.7 | Each command runs on its own process |
 | `delete-buffer -b` and `set-buffer -n`, and work that cleans up a buffer by name: `Pane.RunAsync` and the MCP `paste_text` | tmux 3.4 | Refused before the buffer is staged; `paste-buffer -d -b` stays available |
-| A foreground `Server.RunShellAsync` that names no pane | tmux 3.5 | Refused; a background or pane-targeted request is sent |
+| A foreground `run-shell` that names no pane, from `Server.RunShellAsync` or a raw command | tmux 3.5 | Refused; a background, `-C` or pane-targeted request is sent |
 | `break-pane` without a window name | tmux 3.7a or any release but 3.7 | Refused on exactly 3.7; the typed `Pane.BreakAsync` names the window itself |
 | Window and session names with `:` or `.` | any release but 3.7 | Refused on exactly 3.7 |
 | `split-window -p` | any release but 3.4 | Refused on 3.4; typed splits send `-l N%` |
