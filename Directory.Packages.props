@@ -20,6 +20,10 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="$(RoslynVersion)" />
     <PackageVersion Include="NuGet.Frameworks" Version="$(EngineeringNuGetVersion)" />
     <PackageVersion Include="NuGet.Packaging" Version="$(EngineeringNuGetVersion)" />
+    <!-- NuGet.Packaging asks for Pkcs 8.0.1, which NuGet audit rejects
+         (GHSA-846f-f764-76mx). The engineering tool references the patched
+         release directly until NuGet.Packaging asks for one itself. -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="8.0.2" />
     <PackageVersion Include="Microsoft.Build" Version="$(EngineeringMSBuildVersion)" />
     <PackageVersion Include="Microsoft.Build.Framework" Version="$(EngineeringMSBuildVersion)" />
     <PackageVersion Include="Microsoft.Build.Locator" Version="1.11.2" />
