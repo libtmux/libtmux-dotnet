@@ -19,6 +19,7 @@ public sealed class TmuxChainTests
     [InlineData("control")]
     public async Task Send_keys_preserve_payload_boundaries_and_enter_sequence(string mode)
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);

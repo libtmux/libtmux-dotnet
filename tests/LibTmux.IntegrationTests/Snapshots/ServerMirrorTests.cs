@@ -12,6 +12,7 @@ public sealed class ServerMirrorTests
     [UnixFact]
     public async Task An_announced_change_is_published_as_a_newer_view()
     {
+        TmuxFeatureSupport.RequireControl();
         using CancellationTokenSource bound = Bounded();
         CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
@@ -31,6 +32,7 @@ public sealed class ServerMirrorTests
     [UnixFact]
     public async Task A_change_tmux_does_not_announce_is_seen_within_the_refresh_interval()
     {
+        TmuxFeatureSupport.RequireControl();
         using CancellationTokenSource bound = Bounded();
         CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
@@ -60,6 +62,7 @@ public sealed class ServerMirrorTests
     [InlineData("off")]
     public async Task The_mirror_ends_when_its_anchor_session_is_gone(string detachOnDestroy)
     {
+        TmuxFeatureSupport.RequireControl();
         using CancellationTokenSource bound = Bounded();
         CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
@@ -84,6 +87,7 @@ public sealed class ServerMirrorTests
     [UnixFact]
     public async Task The_mirror_reattaches_when_its_client_is_killed()
     {
+        TmuxFeatureSupport.RequireControl();
         using CancellationTokenSource bound = Bounded();
         CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
@@ -114,6 +118,7 @@ public sealed class ServerMirrorTests
     [UnixFact]
     public async Task The_mirror_tries_a_failed_reattach_again()
     {
+        TmuxFeatureSupport.RequireControl();
         using CancellationTokenSource bound = Bounded();
         CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
@@ -150,6 +155,7 @@ public sealed class ServerMirrorTests
     [UnixFact]
     public async Task A_waiter_fails_when_the_server_dies_under_a_refreshing_mirror()
     {
+        TmuxFeatureSupport.RequireControl();
         using CancellationTokenSource bound = Bounded();
         CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);

@@ -13,6 +13,7 @@ public sealed class PaneWaitTests
     [UnixFact]
     public async Task Waits_end_on_new_text_stop_patterns_and_any_output()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane building = await NewPaneAsync(raw, "build", "printf 'build: %s\\n' done", token);

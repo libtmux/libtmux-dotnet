@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Internal;
 using LibTmux.Mcp;
@@ -30,6 +31,7 @@ public sealed class PaneEchoContractTests
     [UnixFact]
     public async Task S1_a_short_unsubmitted_answer_does_not_mask_a_longer_real_output_line()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         TmuxTestFactory factory = new();
@@ -62,6 +64,7 @@ public sealed class PaneEchoContractTests
     [UnixFact]
     public async Task S2_a_submitted_commands_echo_is_not_the_match_wait_started_before_the_send()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         TmuxTestFactory factory = new();
@@ -99,6 +102,7 @@ public sealed class PaneEchoContractTests
     [UnixFact]
     public async Task S2_a_submitted_commands_echo_is_not_the_match_wait_started_after_the_send()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         TmuxTestFactory factory = new();
@@ -136,6 +140,7 @@ public sealed class PaneEchoContractTests
     [UnixFact]
     public async Task S3_unsubmitted_text_times_out_rather_than_matching_its_own_echo()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         TmuxTestFactory factory = new();
@@ -159,6 +164,7 @@ public sealed class PaneEchoContractTests
     [UnixFact]
     public async Task S4_edits_are_applied_and_key_names_never_join_the_tracked_text()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         TmuxTestFactory factory = new();
@@ -199,6 +205,7 @@ public sealed class PaneEchoContractTests
     [UnixFact]
     public async Task S5_typing_into_a_cold_shell_never_matches_its_own_type_ahead()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         TmuxTestFactory factory = new();
@@ -233,6 +240,7 @@ public sealed class PaneEchoContractTests
     [UnixFact]
     public async Task S6_an_unmodelled_key_stops_discounting_the_panes_current_line()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         TmuxTestFactory factory = new();

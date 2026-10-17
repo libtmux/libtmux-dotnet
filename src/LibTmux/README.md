@@ -94,7 +94,7 @@ whole distribution with the tmux, host and date that produced it:
 Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
 ```
 
-```csharp run
+```csharp run tmux-3.7
 // One client, held open, streaming what tmux does on its own.
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
 IReadOnlyList<string> reply = await control.SendAsync(
@@ -281,7 +281,7 @@ and bounded rendered pane output. A timeout returns `TimedOut = true` and
 same pane is refused until completion can be authenticated. The server
 remains owned by its caller; separate processes are not coordinated.
 
-```csharp run
+```csharp run tmux-3.4
 PaneRunResult run = await pane.RunAsync(
     "printf 'hello-from-libtmux\\n'",
     TimeSpan.FromSeconds(10),
