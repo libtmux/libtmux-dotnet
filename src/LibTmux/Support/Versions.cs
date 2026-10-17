@@ -66,7 +66,7 @@ internal static class Versions
         {
             string reported = line[answer.Length..];
             string[] fields = reported.Split(',');
-            if (fields.Length != 3 || !TmuxVersion.TryParse(fields[0], out TmuxVersion version))
+            if (fields.Length != 3 || !TmuxVersion.TryParseReported(fields[0], out TmuxVersion version))
             {
                 return ProbeOutcome.Unrecognized(reported, result);
             }

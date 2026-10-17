@@ -33,12 +33,17 @@ public sealed class TmuxVersionGrammarTests
     [InlineData("3.3a-dev", false, false)]
     [InlineData("next-3.3a", false, false)]
     [InlineData("next-3.9-master", false, false)]
+    [InlineData("3.4.1", false, false)]
+    [InlineData("3.4-dev", false, false)]
+    [InlineData("3.3a-openbsd", false, false)]
+    [InlineData("3.4ab", false, false)]
+    [InlineData("3.8-rc2a", false, false)]
     public void A_reported_version_is_supported_refused_or_unreadable(
         string reported,
         bool parses,
         bool supported)
     {
-        bool read = TmuxVersion.TryParse(reported, out TmuxVersion version);
+        bool read = TmuxVersion.TryParseReported(reported, out TmuxVersion version);
 
         Assert.Equal(parses, read);
         Assert.Equal(supported, read && version >= Floor);

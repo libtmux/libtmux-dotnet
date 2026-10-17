@@ -400,6 +400,7 @@ internal sealed class TmuxDialect : MultiplexerDialect
 
     private TmuxVersion ReadClientVersion(string rawVersion) =>
         TmuxVersionBannerParser.TryReadVersion(rawVersion, ExecutableName, out TmuxVersion version)
+        && TmuxVersion.TryParseReported(version.Raw, out _)
             ? version
             : throw new TmuxProtocolException(
                 "The tmux executable reported an unrecognized version.",
