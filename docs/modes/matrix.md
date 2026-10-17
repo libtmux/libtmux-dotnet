@@ -106,6 +106,6 @@ and for the warmup mistake that once put an impossible number in this table.
 
 ## Version differences
 
-Known behavior differences from tmux 3.2a onward go through the capability
+Known behavior differences from tmux 3.3a onward go through the capability
 model. Each measured difference has a row with a real-server proof in
 [the parity ledger](../parity/version-deltas.json).

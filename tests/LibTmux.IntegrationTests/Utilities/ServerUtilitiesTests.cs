@@ -383,8 +383,8 @@ public sealed class ServerUtilitiesTests
             await server.LockAsync(token);
 
             // The server's own log is readable, and so is what it knows about
-            // the terminals it has seen. tmux 3.2a wants a client before it
-            // will answer at all, and says so rather than reporting nothing.
+            // the terminals it has seen. Some releases want a client before
+            // they will answer at all, and say so rather than reporting nothing.
             await ReadMessagesAsync(server, ShowMessagesMode.Messages, token);
             await ReadMessagesAsync(server, ShowMessagesMode.Terminals, token);
 
@@ -418,53 +418,22 @@ public sealed class ServerUtilitiesTests
     }
 
     [UnixFact]
-    public Task ClearPromptHistoryCommandVersionPolicy() =>
-        ProvesWholeCommandGateAsync(
-            ServerUtilities.ClearPromptHistoryCapability,
-            (server, token) => server.ClearPromptHistoryAsync(cancellationToken: token));
-
-    [UnixFact]
-    public Task ShowPromptHistoryCommandVersionPolicy() =>
-        ProvesWholeCommandGateAsync(
-            ServerUtilities.ShowPromptHistoryCapability,
-            (server, token) => server.GetPromptHistoryAsync(cancellationToken: token));
-
-    [UnixFact]
-    public Task ServerAccessCommandVersionPolicy() =>
-        ProvesWholeCommandGateAsync(
-            ServerUtilities.ServerAccessCapability,
-            (server, token) => server.ConfigureAccessAsync(
-                new ServerAccessRequest { List = true },
-                token));
-
-    [UnixFact]
-    public async Task CommandPromptBackgroundVersionPolicy()
+    public async Task A_typed_or_formatted_command_prompt_reaches_tmux()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
-        bool supported = Supports(server, ServerUtilities.CommandPromptBackgroundCapability);
 
-        // tmux 3.2a spells the type flag as booleans meaning something else, so
-        // asking for one there would ask a different question rather than fail.
-        // Nothing is sent at all instead.
+        // The test process has no client to prompt, so tmux itself refuses.
+        // What matters is that the library sent the request instead of
+        // refusing it by version.
         CommandPromptRequest typed = new("display-message %1") { Type = PromptType.Command };
         CommandPromptRequest formatted = new("display-message %1") { ExpandFormat = true };
-        if (supported)
-        {
-            await Assert.ThrowsAsync<TmuxCommandException>(
-                () => server.ShowCommandPromptAsync(typed, token));
-            await Assert.ThrowsAsync<TmuxCommandException>(
-                () => server.ShowCommandPromptAsync(formatted, token));
-        }
-        else
-        {
-            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
-                () => server.ShowCommandPromptAsync(typed, token));
-            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
-                () => server.ShowCommandPromptAsync(formatted, token));
-        }
+        await Assert.ThrowsAsync<TmuxCommandException>(
+            () => server.ShowCommandPromptAsync(typed, token));
+        await Assert.ThrowsAsync<TmuxCommandException>(
+            () => server.ShowCommandPromptAsync(formatted, token));
     }
 
     [UnixFact]
@@ -492,32 +461,6 @@ public sealed class ServerUtilitiesTests
                 new ConfirmBeforeRequest(["display-message", "confirmed"]) { ConfirmKey = "y", DefaultYes = true },
                 token),
             expectedWarnings: 2);
-
-    [UnixFact]
-    public async Task ConfirmBeforeBackgroundVersionPolicy()
-    {
-        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
-            TestContext.Current.CancellationToken);
-        CancellationToken token = TestContext.Current.CancellationToken;
-        Server server = await ConnectAsync(raw, token);
-
-        // The confirmation's background flag arrived in tmux 3.3, and the
-        // approved surface never asks for it, so no caller can reach a version
-        // that would refuse. The boundary is still where the table says.
-        bool supported = Supports(server, ServerUtilities.ConfirmBeforeBackgroundCapability);
-        Assert.Equal(
-            server.Version! >= TmuxVersion.Parse("3.3a"),
-            supported);
-
-        // The flag group is what moved, so the check is for a group holding it
-        // rather than for the two characters, which the command's own name has.
-        RawTmuxResult syntax = await raw.ExecuteAsync(["list-commands", "confirm-before"], token);
-        string usage = string.Join('\n', syntax.StandardOutputLines);
-        int group = usage.IndexOf("[-", StringComparison.Ordinal);
-        bool carriesBackground = group >= 0
-            && usage[group..usage.IndexOf(']', group)].Contains('b', StringComparison.Ordinal);
-        Assert.Equal(supported, carriesBackground);
-    }
 
     [UnixFact]
     public Task DisplayMenuStylesVersionPolicy() =>
@@ -571,31 +514,23 @@ public sealed class ServerUtilitiesTests
     }
 
     [UnixFact]
-    public async Task DisplayMessageClientVersionPolicy()
+    public async Task A_message_names_the_client_it_is_addressed_to()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         RecordingLogger logger = new();
         Server server = await ConnectAsync(raw, token, logger);
-        bool supported = Supports(server, ServerUtilities.DisplayMessageClientCapability);
 
         // Deliberately not the shared warn-and-omit helper: it forgives a
         // failed command, and a command that failed is exactly what sending
-        // the flag to a tmux that refuses it looks like. Asserting the call
-        // succeeds is what makes dropping the gate visible here.
+        // the flag to a tmux that refuses it looks like.
         IReadOnlyList<string>? rendered = await server.DisplayMessageAsync(
             new DisplayMessageRequest { Message = "addressed", ReturnText = true, TargetClient = "/dev/null" },
             token);
 
         Assert.Equal("addressed", Assert.Single(rendered!));
-        if (supported)
-        {
-            Assert.Empty(logger.Warnings);
-            return;
-        }
-
-        Assert.Single(logger.Warnings);
+        Assert.Empty(logger.Warnings);
     }
 
     [UnixFact]
@@ -649,32 +584,6 @@ public sealed class ServerUtilitiesTests
 
     private static bool Supports(Server server, string capability) =>
         TmuxCapabilities.IsSupported(server.Version!.Value, capability);
-
-    private static async Task ProvesWholeCommandGateAsync(
-        string capability,
-        Func<Server, CancellationToken, Task> exercise)
-    {
-        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
-            TestContext.Current.CancellationToken);
-        CancellationToken token = TestContext.Current.CancellationToken;
-        RecordingLogger logger = new();
-        Server server = await ConnectAsync(raw, token, logger);
-
-        if (Supports(server, capability))
-        {
-            // The command exists, so it is sent and answers for itself.
-            await exercise(server, token);
-            Assert.Empty(logger.Warnings);
-            return;
-        }
-
-        // The whole command is missing, so nothing is sent: there is no flag
-        // to drop that would leave the request meaning the same thing.
-        await Assert.ThrowsAsync<TmuxVersionTooLowException>(() => exercise(server, token));
-
-        // Nothing was sent, so there was nothing to warn about either.
-        Assert.Empty(logger.Warnings);
-    }
 
     private static async Task ProvesWarnAndOmitAsync(
         string capability,

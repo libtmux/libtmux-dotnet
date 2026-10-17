@@ -487,7 +487,6 @@ internal static class TmuxTargets
     // tmux 273577ba.
     private static bool SkipsHomeFallback(TmuxVersion? version) =>
         version is { } known
-        && known.IsAtLeast(TmuxVersion.Parse("3.3"))
         && !known.IsAtLeast(TmuxVersion.Parse("3.4"));
 
     // The HOME tmux falls back to is the server's environment, which its global

@@ -342,9 +342,8 @@ public sealed class ControlTransportTests
                 .StandardOutputText.Trim();
         }
 
-        // tmux 3.2a never ignores the client that asks for a window, whatever
-        // its flags, so a window made over the shared client would take its
-        // 80x24 where one made over a process takes the default size.
+        // A window made over the shared client must take the default size, as
+        // one made over a process does, whatever size the client itself has.
         string withoutClient = await NewWindowSizeAsync(forceProcessTransport: true);
         string withClient = await NewWindowSizeAsync(forceProcessTransport: false);
 
@@ -413,9 +412,9 @@ public sealed class ControlTransportTests
         Assert.Equal("2", await AttachCountAsync(raw, token));
     }
 
-    // The shared client stays off servers older than 3.7: 3.2a sizes windows by
-    // the issuing client, and before 3.7 attaching can crash the server (tmux
-    // e5a2a25fa), so there is no client to look for there.
+    // The shared client stays off servers older than 3.7: before 3.7 attaching
+    // can crash the server (tmux e5a2a25fa), so there is no client to look for
+    // there.
     private static async Task SkipWhereTheClientIsOffAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Assert.SkipWhen(
             await TmuxVersion.DetectAsync(raw.TmuxBinaryPath, token) < TmuxVersion.Parse("3.7"),

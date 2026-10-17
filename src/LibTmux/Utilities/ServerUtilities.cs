@@ -10,26 +10,11 @@ namespace LibTmux.Internal;
 /// </remarks>
 internal static class ServerUtilities
 {
-    /// <summary>The capability naming the whole <c>clear-prompt-history</c> command.</summary>
-    internal const string ClearPromptHistoryCapability = "clear_prompt_history_command";
-
-    /// <summary>The capability naming the whole <c>show-prompt-history</c> command.</summary>
-    internal const string ShowPromptHistoryCapability = "show_prompt_history_command";
-
-    /// <summary>The capability naming the whole <c>server-access</c> command.</summary>
-    internal const string ServerAccessCapability = "server_access_command";
-
-    /// <summary>The capability naming the prompt's format and background flags.</summary>
-    internal const string CommandPromptBackgroundCapability = "command_prompt_background";
-
     /// <summary>The capability naming the prompt's literal flag.</summary>
     internal const string CommandPromptLiteralCapability = "command_prompt_literal";
 
     /// <summary>The capability naming the prompt's exit and redraw flags.</summary>
     internal const string CommandPrompt37Capability = "command_prompt_3_7_behavior";
-
-    /// <summary>The capability naming the confirmation's background flag.</summary>
-    internal const string ConfirmBeforeBackgroundCapability = "confirm_before_background";
 
     /// <summary>The capability naming the confirmation's key and default flags.</summary>
     internal const string ConfirmBeforeAcceptanceCapability = "confirm_before_acceptance";
@@ -39,9 +24,6 @@ internal static class ServerUtilities
 
     /// <summary>The capability naming the menu's mouse flag.</summary>
     internal const string DisplayMenuMouseCapability = "display_menu_mouse";
-
-    /// <summary>The capability naming the message's target-client flag.</summary>
-    internal const string DisplayMessageClientCapability = "display_message_client";
 
     /// <summary>The capability naming the message's literal flag.</summary>
     internal const string DisplayMessageLiteralCapability = "display_message_literal";

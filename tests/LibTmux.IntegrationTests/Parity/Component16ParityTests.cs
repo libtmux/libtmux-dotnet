@@ -1,7 +1,6 @@
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
-using LibTmux.Internal;
 
 namespace LibTmux.IntegrationTests.Parity;
 
@@ -132,20 +131,6 @@ public sealed class Component16ParityTests
         bool clearing,
         CancellationToken token)
     {
-        string capability = clearing
-            ? ServerUtilities.ClearPromptHistoryCapability
-            : ServerUtilities.ShowPromptHistoryCapability;
-        TmuxVersion version = Assert.NotNull(server.Version);
-        if (!TmuxCapabilities.IsSupported(version, capability))
-        {
-            // The command does not exist yet, so nothing is sent.
-            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
-                () => clearing
-                    ? server.ClearPromptHistoryAsync(cancellationToken: token)
-                    : server.GetPromptHistoryAsync(cancellationToken: token));
-            return true;
-        }
-
         if (clearing)
         {
             await server.ClearPromptHistoryAsync(cancellationToken: token);
@@ -271,14 +256,6 @@ public sealed class Component16ParityTests
 
     private static async Task<bool> ProvesServerAccessAsync(Server server, CancellationToken token)
     {
-        TmuxVersion version = Assert.NotNull(server.Version);
-        if (!TmuxCapabilities.IsSupported(version, ServerUtilities.ServerAccessCapability))
-        {
-            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
-                () => server.ConfigureAccessAsync(new ServerAccessRequest { List = true }, token));
-            return true;
-        }
-
         IReadOnlyList<string>? listed = await server.ConfigureAccessAsync(
             new ServerAccessRequest { List = true },
             token);
@@ -301,8 +278,8 @@ public sealed class Component16ParityTests
 
     private static async Task<bool> ProvesMessagesAsync(Server server, CancellationToken token)
     {
-        // tmux 3.2a reads its log through a client rather than for the server,
-        // so with none attached it says there is nobody to read for.
+        // Some releases read their log through a client rather than for the
+        // server, so with none attached they say there is nobody to read for.
         foreach (ShowMessagesMode mode in (ShowMessagesMode[])
             [ShowMessagesMode.Messages, ShowMessagesMode.Terminals, ShowMessagesMode.Jobs])
         {

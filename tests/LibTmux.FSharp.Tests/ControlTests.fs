@@ -443,14 +443,14 @@ type private PendingEventSession(count: int) =
         member _.DisposeAsync() = ValueTask(Task.Run(fun () -> ()))
 
 module ContextTests =
-    // tmux 3.2a resolves a missing ID through an empty successful listing.
+    // tmux answers a missing ID with a successful row whose entity fields are empty.
     let private pendingReply (arguments: string array) =
         Task.Run(fun () ->
             let output, lines =
                 if arguments = [| "-V" |] then
-                    "tmux 3.2a\n", [| "tmux 3.2a" |]
+                    "tmux 3.3a\n", [| "tmux 3.3a" |]
                 else
-                    "17:29\n", [||]
+                    AbsentEntity.reply arguments, [||]
 
             TmuxCommandResult(
                 arguments,
@@ -469,7 +469,7 @@ module ContextTests =
                     pendingReply (request.LogicalArguments |> Seq.toArray))
             )
 
-        LibTmux.Server(connection, ServerGeneration(17, 29), "tmux 3.2a")
+        LibTmux.Server(connection, ServerGeneration(17, 29), "tmux 3.3a")
 
     let private operation name : unit -> Task =
         let token = CancellationToken.None

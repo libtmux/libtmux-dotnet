@@ -110,9 +110,7 @@ public sealed class MaterializationTests
         bool supportsFloating = fixture.TmuxVersion.IsAtLeast(TmuxVersion.Parse("3.7"));
 
         Assert.Equal(supportsFloating, pane.ContainsKey("pane_floating_flag"));
-        Assert.Equal(
-            fixture.TmuxVersion.IsAtLeast(TmuxVersion.Parse("3.3")),
-            pane.ContainsKey("pane_dead_signal"));
+        Assert.True(pane.ContainsKey("pane_dead_signal"));
         Assert.True(pane.ContainsKey("pane_id"));
     }
 

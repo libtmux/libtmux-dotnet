@@ -85,7 +85,7 @@ start below uses to run these steps on an isolated server. Pass a server from
 finds, and on a tmux already running that may be the terminal you are reading.
 
 Alpha API: pin a package version and upgrade deliberately. The walkthrough
-uses .NET SDK 10 and tmux 3.2a through 3.7c on Linux or macOS. The package
+uses .NET SDK 10 and tmux 3.3a through 3.7c on Linux or macOS. The package
 targets `net8.0` and `net10.0`.
 
 ## Choose a call
@@ -325,7 +325,7 @@ explains the configuration order. Code running inside a tmux pane can use
 | --- | --- |
 | .NET | Targets .NET 8 and .NET 10 and uses the matching `LibTmux` package version. |
 | F# | Requires FSharp.Core 8.0.100 or newer, so an application keeps its SDK's FSharp.Core. Required CI builds and runs a consumer with the .NET 8 SDK's F# compiler and implicit FSharp.Core. |
-| tmux | Required Linux CI runs the repository's F# integration example against tmux 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, and 3.7c on both target frameworks. The README quickstart runs against the runner's tmux in the package workflow. |
+| tmux | Required Linux CI runs the repository's F# integration example against tmux 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, and 3.7c on both target frameworks. The README quickstart runs against the runner's tmux in the package workflow. |
 | Operating systems | Linux is required CI. An advisory macOS arm64 job runs the example with Homebrew tmux on manual dispatch. Native Windows is unsupported: the core marks its tmux calls `[UnsupportedOSPlatform("windows")]`. WSL runs the Linux build, which CI does not exercise separately. |
 | Trimming and NativeAOT | Portable filters bind fields without reflection. A Linux consumer publishes and runs captured snapshots, a tmux query, portable filters with relations and regex, and native `Seq` predicates under NativeAOT and trimming on both frameworks. |
 

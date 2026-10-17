@@ -123,12 +123,10 @@ internal sealed class TmuxControlTransport
 
     private const string EnvironmentVariable = "LIBTMUX_CONTROL_TRANSPORT";
 
-    // Two reasons keep the client off older servers. tmux 3.2a sizes a new
-    // window by the client that asked for it, so a window made over the shared
-    // client would be 80x24. And before 3.7 a notification that fires while a
-    // control client is identifying itself crashes the server, taking every
-    // session with it (tmux e5a2a25fa, issue 4980); the client attaches lazily,
-    // on a command the caller did not expect to start one.
+    // The client stays off older servers: before 3.7 a notification that
+    // fires while a control client is identifying itself crashes the server,
+    // taking every session with it (tmux e5a2a25fa, issue 4980); the client
+    // attaches lazily, on a command the caller did not expect to start one.
     internal static readonly TmuxVersion FirstSafeVersion = TmuxVersion.Parse("3.7");
 
     private static readonly string[] Named = [.. OnProcess, .. Reads];

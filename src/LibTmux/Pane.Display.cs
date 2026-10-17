@@ -8,7 +8,6 @@ namespace LibTmux;
 
 public sealed partial class Pane
 {
-    private const string DisplayMessageClientCapability = "display_message_client";
 
     /// <summary>Builds the arguments a popup request sends.</summary>
     /// <remarks>
@@ -225,18 +224,6 @@ public sealed partial class Pane
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        Server owner = Server;
-        if (request.TargetClient is not null
-            && !Supports(owner, DisplayMessageClientCapability))
-        {
-            // tmux 3.2a declares the flag without a value, so naming a client
-            // there would silently address a different one.
-            throw new TmuxVersionTooLowException(
-                "Naming a display-message client requires tmux 3.3.",
-                TmuxVersion.Parse("3.3"),
-                owner.Version ?? default);
-        }
-
         List<string> arguments = ["display-message", "-t", Target];
         if (request.ReturnText)
         {
@@ -287,7 +274,7 @@ public sealed partial class Pane
             .ExecuteAsync(arguments, cancellationToken)
             .ConfigureAwait(false);
         if (result.StandardErrorLines.Count > 0
-            && owner.Connection?.Options.Logger is ILogger logger)
+            && Server.Connection?.Options.Logger is ILogger logger)
         {
             LogDisplayMessageRefused(logger, string.Join('\n', result.StandardErrorLines));
         }
@@ -388,7 +375,7 @@ public sealed partial class Pane
         _ => null,
     };
 
-    private void AddPopupOptions(List<string> arguments, DisplayPopupRequest options)
+    private static void AddPopupOptions(List<string> arguments, DisplayPopupRequest options)
     {
         bool wants = options.Title is not null
             || options.BorderLines is not null
@@ -396,7 +383,7 @@ public sealed partial class Pane
             || options.BorderStyle is not null
             || options.Environment is not null
             || options.NoBorder;
-        if (!wants || !Requires(PopupOptionsCapability, LogPopupOptionsUnsupported))
+        if (!wants)
         {
             return;
         }

@@ -9,10 +9,9 @@ public sealed partial class Server
 {
     /// <summary>Builds the arguments a message request sends.</summary>
     /// <remarks>
-    /// This stays on the server because two of the flags depend on which tmux
-    /// is answering: literal expansion arrived in 3.4, and 3.2a refuses the
-    /// target-client flag outright. A chained message has to be built the same
-    /// way a direct one is.
+    /// This stays on the server because the literal flag depends on which tmux
+    /// is answering: literal expansion arrived in 3.4. A chained message has to
+    /// be built the same way a direct one is.
     /// </remarks>
     internal List<string> BuildDisplayMessageArguments(DisplayMessageRequest request)
     {
@@ -29,16 +28,7 @@ public sealed partial class Server
         }
 
         ServerUtilities.AddFlag(arguments, request.Notify, "-N");
-        if (request.TargetClient is not null
-            && RequiresCapability(
-                ServerUtilities.DisplayMessageClientCapability,
-                LogMessageClient))
-        {
-            // tmux 3.2a prints its usage and refuses the command, even for a
-            // client that is really attached. Its usage text advertises the
-            // flag anyway, so only running it tells the truth.
-            ServerUtilities.AddValue(arguments, "-c", request.TargetClient);
-        }
+        ServerUtilities.AddValue(arguments, "-c", request.TargetClient);
         ServerUtilities.AddValue(
             arguments,
             "-d",

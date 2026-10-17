@@ -75,15 +75,7 @@ public sealed record CommandPromptRequest : ITmuxRequest<Server>
     /// <summary>Returns a prompt request as one tmux command.</summary>
     /// <param name="server">The server the prompt is shown on.</param>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
-    /// <remarks>
-    /// Batching does not soften the refusal below tmux 3.3: that version reads
-    /// the type flag as something else, so a prompt asking for one is refused
-    /// here exactly as it is when run alone.
-    /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="server" /> is null.</exception>
-    /// <exception cref="TmuxVersionTooLowException">
-    /// The request asks for a format or a prompt type and tmux is older than 3.3.
-    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public TmuxCommand ToCommand(Server server)
     {

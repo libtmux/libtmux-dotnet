@@ -17,7 +17,6 @@ public sealed partial class Pane
     private const string CopyModePageDownCapability = "copy_mode_page_down";
     private const string DisplayMessageLiteralCapability = "display_message_literal";
     private const string DisplayMessageUpdatePaneCapability = "display_message_update_pane";
-    private const string PopupOptionsCapability = "display_popup_3_3_options";
     private const string PopupKeyPolicyCapability = "display_popup_3_6_key_policy";
     private const string PasteRawBytesCapability = "paste_buffer_no_vis";
     private const string SendKeysClientCapability = "send_keys_client_keys";
@@ -106,12 +105,6 @@ public sealed partial class Pane
         Level = LogLevel.Warning,
         Message = "pane redraw flag omitted, tmux {TmuxVersion} does not carry it")]
     private static partial void LogUpdatePaneUnsupported(ILogger logger, string? tmuxVersion);
-
-    [LoggerMessage(
-        EventId = 13,
-        Level = LogLevel.Warning,
-        Message = "popup appearance flags omitted, tmux {TmuxVersion} does not carry them")]
-    private static partial void LogPopupOptionsUnsupported(ILogger logger, string? tmuxVersion);
 
     [LoggerMessage(
         EventId = 14,

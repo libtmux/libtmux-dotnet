@@ -262,7 +262,11 @@ $ { printf '%s\n' \
 ## Which tmux it drives
 
 Whatever `tmux` resolves to on the path, or the binary `LIBTMUX_TMUX` names.
-The supported range is 3.2a to 3.7c, proven from source on every commit.
+The supported range is 3.3a to 3.7c, proven from source on every commit.
+`tmux://capabilities` reports the floor as `connection.minimumTmuxVersion`.
+A tmux below it stops the server at startup, and a daemon replaced by an older
+one later fails the tool call; both say to upgrade tmux and restart the tmux
+server, or to use LibTmux.Mcp 0.0.0-alpha.21, and that nothing was sent.
 
 ## Related packages
 

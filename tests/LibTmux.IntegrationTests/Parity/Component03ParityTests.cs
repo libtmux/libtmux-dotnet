@@ -92,7 +92,7 @@ public sealed class Component03ParityTests
             "libtmux.common:TMUX_MAX_VERSION" =>
                 LibTmuxInfo.MaximumTestedTmuxVersion == TmuxVersion.Parse("3.7c"),
             "libtmux.common:TMUX_MIN_VERSION" =>
-                LibTmuxInfo.MinimumTmuxVersion == TmuxVersion.Parse("3.2a"),
+                LibTmuxInfo.MinimumTmuxVersion == TmuxVersion.Parse("3.3a"),
             "libtmux.common:get_libtmux_version" => LibTmuxInfo.Version.Major >= 0,
             "libtmux.common:get_version" => detected.IsValid,
             "libtmux.common:get_version_str" =>

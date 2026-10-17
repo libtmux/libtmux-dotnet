@@ -4,7 +4,7 @@ namespace LibTmux;
 /// <remarks>
 /// tmux names a notification and then a version-dependent list of words after
 /// it. Modelling every name as its own type would freeze a set that moves
-/// between 3.2a and 3.7b, so the ones a caller reacts to are typed and the rest
+/// between 3.3a and 3.7b, so the ones a caller reacts to are typed and the rest
 /// arrive named but unparsed.
 /// </remarks>
 public abstract record TmuxEvent;

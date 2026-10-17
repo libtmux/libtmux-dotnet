@@ -36,7 +36,7 @@ internal static class QuerySourcePlanner
         else if (!version.IsStableRelease || version > LastVerifiedVersion
             || !TmuxCapabilities.IsSupported(version, "format_fields_and_operators"))
         {
-            reasons.Add("Exact source evaluation is verified only for stable tmux 3.2a through 3.7c.");
+            reasons.Add("Exact source evaluation is verified only for stable tmux 3.3a through 3.7c.");
         }
         else if (fields.Any(field => QueryFieldCatalog.IsRelation(field.WireName)))
         {

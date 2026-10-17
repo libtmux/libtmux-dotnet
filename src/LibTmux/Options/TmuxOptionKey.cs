@@ -48,7 +48,7 @@ public sealed class TmuxOptionKey<T>
 
 /// <summary>Declares typed option keys, and names the ones whose type every supported tmux shares.</summary>
 /// <remarks>
-/// The named keys were checked against tmux's own option table from 3.2a to
+/// The named keys were checked against tmux's own option table from 3.3a to
 /// 3.7c. <c>status</c> is not among the flags for that reason: tmux reads it as
 /// a choice of <c>off</c>, <c>on</c> and a line count.
 /// </remarks>

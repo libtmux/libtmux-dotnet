@@ -605,8 +605,8 @@ public sealed class TmuxChainTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        // Naming a client is refused by 3.2a; literal expansion arrived in 3.4.
-        // Both must still produce a message on every supported tmux.
+        // Literal expansion arrived in 3.4, but a request naming a client must
+        // still produce a message on every supported tmux.
         TmuxCommandResult result = await new DisplayMessageRequest
         {
             Message = "chained-message",
@@ -633,7 +633,7 @@ public sealed class TmuxChainTests
             ShowStandardError = true,
         }.ExecuteAsync(server, token);
 
-        // tmux 3.3a/3.4 accept run-shell but report nothing; 3.2a and 3.5+
+        // tmux 3.3a/3.4 accept run-shell but report nothing; 3.5+
         // return what it printed, so output is asserted only where sent.
         string reported = server.Version!.Value.ToString();
         if (reported is "3.3a" or "3.4")
@@ -712,8 +712,7 @@ public sealed class TmuxChainTests
         Server server = await ConnectAsync(raw, token);
         Pane pane = (await server.GetPanesAsync(token))[0];
 
-        // Popup options arrived in 3.3 and the key policy in 3.6. A popup
-        // needs a client to open in, so the assertion is the command tmux
+        // The key policy arrived in 3.6. A popup needs a client to open in, so the assertion is the command tmux
         // built rather than a popup nobody could see.
         TmuxCommand command = new DisplayPopupRequest
         {
@@ -726,14 +725,7 @@ public sealed class TmuxChainTests
         Assert.Equal("display-popup", command.Name);
         Assert.Contains("40", command.Arguments);
 
-        bool carriesOptions = TmuxCapabilities.IsSupported(
-            server.Version!.Value,
-            "display_popup_3_3_options");
-
-        // The close mode maps to a flag every supported tmux carries; what
-        // 3.3 added is the titling and styling, so that is what tracks the
-        // capability.
-        Assert.Equal(carriesOptions, command.Arguments.Contains("-T"));
+        Assert.Contains("-T", command.Arguments);
     }
 
     [UnixFact]
@@ -860,20 +852,7 @@ public sealed class TmuxChainTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        bool carriesTypes = TmuxCapabilities.IsSupported(
-            server.Version!.Value,
-            "command_prompt_background");
-
         CommandPromptRequest typed = new("display-message %%") { Type = PromptType.Command };
-
-        if (!carriesTypes)
-        {
-            // tmux 3.2a reads the type flag as a pair of booleans meaning
-            // something else, so batching must not become a way to send one:
-            // asking is refused here exactly as it is when run alone.
-            Assert.Throws<TmuxVersionTooLowException>(() => typed.ToCommand(server));
-            return;
-        }
 
         TmuxCommand command = typed.ToCommand(server);
 
@@ -1013,19 +992,7 @@ public sealed class TmuxChainTests
 
         Assert.Contains("ltlist", listed.StandardOutputLines);
 
-        bool carriesAccess = TmuxCapabilities.IsSupported(
-            server.Version!.Value,
-            "server_access_command");
-
         ServerAccessRequest access = new() { List = true };
-
-        if (!carriesAccess)
-        {
-            // The command arrived in 3.3, so batching must not become a way to
-            // send one an older server has never heard of.
-            Assert.Throws<TmuxVersionTooLowException>(() => access.ToCommand(server));
-            return;
-        }
 
         Assert.Equal("server-access", access.ToCommand(server).Name);
     }
