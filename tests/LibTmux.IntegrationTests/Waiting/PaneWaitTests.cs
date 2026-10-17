@@ -45,6 +45,7 @@ public sealed class PaneWaitTests
     [UnixFact]
     public async Task A_wait_reads_the_pane_through_its_control_client()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         RawTmuxResult created = await raw.ExecuteAsync(
@@ -136,7 +137,10 @@ public sealed class PaneWaitTests
         await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.WaitForTextAsync("x", Arrival, token));
         await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.WaitUntilAsync(_ => true, Arrival, token));
         await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.ReadOutputSinceAsync(cancellationToken: token));
-        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.RunAsync("true", Arrival, token));
+        if (server.Version >= TmuxVersion.Parse("3.4"))
+        {
+            await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.RunAsync("true", Arrival, token));
+        }
     }
 
     // Combining marks can fill a cell's UTF-8 storage. Keep the pane wider
@@ -144,6 +148,7 @@ public sealed class PaneWaitTests
     [UnixFact]
     public async Task A_wide_row_of_combining_marks_leaves_the_held_client_running()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         string name = raw.SessionName + "-wide";
@@ -262,6 +267,7 @@ public sealed class PaneWaitTests
     [UnixFact]
     public async Task A_held_wait_client_serves_a_series_of_waits_and_then_detaches()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         RawTmuxResult created = await raw.ExecuteAsync(

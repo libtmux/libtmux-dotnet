@@ -40,23 +40,21 @@ public sealed class OptionalTmuxFeatureTests
     }
 
     [UnixFact]
-    public async Task A_pane_wait_falls_back_to_polling_only_when_asked()
+    public async Task A_pane_wait_polls_below_the_control_floor_and_attaches_no_client()
     {
         Assert.SkipWhen(Version >= TmuxVersion.Parse("3.7"), "A control client is promised here.");
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
         Pane pane = (await server.GetPanesAsync(token))[0];
-        PaneWaitRequest refused = PaneWaitRequest.FromTextPatterns(["never"], simpleMatch: true)
+        PaneWaitRequest request = PaneWaitRequest.FromTextPatterns(["never"], simpleMatch: true)
             with
         { Timeout = TimeSpan.FromMilliseconds(300) };
 
-        await Assert.ThrowsAsync<TmuxVersionTooLowException>(() => pane.WaitForTextAsync(refused, token));
+        PaneWaitResult polled = await pane.WaitForTextAsync(request, token);
 
-        PaneWaitResult polled = await pane.WaitForTextAsync(
-            refused with { AllowPollingFallback = true },
-            token);
         Assert.NotEqual(PaneWaitOutcome.Matched, polled.Outcome);
+        Assert.True(polled.PollingFallback);
         Assert.Empty((await raw.ExecuteAsync(["list-clients"], token)).StandardOutputLines);
     }
 
