@@ -682,7 +682,7 @@ public sealed class VersionParityTests
                 // tmux 3.8 stopped reporting 0 for a pane with no process;
                 // #{pane_pid} is an empty string instead, which a trailing
                 // newline alone projects to no lines at all.
-                string[] expectedEmptyPanePid = version < TmuxVersion.Parse("3.8")
+                string[] expectedEmptyPanePid = version < TmuxVersion.Parse("3.8-rc2")
                     ? ["0"]
                     : [];
                 Assert.Equal(expectedEmptyPanePid, emptyIdentity.StandardOutputLines);
