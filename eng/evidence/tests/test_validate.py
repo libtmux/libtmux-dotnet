@@ -34,7 +34,6 @@ REDACTION_CATEGORIES = [
     "usernames",
 ]
 REQUIRED_TMUX_VERSIONS = [
-    "3.2a",
     "3.3a",
     "3.4",
     "3.5",
