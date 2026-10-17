@@ -264,7 +264,7 @@ public sealed class TmuxControlTransportTests
 
         Assert.Equal([["move-window", "-s", "@1", "-t", "other:"]], probe.Processed);
         Assert.Contains(probe.Client.Commands, command => command.Contains("'rename-window'", StringComparison.Ordinal));
-        Assert.Contains(probe.Client.Commands, command => command.Contains("'display-message' '-p' ''", StringComparison.Ordinal));
+        Assert.Contains(probe.Client.Commands, command => command.Contains("'if-shell' '-F' '1' ''", StringComparison.Ordinal));
     }
 
     private sealed class Probe

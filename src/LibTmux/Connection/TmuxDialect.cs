@@ -55,6 +55,27 @@ internal sealed class TmuxDialect : MultiplexerDialect
     internal override async Task<(ServerGeneration Generation, string RawVersion)> DiscoverAsync(
         CancellationToken cancellationToken)
     {
+        if (_probe is not null)
+        {
+            // The probe reports the generation with the version in one word,
+            // where display-message would fire the owner's after hook.
+            await EnsureVerifiedAsync(cancellationToken).ConfigureAwait(false);
+            ProbeOutcome found = await ProbeAsync(cancellationToken).ConfigureAwait(false);
+            if (found.Kind is ProbeKind.Version)
+            {
+                Require(found.Version, "the connected daemon");
+                Volatile.Write(ref _supported, new Supported(found.Version, FromDaemon: true));
+                return (found.Generation, $"tmux {found.Version.Raw}");
+            }
+
+            throw found.Kind is ProbeKind.Absent
+                ? new TmuxCommandException(
+                    "server generation discovery failed: "
+                    + string.Join('\n', found.Result.StandardErrorLines),
+                    found.Result)
+                : Unreadable(found);
+        }
+
         IReadOnlyList<string> identify = ["display-message", "-p", TmuxConnection.GenerationFormat];
         TmuxCommandResult result = await RunSupportedAsync(
                 [identify],
@@ -290,23 +311,26 @@ internal sealed class TmuxDialect : MultiplexerDialect
                     Require(executable, "the executable");
                     supported = new Supported(executable, FromDaemon: false);
                     break;
-                case ProbeKind.Unrecognized:
-                    throw new TmuxProtocolException(
-                        $"tmux reported an unrecognized version '{outcome.Text}'.",
-                        TmuxDispatchState.NotDispatched);
                 default:
-                    throw new TmuxCommandException(
-                        "The tmux version probe failed: "
-                        + (outcome.Result.StandardErrorLines.Count > 0
-                            ? string.Join('\n', outcome.Result.StandardErrorLines)
-                            : $"exit {outcome.Result.ExitCode}"),
-                        outcome.Result);
+                    throw Unreadable(outcome);
             }
         }
 
         Volatile.Write(ref _supported, supported);
         return supported;
     }
+
+    private static Exception Unreadable(ProbeOutcome outcome) =>
+        outcome.Kind is ProbeKind.Unrecognized
+            ? new TmuxProtocolException(
+                $"tmux reported an unrecognized version '{outcome.Text}'.",
+                TmuxDispatchState.NotDispatched)
+            : new TmuxCommandException(
+                "The tmux version probe failed: "
+                + (outcome.Result.StandardErrorLines.Count > 0
+                    ? string.Join('\n', outcome.Result.StandardErrorLines)
+                    : $"exit {outcome.Result.ExitCode}"),
+                outcome.Result);
 
     private async Task<bool> IsAbsentAsync(CancellationToken cancellationToken)
     {

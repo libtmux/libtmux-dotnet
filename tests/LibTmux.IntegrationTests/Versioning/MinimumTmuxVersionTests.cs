@@ -267,13 +267,35 @@ public sealed class MinimumTmuxVersionTests
             Assert.True(version < TmuxVersion.Parse("3.5"));
         }
 
-        // The shared control client attaches on its own account; this proves
-        // the probe and the fence, which every transport sends.
         Server server = Server.Open(daemon.Options(Qualified()) with { ForceProcessTransport = true });
         await server.ExecuteCommandAsync(["list-sessions"], token);
 
         Assert.Equal(string.Empty, await daemon.OptionAsync("@after-display", token));
         Assert.Equal(string.Empty, await daemon.OptionAsync("@command-error", token));
+    }
+
+    [UnixFact]
+    public async Task Attaching_a_control_client_fires_no_display_message_hook()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var daemon = await TestDaemon.StartAsync(Qualified(), token);
+        Assert.SkipWhen(
+            TmuxVersion.Parse(await daemon.VersionAsync(token)) < TmuxVersion.Parse("3.7"),
+            "Library-managed control clients need tmux 3.7.");
+        await daemon.RequireAsync(
+            ["set-hook", "-g", "after-display-message", "set-option -g @after-display fired"],
+            token);
+
+        // The shared client attaches on the first one-shot command and names
+        // itself; an explicit client does the same when it attaches.
+        Server shared = Server.Open(daemon.Options(Qualified()));
+        await shared.ExecuteCommandAsync(["list-sessions"], token);
+        Server explicitly = await Server.ConnectAsync(daemon.Options(Qualified()), token);
+        await using IControlModeSession control = await explicitly.EnterControlModeAsync(
+            cancellationToken: token);
+
+        Assert.True(control.IsRunning);
+        Assert.Equal(string.Empty, await daemon.OptionAsync("@after-display", token));
     }
 
     private static async Task WaitUntilExecutableAsync(string path, CancellationToken token)

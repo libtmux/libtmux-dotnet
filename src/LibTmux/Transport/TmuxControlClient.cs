@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.Versioning;
 
 namespace LibTmux.Internal;
@@ -200,7 +201,7 @@ internal sealed class TmuxControlClient
         try
         {
             _ = await running
-                .SendRawAsync([["display-message", "-p", string.Empty]], new ControlModeSendProbe(), cancellationToken)
+                .SendRawAsync([["if-shell", "-F", "1", string.Empty]], new ControlModeSendProbe(), cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception error) when (error is not OperationCanceledException)
@@ -246,12 +247,30 @@ internal sealed class TmuxControlClient
         ControlModeSession session,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> lines = await session
-            .SendRawAsync(
-                [["display-message", "-p", "#{client_name}\t#{session_id}\t#{socket_path}"]],
-                new ControlModeSendProbe(),
-                cancellationToken)
-            .ConfigureAwait(false);
+        // display-message would fire the owner's after-display-message hook.
+        // The client is the row whose pid is the process this library started;
+        // the filter flag of list-clients is not on every supported release.
+        const string Fields = "#{client_name}\t#{session_id}\t#{socket_path}";
+        IReadOnlyList<string> lines;
+        if (session.ClientProcessId is int pid)
+        {
+            IReadOnlyList<string> rows = await session
+                .SendRawAsync(
+                    [["list-clients", "-F", "#{client_pid}\t" + Fields]],
+                    new ControlModeSendProbe(),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            string prefix = pid.ToString(CultureInfo.InvariantCulture) + "\t";
+            lines = [.. rows.Where(row => row.StartsWith(prefix, StringComparison.Ordinal))
+                .Select(row => row[prefix.Length..])];
+        }
+        else
+        {
+            lines = await session
+                .SendRawAsync([["display-message", "-p", Fields]], new ControlModeSendProbe(), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         string[] parts = lines.Count == 1 ? lines[0].Split('\t') : [];
         return parts.Length == 3 && parts[0].Length > 0 && parts[1].Length > 0 && parts[2].Length > 0
             ? (new OwnControlClient(parts[0], parts[1]), parts[2])
