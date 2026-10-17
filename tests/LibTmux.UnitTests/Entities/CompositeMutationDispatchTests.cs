@@ -288,8 +288,10 @@ public sealed class CompositeMutationDispatchTests
         Assert.Equal(0, Volatile.Read(ref dispatches));
     }
 
-    [Fact]
-    public async Task Json_layouts_are_refused_before_dispatch_below_3_8()
+    [Theory]
+    [InlineData("tmux 3.7c")]
+    [InlineData("tmux 3.8-rc")]
+    public async Task Json_layouts_are_refused_before_dispatch_below_3_8_rc2(string rawVersion)
     {
         int dispatches = 0;
         Window window = CreateWindow(
@@ -298,9 +300,9 @@ public sealed class CompositeMutationDispatchTests
                 Interlocked.Increment(ref dispatches);
                 return Task.FromResult(Success(request));
             },
-            rawVersion: "tmux 3.7c");
+            rawVersion: rawVersion);
 
-        // tmux's window_layout format became JSON at 3.8, so a JSON-shaped
+        // tmux's window_layout format became JSON at 3.8-rc2, so a JSON-shaped
         // layout is only trusted from a server that could have produced one.
         // Below that it is refused the same way an unknown name is: before
         // it ever reaches tmux.
@@ -312,13 +314,16 @@ public sealed class CompositeMutationDispatchTests
         Assert.Equal(0, Volatile.Read(ref dispatches));
     }
 
-    [Fact]
-    public void Captured_json_layouts_render_on_tmux_3_8()
+    [Theory]
+    [InlineData("tmux 3.8-rc2")]
+    [InlineData("tmux 3.8-rc3")]
+    [InlineData("tmux 3.8")]
+    public void Captured_json_layouts_render_from_3_8_rc2(string rawVersion)
     {
         const string layout = "{\"V\":2,\"L\":{\"t\":\"p\"}}";
         Window window = CreateWindow(
             (_, _) => throw new InvalidOperationException("Rendering dispatched a command."),
-            rawVersion: "tmux 3.8");
+            rawVersion: rawVersion);
 
         TmuxCommand command = new SelectLayoutRequest { Layout = layout }.ToCommand(window);
 

@@ -16,7 +16,7 @@ internal static class TmuxLayoutSyntax
             : IsNamedLayout(layout, mirrored: false) || IsNamedLayout(layout, mirrored: true));
 
     internal static bool SupportsJsonLayout(TmuxVersion? version) =>
-        version is TmuxVersion jsonVersion && jsonVersion >= TmuxVersion.Parse("3.8");
+        version is TmuxVersion jsonVersion && jsonVersion >= TmuxVersion.Parse("3.8-rc2");
 
     internal static bool NeedsVersion(string layout) =>
         layout.StartsWith('{') || (!layout.Contains(',', StringComparison.Ordinal)

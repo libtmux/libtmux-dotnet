@@ -271,6 +271,15 @@ public sealed class MinimumTmuxVersionTests
         Server server = Server.Open(daemon.Options(Qualified()) with { ForceProcessTransport = true });
         await server.ExecuteCommandAsync(["list-sessions"], token);
 
+        // A layout that depends on the version reads it, which once used
+        // display-message.
+        if (version >= TmuxVersion.Parse("3.5"))
+        {
+            await server.ValidateLayoutsAsync([("main-horizontal-mirrored", 1)], token);
+        }
+
+        _ = await server.ConnectAsync(token);
+
         Assert.Equal(string.Empty, await daemon.OptionAsync("@after-display", token));
         Assert.Equal(string.Empty, await daemon.OptionAsync("@command-error", token));
     }

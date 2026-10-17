@@ -184,6 +184,16 @@ internal sealed class TmuxConnection
         }
     }
 
+    internal async Task<(ServerGeneration? Generation, TmuxVersion Version)?> ReadIdentityAsync(
+        CancellationToken cancellationToken)
+    {
+        using var deadline = new TmuxCommandDispatcher.Deadline(
+            Options.CommandTimeout,
+            cancellationToken,
+            Options.Clock);
+        return await _dialect.ReadIdentityAsync(deadline.Token).ConfigureAwait(false);
+    }
+
     internal Task<string> ReadClientVersionAsync(CancellationToken cancellationToken) =>
         _dialect.EnsureVerifiedAsync(cancellationToken);
 
