@@ -30,8 +30,9 @@ def load(root: pathlib.Path) -> dict[str, t.Any]:
 def buildable(supported: list[str], transition: str) -> list[str]:
     """Order what build-version.sh accepts: the transition before its suffixes.
 
-    tmux 3.7 is buildable but never tested on its own — the matrix runs its
-    lettered successors. It sits with them rather than at the end.
+    tmux 3.7 is buildable, and the matrix runs its lettered successors; only
+    the tests that need exactly 3.7 run on it, in a job of their own. It sits
+    with the successors rather than at the end.
     """
     if transition in supported:
         return list(supported)

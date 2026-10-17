@@ -234,6 +234,13 @@ jobs:
             --configuration Release \
             --no-restore \
             -p:UsePackageReferences=true
+          # The quickstart waits through a control client, which tmux promises
+          # from 3.7; the runner's apt tmux can be older.
+          running="$(tmux -V | cut -d' ' -f2)"
+          if [[ "$(printf '%s\n' 3.7 "${running}" | sort -V | head -1)" != 3.7 ]]; then
+            echo "The quickstart needs tmux 3.7; this runner has ${running}."
+            exit 0
+          fi
           for framework in net8.0 net10.0; do
             # Built above, so only what the program prints reaches the comparison.
             printed="$(env -u TMUX -u TMUX_PANE dotnet run \
