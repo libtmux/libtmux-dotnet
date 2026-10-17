@@ -315,7 +315,8 @@ internal sealed partial class WriteTools
         "Paste a block of text into a pane through a tmux buffer. Use for multi-line "
         + "text, or anything an editor would mangle if typed — bracketed paste stops "
         + "auto-indent. The tool attempts to delete its temporary buffer afterwards; "
-        + "if cleanup fails, the completed-paste result identifies what remains.")]
+        + "if cleanup fails, the completed-paste result identifies what remains. "
+        + "Needs tmux 3.4; an older server is refused before the buffer is made.")]
     public async Task<ActionResult> PasteTextAsync(
         [Description("The text to paste.")] string text,
         [Description(
@@ -395,6 +396,7 @@ internal sealed partial class WriteTools
             }
         }
 
+        await server.RequireBufferStagingAsync("paste_text", cancellationToken).ConfigureAwait(false);
         string buffer = $"libtmux_mcp_{Guid.NewGuid():N}"[..24];
         Exception? primaryFailure = null;
         Exception? cleanupFailure = null;
