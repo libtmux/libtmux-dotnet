@@ -24,6 +24,8 @@ REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
 SNIPPETS = (REPOSITORY / "examples", REPOSITORY / "tests" / "LibTmux.FSharp.Tests")
 MANIFEST = REPOSITORY / "examples" / "api" / "manifest.json"
 DOCUMENTS = (
+    REPOSITORY / "README.md",
+    REPOSITORY / "src" / "LibTmux" / "README.md",
     REPOSITORY / "src" / "LibTmux.FSharp" / "README.md",
     *sorted((REPOSITORY / "docs" / "fsharp").glob("*.md")),
 )

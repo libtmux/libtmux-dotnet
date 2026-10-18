@@ -1,3 +1,16 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET Workspace CLI">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # tmux-workspace
 
 [![NuGet](https://img.shields.io/nuget/vpre/LibTmux.Workspace.Cli?logo=nuget&label=LibTmux.Workspace.Cli)](https://www.nuget.org/packages/LibTmux.Workspace.Cli)
@@ -5,9 +18,13 @@
 [![tmux 3.2a – 3.7c](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
 
 Describe a tmux session once, in YAML, and open it with one command.
-`tmux-workspace` reads [tmuxp](https://github.com/tmux-python/tmuxp)
-workspace files, captures running sessions back into them, and answers in JSON
-when a script asks.
+[`tmux-workspace`][api-workspace-cli] reads
+[tmuxp](https://github.com/tmux-python/tmuxp) workspace files, captures running
+sessions back into them, and answers in JSON when a script asks.
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 Save this as `~/.tmuxp/myproject.yaml`:
 
@@ -81,6 +98,19 @@ Load the `.tmuxp.yaml` in a project directory:
 $ tmux-workspace load ~/code/myproject
 ```
 
+Load a workspace on a tmux socket of its own, so it cannot touch the tmux you
+are using:
+
+```console
+$ tmux-workspace load -d -L demo myproject
+```
+
+Attach to that socket with tmux:
+
+```console
+$ tmux -L demo attach
+```
+
 Load several workspaces at once; the last one is the one you land in:
 
 ```console
@@ -97,6 +127,12 @@ List the workspaces it can find:
 
 ```console
 $ tmux-workspace ls
+```
+
+Group the list by directory:
+
+```console
+$ tmux-workspace ls --tree
 ```
 
 Find the workspaces that mention `server` in their name, windows, or pane
@@ -174,9 +210,9 @@ has files to start from.
 
 ## Scripting
 
-`--json` prints one JSON document on stdout. `--ndjson` streams one record per
-line as a load progresses. Errors go to stderr as JSON lines with a stable
-`code`.
+[`--json`][api-workspace-output] prints one JSON document on stdout. `--ndjson`
+streams one record per line as a load progresses. Errors go to stderr as JSON
+lines with a stable `code`.
 
 List workspace names:
 
@@ -226,7 +262,7 @@ fish:
 $ tmux-workspace --generate fish > ~/.config/fish/completions/tmux-workspace.fish
 ```
 
-`--generate man` writes a manual page.
+[`--generate man`][api-workspace-completion] writes a manual page.
 
 ## Compatibility
 
@@ -257,8 +293,13 @@ records what is implemented so far and where it differs.
 - [Installation walkthrough](https://libtmux.org/en/csharp/latest/workspace/guides/installation/) — install, load, and capture on a private socket
 - [Inspect a loaded session through MCP](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Mcp/README.md) — let an assistant read your panes
 - [LibTmux.Workspace](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Workspace/README.md) — build sessions from C# instead
+- [Source](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace.Cli) — the package directory on GitHub
 - [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/CHANGELOG.md)
 
 ## License
 
 [MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
+
+[api-workspace-cli]: https://libtmux.org/en/csharp/latest/workspace/cli/
+[api-workspace-completion]: https://libtmux.org/en/csharp/latest/workspace/cli/completion/
+[api-workspace-output]: https://libtmux.org/en/csharp/latest/workspace/reference/output/

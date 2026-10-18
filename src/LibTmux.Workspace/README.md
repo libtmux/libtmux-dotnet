@@ -1,7 +1,25 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET Workspace">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # LibTmux.Workspace
 
 Build tmux sessions from [tmuxp](https://github.com/tmux-python/tmuxp)
-YAML or JSON workspace files, on top of [LibTmux](https://www.nuget.org/packages/LibTmux).
+YAML or JSON [workspace files][api-ws-workspace-workspacefile], on top of
+[LibTmux](https://www.nuget.org/packages/LibTmux).
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version.
@@ -21,7 +39,7 @@ typed results instead of shelling out to another runtime.
 
 ## Review and apply
 
-Use your configured LibTmux `Server` and cancellation token. The
+Use your configured LibTmux [`Server`][api-server] and cancellation token. The
 [client quickstart](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md)
 covers choosing a socket.
 
@@ -48,10 +66,10 @@ WorkspaceResult result = await builder.ApplyAsync(plan, ct);
 Console.WriteLine($"{result.Session.Name}: {result.Windows.Count} windows");
 ```
 
-`PlanAsync` validates the declaration and observes the selected endpoint without
+[`PlanAsync`][api-ws-workspace-workspacebuilder-planasync] validates the declaration and observes the selected endpoint without
 creating sessions or running the connection initializer. Its immutable actions
 show creation, input, readiness, host scripts, final capture and conditional
-cleanup. Displaying or enumerating the plan performs no I/O. `ApplyAsync`
+cleanup. Displaying or enumerating the plan performs no I/O. [`ApplyAsync`][api-ws-workspace-workspacebuilder-applyasync]
 rechecks the observed daemon and session before executing those actions.
 
 `Validate(workspace, options)` checks declaration and policy constraints locally.
@@ -82,7 +100,7 @@ WorkspaceFile fromDisk = WorkspaceFile.Parse(File.ReadAllText(source))
     .Resolve(Path.GetDirectoryName(source)!);
 ```
 
-`Parse` preserves the declaration. `Resolve` returns a new declaration whose
+[`Parse`][api-ws-workspace-workspacefile-parse] preserves the declaration. [`Resolve`][api-ws-workspace-workspacefile-resolve] returns a new declaration whose
 directories are absolute: a window inherits the session directory, and a pane
 inherits its window directory. Each explicit relative path is resolved against
 that parent. Omitted session directories inherit the supplied document base.
@@ -125,11 +143,11 @@ windows:
 
 The first pane gets the requested main height, and synchronized input starts
 after each pane has received its own startup commands. This orders input; it
-does not wait for those commands to finish. `WorkspaceFile.GlobalOptions` and
-`WorkspaceWindow.OptionsAfter` expose the same read-only maps in C#.
+does not wait for those commands to finish. [`WorkspaceFile.GlobalOptions`][api-ws-workspace-workspacefile-globaloptions] and
+[`WorkspaceWindow.OptionsAfter`][api-ws-workspace-workspacewindow-optionsafter] expose the same read-only maps in C#.
 
 Global options change defaults on the selected daemon and can affect other
-sessions that inherit them. Plans expose these as `SetOptionRequest` actions
+sessions that inherit them. Plans expose these as [`SetOptionRequest`][api-setoptionrequest] actions
 with `Global = true`; inspect them before application. `Append` also applies
 declared global options, while `Reuse` leaves them untouched. Compensation
 does not restore global values after failure.
@@ -171,7 +189,7 @@ For programmatic declarations, `WithDefaults(environment, shellCommandsBefore)`
 returns a new value and copies both inputs. Null preserves the local defaults;
 an empty collection clears them. Resolving directories preserves these values.
 `WorkspaceCommand(text, enter)` and the named `commands:` and `beforeCommands:`
-arguments retain explicit Enter overrides. `WorkspacePane.Enter` preserves the
+arguments retain explicit Enter overrides. [`WorkspacePane.Enter`][api-ws-workspace-workspacepane-enter] preserves the
 pane default; `Commands` and `BeforeCommands` expose the immutable typed entries.
 `ShellCommands` and `ShellCommandsBefore` remain read-only text projections.
 Environment values and command text remain literal until tmux or the receiving
@@ -181,7 +199,7 @@ contain NUL. Invalid declarations fail before dispatch.
 
 ## Readiness and existing sessions
 
-`WorkspacePlanOptions` makes startup and conflict behavior explicit:
+[`WorkspacePlanOptions`][api-ws-workspace-workspaceplanoptions] makes startup and conflict behavior explicit:
 
 | Policy | Behavior |
 |---|---|
@@ -230,7 +248,7 @@ separate application signal. A timeout stops input to that pane.
 
 ## Results and failures
 
-`BuildAsync` returns the session and windows it created. Its `Unsupported` list
+[`BuildAsync`][api-ws-workspace-workspacebuilder-buildasync] returns the session and windows it created. Its `Unsupported` list
 contains only requested final layouts that tmux rejected; those windows remain usable.
 
 Creation, append and replacement end with the plan's `CaptureResult` action. It captures
@@ -240,13 +258,13 @@ an interval, not a transaction; concurrent topology changes can fail capture.
 Reuse returns the inspected session unchanged, with no created windows or
 additional graph capture.
 
-`Journal` records every action, including rejected layouts, failures, uncertain
+[`Journal`][api-ws-workspace-workspacebuildexception-journal] records every action, including rejected layouts, failures, uncertain
 outcomes and actions never started. `CompensationJournal` records attempted
-cleanup. Application failures throw `WorkspaceBuildException`; its
-`PartialResult` contains materialized state, or is null when no session could
+cleanup. Application failures throw [`WorkspaceBuildException`][api-ws-workspace-workspacebuildexception]; its
+[`PartialResult`][api-ws-workspace-workspacebuildexception-partialresult] contains materialized state, or is null when no session could
 be read. Planning and declaration errors fail before application begins.
 
-Caller cancellation during application throws `WorkspaceOperationCanceledException`,
+Caller cancellation during application throws [`WorkspaceOperationCanceledException`][api-ws-workspace-workspaceoperationcanceledexception],
 which derives from `OperationCanceledException` and retains the caller's token.
 It carries the same partial state and journals, plus `Dispatch` evidence.
 Cancellation leaves the returned task canceled; it does not imply rollback.
@@ -265,7 +283,7 @@ builder therefore creates one transient bootstrap window, applies session and
 global options, creates the described first window under them, and removes
 the bootstrap.
 tmux hooks can observe that extra window lifecycle. A missing session name or
-empty window list raises `WorkspaceFormatException` before creating anything.
+empty window list raises [`WorkspaceFormatException`][api-ws-workspace-workspaceformatexception] before creating anything.
 
 Set `window_index` in YAML or `WorkspaceWindow(windowIndex: 5)` in C# to request
 a nonnegative session-relative index. Omit it to use tmux's next free index.
@@ -274,9 +292,9 @@ window fails during application.
 
 ## Keep a captured session's structure
 
-`FromSnapshot` converts an already captured session locally. Capture through
-`SnapshotDepth.Panes` first; missing fields or relations raise
-`IncompleteSnapshotException`. Conversion also works after that daemon exits.
+[`FromSnapshot`][api-ws-workspace-workspacefile-fromsnapshot] converts an already captured session locally. Capture through
+[`SnapshotDepth.Panes`][api-snapshotdepth-panes] first; missing fields or relations raise
+[`IncompleteSnapshotException`][api-incompletesnapshotexception]. Conversion also works after that daemon exits.
 
 ```csharp run
 Server captured = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, ct);
@@ -307,13 +325,13 @@ session/window/pane scope, root `global_options`, window `options_after`,
 windows, window indexes, panes, layouts, focus,
 environment, and scalar or ordered `shell_command` and `shell_command_before`
 values. `before_script` runs on the host only when the plan enables
-`AllowHostScripts`. Resolve the declaration against its document directory
+[`AllowHostScripts`][api-ws-workspace-workspaceplanoptions-allowhostscripts]. Resolve the declaration against its document directory
 first. The named session exists before the script runs; its working directory
 is the resolved session `start_directory`, or the document directory when
 none is declared. `Reuse` skips the script for an existing session.
 The script is literal shell text passed to `/bin/sh -c`; tmuxp's separate
-rewrite of a leading `./script` path is not applied. `HostScriptTimeout` and
-`MaxHostOutputBytes` bound host execution and its combined captured output.
+rewrite of a leading `./script` path is not applied. [`HostScriptTimeout`][api-ws-workspace-workspaceplanoptions-hostscripttimeout] and
+[`MaxHostOutputBytes`][api-ws-workspace-workspaceplanoptions-maxhostoutputbytes] bound host execution and its combined captured output.
 Linux cleanup uses pinned process handles when available; otherwise it uses
 .NET's best-effort tree cleanup, and an observed loss of descendant coverage
 remains a cleanup failure.
@@ -328,7 +346,7 @@ configuration search path are rejected — if you need those, run tmuxp.
 ## This is not the CLI's builder
 
 `tmux-workspace`, the [command-line tool](https://www.nuget.org/packages/LibTmux.Workspace.Cli),
-does not call `WorkspaceBuilder`. It is a second implementation of the same
+does not call [`WorkspaceBuilder`][api-ws-workspace-workspacebuilder]. It is a second implementation of the same
 domain in the same repository, and the two answer some questions differently.
 Read a workspace file against the side that will build it:
 
@@ -352,8 +370,39 @@ between splits that a window of five or more panes needs at 80x24.
 | [LibTmux.Query.Json](https://www.nuget.org/packages/LibTmux.Query.Json) | JSON for query documents |
 | [LibTmux.Mcp](https://www.nuget.org/packages/LibTmux.Mcp) | A Model Context Protocol server, as a .NET tool |
 
+## Reference
+
+- [`WorkspaceBuilder`][api-ws-workspace-workspacebuilder]
+  and the [workspace reference](https://libtmux.org/en/csharp/latest/workspace/reference/): every public type
+- Source: [`src/LibTmux.Workspace`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace)
+
 Source, docs and issues: <https://github.com/libtmux/libtmux-dotnet>
 
 ## License
 
 [MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
+
+[api-incompletesnapshotexception]: https://libtmux.org/en/csharp/latest/reference/libtmux-incompletesnapshotexception/
+[api-server]: https://libtmux.org/en/csharp/latest/reference/libtmux-server/
+[api-setoptionrequest]: https://libtmux.org/en/csharp/latest/reference/libtmux-setoptionrequest/
+[api-snapshotdepth-panes]: https://libtmux.org/en/csharp/latest/reference/libtmux-snapshotdepth-panes/
+[api-ws-workspace-workspacebuilder]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuilder/
+[api-ws-workspace-workspacebuilder-applyasync]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuilder-applyasync/
+[api-ws-workspace-workspacebuilder-buildasync]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuilder-buildasync/
+[api-ws-workspace-workspacebuilder-planasync]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuilder-planasync/
+[api-ws-workspace-workspacebuildexception]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuildexception/
+[api-ws-workspace-workspacebuildexception-journal]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuildexception-journal/
+[api-ws-workspace-workspacebuildexception-partialresult]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuildexception-partialresult/
+[api-ws-workspace-workspacefile]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacefile/
+[api-ws-workspace-workspacefile-fromsnapshot]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacefile-fromsnapshot/
+[api-ws-workspace-workspacefile-globaloptions]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacefile-globaloptions/
+[api-ws-workspace-workspacefile-parse]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacefile-parse/
+[api-ws-workspace-workspacefile-resolve]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacefile-resolve/
+[api-ws-workspace-workspaceformatexception]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspaceformatexception/
+[api-ws-workspace-workspaceoperationcanceledexception]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspaceoperationcanceledexception/
+[api-ws-workspace-workspacepane-enter]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacepane-enter/
+[api-ws-workspace-workspaceplanoptions]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspaceplanoptions/
+[api-ws-workspace-workspaceplanoptions-allowhostscripts]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspaceplanoptions-allowhostscripts/
+[api-ws-workspace-workspaceplanoptions-hostscripttimeout]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspaceplanoptions-hostscripttimeout/
+[api-ws-workspace-workspaceplanoptions-maxhostoutputbytes]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspaceplanoptions-maxhostoutputbytes/
+[api-ws-workspace-workspacewindow-optionsafter]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacewindow-optionsafter/

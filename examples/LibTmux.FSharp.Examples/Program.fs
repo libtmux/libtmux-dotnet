@@ -429,6 +429,30 @@ let private runAsync () =
         | Some(:? TmuxExitEvent) -> ()
         | _ -> failwith "The control-mode guide did not observe tmux exiting."
 
+        // The READMEs quote these two blocks. They get a server and a deadline
+        // of their own, so they cannot spend what the steps above are bound by.
+        use readmeDeadline = new CancellationTokenSource(TimeSpan.FromSeconds 30.)
+        let readmeToken = readmeDeadline.Token
+
+        use! readmeServer =
+            ServerConnectionOptions(
+                SocketName = "libtmux-fsharp-readme-" + Guid.NewGuid().ToString("N"),
+                ConfigurationFile = "/dev/null"
+            )
+            |> Server.createOwned readmeToken
+
+        let! readmeSession =
+            readmeServer.Value
+            |> Server.newSession readmeToken (SessionSpec.running "readme" "/bin/sh")
+
+        let! readmePane = readmeSession |> Session.activePane readmeToken
+        let! shells = GuideSnippets.shellPanesAsync readmeToken readmeServer.Value
+        let! exited = GuideSnippets.exitStatusAsync readmeToken readmePane
+
+        match shells.Count, exited with
+        | 1, Some(3, [ "ok" ]) -> ()
+        | unexpected -> failwithf "The README examples did not list one shell and run to exit status 3: %A" unexpected
+
         printfn "PASS F# snapshot and portable query example"
     }
 

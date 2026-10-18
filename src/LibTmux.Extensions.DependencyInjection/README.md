@@ -1,8 +1,25 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET Dependency Injection">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # LibTmux.Extensions.DependencyInjection
 
 Registers [LibTmux](https://www.nuget.org/packages/LibTmux) with
 `Microsoft.Extensions.DependencyInjection`, so an application that already
 composes its services can take a tmux server handle as a dependency.
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version.
@@ -20,7 +37,7 @@ var services = new ServiceCollection();
 services.AddLibTmux(options => options with { SocketName = "build" });
 ```
 
-`Server` is then injectable:
+[`Server`][api-server] is then injectable:
 
 ```csharp
 using System.Collections.Generic;
@@ -35,6 +52,22 @@ public sealed class Builder(Server server)
 }
 ```
 
+Point the registration at a socket and resolve the handle:
+
+```csharp run
+ServiceCollection services = new();
+services.AddLibTmux(options => options with { SocketName = server.ConnectionOptions.SocketName });
+
+await using ServiceProvider provider = services.BuildServiceProvider();
+Server injected = provider.GetRequiredService<Server>();
+
+IReadOnlyList<Session> sessions = await injected.GetSessionsAsync(ct);
+if (sessions.Count == 0)
+{
+    throw new InvalidOperationException("The injected Server reached no sessions.");
+}
+```
+
 ## What it registers, and why that lifetime
 
 `Server` is a singleton. Handles are immutable and safe to share across
@@ -45,7 +78,7 @@ server applies commands in the order it receives them.
 
 ## Options
 
-`ServerConnectionOptions` is registered through `IOptions<T>`, so it binds from
+[`ServerConnectionOptions`][api-serverconnectionoptions] is registered through `IOptions<T>`, so it binds from
 configuration. This example also references `Microsoft.Extensions.Configuration`
 and `Microsoft.Extensions.Options.ConfigurationExtensions`:
 
@@ -74,6 +107,15 @@ services.AddLibTmux(options => options with { CommandTimeout = TimeSpan.FromSeco
 When the options name no logger and the provider has an `ILoggerFactory`, one
 is taken from it, so tmux commands are logged with everything else.
 
+## Reference
+
+- [`Server`][api-server]: the handle this registers
+- Source: [`src/LibTmux.Extensions.DependencyInjection`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Extensions.DependencyInjection)
+- Package: [NuGet](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection)
+
 ## License
 
 [MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
+
+[api-server]: https://libtmux.org/en/csharp/latest/reference/libtmux-server/
+[api-serverconnectionoptions]: https://libtmux.org/en/csharp/latest/reference/libtmux-serverconnectionoptions/

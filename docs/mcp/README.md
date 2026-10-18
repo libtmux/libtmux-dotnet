@@ -18,7 +18,10 @@ README](../../src/LibTmux.Mcp/README.md) covers installing the server, pointing
 a client at it, and the environment variables that configure it. [The F#
 guide](../fsharp/mcp.md) pairs each tool with the `LibTmux.FSharp` call that
 does the same from a program, and shows how to point the server at that
-program's socket.
+program's socket. On libtmux.org, the
+[MCP guide](https://libtmux.org/en/csharp/latest/mcp/) installs the tool and
+each [tool page](https://libtmux.org/en/csharp/latest/mcp/tools/) documents its
+arguments.
 
 A .NET client can start the tool with an explicit socket and a frozen surface.
 This example also disables inherited process environment so unrelated secrets
@@ -57,101 +60,102 @@ cover the cases, and the server's instructions steer between them:
 
 | You want | Use | Why |
 |---|---|---|
-| Run a command, know if it worked | `run_shell_command` | Waits, returns the shell's **real exit status** |
-| Output you did **not** start | `wait_for_text` | Wakes from pane output; polling fallback requires operator opt-in |
-| Watch a pane across turns | `capture_since` | Answers only what is **new** since its cursor |
-| Read several facts together | `call_read_tools_batch` | Runs up to 16 declared inspect calls serially |
+| Run a command, know if it worked | [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/) | Waits, returns the shell's **real exit status** |
+| Output you did **not** start | [`wait_for_text`](https://libtmux.org/en/csharp/latest/mcp/tools/wait_for_text/) | Wakes from pane output; polling fallback requires operator opt-in |
+| Watch a pane across turns | [`capture_since`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_since/) | Answers only what is **new** since its cursor |
+| Read several facts together | [`call_read_tools_batch`](https://libtmux.org/en/csharp/latest/mcp/tools/call_read_tools_batch/) | Runs up to 16 declared inspect calls serially |
 
-Read visible text and scrollback with `capture_pane`. Use `snapshot_pane` when
-content, cursor, size, and running command should return together in one
-response; `search_panes` to locate matching text; and `capture_since` to follow
-only new output through its authenticated cursor.
+Read visible text and scrollback with
+[`capture_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_pane/).
+Use
+[`snapshot_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/snapshot_pane/)
+when content, cursor, size, and running command should return together,
+[`search_panes`](https://libtmux.org/en/csharp/latest/mcp/tools/search_panes/)
+to find matching text, and
+[`capture_since`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_since/)
+to follow only new output.
 
-Pane modes belong to attached humans. `snapshot_pane` reports mode state, and
-ordinary capture still reads the underlying pane text; the MCP never enters,
-drives, or exits a mode. `send_keys`, `send_keys_batch`, and `run_shell_command`
-always refuse a modal named target. When the source's effective
-`pane_synchronized` value is `1` and input expands, they also refuse modal peers
-in the synchronized input cohort: panes in the window whose effective
-`synchronize-panes` setting is on, including pane overrides.
-`paste_text` checks only its named target because buffer paste does not fan
-out. Wait for the human-owned mode to end before retrying.
+### Typing into panes
 
-`run_shell_command` requires one configured effective pane. It refuses before
-its baseline or payload when `synchronize-panes` would make the cohort larger,
-so its status and output remain singular.
+- Pane modes, such as copy mode and menus, belong to people. The server never
+  enters, drives, or exits one.
+  [`snapshot_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/snapshot_pane/)
+  reports the mode, and capture still reads the pane's text.
+- [`send_keys`](https://libtmux.org/en/csharp/latest/mcp/tools/send_keys/),
+  [`send_keys_batch`](https://libtmux.org/en/csharp/latest/mcp/tools/send_keys_batch/),
+  and
+  [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/)
+  refuse a pane that is in a mode.
+  [`paste_text`](https://libtmux.org/en/csharp/latest/mcp/tools/paste_text/)
+  checks only the pane it names, because a paste does not fan out to other
+  panes. Wait for the person to leave the mode, then retry.
+- With `synchronize-panes` on, input to one pane reaches every pane in that
+  window whose setting is on. The three tools above also refuse when another
+  pane in that group is in a mode.
+- [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/)
+  needs exactly one target. It refuses before sending anything when synchronized
+  panes would run the command in more than one, so its status and output stay
+  singular.
+- These checks are observations, not locks. A pane can change mode after a
+  check, and the pane IDs in a result say who was configured to receive input,
+  not who received it.
 
-Input preflights are observations, not atomic tmux transactions: mode or
-synchronization state can change after a check. Returned pane IDs describe
-configured membership at that observation. They do not prove which panes
-received input or that delivery succeeded.
+### Tasks and cancellation
 
-A client that speaks the [Tasks extension](https://modelcontextprotocol.io) can
-start `wait_for_text` or `wait_for_channel` as a task and collect the result
-later. It is offered, never required, so a client without it keeps the blocking
-call it had. `run_shell_command` stays synchronous because an SDK task has no
-durable tmux job handle if its client disconnects. Listings also stay plain
-calls; making one a task would add a round trip to an answer already available.
-The in-memory task store admits at most 8 active executions and retains at most
-256 results for 15 minutes. Cancellation keeps its active slot until the
-background execution actually stops.
+- A client that speaks the
+  [Tasks extension](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/tasks)
+  can start
+  [`wait_for_text`](https://libtmux.org/en/csharp/latest/mcp/tools/wait_for_text/)
+  or
+  [`wait_for_channel`](https://libtmux.org/en/csharp/latest/mcp/tools/wait_for_channel/)
+  as a task and collect the result later. A client without it keeps the blocking
+  call.
+- [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/)
+  stays synchronous, because a task has no durable handle on a tmux job if its
+  client disconnects. Listings stay plain calls.
+- The task store holds at most 8 active executions and keeps at most 256 results
+  for 15 minutes. A cancelled task keeps its slot until its work stops.
+- Cancel a plain wait with `notifications/cancelled` and its request ID. Cancel
+  a task with `tasks/cancel` and its task ID (`McpClient.CancelTaskAsync` in the
+  .NET SDK); cancelling the request that created a task does not stop it.
+- Cancelling a client-side await does not prove the server received
+  `notifications/cancelled`. A client that needs prompt cleanup has to send it
+  for the pending request ID.
+- Without a notification, a wait still ends at its deadline.
 
-Cancel a plain pane wait with `notifications/cancelled` and its JSON-RPC
-request ID. Cancel a task with `tasks/cancel` and its task ID
-(`McpClient.CancelTaskAsync` in the .NET SDK); cancelling the request that
-created a task does not stop its work. The server releases a plain wait's
-observer as the cancelled wait unwinds. Even without a cancellation
-notification, the observation loop has a deadline.
+### How a text wait works
 
-Cancelling a client-side await alone does not prove the server received
-`notifications/cancelled`. A client that needs prompt server cleanup must
-verify that it sends the notification for the pending request ID, or send it
-explicitly.
+- [`wait_for_text`](https://libtmux.org/en/csharp/latest/mcp/tools/wait_for_text/)
+  subscribes to tmux's
+  [control mode](https://github.com/tmux/tmux/wiki/Control-Mode), so it wakes as
+  soon as the pane prints.
+- That stream is a signal, never content: the text you get always comes from a
+  capture of what tmux has rendered.
+- The control client attaches with `ignore-size` (tmux 3.2 and later), so it
+  does not shrink the window to its own size, and it exists only while a wait is
+  running.
+- Layout and window-close events also wake waits in the session. A resize does
+  not need to produce text for the wait to retry.
+- If control mode cannot start or the stream is lost, the wait ends. Set
+  `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` to re-read the pane every 60 ms
+  instead. The result then says `pollingFallback: true`, a warning goes to
+  stderr, and [`tmux://capabilities`][api-mcp-capabilities] reports the policy.
+- `eventsDropped` counts notifications lost during the wait, possibly from other
+  panes in the session. The server re-reads the pane, but a match shows what the
+  capture held, not a complete terminal transcript.
+- The fallback setting affects
+  [`wait_for_text`](https://libtmux.org/en/csharp/latest/mcp/tools/wait_for_text/).
+  [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/)
+  and
+  [`wait_for_channel`](https://libtmux.org/en/csharp/latest/mcp/tools/wait_for_channel/)
+  use tmux wait channels and ignore it.
 
-A pane text wait subscribes to tmux's own
-[control mode](https://github.com/tmux/tmux/wiki/Control-Mode), so tmux reports
-pane output as it happens and the wait is released the moment there is
-something to look at.
+The full contract is in
+[Waits and captured output](https://libtmux.org/en/csharp/latest/mcp/topics/waits-and-output/).
 
-After its initial consistent capture, a wait retains its cursor when the pane
-changes throughout a read and retries on activity within the original deadline.
-Layout and window-close notifications also wake waits in the affected session;
-a resize does not need to produce text for the wait to retry.
-Direct captures and the initial baseline keep their bounded refusal when the
-pane never settles during their attempts.
-
-Two details make that safe. The control client attaches with `ignore-size`
-(tmux 3.2+), so it never drags the window down to its own size; and it is
-reference counted per session, so it exists only while a wait is running. What
-arrives on that stream is the pane's raw terminal bytes, so it is used as a
-signal and never as content — the text you get always comes from a capture,
-which is what tmux has already rendered.
-
-Control startup failure or later stream loss ends a text wait by default.
-Set `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` to permit fallback. It waits 60 ms
-between captures, bounded by the same deadline and cancellation token. The
-extra reads cost tmux processes and can miss intermediate screen states; they
-do not provide event-driven observation.
-
-`tmux://capabilities` discloses the startup policy and polling interval. A wait
-that activates fallback returns `pollingFallback: true`, including an immediate
-entry match, and activation is logged to stderr. The field stays true if that
-wait later regains a control stream. An unset or invalid setting requires
-control observation; prior releases enabled fallback implicitly.
-
-Notification loss is separate from polling fallback. A dropped-event notice
-wakes every text wait in that session to read pane state and captured text
-again. `eventsDropped` reports notifications lost while that wait held its
-lease; the count can include other panes in the session. A fresh read does not
-recover intermediate output, so a successful match is evidence about captured
-text, not a complete terminal transcript.
-
-This setting affects `wait_for_text`. `run_shell_command` and
-`wait_for_channel` use tmux rendezvous signals. MCP task-status polling is a
-separate protocol operation, not a request to poll pane contents.
-
-A protocol client calls `run_shell_command` with the pane id and command it
-wants to run:
+A protocol client calls
+[`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/)
+with the pane id and command it wants to run:
 
 ```json
 {
@@ -210,7 +214,9 @@ keep the **newest** lines and say what they dropped:
 ```
 
 A reader that cannot see lines are missing concludes the pane never printed
-them. For a five-line view, call `capture_pane` with `maxLines: 5`:
+them. For a five-line view, call
+[`capture_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_pane/)
+with `maxLines: 5`:
 
 ```json
 {
@@ -252,10 +258,11 @@ Console.WriteLine($"dropped {content.GetProperty("droppedLines")} earlier lines"
 ```
 <!-- endsnippet -->
 
-`capture_since` avoids the problem instead of managing it. Its first call
-establishes a position and returns an opaque cursor. Pass that cursor back on
-the next call, after `wait_for_text` wakes, and the tenth read of a busy pane
-costs what the first did.
+[`capture_since`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_since/)
+avoids the problem instead of managing it. Its first call establishes a position
+and returns an opaque cursor. Pass that cursor back on the next call, after
+[`wait_for_text`](https://libtmux.org/en/csharp/latest/mcp/tools/wait_for_text/)
+wakes, and the tenth read of a busy pane costs what the first did.
 
 ```json
 {
@@ -272,10 +279,9 @@ costs what the first did.
 }
 ```
 
-A cursor is opaque, authenticated, and bound to the exact socket, tmux server
-generation, and pane that issued it. It cannot be moved between panes or
-servers, and restarting the MCP server expires it; omit an expired cursor to
-establish a new position.
+A cursor is opaque and works only for the pane that issued it, on that socket
+and server. Restarting the MCP server expires it; omit an expired cursor to
+start a new position.
 
 <!-- snippet: ReadOnlyWhatIsNew -->
 ```csharp
@@ -309,21 +315,20 @@ Console.WriteLine($"{lineCount} new lines");
 ```
 <!-- endsnippet -->
 
-The byte ceiling covers serialized tool and resource results, including text,
-structured content, and metadata. A result reports `droppedBytes` in pane text
-instead, which is the unit the pane measures in — for CJK or emoji the budget
-figure can be several times larger, because JSON escaping expands the text and
-the payload carries it twice. Content tools truncate within it and report the
-loss; a result that still cannot fit is replaced by a small error that says
-how to narrow the call or raise the ceiling. Oversized resource reads fail with
-the same guidance. `search_panes` caps its pattern at 999 UTF-8 bytes, uses a
-non-backtracking engine with a one-second match timeout, and examines at most
-8 MiB of candidate pane text. That engine matches in linear time, so patterns
-are .NET syntax minus the constructs that need backtracking: lookarounds,
-backreferences and atomic groups are refused, and character classes,
-quantifiers, alternation, anchors and named groups all work. Pane waits accept
-at most 32 patterns, 999 bytes each and 16384 bytes together; channel names
-share the 4096-byte input bound.
+The byte ceiling covers serialized tool and resource results, not raw terminal
+bytes:
+
+- Content tools truncate within the ceiling and report the loss in `truncated`,
+  `droppedLines`, and `droppedBytes`. A result that still cannot fit becomes a
+  small error that says how to narrow the call or raise the ceiling. Oversized
+  resource reads fail the same way.
+- [`search_panes`](https://libtmux.org/en/csharp/latest/mcp/tools/search_panes/)
+  caps its pattern at 999 UTF-8 bytes, matches in linear time with a one-second
+  timeout, and reads at most 8 MiB of candidate pane text. Character classes,
+  quantifiers, alternation, anchors, and named groups work; lookarounds,
+  backreferences, and atomic groups are refused.
+- Pane waits accept at most 32 patterns, 999 bytes each and 16384 bytes
+  together. Channel names share the 4096-byte input bound.
 
 To offer these beside your own tools rather than as a separate process:
 
@@ -348,49 +353,61 @@ McpServerComposition.Add(
 
 ## Four unordered toolsets, and a tool you do not have cannot be called
 
-`LIBTMUX_TOOLSETS` is a comma-separated subset of `inspect`, `manage`,
-`execute`, and `teardown`. Selection is unordered; all 16 subsets are valid.
-A wholly empty value selects no toolsets. Once nonempty, leading, trailing, or
-interior empty tokens are startup errors.
+- `LIBTMUX_TOOLSETS` is a comma-separated subset of `inspect`, `manage`,
+  `execute`, and `teardown`. Order does not matter, and all 16 subsets are
+  valid. An empty value selects no toolsets; in a nonempty value, an empty item
+  is a startup error.
+- `LIBTMUX_TOOLS` adds exact tool names after the toolsets are selected.
+  `LIBTMUX_EXCLUDE_TOOLS` removes exact names last, so exclusions win.
+- Unknown names and malformed lists stop startup before the server opens tmux.
+  `LIBTMUX_SAFETY` is retired, and setting it is a fatal migration error.
+- Toolsets and filters shape what the client sees and can call. They are not
+  authorization.
 
-`LIBTMUX_TOOLS` adds exact tool names after toolset selection.
-`LIBTMUX_EXCLUDE_TOOLS` removes exact names last, so exclusions win. Unknown
-names and malformed lists stop startup before the server opens tmux.
-`LIBTMUX_SAFETY` is retired; its presence is a fatal migration error.
+From Claude Code, this registers the server with the `inspect` toolset only,
+which offers just the tools that read tmux:
 
-Toolsets and tool filters shape the advertised and callable interface; they
-are not authorization. Whole-call MCP annotations are client consent and
-presentation metadata, not enforcement.
+```console
+$ claude mcp add tmux \
+    -e LIBTMUX_TOOLSETS=inspect \
+    -- libtmux-mcp
+```
 
-The process pins one endpoint before registration. `LIBTMUX_SOCKET` supplies a
-socket name, `LIBTMUX_SOCKET_PATH` supplies an absolute socket path, and the two
-are mutually exclusive. `LIBTMUX_TMUX_CONFIG` is an explicit absolute config
-path. `LIBTMUX_TMUX` selects the executable; a bare or relative value is
-resolved once against the startup `PATH`, and later calls use that absolute
-path. Once a server answers, its reported absolute socket path replaces the
-name selector so pane-local environment changes cannot redirect a run's
-bookkeeping. With none of these set, the server uses the product-dedicated
-`libtmux-mcp` socket and minimal configuration. A newly created dedicated
-minimal endpoint defaults to all four toolsets. Existing, explicitly named,
-path-pinned, and user-configured endpoints omit teardown unless it is selected
-by toolset or exact tool name.
-On shutdown, the MCP process removes only a dedicated daemon whose launch
-marker still matches; it leaves existing or replaced daemons running.
+### Choosing the socket
 
-The selected socket limits addressable tmux objects, not operating-system
-authority: it provides no sandbox or confinement for filesystem, process,
-network, or credentials. Execute tools run with the tmux user's authority.
+- `LIBTMUX_SOCKET` names a socket and `LIBTMUX_SOCKET_PATH` gives an absolute
+  socket path. Set only one.
+- `LIBTMUX_TMUX_CONFIG` is an absolute path to a tmux configuration.
+  `LIBTMUX_TMUX` selects the tmux executable; a bare or relative value is
+  resolved once against the startup `PATH`.
+- With none of these set, the server uses the dedicated `libtmux-mcp` socket and
+  a minimal configuration. A newly created dedicated socket defaults to all four
+  toolsets.
+- An existing, named, path-pinned, or user-configured socket omits `teardown`
+  unless you select it by toolset or exact tool name.
+- On shutdown the server removes only a dedicated daemon whose launch marker
+  still matches this process. It leaves existing or replaced daemons running.
+- The socket limits which tmux objects a client can address. It is not a
+  sandbox: execute tools run with the tmux user's authority over files,
+  processes, the network, and credentials.
 
-Selecting `call_read_tools_batch` alone retains its 16 declared inspect
-operations for nested dispatch without advertising them separately. Each
-`operations` entry names a `tool` and carries that tool's native typed
-`arguments`. Explicit
-exclusions prune the schema, declared authority, and dispatch together. The
-batch runs serially, supports `onError: "stop"` or `"continue"`, keeps every
-completed row and full nested MCP envelope, and marks nested result payloads it
-must elide to fit the 1,000,000-byte aggregate response ceiling.
-`send_keys_batch` uses the same `operations` and `onError` naming for its
-bounded pane-input sequence.
+### Batches
+
+- [`call_read_tools_batch`](https://libtmux.org/en/csharp/latest/mcp/tools/call_read_tools_batch/)
+  runs up to 16 `operations` one after another. Each names a `tool` and carries
+  that tool's own `arguments`. `onError` is `"stop"` or `"continue"`.
+- A batch keeps every completed row, and marks any nested payload it left out to
+  fit the 1,000,000-byte result limit.
+- Selecting
+  [`call_read_tools_batch`](https://libtmux.org/en/csharp/latest/mcp/tools/call_read_tools_batch/)
+  alone keeps its 16 inspect operations callable inside the batch without
+  advertising them separately. Excluding a tool removes it from the batch too.
+- [`send_keys_batch`](https://libtmux.org/en/csharp/latest/mcp/tools/send_keys_batch/)
+  uses the same `operations` and `onError` names for a bounded sequence of pane
+  input.
+
+The full contract is in
+[Tool selection](https://libtmux.org/en/csharp/latest/mcp/topics/tool-selection/).
 
 <!-- snippet: ReadSeveralFacts -->
 ```csharp
@@ -423,33 +440,33 @@ for the current surface.
 | `LIBTMUX_SAFETY=readonly|mutating|destructive` | `LIBTMUX_TOOLSETS`, `LIBTMUX_TOOLS`, `LIBTMUX_EXCLUDE_TOOLS` | Selection is unordered, frozen at startup, and exclusions win. |
 | Positional socket argument, such as `"args": ["my-socket"]` | `LIBTMUX_SOCKET=my-socket` | The executable takes no positional arguments; socket selection is frozen from the environment. |
 | Most retained `tmux_*` tools | The same operation without the `tmux_` prefix | Check the generated list; several operations below were narrowed or renamed. |
-| `tmux_run` | `run_shell_command` | The call remains synchronous and bounded. There are no detached job handles. |
-| `tmux_start_job`, `tmux_job`, `tmux_list_jobs`, `tmux_cancel_job` | `run_shell_command`, `capture_since`, and MCP wait cancellation | The background-job registry has no replacement. Cancelling a wait does not stop a command already running in the pane. |
-| `tmux_tail_pane` | `capture_since` | The opaque cursor still supports incremental pane reads. |
-| `enter_copy_mode`, `exit_copy_mode` | `capture_pane`, `snapshot_pane`, `search_panes`, `capture_since`, and explicit human interaction | Capture reads visible text and scrollback without changing client state. A human owns entering, driving, and leaving pane modes. |
-| `tmux_display_message` | `get_tmux_variables` | Only validated variable names are accepted; arbitrary tmux formats have no replacement. |
-| `tmux_server_info`, `tmux_whoami`, `tmux://self` | `get_server_info` and `list_panes` | `callerPaneId` and `isCaller` replace the separate identity route. |
-| `tmux_show_options`, `tmux_split_pane` | `show_option`, `split_window` | The new names match the cross-port surface. Spawn calls accept no command or environment payload. |
-| `tmux_clear_pane` | `clear_pane_scrollback` | Scrollback deletion remains. Clearing the visible screen has no MCP replacement. |
-| `break_pane`, `join_pane` | No current MCP replacement; .NET callers can use `Pane.BreakAsync` and `Pane.JoinAsync` directly. | Cross-port MCP deliberately omits pane reparenting. The core library operations remain available. |
-| `set_option` | `set_history_limit`, `set_mouse_enabled`, `set_pane_title`, `set_synchronize_panes`, or the core options API | The cross-port MCP exposes only purpose-specific setters. `show_option` still reads any option. |
+| `tmux_run` | [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/) | The call remains synchronous and bounded. There are no detached job handles. |
+| `tmux_start_job`, `tmux_job`, `tmux_list_jobs`, `tmux_cancel_job` | [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/), [`capture_since`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_since/), and MCP wait cancellation | The background-job registry has no replacement. Cancelling a wait does not stop a command already running in the pane. |
+| `tmux_tail_pane` | [`capture_since`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_since/) | The opaque cursor still supports incremental pane reads. |
+| `enter_copy_mode`, `exit_copy_mode` | [`capture_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_pane/), [`snapshot_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/snapshot_pane/), [`search_panes`](https://libtmux.org/en/csharp/latest/mcp/tools/search_panes/), [`capture_since`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_since/), and explicit human interaction | Capture reads visible text and scrollback without changing client state. A human owns entering, driving, and leaving pane modes. |
+| `tmux_display_message` | [`get_tmux_variables`](https://libtmux.org/en/csharp/latest/mcp/tools/get_tmux_variables/) | Only validated variable names are accepted; arbitrary tmux formats have no replacement. |
+| `tmux_server_info`, `tmux_whoami`, `tmux://self` | [`get_server_info`](https://libtmux.org/en/csharp/latest/mcp/tools/get_server_info/) and [`list_panes`](https://libtmux.org/en/csharp/latest/mcp/tools/list_panes/) | `callerPaneId` and `isCaller` replace the separate identity route. |
+| `tmux_show_options`, `tmux_split_pane` | [`show_option`](https://libtmux.org/en/csharp/latest/mcp/tools/show_option/), [`split_window`](https://libtmux.org/en/csharp/latest/mcp/tools/split_window/) | The new names match the cross-port surface. Spawn calls accept no command or environment payload. |
+| `tmux_clear_pane` | [`clear_pane_scrollback`](https://libtmux.org/en/csharp/latest/mcp/tools/clear_pane_scrollback/) | Scrollback deletion remains. Clearing the visible screen has no MCP replacement. |
+| `break_pane`, `join_pane` | No current MCP replacement; .NET callers can use [`Pane.BreakAsync`][api-pane-breakasync] and [`Pane.JoinAsync`][api-pane-joinasync] directly. | Cross-port MCP deliberately omits pane reparenting. The core library operations remain available. |
+| `set_option` | [`set_history_limit`](https://libtmux.org/en/csharp/latest/mcp/tools/set_history_limit/), [`set_mouse_enabled`](https://libtmux.org/en/csharp/latest/mcp/tools/set_mouse_enabled/), [`set_pane_title`](https://libtmux.org/en/csharp/latest/mcp/tools/set_pane_title/), [`set_synchronize_panes`](https://libtmux.org/en/csharp/latest/mcp/tools/set_synchronize_panes/), or the core options API | The cross-port MCP exposes only purpose-specific setters. [`show_option`](https://libtmux.org/en/csharp/latest/mcp/tools/show_option/) still reads any option. |
 | `tmux_list_servers`, `tmux_kill_server`, `tmux://servers` | Socket environment variables and `tmux://capabilities` | One socket is pinned per process. Server discovery and server-wide teardown have no replacement. |
-| `tmux_list_buffers` and public buffer operations | `paste_text` | Paste uses an ephemeral internal buffer; listing or managing tmux buffers has no replacement. |
-| `tmux_hierarchy`, `tmux://hierarchy`, `tmux://sessions`, `tmux://sessions/{sessionId}/panes`, `tmux://panes/{paneId}/content` | `list_sessions`, `list_windows`, `list_panes`, `capture_pane`, and `call_read_tools_batch` | Reads remain approval-bearing tools. Dynamic resources, templates, and subscriptions have no replacement. |
-| `tmux_run_and_report` prompt | `run_shell_command` | Read `exitStatus`, `timedOut`, and `output`; a timed-out command may still be running, so inspect it instead of starting a duplicate. |
-| `tmux_diagnose_pane` prompt | `snapshot_pane`, then `capture_since` when following output | Check `pane.currentCommand`, `pane.dead`, `content.truncated`, and `alternateScreen`; enlarge a truncated read and propose the smallest confirming command without running it. |
-| `tmux_interrupt_pane` prompt | `get_pane_info`, `send_keys`, `get_pane_info` | Record `currentCommand`, send `C-c` with `literal=false`, then compare it again. Do not infer success from a prompt glyph or echoed `^C`, and do not escalate without approval. |
-| `tmux_build_workspace` prompt | `create_session`, `split_window`, `set_pane_title`, and `send_keys` | Give the detached session explicit dimensions, keep each returned `paneId` while splitting the topology, then title and drive those stable pane IDs. |
+| `tmux_list_buffers` and public buffer operations | [`paste_text`](https://libtmux.org/en/csharp/latest/mcp/tools/paste_text/) | Paste uses an ephemeral internal buffer; listing or managing tmux buffers has no replacement. |
+| `tmux_hierarchy`, `tmux://hierarchy`, `tmux://sessions`, `tmux://sessions/{sessionId}/panes`, `tmux://panes/{paneId}/content` | [`list_sessions`](https://libtmux.org/en/csharp/latest/mcp/tools/list_sessions/), [`list_windows`](https://libtmux.org/en/csharp/latest/mcp/tools/list_windows/), [`list_panes`](https://libtmux.org/en/csharp/latest/mcp/tools/list_panes/), [`capture_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_pane/), and [`call_read_tools_batch`](https://libtmux.org/en/csharp/latest/mcp/tools/call_read_tools_batch/) | Reads remain approval-bearing tools. Dynamic resources, templates, and subscriptions have no replacement. |
+| `tmux_run_and_report` prompt | [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/) | Read `exitStatus`, `timedOut`, and `output`; a timed-out command may still be running, so inspect it instead of starting a duplicate. |
+| `tmux_diagnose_pane` prompt | [`snapshot_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/snapshot_pane/), then [`capture_since`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_since/) when following output | Check `pane.currentCommand`, `pane.dead`, `content.truncated`, and `alternateScreen`; enlarge a truncated read and propose the smallest confirming command without running it. |
+| `tmux_interrupt_pane` prompt | [`get_pane_info`](https://libtmux.org/en/csharp/latest/mcp/tools/get_pane_info/), [`send_keys`](https://libtmux.org/en/csharp/latest/mcp/tools/send_keys/), [`get_pane_info`](https://libtmux.org/en/csharp/latest/mcp/tools/get_pane_info/) | Record `currentCommand`, send `C-c` with `literal=false`, then compare it again. Do not infer success from a prompt glyph or echoed `^C`, and do not escalate without approval. |
+| `tmux_build_workspace` prompt | [`create_session`](https://libtmux.org/en/csharp/latest/mcp/tools/create_session/), [`split_window`](https://libtmux.org/en/csharp/latest/mcp/tools/split_window/), [`set_pane_title`](https://libtmux.org/en/csharp/latest/mcp/tools/set_pane_title/), and [`send_keys`](https://libtmux.org/en/csharp/latest/mcp/tools/send_keys/) | Give the detached session explicit dimensions, keep each returned `paneId` while splitting the topology, then title and drive those stable pane IDs. |
 
 ## Static capability resource
 
-`tmux://capabilities` is the only resource. It is frozen at startup, has no
-templates or subscriptions, and reports only effective tools. Its `socket`
-object identifies the selector, selection provenance, server state,
-configuration provenance, and tmux-object namespace boundary. Top-level fields
-record the selected toolsets, named inclusions and exclusions, effective count,
-tmux-user execution authority, lack of OS confinement, and zero host-command
-tools.
+- `tmux://capabilities` is the only resource. It is frozen at startup, has no
+  templates or subscriptions, and reports only effective tools.
+- Its `socket` object gives the selector, how it was chosen, the server state,
+  the configuration provenance, and the tmux-object namespace boundary.
+- Top-level fields give the selected toolsets, named inclusions and exclusions,
+  the effective count, the tmux-user execution authority, the lack of OS
+  confinement, and zero host-command tools.
 
 <!-- snippet: ReadCapabilities -->
 ```csharp
@@ -465,20 +482,21 @@ Console.WriteLine(
 ```
 <!-- endsnippet -->
 
-Every listed tool carries the same complete capability row under
-`_meta["com.git-pull.libtmux-mcp/capability"]`. One immutable native registry
-owns the name, controlled description, toolset, reach, tmux effects, output
-classes, trust flags, conservative annotations, schemas, internal input-sink
-classification, public input literalization, nested authority, and handler used
-for registration, dispatch, disclosure, and generated reference material.
-Internal sink classifications stay out of the public capability rows.
-`list_panes`, `list_windows` and `snapshot_pane` also carry
-`_meta["anthropic/alwaysLoad"]`, which asks a client that defers tool schemas,
-such as Claude Code, to keep those three loaded so an agent can find panes
-without searching for a tool first.
+- Every listed tool carries a capability row under
+  `_meta["com.git-pull.libtmux-mcp/capability"]`: its toolset, reach, tmux
+  effects, output classes, and nested authority.
+- [`list_panes`](https://libtmux.org/en/csharp/latest/mcp/tools/list_panes/),
+  [`list_windows`](https://libtmux.org/en/csharp/latest/mcp/tools/list_windows/)
+  and
+  [`snapshot_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/snapshot_pane/)
+  also carry `_meta["anthropic/alwaysLoad"]`, which asks a client that defers
+  tool schemas, such as Claude Code, to keep those three loaded so an agent can
+  find panes without searching for a tool first.
+- Long calls report progress while they run, so a wait shows as running rather
+  than hung. It costs nothing when the client asks for none.
 
-Long calls report progress while they run, so a wait shows as running rather
-than hung. It costs nothing when the client asks for none.
+The full contract is in
+[the capability resource](https://libtmux.org/en/csharp/latest/mcp/resources/tmux_capabilities/).
 
 ## Standard output belongs to the protocol
 
@@ -486,3 +504,7 @@ Every log line goes to standard error, and the default level is `Warning` so a
 working server is quiet. A message written to the wrong stream does not produce
 a stray log line — it corrupts the protocol and the client disconnects. That is
 worth knowing if you wrap this in something of your own.
+
+[api-mcp-capabilities]: https://libtmux.org/en/csharp/latest/mcp/resources/tmux_capabilities/
+[api-pane-breakasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-breakasync/
+[api-pane-joinasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-joinasync/

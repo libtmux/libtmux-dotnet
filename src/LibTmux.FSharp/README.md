@@ -1,3 +1,16 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET F#">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # LibTmux.FSharp
 
 Drive tmux from F#: send keys and wait for what a pane prints, run a command
@@ -6,6 +19,10 @@ with typed filters tmux evaluates itself. Every function works on the
 [LibTmux](https://www.nuget.org/packages/LibTmux) core objects. The
 [F# package](https://www.nuget.org/packages/LibTmux.FSharp) and core share a
 repository, release version, and primary author in the `libtmux` organization.
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 [![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
 [![tmux matrix](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
@@ -55,16 +72,16 @@ let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
 ```
 <!-- endfsharp-snippet -->
 
-Building a query reads nothing; `Query.list` asks tmux, which drops panes that
-cannot match, and checks every row it returns. `Pane.sendAndWait` types the
+Building a query reads nothing; [`Query.list`][api-fs-fsharp-query-list] asks tmux, which drops panes that
+cannot match, and checks every row it returns. [`Pane.sendAndWait`][api-fs-fsharp-pane-sendandwait] types the
 line, then waits for a later line to contain the text; the screen before it and
 the line's own echo do not count. It sleeps on the pane's output instead of
-polling, and ends early if the program exits while it waits. `Pane.run` returns
+polling, and ends early if the program exits while it waits. [`Pane.run`][api-fs-fsharp-pane-run] returns
 the lines the command printed, and `PaneRun` tells a command that exited, with
 its status, from one whose shell exited first, one that never started, and one
-that ran out of time. `server` comes from `Server.createOwned`, which the quick
+that ran out of time. `server` comes from [`Server.createOwned`][api-fs-fsharp-server-createowned], which the quick
 start below uses to run these steps on an isolated server. Pass a server from
-`Server.connect` only with care: the sample types into the first shell it
+[`Server.connect`][api-fs-fsharp-server-connect] only with care: the sample types into the first shell it
 finds, and on a tmux already running that may be the terminal you are reading.
 
 Alpha API: pin a package version and upgrade deliberately. The walkthrough
@@ -86,9 +103,9 @@ targets `net8.0` and `net10.0`.
 | Need | F# call | Returns |
 | --- | --- | --- |
 | List and filter | `Server.panes server \|> Query.where filter \|> Query.list ct` | `IReadOnlyList<Pane>` |
-| One session's or window's panes | `Session.panes session \|> Query.list ct`; `Window.panes` alike | `IReadOnlyList<Pane>` |
+| One session's or window's panes | `Session.panes session \|> Query.list ct`; [`Window.panes`][api-fs-fsharp-window-panes] alike | `IReadOnlyList<Pane>` |
 | Panes showing some text | `Server.panes server \|> Query.showing search \|> Query.list ct` | `IReadOnlyList<Pane>` |
-| Exactly one match | `Query.exactlyOne ct query`; `Query.tryExactlyOne` under NativeAOT | `Result<'T, CardinalityError>`; `'T option` |
+| Exactly one match | `Query.exactlyOne ct query`; [`Query.tryExactlyOne`][api-fs-fsharp-query-tryexactlyone] under NativeAOT | `Result<'T, CardinalityError>`; `'T option` |
 | Find, or create when absent | `Query.atMostOne ct query` | `'T option`; several raise |
 | One object by ID | `Server.tryFindPane ct id server` | `Pane option` |
 | The pane a session or window shows | `Session.activePane ct session`, `Window.activePane ct window` | `Pane` |
@@ -98,8 +115,8 @@ targets `net8.0` and `net10.0`.
 | Need | F# call | Returns |
 | --- | --- | --- |
 | Type a line, or press a key | `Pane.sendLine ct line pane`; `Pane.pressKey ct "C-c" pane` | `Task` |
-| Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane`; `Pane.sendAndWaitFor` for keys and patterns | `PaneWaitResult`; `.Found`, or match `PaneWait` |
-| Wait for output you did not type | `Pane.waitForText ct timeout text pane`; `Pane.waitFor` for patterns | `PaneWaitResult` |
+| Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane`; [`Pane.sendAndWaitFor`][api-fs-fsharp-pane-sendandwaitfor] for keys and patterns | `PaneWaitResult`; `.Found`, or match `PaneWait` |
+| Wait for output you did not type | `Pane.waitForText ct timeout text pane`; [`Pane.waitFor`][api-fs-fsharp-pane-waitfor] for patterns | `PaneWaitResult` |
 | Wait for a screen condition | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult` |
 | Many waits on one session | `use! _ = Session.holdWaitClient ct session` | `IAsyncDisposable`; each wait skips attaching a client, about 5 ms |
 | Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult`; match `PaneRun` |
@@ -116,7 +133,7 @@ targets `net8.0` and `net10.0`.
 | Make a window or pane current | `Window.select ct window`, `Pane.select ct pane` | a handle with the state afterwards |
 | Kill a session, window or pane | `Pane.kill ct pane` | `Task` |
 | Arrange, resize or move a window | `Window.selectLayout ct layout window`, `Window.resize ct request window`, `Window.move ct request window` | a handle with the state afterwards |
-| Title, resize, swap, respawn or clear a pane | `Pane.setTitle ct title pane`, `Pane.resize`, `Pane.swap`, `Pane.respawn`, `Pane.clearHistory` | the handle, or `Task` |
+| Title, resize, swap, respawn or clear a pane | `Pane.setTitle ct title pane`, [`Pane.resize`][api-fs-fsharp-pane-resize], [`Pane.swap`][api-fs-fsharp-pane-swap], [`Pane.respawn`][api-fs-fsharp-pane-respawn], [`Pane.clearHistory`][api-fs-fsharp-pane-clearhistory] | the handle, or `Task` |
 | Add a window to a session | `Session.newWindow ct request session` | the new `Window` |
 | Create a session running one command | `Server.newSession ct (SessionSpec.running name command) server` | `Session` |
 | Create a session with windows | `Server.newSession ct spec server` | `Session` |
@@ -130,7 +147,7 @@ targets `net8.0` and `net10.0`.
 | A whole object graph | `Server.capture ct depth server` | snapshot `Server` |
 | Live server state | `Mirror.start ct session` | `ServerMirror` |
 | Events as they happen | `Control.withSession ct work server` | cold `IAsyncEnumerable` streams |
-| One pane's output as it prints | `Control.watchPane pane client`; `Control.watchPanes` for several | events; match `PaneWatch` |
+| One pane's output as it prints | `Control.watchPane pane client`; [`Control.watchPanes`][api-fs-fsharp-control-watchpanes] for several | events; match `PaneWatch` |
 | An assistant on the same tmux | the `LibTmux.Mcp` server | [MCP guide](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) |
 
 ### Recover
@@ -150,13 +167,13 @@ targets `net8.0` and `net10.0`.
   [Which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait)
   compares them and their `PaneWait` outcomes.
 - **Runs:** `Pane.run` needs a POSIX shell prompt; it refuses fish, PowerShell and a REPL.
-- **Bounds:** a handle from `Server.within` shares its bound with the
+- **Bounds:** a handle from [`Server.within`][api-fs-fsharp-server-within] shares its bound with the
   sessions, windows and panes taken from it.
-- **Live state:** `Mirror.start` returns a mirror to `use!`.
-  `Mirror.waitUntil` raises when no view matches in time;
-  `Mirror.tryWaitUntil` returns `None`.
-- **Events:** inside `Control.withSession`, `Control.events`,
-  `Control.watchPane` and `Control.watchPanes` read the client it opens, one
+- **Live state:** [`Mirror.start`][api-fs-fsharp-mirror-start] returns a mirror to `use!`.
+  [`Mirror.waitUntil`][api-fs-fsharp-mirror-waituntil] raises when no view matches in time;
+  [`Mirror.tryWaitUntil`][api-fs-fsharp-mirror-trywaituntil] returns `None`.
+- **Events:** inside [`Control.withSession`][api-fs-fsharp-control-withsession], [`Control.events`][api-fs-fsharp-control-events],
+  [`Control.watchPane`][api-fs-fsharp-control-watchpane] and `Control.watchPanes` read the client it opens, one
   reader at a time.
 
 Captured sessions, windows, panes, and IDs are the core .NET types. A window
@@ -290,6 +307,8 @@ explains the configuration order. Code running inside a tmux pane can use
 
 ## Keep going
 
+- [API reference](https://libtmux.org/en/fsharp/latest/reference/) and [guides](https://libtmux.org/en/fsharp/latest/guides/) on libtmux.org: every public symbol, and task-oriented walkthroughs.
+- [Source](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.FSharp): the package directory on GitHub.
 - [Send, wait and read; split panes](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md): owned scopes, waits, runs and live mutation.
 - [Query tmux](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md), [filter captured objects](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/filters.md) and [supported fields](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/supported-query-fields.md): every level, pushdown, screen search, relations and capture depth.
 - [Choose an execution mode](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/modes.md) and [stream events](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/streams.md): scoped clients, cold streams, pane watches, cancellation, and command chains.
@@ -310,8 +329,33 @@ explains the configuration order. Code running inside a tmux pane can use
 | Operating systems | Linux is required CI. An advisory macOS arm64 job runs the example with Homebrew tmux on manual dispatch. Native Windows is unsupported: the core marks its tmux calls `[UnsupportedOSPlatform("windows")]`. WSL runs the Linux build, which CI does not exercise separately. |
 | Trimming and NativeAOT | Portable filters bind fields without reflection. A Linux consumer publishes and runs captured snapshots, a tmux query, portable filters with relations and regex, and native `Seq` predicates under NativeAOT and trimming on both frameworks. |
 
-`Selection.exactlyOne` and `Query.exactlyOne` return FSharp.Core's `Result`,
+[`Selection.exactlyOne`][api-fs-fsharp-selection-exactlyone] and [`Query.exactlyOne`][api-fs-fsharp-query-exactlyone] return FSharp.Core's `Result`,
 whose compiler-generated `ToString` formats through `printf`, which NativeAOT
-publication rejects. Under NativeAOT, read one row with `Query.atMostOne`,
+publication rejects. Under NativeAOT, read one row with [`Query.atMostOne`][api-fs-fsharp-query-atmostone],
 which still raises on several matches, or with `Query.tryExactlyOne` where
 none and several may be treated alike. The NativeAOT consumer runs both.
+
+[api-fs-fsharp-control-events]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-control-events/
+[api-fs-fsharp-control-watchpane]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-control-watchpane/
+[api-fs-fsharp-control-watchpanes]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-control-watchpanes/
+[api-fs-fsharp-control-withsession]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-control-withsession/
+[api-fs-fsharp-mirror-start]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-mirror-start/
+[api-fs-fsharp-mirror-trywaituntil]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-mirror-trywaituntil/
+[api-fs-fsharp-mirror-waituntil]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-mirror-waituntil/
+[api-fs-fsharp-pane-clearhistory]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-pane-clearhistory/
+[api-fs-fsharp-pane-resize]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-pane-resize/
+[api-fs-fsharp-pane-respawn]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-pane-respawn/
+[api-fs-fsharp-pane-run]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-pane-run/
+[api-fs-fsharp-pane-sendandwait]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-pane-sendandwait/
+[api-fs-fsharp-pane-sendandwaitfor]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-pane-sendandwaitfor/
+[api-fs-fsharp-pane-swap]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-pane-swap/
+[api-fs-fsharp-pane-waitfor]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-pane-waitfor/
+[api-fs-fsharp-query-atmostone]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-query-atmostone/
+[api-fs-fsharp-query-exactlyone]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-query-exactlyone/
+[api-fs-fsharp-query-list]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-query-list/
+[api-fs-fsharp-query-tryexactlyone]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-query-tryexactlyone/
+[api-fs-fsharp-selection-exactlyone]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-selection-exactlyone/
+[api-fs-fsharp-server-connect]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-server-connect/
+[api-fs-fsharp-server-createowned]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-server-createowned/
+[api-fs-fsharp-server-within]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-server-within/
+[api-fs-fsharp-window-panes]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-window-panes/

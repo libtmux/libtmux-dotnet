@@ -62,6 +62,39 @@ module internal GuideSnippets =
         }
     // endfsharp-snippet
 
+    // fsharp-snippet: RunToExitStatus
+    open System
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let exitStatusAsync (cancellationToken: CancellationToken) (pane: Pane) =
+        task {
+            // Run a command to its exit status and read what it printed.
+            let! run =
+                pane
+                |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
+
+            match run with
+            | PaneRun.Exited status -> return Some(status, List.ofSeq run.Output)
+            | PaneRun.Ended
+            | PaneRun.NotStarted
+            | PaneRun.TimedOut -> return None
+        }
+    // endfsharp-snippet
+
+    // fsharp-snippet: ListShellPanes
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let shellPanesAsync (cancellationToken: CancellationToken) (server: Server) =
+        server
+        |> Server.panes
+        |> Query.where (PaneFields.currentCommand |> Filter.oneOf [ "bash"; "sh"; "zsh" ])
+        |> Query.list cancellationToken
+    // endfsharp-snippet
+
     // fsharp-snippet: QueryAtAGlance
     open System.Collections.Generic
     open System.Threading
