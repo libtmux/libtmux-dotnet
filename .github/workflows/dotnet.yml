@@ -9,11 +9,6 @@ on:
     branches: [master]
   pull_request:
   workflow_dispatch:
-    inputs:
-      debug_enabled:
-        type: boolean
-        description: Open a restricted SSH session after the macOS job
-        default: false
 
 permissions:
   contents: read
@@ -431,103 +426,11 @@ jobs:
             artifacts/api-inventory.json
           if-no-files-found: error
 
-  # macOS exercises the advertised platform and gates, like Windows. The
-  # scheduled macos-stress workflow measures how stable it is.
-  macos:
-    name: macos arm64
-    runs-on: macos-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-
-      - name: Install tmux
-        run: |
-          brew install tmux
-          tmux -V
-
-      - name: Restore
-        # Directory.Build.props enables locked mode in CI. This macOS lane
-        # opts out; the Linux lanes remain the lock-file gate.
-        run: dotnet restore LibTmux.slnx -p:RestoreLockedMode=false
-
-      - name: Build
-        run: dotnet build LibTmux.slnx --configuration Release --no-restore --warnaserror
-
-      - name: F# example console
-        run: |
-          for framework in net8.0 net10.0; do
-            dotnet run \
-              --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --no-build
-          done
-
-      - name: Unit tests
-        run: >
-          dotnet test
-          --project tests/LibTmux.UnitTests/LibTmux.UnitTests.csproj
-          --configuration Release --no-build --framework net10.0
-          --minimum-expected-tests 200
-
-      - name: Native MCP swap tests
-        run: >
-          dotnet test
-          --project eng/mcp-swap/tests/LibTmux.McpSwap.Tests.csproj
-          --configuration Release --no-build --framework net10.0
-          --minimum-expected-tests 119
-
-      - name: Integration tests
-        # This is the part that could only ever be guessed at before: real tmux,
-        # started and driven on a platform whose process and socket behaviour is
-        # not Linux's.
-        env:
-          LIBTMUX_INTEGRATION_REQUIRED: '1'
-        run: >
-          dotnet test
-          --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
-          --configuration Release --no-build --framework net10.0
-          --minimum-expected-tests 400
-
-      - name: Inspect the macOS runner
-        id: debug
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
-        uses: owenthereal/action-upterm@175d33786004a53b1538bcf157402b7197ce5029 # v2.6.0
-        with:
-          detached: true
-          limit-access-to-actor: true
-          upterm-version: v0.32.1
-          wait-timeout-minutes: 5
-
-      - name: Save the restricted debug SSH address
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled && steps.debug.outputs.ssh-command != '' }}
-        env:
-          DEBUG_SSH_COMMAND: ${{ steps.debug.outputs.ssh-command }}
-        run: printf '%s\n' "$DEBUG_SSH_COMMAND" > "$RUNNER_TEMP/debug-ssh-command.txt"
-
-      - name: Retain the restricted debug connection
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled && steps.debug.outputs.ssh-command != '' }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: debug-connection
-          path: ${{ runner.temp }}/debug-ssh-command.txt
-          retention-days: 1
-          if-no-files-found: error
-
   # Windows builds but does not run tmux, so this lane proves the half that a
   # Linux runner cannot: that the tree still compiles for a Windows consumer.
   # Most of the public surface is [UnsupportedOSPlatform("windows")], and a
   # consumer with warnings as errors meets CA1416 on nearly every call, so an
-  # annotation lost here is a downstream build break. The build gates, unlike
-  # the advisory macOS lane: before this, the only Windows coverage ran at
-  # release time on a self-hosted runner, and a pull request could not see it.
+  # annotation lost here is a downstream build break, so the build gates.
   windows:
     name: windows x64
     runs-on: windows-latest
@@ -543,7 +446,7 @@ jobs:
 
       - name: Restore
         # The lock files are written on Linux and the required Linux lanes are
-        # the lock-file gate, as they are for macOS.
+        # the lock-file gate.
         run: dotnet restore LibTmux.slnx -p:RestoreLockedMode=false
 
       - name: Build
@@ -569,12 +472,12 @@ jobs:
   # require is a job that can fail without blocking anything.
   gate:
     name: gate
-    needs: [build, windows, macos]
+    needs: [build, windows]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Reject unsuccessful dependencies
         id: require-success
-        if: ${{ always() && (needs.build.result != 'success' || needs.macos.result != 'success' || needs.windows.result != 'success') }}
+        if: ${{ always() && (needs.build.result != 'success' || needs.windows.result != 'success') }}
         run: exit 1

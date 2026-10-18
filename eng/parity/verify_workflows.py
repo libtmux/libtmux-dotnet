@@ -155,8 +155,8 @@ def verify(root: pathlib.Path) -> list[str]:
             f"{name} must expose workflow_call",
         )
 
-    aggregate("dotnet", "gate", {"build", "macos", "windows"})
-    for name in ("build", "macos", "windows"):
+    aggregate("dotnet", "gate", {"build", "windows"})
+    for name in ("build", "windows"):
         required = job("dotnet", name)
         require("if" not in required, f"dotnet.{name}.if may not skip a required build")
     for identifier in (

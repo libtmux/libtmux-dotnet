@@ -169,8 +169,7 @@ comment. To run a whole suite against the process transport, set
 ## Checks that must pass
 
 [dotnet.yml](workflows/dotnet.yml) owns the primary Linux checks and the
-Windows build lane and the macOS arm64 lane. Its `gate` job requires `build`,
-`macos` and `windows`.
+Windows build lane. Its `gate` job requires `build` and `windows`.
 Aggregate jobs reject failed, cancelled, or skipped prerequisites.
 
 | Guarantee | Owner |
@@ -487,8 +486,7 @@ command without `--check`.
 `--smoke` selects one example to check the entrypoint. `ReadmeExampleTests`
 compiles its snippet set once, then executes the runnable blocks from that
 assembly. The Linux workflow runs this owner once per framework and excludes
-it from general integration and tmux-version lanes. The macOS integration run
-includes its own README check. [examples/README.md](../examples/README.md)
+it from general integration and tmux-version lanes. [examples/README.md](../examples/README.md)
 describes the snippet markers.
 
 The locked engineering runner owns Python tests. Package mutations are tagged
@@ -517,9 +515,10 @@ The `compatibility` job requires the producer and all supported lanes. Checks
 independent of tmux versions, including packaging and README compilation, run
 outside that matrix. The scheduled tmux-master lane remains advisory.
 
-`dotnet.yml` has a macOS arm64 lane that runs on pull requests and gates. See
-[MACOS_CI.md](MACOS_CI.md). Text captured from a pane may wrap with the
-host's prompt width; assertions about typed text use `joinWrappedLines`.
+macOS is supported at best effort, and CI coverage for it is highly limited:
+CI does not run macOS. [MACOS_CI.md](MACOS_CI.md) lists what a test needs to
+pass there. Text captured from a pane may wrap with the host's prompt width;
+assertions about typed text use `joinWrappedLines`.
 
 Action references are pinned to commits. CodeQL also runs on pull requests;
 Scorecard runs on its configured schedule. These workflows do not replace the
@@ -775,8 +774,8 @@ hour.
 ## Compatibility
 
 Stable tmux **3.3a and newer**, on **net8.0** and **net10.0**. The required
-Linux matrix covers 3.3a through 3.8; the advisory macOS lane uses the current
-Homebrew tmux. Windows is unsupported. The `LibTmux` core package and the
+Linux matrix covers 3.3a through 3.8. macOS is supported at best effort, with
+no CI coverage. Windows is unsupported. The `LibTmux` core package and the
 static `LibTmux.FSharp` snapshot route have Linux NativeAOT execution smoke
 tests. Optional packages make narrower compatibility claims in their project
 files and package READMEs.

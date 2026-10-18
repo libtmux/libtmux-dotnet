@@ -329,11 +329,11 @@ def test_aggregate_checks_every_declared_dependency(repository):
 @pytest.mark.parametrize("key,value", [
     ("if", "github.event_name != 'pull_request'"), ("continue-on-error", "true"),
 ])
-def test_the_macos_lane_cannot_skip_pull_requests_or_forgive_failures(
+def test_the_windows_lane_cannot_skip_pull_requests_or_forgive_failures(
     repository, key, value
 ):
     path = repository / ".github/workflows/dotnet.yml"
     document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
-    document["jobs"]["macos"][key] = value
+    document["jobs"]["windows"][key] = value
     path.write_text(yaml.safe_dump(document))
-    assert any(f"dotnet.macos.{key}" in error for error in verify(repository))
+    assert any(f"dotnet.windows.{key}" in error for error in verify(repository))
