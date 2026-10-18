@@ -8,7 +8,7 @@ namespace LibTmux.Workspace.Cli.Tests;
 // the tool no longer parses is a broken front door, and a quickstart whose
 // workspace builds something else is a quiet one.
 [UnsupportedOSPlatform("windows")]
-public sealed class ReadmeCommandTests : IDisposable
+public sealed class ReadmeCommandTests : IAsyncDisposable
 {
     private static readonly Regex Command = new(
         @"^\$ tmux-workspace (?<args>(?:.*\\\n)*.*)$",
@@ -152,7 +152,23 @@ public sealed class ReadmeCommandTests : IDisposable
         }
     }
 
-    public void Dispose() => Directory.Delete(_root, true);
+    // The killed server's pane shells write .bash_history and the programs the
+    // quick start runs write under .local while they exit, so an entry can
+    // appear in the private HOME after the delete has emptied it.
+    public async ValueTask DisposeAsync()
+    {
+        for (int attempt = 1; Directory.Exists(_root); attempt++)
+        {
+            try
+            {
+                Directory.Delete(_root, true);
+            }
+            catch (IOException) when (attempt < 50)
+            {
+                await Task.Delay(100, CancellationToken.None);
+            }
+        }
+    }
 
     private static string[][] Commands(string markdown) =>
     [
