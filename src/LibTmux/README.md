@@ -468,29 +468,6 @@ TmuxVersion? version = server.Version;
 Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVersion.Parse("3.4"))}");
 ```
 
-## Testing your own code
-
-[`LibTmux.Testing`](https://www.nuget.org/packages/LibTmux.Testing) is a separate package, so
-test scaffolding stays out of an application's output. It gives a test a tmux
-server of its own, on its own socket, killed deterministically:
-
-```console
-$ dotnet package add LibTmux.Testing --prerelease
-```
-
-
-```csharp
-using LibTmux.Testing;
-
-TmuxTestFactory factory = new();
-await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync();
-
-await scope.Pane.SendTextAsync("echo hello");
-```
-
-Disposing kills the server, so a test that fails part way through leaves
-nothing behind.
-
 ## Logging
 
 Pass an `ILogger` when connecting and every tmux command the handle runs as a
@@ -601,14 +578,255 @@ broke, and `Unknown` is the default for exactly that reason. A
 | Trimming / NativeAOT | Core APIs are analyzer-gated. Query `Compile` and `Matching` resolve properties by name, so they warn trimmed callers to preserve the filtered types' public properties |
 | Windows preview | `PsmuxServer`, `PsmuxSession`, `PsmuxWindow` and `PsmuxPane` read one [psmux](https://github.com/psmux/psmux) session — its windows, its panes, and pane text — natively or across WSL. They cannot express lifecycle, mutation, chaining, control mode, or raw commands, so a caller gets a compile error where a suppression would have given a silent gap. [The preview contract](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/psmux.md) names the build it accepts and how to provision it |
 
-## Related packages
+## Packages
 
-| Package | Adds |
-|---|---|
-| [LibTmux.FSharp](https://www.nuget.org/packages/LibTmux.FSharp) | Curried task helpers, native F# sequences, and portable snapshot filters over `LibTmux` |
-| [LibTmux.Query.Json](https://www.nuget.org/packages/LibTmux.Query.Json) | JSON for query documents |
-| [LibTmux.Workspace](https://www.nuget.org/packages/LibTmux.Workspace) | Sessions from tmuxp YAML |
-| [LibTmux.Mcp](https://www.nuget.org/packages/LibTmux.Mcp) | A Model Context Protocol server, as a .NET tool |
+Each heading links to the package's directory on GitHub. The build runs the C#
+and F# blocks, parses every `tmux-workspace` command against the tool's command
+line, and parses every `LIBTMUX_` setting with the server's own configuration
+code.
+
+### [`LibTmux`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux): the client
+
+This package. [Start here](#start-here) shows the first calls. Reference:
+[libtmux.org](https://libtmux.org/en/csharp/latest/reference/) and
+[NuGet](https://www.nuget.org/packages/LibTmux).
+
+### [`LibTmux.FSharp`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.FSharp): F# helpers over the core
+
+Curried task helpers, ordinary `seq` queries, and typed portable filters over
+the core handles. It is built on `LibTmux`, carries its version, and is
+maintained in the same organization by the same primary author. Reference:
+[libtmux.org](https://libtmux.org/en/fsharp/latest/reference/),
+[guides](https://libtmux.org/en/fsharp/latest/guides/), and
+[NuGet](https://www.nuget.org/packages/LibTmux.FSharp).
+
+```console
+$ dotnet package add LibTmux.FSharp --prerelease
+```
+
+[`Server.panes`](https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-server-panes/)
+describes a listing and
+[`Query.list`](https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-query-list/)
+reads it. tmux narrows the listing, then every row is rechecked:
+
+<!-- fsharp-snippet: ListShellPanes run -->
+```fsharp run
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let shellPanesAsync (cancellationToken: CancellationToken) (server: Server) =
+    server
+    |> Server.panes
+    |> Query.where (PaneFields.currentCommand |> Filter.oneOf [ "bash"; "sh"; "zsh" ])
+    |> Query.list cancellationToken
+```
+<!-- endfsharp-snippet -->
+
+The
+[F# quickstart](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/README.md#quick-start)
+is a complete program.
+
+### [`LibTmux.Query.Json`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Query.Json): query documents as JSON
+
+JSON for query documents, so a filter written in one process can be evaluated in
+another. The core does not reference `System.Text.Json`; this package does.
+Reference:
+[`QueryJson`](https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjson/)
+and [NuGet](https://www.nuget.org/packages/LibTmux.Query.Json).
+
+```console
+$ dotnet package add LibTmux.Query.Json --prerelease
+```
+
+A query is a document rather than a lambda. `QueryJson` writes it as JSON and
+reads back an equal document:
+
+```csharp run
+QueryDocument document = QueryExtensions.Translate<Session>(
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)
+        && session.Attached);
+
+string wire = QueryJson.Serialize(document);
+if (QueryJson.Deserialize(wire) != document)
+{
+    throw new InvalidOperationException("The document did not survive the wire.");
+}
+```
+
+### [`LibTmux.Testing`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Testing): a tmux server for each test
+
+Scoped servers, sessions, and windows that clean up after themselves, so a test
+that throws leaves nothing behind. Reference:
+[`TmuxTestFactory`](https://libtmux.org/en/csharp/latest/reference/libtmux-testing-tmuxtestfactory/),
+the
+[testing guide](https://libtmux.org/en/csharp/latest/guides/testing-with-libtmux/),
+and [NuGet](https://www.nuget.org/packages/LibTmux.Testing).
+
+```console
+$ dotnet package add LibTmux.Testing --prerelease
+```
+
+[`CreateHierarchyAsync`](https://libtmux.org/en/csharp/latest/reference/libtmux-testing-tmuxtestfactory-createhierarchyasync/)
+starts a server on a socket of its own, with one session, window, and pane.
+Disposing the scope kills the server:
+
+```csharp run
+TmuxTestFactory factory = new();
+await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(cancellationToken: ct);
+
+await scope.Pane.SendTextAsync("echo $((6 * 7))", cancellationToken: ct);
+await scope.Pane.EnterAsync(ct);
+
+// The product is printed only once the shell has run the line.
+string screen = await TmuxWait.UntilAsync(
+    async token => string.Join('\n', await scope.Pane.CaptureAsync(cancellationToken: token)),
+    text => text.Contains("42", StringComparison.Ordinal),
+    TimeSpan.FromSeconds(10),
+    TimeSpan.FromMilliseconds(20));
+```
+
+`TmuxWait.UntilAsync` ships in `LibTmux`: it waits for a state rather than
+sleeping, which is what production code needs when it reads back what a command
+produced.
+
+### [`LibTmux.Extensions.DependencyInjection`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Extensions.DependencyInjection): a Server for dependency injection
+
+`AddLibTmux` registers a `Server` as a singleton and binds
+`ServerConnectionOptions` through `IOptions<T>`, so an application that already
+composes its services takes a tmux handle as a dependency. Reference:
+[`Server`](https://libtmux.org/en/csharp/latest/reference/libtmux-server/), the
+handle it registers, the
+[package README](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Extensions.DependencyInjection#registering),
+and
+[NuGet](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection).
+
+```console
+$ dotnet package add LibTmux.Extensions.DependencyInjection --prerelease
+```
+
+Point the registration at a socket and resolve the handle:
+
+```csharp run
+ServiceCollection services = new();
+services.AddLibTmux(options => options with { SocketName = server.ConnectionOptions.SocketName });
+
+await using ServiceProvider provider = services.BuildServiceProvider();
+Server injected = provider.GetRequiredService<Server>();
+
+IReadOnlyList<Session> sessions = await injected.GetSessionsAsync(ct);
+if (sessions.Count == 0)
+{
+    throw new InvalidOperationException("The injected Server reached no sessions.");
+}
+```
+
+### [`LibTmux.Workspace`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace): sessions from tmuxp files
+
+Parses [tmuxp](https://github.com/tmux-python/tmuxp) YAML or JSON workspace
+files and builds them as tmux sessions, in one call or from a plan you review
+first. It adds one dependency, YamlDotNet. Reference:
+[`WorkspaceBuilder`](https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuilder/),
+the
+[reference index](https://libtmux.org/en/csharp/latest/workspace/reference/),
+and [NuGet](https://www.nuget.org/packages/LibTmux.Workspace).
+
+```console
+$ dotnet package add LibTmux.Workspace --prerelease
+```
+
+[`BuildAsync`](https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuilder-buildasync/)
+plans and applies a workspace in one call:
+
+```csharp run
+WorkspaceFile workspace = WorkspaceFile.Parse("""
+    session_name: api
+    windows:
+      - window_name: editor
+        panes:
+          - shell_command: echo editing
+      - window_name: server
+        panes:
+          - shell_command: echo serving
+    """);
+
+WorkspaceResult result = await new WorkspaceBuilder(server).BuildAsync(workspace, ct);
+if (result.Session.Name != "api" || result.Windows.Count != 2)
+{
+    throw new InvalidOperationException("Expected the session api with two windows.");
+}
+```
+
+### [`LibTmux.Workspace.Cli`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace.Cli): the `tmux-workspace` command
+
+Loads, captures, and converts [tmuxp](https://github.com/tmux-python/tmuxp)
+workspace files from a shell. It installs as a .NET tool. Reference: the
+[command reference](https://libtmux.org/en/csharp/latest/workspace/cli/),
+[`load`](https://libtmux.org/en/csharp/latest/workspace/cli/load/), and
+[NuGet](https://www.nuget.org/packages/LibTmux.Workspace.Cli).
+
+```console
+$ dotnet tool install --global LibTmux.Workspace.Cli --prerelease
+```
+
+With a workspace file saved as `~/.tmuxp/myproject.yaml`, such as the
+[example in the package README](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace.Cli#tmux-workspace),
+build it without attaching, on a tmux socket of its own:
+
+```console
+$ tmux-workspace load -d -L demo myproject
+```
+
+List the workspaces it can find:
+
+```console
+$ tmux-workspace ls
+```
+
+### [`LibTmux.Mcp`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Mcp): a tmux server for assistants
+
+A server that gives an assistant hands on tmux over the
+[Model Context Protocol](https://modelcontextprotocol.io/specification/2025-06-18).
+It installs as a .NET tool, not a library reference. Reference:
+[libtmux.org](https://libtmux.org/en/csharp/latest/mcp/), the
+[tool reference](https://libtmux.org/en/csharp/latest/mcp/tools/), and
+[NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
+
+```console
+$ dotnet tool install --global LibTmux.Mcp --prerelease
+```
+
+An MCP client starts the server itself and speaks to it over standard input and
+output. Register it with Claude Code:
+
+```console
+$ claude mcp add tmux -- libtmux-mcp
+```
+
+A workspace that `tmux-workspace load -L demo` built lives on the socket `demo`.
+To let a client read it and change nothing, name the socket and select the
+`inspect` toolset:
+
+```console
+$ claude mcp add tmux \
+    -e LIBTMUX_SOCKET=demo \
+    -e LIBTMUX_TOOLSETS=inspect \
+    -- libtmux-mcp
+```
+
+A client that reads a JSON configuration takes the command and the same settings
+as `env`:
+
+```json
+{
+  "mcpServers": {
+    "tmux": {
+      "command": "libtmux-mcp",
+      "env": { "LIBTMUX_SOCKET": "demo", "LIBTMUX_TOOLSETS": "inspect" }
+    }
+  }
+}
+```
 
 Source, docs and issues: <https://github.com/libtmux/libtmux-dotnet>
 

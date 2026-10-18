@@ -210,6 +210,13 @@ Pin the same LibTmux version on both sides of a process boundary.
 | [LibTmux.Workspace](https://www.nuget.org/packages/LibTmux.Workspace) | Sessions from tmuxp YAML |
 | [LibTmux.Mcp](https://www.nuget.org/packages/LibTmux.Mcp) | A Model Context Protocol server, as a .NET tool |
 
+## Reference
+
+- [`QueryJson`](https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjson/) and
+  [`QueryDocument`](https://libtmux.org/en/csharp/latest/reference/libtmux-query-querydocument/): the wire
+  format and the document it carries
+- Source: [`src/LibTmux.Query.Json`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Query.Json)
+
 Source, docs and issues: <https://github.com/libtmux/libtmux-dotnet>
 
 ## License

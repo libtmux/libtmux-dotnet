@@ -352,6 +352,12 @@ between splits that a window of five or more panes needs at 80x24.
 | [LibTmux.Query.Json](https://www.nuget.org/packages/LibTmux.Query.Json) | JSON for query documents |
 | [LibTmux.Mcp](https://www.nuget.org/packages/LibTmux.Mcp) | A Model Context Protocol server, as a .NET tool |
 
+## Reference
+
+- [`WorkspaceBuilder`](https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuilder/)
+  and the [workspace reference](https://libtmux.org/en/csharp/latest/workspace/reference/): every public type
+- Source: [`src/LibTmux.Workspace`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace)
+
 Source, docs and issues: <https://github.com/libtmux/libtmux-dotnet>
 
 ## License

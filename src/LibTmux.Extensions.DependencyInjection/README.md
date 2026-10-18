@@ -35,6 +35,22 @@ public sealed class Builder(Server server)
 }
 ```
 
+Point the registration at a socket and resolve the handle:
+
+```csharp run
+ServiceCollection services = new();
+services.AddLibTmux(options => options with { SocketName = server.ConnectionOptions.SocketName });
+
+await using ServiceProvider provider = services.BuildServiceProvider();
+Server injected = provider.GetRequiredService<Server>();
+
+IReadOnlyList<Session> sessions = await injected.GetSessionsAsync(ct);
+if (sessions.Count == 0)
+{
+    throw new InvalidOperationException("The injected Server reached no sessions.");
+}
+```
+
 ## What it registers, and why that lifetime
 
 `Server` is a singleton. Handles are immutable and safe to share across
@@ -73,6 +89,12 @@ services.AddLibTmux(options => options with { CommandTimeout = TimeSpan.FromSeco
 
 When the options name no logger and the provider has an `ILoggerFactory`, one
 is taken from it, so tmux commands are logged with everything else.
+
+## Reference
+
+- [`Server`](https://libtmux.org/en/csharp/latest/reference/libtmux-server/): the handle this registers
+- Source: [`src/LibTmux.Extensions.DependencyInjection`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Extensions.DependencyInjection)
+- Package: [NuGet](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection)
 
 ## License
 

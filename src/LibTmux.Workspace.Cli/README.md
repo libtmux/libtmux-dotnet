@@ -81,6 +81,19 @@ Load the `.tmuxp.yaml` in a project directory:
 $ tmux-workspace load ~/code/myproject
 ```
 
+Load a workspace on a tmux socket of its own, so it cannot touch the tmux you
+are using:
+
+```console
+$ tmux-workspace load -d -L demo myproject
+```
+
+Attach to that socket with tmux:
+
+```console
+$ tmux -L demo attach
+```
+
 Load several workspaces at once; the last one is the one you land in:
 
 ```console
@@ -97,6 +110,12 @@ List the workspaces it can find:
 
 ```console
 $ tmux-workspace ls
+```
+
+Group the list by directory:
+
+```console
+$ tmux-workspace ls --tree
 ```
 
 Find the workspaces that mention `server` in their name, windows, or pane
@@ -257,6 +276,7 @@ records what is implemented so far and where it differs.
 - [Installation walkthrough](https://libtmux.org/en/csharp/latest/workspace/guides/installation/) — install, load, and capture on a private socket
 - [Inspect a loaded session through MCP](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Mcp/README.md) — let an assistant read your panes
 - [LibTmux.Workspace](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Workspace/README.md) — build sessions from C# instead
+- [Source](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace.Cli) — the package directory on GitHub
 - [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/CHANGELOG.md)
 
 ## License
