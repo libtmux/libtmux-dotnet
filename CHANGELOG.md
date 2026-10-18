@@ -117,6 +117,12 @@ version.
   longer compares per-package examples between the root and `LibTmux`
   READMEs, which do not carry them now, and `sync_fsharp_snippets.py` stops
   publishing F# examples into those two.
+- CI no longer runs macOS, and releases no longer wait on the psmux native
+  Windows and WSL smoke. Both remain supported at best effort, with highly
+  limited CI coverage, because neither ran reliably in CI. Publishing waits
+  for the dotnet gate and the tmux matrix, and
+  `eng/psmux/Invoke-PsmuxSmoke.ps1` runs by hand as `docs/psmux.md` shows.
+  (#99)
 
 ## [0.0.0-alpha.21] — 2026-10-11
 
