@@ -1,8 +1,25 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET Workspace">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # LibTmux.Workspace
 
 Build tmux sessions from [tmuxp](https://github.com/tmux-python/tmuxp)
 YAML or JSON [workspace files][api-ws-workspace-workspacefile], on top of
 [LibTmux](https://www.nuget.org/packages/LibTmux).
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version.

@@ -22,6 +22,18 @@ public sealed class ReadmePackageListTests
         @"^#{2,6} \[`?(?<name>[^\]`]+)`?\]\(https://github\.com/libtmux/libtmux-dotnet/tree/master/(?<path>[^)\s]+)\)",
         RegexOptions.Multiline | RegexOptions.Compiled);
 
+    private static readonly Regex LogoHeader = new(
+        @"\A<!-- libtmux-logo -->\r?\n<div align=""center"">\r?\n  <picture>\r?\n"
+        + @"    <source srcset=""assets/logo\.svg"" type=""image/svg\+xml"">\r?\n"
+        + @"    <img src=""assets/logo\.png"" width=""128"" height=""128"" alt=""libtmux for [^""]+"">\r?\n"
+        + @"  </picture>\r?\n</div>\r?\n<!-- /libtmux-logo -->\r?\n\r?\n",
+        RegexOptions.Compiled);
+
+    // The pack step removes exactly this, so what is left is what nuget.org renders.
+    private static readonly Regex LogoBlock = new(
+        @"<!-- libtmux-logo -->.*?<!-- /libtmux-logo -->\r?\n(\r?\n)?",
+        RegexOptions.Singleline | RegexOptions.Compiled);
+
     private static readonly Regex Heading = new(@"^#{1,3} ", RegexOptions.Multiline | RegexOptions.Compiled);
 
     private static readonly Regex RelativeLink = new(
@@ -43,6 +55,43 @@ public sealed class ReadmePackageListTests
         }
 
         return readmes;
+    }
+
+    public static TheoryData<string> LogoDocuments()
+    {
+        TheoryData<string> documents = new() { "README.md" };
+        foreach (string project in Packages())
+        {
+            documents.Add($"src/{project}/README.md");
+        }
+
+        return documents;
+    }
+
+    [Theory]
+    [MemberData(nameof(LogoDocuments))]
+    public void Every_readme_opens_with_the_shared_logo_header(string document)
+    {
+        string root = RepositoryRoot();
+        string markdown = File.ReadAllText(Path.Combine(root, document));
+
+        Assert.True(LogoHeader.IsMatch(markdown), $"{document} does not open with the shared logo header.");
+        string assets = Path.Combine(Path.GetDirectoryName(Path.Combine(root, document))!, "assets");
+        Assert.True(File.Exists(Path.Combine(assets, "logo.svg")), $"{document} has no assets/logo.svg beside it.");
+        Assert.True(File.Exists(Path.Combine(assets, "logo.png")), $"{document} has no assets/logo.png beside it.");
+    }
+
+    [Fact]
+    public void Packing_leaves_no_html_in_any_package_readme()
+    {
+        foreach (string project in Packages())
+        {
+            string markdown = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", project, "README.md"));
+
+            string[] html = [.. PackedHtml(markdown)];
+
+            Assert.True(html.Length == 0, $"{project}: packing keeps {string.Join("; ", html)}");
+        }
     }
 
     [Theory]
@@ -230,6 +279,55 @@ public sealed class ReadmePackageListTests
         Assert.Contains("libtmux.org", defect, StringComparison.Ordinal);
     }
 
+    private const string Header =
+        "<!-- libtmux-logo -->\n<div align=\"center\">\n  <picture>\n"
+        + "    <source srcset=\"assets/logo.svg\" type=\"image/svg+xml\">\n"
+        + "    <img src=\"assets/logo.png\" width=\"128\" height=\"128\" alt=\"libtmux for .NET\">\n"
+        + "  </picture>\n</div>\n<!-- /libtmux-logo -->\n\n";
+
+    [Fact]
+    public void The_logo_header_is_accepted_and_packs_to_nothing()
+    {
+        string markdown = Header + "# LibTmux\n";
+
+        Assert.Matches(LogoHeader, markdown);
+        Assert.Empty(PackedHtml(markdown));
+        Assert.Equal("# LibTmux\n", LogoBlock.Replace(markdown, string.Empty));
+    }
+
+    [Theory]
+    [InlineData("<!-- libtmux-logo -->\n<p align=\"center\">\n  <picture>\n    <source srcset=\"assets/logo.svg\" type=\"image/svg+xml\">\n    <img src=\"assets/logo.png\" width=\"128\" height=\"128\" alt=\"libtmux for .NET\">\n  </picture>\n</p>\n<!-- /libtmux-logo -->\n\n# T\n")]
+    [InlineData("# LibTmux\n\nNo logo here.\n")]
+    [InlineData("<!-- libtmux-logo -->\n<div align=\"center\">\n  <picture>\n    <source srcset=\"../assets/logo.svg\" type=\"image/svg+xml\">\n    <img src=\"../assets/logo.png\" width=\"128\" height=\"128\" alt=\"libtmux for .NET\">\n  </picture>\n</div>\n<!-- /libtmux-logo -->\n\n# T\n")]
+    [InlineData("<!-- libtmux-logo -->\n<div align=\"center\">\n  <picture>\n    <source srcset=\"assets/logo.svg\" type=\"image/svg+xml\">\n    <img src=\"assets/logo.png\" width=\"128\" height=\"128\" alt=\"libtmux for .NET\">\n  </picture>\n</div>\n<!-- /libtmux-logo -->\n# T\n")]
+    public void A_header_that_departs_from_the_shared_one_is_reported(string markdown) =>
+        Assert.DoesNotMatch(LogoHeader, markdown);
+
+    [Fact]
+    public void A_centered_title_outside_the_markers_is_packed_html()
+    {
+        string markdown = Header + "<div align=\"center\">\n\n# LibTmux\n\n</div>\n";
+
+        string[] html = [.. PackedHtml(markdown)];
+
+        Assert.Equal(["<div align=\"center\">", "</div>"], html);
+    }
+
+    [Fact]
+    public void A_centered_title_inside_the_markers_packs_clean()
+    {
+        string markdown = Header
+            + "<!-- libtmux-logo -->\n<div align=\"center\">\n<!-- /libtmux-logo -->\n\n# LibTmux\n\nA client.\n\n"
+            + "<!-- libtmux-logo -->\n</div>\n<!-- /libtmux-logo -->\n\nMore.\n";
+
+        Assert.Empty(PackedHtml(markdown));
+        Assert.Equal("# LibTmux\n\nA client.\n\nMore.\n", LogoBlock.Replace(markdown, string.Empty));
+    }
+
+    [Fact]
+    public void Html_inside_a_code_fence_is_not_packed_html() =>
+        Assert.Empty(PackedHtml("```html\n<div>\n```\n"));
+
     [Fact]
     public void A_relative_package_link_is_not_a_heading()
     {
@@ -264,6 +362,25 @@ public sealed class ReadmePackageListTests
             if (!Regex.IsMatch(section, $@"^\|\s*\**\[{Regex.Escape(package)}\]", RegexOptions.Multiline))
             {
                 yield return $"the index under {heading} has no row for {package}";
+            }
+        }
+    }
+
+    /// <summary>Returns the HTML lines nuget.org would show as text once the logo blocks are stripped.</summary>
+    private static IEnumerable<string> PackedHtml(string markdown)
+    {
+        bool fenced = false;
+        foreach (string line in LogoBlock.Replace(markdown, string.Empty).Split('\n'))
+        {
+            if (Regex.IsMatch(line, @"^ {0,3}(```|~~~)"))
+            {
+                fenced = !fenced;
+                continue;
+            }
+
+            if (!fenced && Regex.IsMatch(line, @"^ {0,3}</?[A-Za-z]"))
+            {
+                yield return line.Trim();
             }
         }
     }

@@ -1,3 +1,16 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET Workspace CLI">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # tmux-workspace
 
 [![NuGet](https://img.shields.io/nuget/vpre/LibTmux.Workspace.Cli?logo=nuget&label=LibTmux.Workspace.Cli)](https://www.nuget.org/packages/LibTmux.Workspace.Cli)
@@ -8,6 +21,10 @@ Describe a tmux session once, in YAML, and open it with one command.
 [`tmux-workspace`][api-workspace-cli] reads
 [tmuxp](https://github.com/tmux-python/tmuxp) workspace files, captures running
 sessions back into them, and answers in JSON when a script asks.
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 Save this as `~/.tmuxp/myproject.yaml`:
 

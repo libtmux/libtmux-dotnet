@@ -24,7 +24,8 @@ version.
   in the root, package, and MCP READMEs against the checkout, holds the root and
   `LibTmux` READMEs to an index row for each package and to a heading that
   links each package's directory, and fails if the sections that map the page
-  go.
+  go. It also requires the shared logo header on every package README and
+  checks that packing leaves no HTML in it.
 - `ReadmeCommandTests` parses every `tmux-workspace` command in those READMEs
   against the tool's command line, and loads the workspace the
   `LibTmux.Workspace.Cli` README shows with the command the root README shows.

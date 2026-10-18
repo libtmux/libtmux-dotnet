@@ -1,8 +1,25 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET Dependency Injection">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # LibTmux.Extensions.DependencyInjection
 
 Registers [LibTmux](https://www.nuget.org/packages/LibTmux) with
 `Microsoft.Extensions.DependencyInjection`, so an application that already
 composes its services can take a tmux server handle as a dependency.
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version.

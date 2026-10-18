@@ -1,9 +1,26 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # LibTmux
 
 A typed, async-first [tmux](https://github.com/tmux/tmux) client for .NET. [Servers][api-server], [sessions][api-session],
 [windows][api-window], [panes][api-pane], [clients][api-client],
 [options][api-tmuxoptions], [hooks][api-tmuxhooks] and buffers, against every
 tmux from **3.2a to 3.7c**, on **net8.0** and **net10.0**.
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version. The behaviour is proven against all

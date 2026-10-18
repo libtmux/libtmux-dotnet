@@ -1,8 +1,25 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET MCP">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # LibTmux.Mcp
 
 A server that gives an assistant hands on tmux over the
 [Model Context Protocol](https://modelcontextprotocol.io/specification/2025-06-18),
 built on [LibTmux](https://www.nuget.org/packages/LibTmux).
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 > **Alpha.** The tool surface is not settled and can change between prereleases
 > without notice, so pin an exact version.

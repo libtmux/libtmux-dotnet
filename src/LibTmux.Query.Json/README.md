@@ -1,8 +1,25 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET Query.Json">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # LibTmux.Query.Json
 
 JSON for [LibTmux](https://www.nuget.org/packages/LibTmux)
 [query documents][api-query-querydocument]. The core library does not reference
 `System.Text.Json`, so a caller who does not want it does not get it.
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version.

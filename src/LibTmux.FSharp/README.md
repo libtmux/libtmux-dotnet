@@ -1,3 +1,16 @@
+<!-- libtmux-logo -->
+<div align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET F#">
+  </picture>
+</div>
+<!-- /libtmux-logo -->
+
+<!-- libtmux-logo -->
+<div align="center">
+<!-- /libtmux-logo -->
+
 # LibTmux.FSharp
 
 Drive tmux from F#: send keys and wait for what a pane prints, run a command
@@ -6,6 +19,10 @@ with typed filters tmux evaluates itself. Every function works on the
 [LibTmux](https://www.nuget.org/packages/LibTmux) core objects. The
 [F# package](https://www.nuget.org/packages/LibTmux.FSharp) and core share a
 repository, release version, and primary author in the `libtmux` organization.
+
+<!-- libtmux-logo -->
+</div>
+<!-- /libtmux-logo -->
 
 [![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
 [![tmux matrix](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
