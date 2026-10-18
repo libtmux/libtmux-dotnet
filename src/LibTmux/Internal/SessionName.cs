@@ -3,7 +3,7 @@ namespace LibTmux.Internal;
 /// <summary>Validates tmux session names.</summary>
 /// <remarks>
 /// Creation and renaming both need this check, and they disagree about what
-/// tmux does with a rejected name: 3.2a silently rewrites <c>:</c> to <c>_</c>
+/// tmux does with a rejected name: 3.3a silently rewrites <c>:</c> to <c>_</c>
 /// while 3.7b stores it verbatim. Neither outcome is what the caller asked for,
 /// so the name is refused before it reaches tmux.
 /// </remarks>

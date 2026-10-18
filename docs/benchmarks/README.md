@@ -371,7 +371,7 @@ those under `runs/`. It runs when a push changes what is measured or how it
 is recorded, and on dispatch for a chosen tmux version:
 
 ```console
-$ gh workflow run benchmarks.yml -f tmux=3.2a
+$ gh workflow run benchmarks.yml -f tmux=3.3a
 ```
 
 ## Regression gate

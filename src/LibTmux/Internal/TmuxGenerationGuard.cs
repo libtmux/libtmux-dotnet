@@ -8,15 +8,22 @@ internal sealed partial class TmuxGenerationGuard(
     Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
     Func<string> markerFactory)
 {
+    internal Task<TmuxCommandResult> ExecuteAsync(
+        ServerGeneration expected,
+        IReadOnlyList<IReadOnlyList<string>> commands,
+        CancellationToken cancellationToken) =>
+        ExecuteAsync(expected, commands, fence: null, cancellationToken);
+
     internal async Task<TmuxCommandResult> ExecuteAsync(
         ServerGeneration expected,
         IReadOnlyList<IReadOnlyList<string>> commands,
+        IReadOnlyList<string>? fence,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<string> logicalArguments = [.. commands.SelectMany(static command => command)];
         string marker = markerFactory();
         ArgumentException.ThrowIfNullOrWhiteSpace(marker);
-        TmuxCommandRequest request = CreateRequest(expected, commands, marker);
+        TmuxCommandRequest request = CreateRequest(expected, commands, marker, fence);
         TmuxCommandResult grouped = await ExecuteRequestAsync(request, logicalArguments, cancellationToken)
             .ConfigureAwait(false);
         return InterpretResult(expected, logicalArguments, marker, grouped);
@@ -87,13 +94,18 @@ internal sealed partial class TmuxGenerationGuard(
 
     // tmux scans the entire list for server-starting commands before the
     // guard runs. Bound requests must disable client-side server startup.
+    //
+    // A fence on the daemon's version, when there is one, follows the
+    // generation test, so a replaced daemon is reported as such first.
     internal static TmuxCommandRequest CreateRequest(
         ServerGeneration expected,
         IReadOnlyList<IReadOnlyList<string>> commands,
-        string marker) =>
+        string marker,
+        IReadOnlyList<string>? fence = null) =>
         TmuxCommandRequest.Group(preventServerStart: true, [
             ["display-message", "-p", TmuxConnection.GenerationFormat],
             Conditional(expected, marker),
+            .. fence is null ? Array.Empty<IReadOnlyList<string>>() : [fence],
             .. commands]);
 
     private static string GenerationText(ServerGeneration expected) =>

@@ -63,6 +63,42 @@ public sealed class TmuxProcessTransportTests
     }
 
     [UnixFact]
+    public async Task A_client_whose_pipes_reach_end_of_file_returns_without_waiting_for_quiet()
+    {
+        const int Commands = 10;
+        BlockingReadStream[][] pipes = [.. Enumerable.Range(0, Commands)
+            .Select(_ => new[] { new BlockingReadStream(), new BlockingReadStream() })];
+        var launcher = new QueueProcessLauncher([.. pipes.Select((pair, index) =>
+            FakeProcessHandle.CompletedWithStreams(7100 + index, pair[0], pair[1], exitCode: 0))]);
+        var transport = new TmuxProcessTransport("tmux", launcher: launcher);
+        TimeSpan afterClose = TimeSpan.Zero;
+
+        for (int index = 0; index < Commands; index++)
+        {
+            // The client has exited; its pipes close a moment later. Timing
+            // starts at the close, so a slow timer on the runner adds nothing.
+            long closedAt = 0;
+            Task closing = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(20));
+                Interlocked.Exchange(ref closedAt, Stopwatch.GetTimestamp());
+                pipes[index][0].Complete();
+                pipes[index][1].Complete();
+            });
+            await transport.ExecuteAsync(["display-message", "-p", "x"], TestContext.Current.CancellationToken);
+            afterClose += Stopwatch.GetElapsedTime(Interlocked.Read(ref closedAt));
+            await closing;
+        }
+
+        // Each command used to wait out one poll of the quiet watch, a tenth
+        // of QuietAfterExit, however promptly its pipes closed.
+        TimeSpan poll = TmuxProcessTransport.QuietAfterExit / 10;
+        Assert.True(
+            afterClose < poll * Commands / 2,
+            $"{Commands} commands returned {afterClose.TotalMilliseconds:F0}ms after their pipes closed.");
+    }
+
+    [UnixFact]
     public async Task Treats_public_semicolon_as_data_and_internal_typed_separator_as_structure()
     {
         var first = FakeProcessHandle.Completed(7043, [], [], exitCode: 0);

@@ -177,7 +177,7 @@ internal static class PaneReader
             if (before == after)
             {
                 if (baselinePid is not null
-                    && !string.Equals(after.PanePid, baselinePid, StringComparison.Ordinal))
+                    && !after.IsProcess(baselinePid))
                 {
                     throw fail(PaneReadFailure.Replaced, pane);
                 }
@@ -237,7 +237,7 @@ internal static class PaneReader
             observedHistoryShrink |= state.HistorySize < previousHistorySize;
             trustedCoordinates &= state.PaneWidth == cursor.PaneWidth
                 && state.AlternateScreen == expectedAlternateScreen
-                && string.Equals(state.PanePid, cursor.PanePid, StringComparison.Ordinal)
+                && state.IsProcess(cursor.PanePid)
                 && state.HistorySize >= previousHistorySize
                 && !AnchorLost(cursor, state)
                 && !TrimRisk(cursor, state);
@@ -553,7 +553,7 @@ internal static class PaneReader
         PaneCursor cursor,
         Func<PaneReadFailure, Pane, Exception> fail)
     {
-        if (!string.Equals(state.PanePid, cursor.PanePid, StringComparison.Ordinal))
+        if (!state.IsProcess(cursor.PanePid))
         {
             throw fail(PaneReadFailure.Replaced, pane);
         }

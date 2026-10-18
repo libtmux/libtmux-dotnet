@@ -6,8 +6,10 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using LibTmux.Engineering;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Mcp;
+using LibTmux.Support;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -1225,6 +1227,63 @@ public sealed class McpProtocolTests
             ?? throw new InvalidOperationException("The MCP test process returned JSON null.");
     }
 
+    // The startup probe refuses an old tmux before a client connects; this is
+    // the call that meets one afterwards, through the same filter every tool
+    // call passes. The refusal must read as a refusal that sent nothing, and
+    // point at the resource that holds the floor: get_server_info is refused
+    // by the same daemon.
+    [UnixFact]
+    public async Task A_tool_call_against_a_tmux_below_the_minimum_is_refused_with_the_floor()
+    {
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        string root = Path.Join(WorkspaceSocketRoot.Root, "refused-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(root);
+        string tmux = Path.Join(root, "tmux");
+
+        // The fake answers the library's own probe, so what it matches and
+        // strips comes from the request the library builds.
+        string marker = Versions.NewMarker();
+        string format = Versions.ProbeRequest(marker).Commands[0][2][marker.Length..];
+        string markerPrefix = marker[..(marker.LastIndexOf('-') + 1)];
+        await TestExecutable.WriteAsync(tmux, $$"""
+            #!/bin/sh
+            for last; do :; done
+            if test "$1" = -V; then printf 'tmux 3.2a\n'; exit 0; fi
+            case "$last" in
+            {{markerPrefix}}*)
+                printf 'unknown command: %s3.2a,91,901\n' "${last%'{{format}}'}" >&2
+                exit 1;;
+            esac
+            printf 'no server running on %s\n' "$*" >&2
+            exit 1
+            """, timeout.Token);
+
+        try
+        {
+            await using ProtocolHarness harness = await ProtocolHarness.StartAsync(timeout.Token, tmux);
+
+            CallToolResult refused = await harness.Client.CallToolAsync(
+                "list_sessions",
+                new Dictionary<string, object?>(),
+                cancellationToken: timeout.Token);
+
+            string message = Assert.IsType<TextContentBlock>(Assert.Single(refused.Content)).Text;
+            Assert.True(refused.IsError ?? false, message);
+            Assert.Contains("reports 3.2a", message, StringComparison.Ordinal);
+            Assert.Contains("Upgrade tmux and restart the tmux server", message, StringComparison.Ordinal);
+            Assert.Contains("or use LibTmux.Mcp 0.0.0", message, StringComparison.Ordinal);
+            Assert.Contains("Nothing was sent to tmux", message, StringComparison.Ordinal);
+            Assert.Contains("tmux://capabilities", message, StringComparison.Ordinal);
+            Assert.DoesNotContain("get_server_info", message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static IEnumerable<string> TargetPaneIds(CallToolResult result) =>
         Structured(result).GetProperty("targetPaneIds")
             .EnumerateArray()
@@ -1287,7 +1346,9 @@ public sealed class McpProtocolTests
             }
         }
 
-        internal static async Task<ProtocolHarness> StartAsync(CancellationToken cancellationToken)
+        internal static async Task<ProtocolHarness> StartAsync(
+            CancellationToken cancellationToken,
+            string? tmuxBinary = null)
         {
             ServiceCollection services = new();
             services.AddLogging();
@@ -1297,7 +1358,7 @@ public sealed class McpProtocolTests
                 new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(20) },
                 new ServerConnectionOptions
                 {
-                    TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                    TmuxBinaryPath = tmuxBinary ?? System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
                     SocketName = socketName,
                     ConfigurationFile = "/dev/null",
                     ChildEnvironment = McpToolFixture.PlainShellEnvironment,

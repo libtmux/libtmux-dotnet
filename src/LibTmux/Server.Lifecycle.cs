@@ -31,7 +31,11 @@ public sealed partial class Server
     /// <summary>Reports whether a tmux server is answering.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>True when the server responded.</returns>
-    /// <remarks>A probe may answer no; it never reports a failure.</remarks>
+    /// <remarks>A probe may answer no when no server is there or it fails to answer.</remarks>
+    /// <exception cref="TmuxVersionTooLowException">
+    /// The daemon, or the executable that would start one, is below the minimum
+    /// tmux or reports a version this library cannot rank. Nothing was sent.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<bool> IsAliveAsync(CancellationToken cancellationToken = default)
     {
@@ -41,8 +45,10 @@ public sealed partial class Server
                 .ConfigureAwait(false);
             return result.ExitCode == 0;
         }
-        catch (LibTmuxException)
+        catch (LibTmuxException error) when (error is not TmuxVersionTooLowException)
         {
+            // A daemon below the minimum is answering; reporting it as absent
+            // would hide that it was refused.
             return false;
         }
     }

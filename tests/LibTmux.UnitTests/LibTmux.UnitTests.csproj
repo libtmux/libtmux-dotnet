@@ -17,6 +17,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Fake executables are written by the helper the integration tests use. -->
+    <Compile Include="../LibTmux.IntegrationTests/Infrastructure/TestExecutable.cs"
+             Link="Infrastructure/TestExecutable.cs" />
+    <Compile Include="../LibTmux.IntegrationTests/Infrastructure/TestBudget.cs"
+             Link="Infrastructure/TestBudget.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/LibTmux/LibTmux.csproj" />
     <ProjectReference Include="../../src/LibTmux.Testing\LibTmux.Testing.csproj" />
     <ProjectReference Include="..\..\src\LibTmux.Query.Json\LibTmux.Query.Json.csproj" />

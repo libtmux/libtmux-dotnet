@@ -152,7 +152,7 @@ public sealed class TmuxCapabilitiesTests
     public void Ensure_at_least_retains_required_and_actual_versions()
     {
         TmuxVersion actual = TmuxVersion.Parse("3.2");
-        TmuxVersion required = TmuxVersion.Parse("3.2a");
+        TmuxVersion required = TmuxVersion.Parse("3.3a");
 
         TmuxVersionTooLowException error = Assert.Throws<TmuxVersionTooLowException>(
             () => actual.EnsureAtLeast(required));
@@ -166,8 +166,8 @@ public sealed class TmuxCapabilitiesTests
     [Fact]
     public void Package_support_metadata_is_inclusive_and_not_a_ceiling()
     {
-        Assert.Equal(TmuxVersion.Parse("3.2a"), LibTmuxInfo.MinimumTmuxVersion);
-        Assert.Equal(TmuxVersion.Parse("3.7c"), LibTmuxInfo.MaximumTestedTmuxVersion);
+        Assert.Equal(TmuxVersion.Parse("3.3a"), LibTmuxInfo.MinimumTmuxVersion);
+        Assert.Equal(TmuxVersion.Parse("3.8"), LibTmuxInfo.MaximumTestedTmuxVersion);
         Assert.NotNull(LibTmuxInfo.Version);
         Assert.True(TmuxVersion.Parse("next-3.8").IsAtLeast(LibTmuxInfo.MinimumTmuxVersion));
     }
@@ -294,7 +294,7 @@ public sealed class TmuxCapabilitiesTests
         {
             TmuxVersion expectedMinimum = tmux37Fields.Contains(field.WireName, StringComparer.Ordinal)
                 ? TmuxVersion.Parse("3.7")
-                : TmuxVersion.Parse("3.2a");
+                : TmuxVersion.Parse("3.3");
             Assert.Equal(expectedMinimum, field.MinimumTmuxVersion);
             Assert.Equal(ToPascalCase(field.WireName), field.ClrMemberName);
             Assert.Same(field, FormatCatalog.Resolve(field.WireName));
@@ -337,7 +337,7 @@ public sealed class TmuxCapabilitiesTests
         var descriptor = new FormatFieldDescriptor(
             "pane_id",
             "PaneId",
-            TmuxVersion.Parse("3.2a"),
+            TmuxVersion.Parse("3.3a"),
             source);
 
         source.Add("window");
@@ -346,35 +346,31 @@ public sealed class TmuxCapabilitiesTests
         Assert.False(descriptor.Scopes.Contains("PANE"));
         Assert.False(descriptor.Scopes.Contains("window"));
         Assert.Throws<ArgumentNullException>(
-            () => new FormatFieldDescriptor(null!, "PaneId", TmuxVersion.Parse("3.2a"), source));
+            () => new FormatFieldDescriptor(null!, "PaneId", TmuxVersion.Parse("3.3a"), source));
         Assert.Throws<ArgumentException>(
-            () => new FormatFieldDescriptor(" ", "PaneId", TmuxVersion.Parse("3.2a"), source));
+            () => new FormatFieldDescriptor(" ", "PaneId", TmuxVersion.Parse("3.3a"), source));
         Assert.Throws<ArgumentNullException>(
-            () => new FormatFieldDescriptor("pane_id", null!, TmuxVersion.Parse("3.2a"), source));
+            () => new FormatFieldDescriptor("pane_id", null!, TmuxVersion.Parse("3.3a"), source));
         Assert.Throws<ArgumentException>(
-            () => new FormatFieldDescriptor("pane_id", " ", TmuxVersion.Parse("3.2a"), source));
+            () => new FormatFieldDescriptor("pane_id", " ", TmuxVersion.Parse("3.3a"), source));
         Assert.Throws<ArgumentException>(
             () => new FormatFieldDescriptor("pane_id", "PaneId", default, source));
         Assert.Throws<ArgumentNullException>(
             () => new FormatFieldDescriptor(
                 "pane_id",
                 "PaneId",
-                TmuxVersion.Parse("3.2a"),
+                TmuxVersion.Parse("3.3a"),
                 null!));
         Assert.Throws<ArgumentException>(
             () => new FormatFieldDescriptor(
                 "pane_id",
                 "PaneId",
-                TmuxVersion.Parse("3.2a"),
+                TmuxVersion.Parse("3.3a"),
                 new HashSet<string>()));
     }
 
     [Theory]
-    [InlineData("3.2a", "attachment_accounting", "Supported")]
-    [InlineData("3.2a", "display_message_client", "Unsupported")]
-    [InlineData("3.2a", "missing_target_format_safety", "Unsupported")]
-    [InlineData("3.3", "display_message_client", "Supported")]
-    [InlineData("3.3", "missing_target_format_safety", "Supported")]
+    [InlineData("3.3a", "attachment_accounting", "Supported")]
     [InlineData("3.3a", "capture_pane_trim_trailing", "Unsupported")]
     [InlineData("3.4", "capture_pane_trim_trailing", "Supported")]
     [InlineData("3.4", "display_menu_mouse", "Unsupported")]
@@ -392,8 +388,6 @@ public sealed class TmuxCapabilitiesTests
             TmuxCapabilities.GetState(TmuxVersion.Parse(rawVersion), capability));
 
     [Theory]
-    [InlineData("3.3", "display_message_client")]
-    [InlineData("3.3.7", "display_message_client")]
     [InlineData("3.7c", "new_pane_command")]
     [InlineData("4.0", "new_pane_command")]
     public void Capability_intervals_cover_unlisted_stable_releases(
@@ -439,6 +433,28 @@ public sealed class TmuxCapabilitiesTests
             TmuxCapabilityState.Unknown,
             TmuxCapabilities.GetState(version, "new_pane_command"));
         Assert.False(TmuxCapabilities.IsSupported(version, "new_pane_command"));
+    }
+
+    // A gate asks "is this tmux 3.4 or newer", and a development build or a
+    // release candidate of 3.4 is not yet. The expected side comes from the
+    // library's own ranking, so the test cannot agree with a second copy of
+    // the grammar that is wrong in the same way. A candidate is not ranked
+    // against the capability table at all, so its state is unknown rather
+    // than unsupported; either way it does not pass the gate.
+    [Theory]
+    [InlineData("next-3.4", false)]
+    [InlineData("3.4-rc", false)]
+    [InlineData("3.4-rc2", false)]
+    [InlineData("3.4", true)]
+    [InlineData("3.4a", true)]
+    public void A_gate_ranks_development_and_candidate_builds_below_their_release(
+        string rawVersion,
+        bool passes)
+    {
+        TmuxVersion version = TmuxVersion.Parse(rawVersion);
+
+        Assert.Equal(passes, version >= TmuxVersion.Parse("3.4"));
+        Assert.Equal(passes, TmuxCapabilities.IsSupported(version, "option_dollar_double_escape"));
     }
 
     [Theory]

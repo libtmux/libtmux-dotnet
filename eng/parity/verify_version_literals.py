@@ -44,11 +44,12 @@ ALLOWED_FILES = frozenset(
     },
 )
 
-#: tmux 3.8 emits JSON layouts that older versions cannot parse. This syntax
-#: boundary was verified against tmux's tagged source rather than the matrix.
+#: tmux 3.8-rc2 is the first build measured to emit and accept JSON layouts,
+#: which older versions cannot parse. This syntax boundary was measured
+#: against tmux builds rather than taken from the matrix.
 ALLOWED_MATCHES = frozenset(
     {
-        ("Internal/TmuxLayoutSyntax.cs", 'jsonVersion >= TmuxVersion.Parse("3.8")'),
+        ("Internal/TmuxLayoutSyntax.cs", 'jsonVersion >= TmuxVersion.Parse("3.8-rc2")'),
     },
 )
 

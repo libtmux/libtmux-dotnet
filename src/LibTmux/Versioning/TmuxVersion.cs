@@ -195,13 +195,15 @@ public readonly partial record struct TmuxVersion : IComparable<TmuxVersion>
         line = RemoveOneLineTerminator(line);
         if (line.Contains('\r', StringComparison.Ordinal)
             || line.Contains('\n', StringComparison.Ordinal)
-            || !line.StartsWith("tmux ", StringComparison.Ordinal))
+            || !TmuxVersionBannerParser.TryReadVersion(
+                line,
+                Path.GetFileName(tmuxBinaryPath),
+                out TmuxVersion reported))
         {
             throw new FormatException("tmux did not report exactly one canonical version line.");
         }
 
-        string token = line[5..];
-        return Parse(token).Raw;
+        return reported.Raw;
     }
 
     /// <summary>Detects the selected tmux executable version.</summary>
@@ -312,6 +314,21 @@ public readonly partial record struct TmuxVersion : IComparable<TmuxVersion>
     /// <summary>Reports whether the left version is at least the right version.</summary>
     public static bool operator >=(TmuxVersion left, TmuxVersion right) =>
         left.CompareTo(right) >= 0;
+
+    /// <summary>Reads a version in the only forms tmux itself has reported.</summary>
+    /// <param name="text">What <c>#{version}</c> or <c>-V</c> printed.</param>
+    /// <param name="result">The version when the text is one of them.</param>
+    /// <returns>True for <c>X.Y</c>, <c>X.Ya</c>, <c>X.Y-rc[N]</c> and <c>next-X.Y</c>.</returns>
+    internal static bool TryParseReported(string? text, out TmuxVersion result)
+    {
+        result = default;
+        return text is not null && ReportedRegex().IsMatch(text) && TryParse(text, out result);
+    }
+
+    [GeneratedRegex(
+        "\\A(?:next-(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)|(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:[a-z]|-rc(?:[1-9][0-9]*)?)?)\\z",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex ReportedRegex();
 
     [GeneratedRegex(
         "\\A(?:next-(?<nextMajor>0|[1-9][0-9]*)\\.(?<nextMinor>0|[1-9][0-9]*)|(?<major>0|[1-9][0-9]*)\\.(?<minor>0|[1-9][0-9]*)(?:\\.(?<micro>0|[1-9][0-9]*)|(?<patch>[a-z]+)(?<patchVendor>-openbsd)?|(?<finalVendor>-openbsd)|(?<rcTag>-rc)(?<rc>[1-9][0-9]*)?|-dev(?:\\.(?<dev>0|[1-9][0-9]*))?)?)\\z",

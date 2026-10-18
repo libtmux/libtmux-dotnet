@@ -1,3 +1,5 @@
+using LibTmux.Support;
+
 namespace LibTmux.Internal;
 
 /// <summary>The multiplexer a connection speaks to, and how it is addressed.</summary>
@@ -24,8 +26,19 @@ internal abstract class MultiplexerDialect
     /// <summary>Gets whether this dialect speaks to the psmux preview.</summary>
     internal abstract bool IsPsmux { get; }
 
-    internal string VerifiedRawVersion => Volatile.Read(ref _rawVersion)
+    /// <summary>Gets the version that governs what this dialect may send.</summary>
+    /// <remarks>
+    /// The executable's report unless a dialect checks a daemon, which answers
+    /// for itself.
+    /// </remarks>
+    internal virtual string VerifiedRawVersion => ClientRawVersion;
+
+    /// <summary>Gets the version the client executable reported.</summary>
+    private protected string ClientRawVersion => Volatile.Read(ref _rawVersion)
         ?? throw new InvalidOperationException("The multiplexer version has not been verified.");
+
+    /// <summary>Gets the file name the configured executable is known by.</summary>
+    private protected abstract string ExecutableName { get; }
 
     /// <summary>Gets the transport every command ultimately reaches.</summary>
     private protected Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>
@@ -35,6 +48,16 @@ internal abstract class MultiplexerDialect
     /// <summary>Reads the server generation and the version banner.</summary>
     internal abstract Task<(ServerGeneration Generation, string RawVersion)> DiscoverAsync(
         CancellationToken cancellationToken);
+
+    /// <summary>Reads the daemon's generation and version without a user-visible command.</summary>
+    /// <returns>
+    /// Null when this dialect has no such read, in which case a caller asks
+    /// the daemon itself. A null generation means no daemon is running and the
+    /// version is the executable's.
+    /// </returns>
+    internal virtual Task<(ServerGeneration? Generation, TmuxVersion Version)?> ReadIdentityAsync(
+        CancellationToken cancellationToken) =>
+        Task.FromResult<(ServerGeneration? Generation, TmuxVersion Version)?>(null);
 
     /// <summary>Runs one command.</summary>
     internal abstract Task<TmuxCommandResult> ExecuteSingleAsync(
@@ -86,11 +109,10 @@ internal abstract class MultiplexerDialect
 
         if (!TmuxVersionBannerParser.TryParse(
                 result.StandardOutputLines,
-                out TmuxVersionBanner banner))
+                out TmuxVersionBanner banner,
+                ExecutableName))
         {
-            throw new TmuxCommandException(
-                "The multiplexer did not report a recognized version banner.",
-                result);
+            throw Versions.Unrecognized(string.Join('\n', result.StandardOutputLines));
         }
 
         AcceptBanner(banner);

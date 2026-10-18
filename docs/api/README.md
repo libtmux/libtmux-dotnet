@@ -1053,7 +1053,7 @@ modes differ.
 | `LibTmux.Server.Panes` | Gets the panes this handle captured, across every window. |
 | `LibTmux.Server.Sessions` | Gets the sessions this handle captured. |
 | `LibTmux.Server.SnapshotMetadata` | Gets acquisition metadata, or null when this handle was not captured. |
-| `LibTmux.Server.Version` | Gets the verified tmux client executable version. |
+| `LibTmux.Server.Version` | Gets the tmux version this handle was checked on. |
 | `LibTmux.Server.Windows` | Gets the windows this handle captured, across every session. |
 | `LibTmux.ServerAccessRequest.AllowUser` | Gets the user to grant access to. |
 | `LibTmux.ServerAccessRequest.DenyUser` | Gets the user to take access from. |

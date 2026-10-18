@@ -15,7 +15,7 @@
 
 [![NuGet](https://img.shields.io/nuget/vpre/LibTmux.Workspace.Cli?logo=nuget&label=LibTmux.Workspace.Cli)](https://www.nuget.org/packages/LibTmux.Workspace.Cli)
 [![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
-[![tmux 3.2a – 3.7c](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
+[![tmux 3.3a – 3.8](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
 
 Describe a tmux session once, in YAML, and open it with one command.
 [`tmux-workspace`][api-workspace-cli] reads
@@ -268,10 +268,18 @@ $ tmux-workspace --generate fish > ~/.config/fish/completions/tmux-workspace.fis
 
 | | |
 |---|---|
-| tmux | 3.2a and newer |
+| tmux | 3.3a and newer |
 | .NET | .NET 8 or .NET 10 runtime |
 | OS | Linux and macOS |
 | Workspace files | tmuxp's format, in YAML or JSON |
+
+A tmux below 3.3a, or one that reports a version no release uses, such as
+`master`, exits 1 with the `tmux_unsupported` code, before any command and
+before the Python bridge of `shell` and extension loads is started.
+Upgrade tmux and restart the tmux server, or use an earlier release of the
+CLI. The Python bridge runs the tmux the CLI uses: `LIBTMUX_TMUX` when it is
+set, otherwise the `tmux` on `PATH`. The attach that ends a load passes `-N`,
+so it never starts a server.
 
 Where it differs from tmuxp:
 

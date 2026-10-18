@@ -78,7 +78,7 @@ public sealed record CapturePaneRequest : ITmuxRequest<Pane>
     /// <param name="pane">The pane being captured.</param>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
     /// <remarks>
-    /// Several capture flags arrived after tmux 3.2a, and the pane is what
+    /// Several capture flags arrived after tmux 3.3a, and the pane is what
     /// knows which tmux is answering, so the command it builds carries only
     /// the flags that server accepts.
     /// </remarks>

@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json.Nodes;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.Internal;
 using LibTmux.Mcp;
 using LibTmux.UnitTests.Transport;
@@ -230,6 +231,135 @@ public sealed class ServerPolicyTests
             McpStartup.ResolveAsync(
                 name => environment.GetValueOrDefault(name),
                 TestContext.Current.CancellationToken));
+    }
+
+    // A probe that fails before any command goes out says why, rather than
+    // only that provenance could not be established.
+    [UnixFact]
+    public async Task Startup_says_why_the_version_probe_failed()
+    {
+        string root = SocketRoots.Reserve("probe");
+        Directory.CreateDirectory(root);
+        string tmux = Path.Join(root, "tmux");
+        await TestExecutable.WriteAsync(tmux, """
+            #!/bin/sh
+            if test "$1" = -V; then printf 'tmux 3.3a\n'; exit 0; fi
+            printf 'weird failure\n' >&2
+            exit 1
+            """, TestContext.Current.CancellationToken);
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        {
+            [McpStartup.SocketPathVariable] = Path.Join(root, "tmux.sock"),
+            ["LIBTMUX_TMUX"] = tmux,
+            ["TMUX_TMPDIR"] = root,
+            ["PATH"] = Environment.GetEnvironmentVariable("PATH"),
+        };
+
+        try
+        {
+            ModelContextProtocol.McpException error = await Assert.ThrowsAsync<ModelContextProtocol.McpException>(() =>
+                McpStartup.ResolveAsync(
+                    name => environment.GetValueOrDefault(name),
+                    TestContext.Current.CancellationToken));
+            Assert.Contains("The tmux version probe failed: weird failure", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    // The startup probe is the first command this server sends, so a tmux below
+    // the minimum is refused here, and the operator reads the refusal before
+    // any client is connected. The 3.3a row is the control.
+    [UnixTheory]
+    [InlineData("3.2a", true)]
+    [InlineData("3.3", true)]
+    [InlineData("3.3a", false)]
+    public async Task Startup_names_the_cure_when_the_tmux_is_below_the_minimum(string version, bool refused)
+    {
+        string root = SocketRoots.Reserve("old");
+        Directory.CreateDirectory(root);
+        string tmux = Path.Join(root, "tmux");
+        await TestExecutable.WriteAsync(tmux, $$"""
+            #!/bin/sh
+            if test "$1" = -V; then printf 'tmux {{version}}\n'; exit 0; fi
+            printf 'no server running on %s\n' "$*" >&2
+            exit 1
+            """, TestContext.Current.CancellationToken);
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        {
+            [McpStartup.SocketPathVariable] = Path.Join(root, "tmux.sock"),
+            ["LIBTMUX_TMUX"] = tmux,
+            ["TMUX_TMPDIR"] = root,
+            ["PATH"] = Environment.GetEnvironmentVariable("PATH"),
+        };
+
+        try
+        {
+            if (!refused)
+            {
+                McpStartup startup = await McpStartup.ResolveAsync(
+                    name => environment.GetValueOrDefault(name),
+                    TestContext.Current.CancellationToken);
+                Assert.Equal("absent", startup.Disclosure.ServerState);
+                return;
+            }
+
+            ModelContextProtocol.McpException error = await Assert.ThrowsAsync<ModelContextProtocol.McpException>(() =>
+                McpStartup.ResolveAsync(
+                    name => environment.GetValueOrDefault(name),
+                    TestContext.Current.CancellationToken));
+            Assert.Contains($"reports {version}", error.Message, StringComparison.Ordinal);
+            Assert.Contains("Upgrade tmux and restart the tmux server", error.Message, StringComparison.Ordinal);
+            Assert.Contains("or use LibTmux.Mcp 0.0.0", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    // The startup refusal of a tmux that reports no release carries the
+    // library's own sentence: the floor and what to use, not the generic
+    // "could not establish" the probe's other failures get.
+    [UnixTheory]
+    [InlineData("master")]
+    [InlineData("openbsd-3.8")]
+    public async Task Startup_says_why_a_tmux_with_no_recognized_version_is_refused(string version)
+    {
+        string root = SocketRoots.Reserve("unrecognized");
+        Directory.CreateDirectory(root);
+        string tmux = Path.Join(root, "tmux");
+        await TestExecutable.WriteAsync(tmux, $$"""
+            #!/bin/sh
+            if test "$1" = -V; then printf 'tmux {{version}}\n'; exit 0; fi
+            printf 'no server running on %s\n' "$*" >&2
+            exit 1
+            """, TestContext.Current.CancellationToken);
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        {
+            [McpStartup.SocketPathVariable] = Path.Join(root, "tmux.sock"),
+            ["LIBTMUX_TMUX"] = tmux,
+            ["TMUX_TMPDIR"] = root,
+            ["PATH"] = Environment.GetEnvironmentVariable("PATH"),
+        };
+
+        try
+        {
+            ModelContextProtocol.McpException error = await Assert.ThrowsAsync<ModelContextProtocol.McpException>(() =>
+                McpStartup.ResolveAsync(
+                    name => environment.GetValueOrDefault(name),
+                    TestContext.Current.CancellationToken));
+            Assert.Contains("unrecognized version '", error.Message, StringComparison.Ordinal);
+            Assert.Contains(version, error.Message, StringComparison.Ordinal);
+            Assert.Contains("3.3a or newer", error.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("Could not establish", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [UnixFact]
@@ -531,6 +661,7 @@ public sealed class BoundedTextTests
 }
 
 /// <summary>What the client is told before it calls anything.</summary>
+[UnsupportedOSPlatform("windows")]
 public sealed class ServerInstructionsTests
 {
     [Fact]
@@ -569,6 +700,47 @@ public sealed class ServerInstructionsTests
         string text = ServerInstructions.Compose(new ServerPolicy(), new string('%', 4000));
 
         Assert.True(Encoding.UTF8.GetByteCount(text) <= ServerInstructions.MaxBytes);
+    }
+
+    [Fact]
+    public void The_minimum_tmux_is_named_where_the_server_describes_itself()
+    {
+        string text = ServerInstructions.Compose(new ServerPolicy(), null);
+
+        Assert.Contains(
+            $"Drives tmux {LibTmuxInfo.MinimumTmuxVersion} or newer",
+            text,
+            StringComparison.Ordinal);
+        ToolDefinition info = CapabilityRegistry.Manifest.Single(row => row.Name == "get_server_info");
+        Assert.Contains(
+            $"needs tmux {LibTmuxInfo.MinimumTmuxVersion} or newer",
+            info.Description,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_capability_resource_reports_the_minimum_tmux()
+    {
+        CapabilityRegistry registry = CapabilityRegistry.Select(new CapabilitySelection(
+            ImmutableHashSet.Create(Toolset.Inspect),
+            ImmutableHashSet.Create<string>(StringComparer.Ordinal),
+            ImmutableHashSet.Create<string>(StringComparer.Ordinal)));
+        using System.Text.Json.JsonDocument disclosure = System.Text.Json.JsonDocument.Parse(
+            new CapabilityResource(
+                registry,
+                new McpRuntimeDisclosure(
+                    "name:test",
+                    "operator-current",
+                    "unknown",
+                    "existing",
+                    ResolvedSocketPath: "",
+                    AttachCommand: "tmux -N -L 'test' attach",
+                    TeardownExplicitlySelected: false))
+                .Read());
+
+        Assert.Equal(
+            LibTmuxInfo.MinimumTmuxVersion.Raw,
+            disclosure.RootElement.GetProperty("connection").GetProperty("minimumTmuxVersion").GetString());
     }
 
     [Fact]

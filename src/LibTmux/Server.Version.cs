@@ -6,7 +6,11 @@ public sealed partial class Server
     /// <summary>Gets the daemon version read by inspection, or null when it was not acquired.</summary>
     public TmuxVersion? DaemonVersion { get; }
 
-    /// <summary>Gets the verified tmux client executable version.</summary>
+    /// <summary>Gets the tmux version this handle was checked on.</summary>
+    /// <remarks>
+    /// The connected daemon's version, or the executable's when no daemon was
+    /// running and the executable would start the next one.
+    /// </remarks>
     public TmuxVersion? Version
     {
         get

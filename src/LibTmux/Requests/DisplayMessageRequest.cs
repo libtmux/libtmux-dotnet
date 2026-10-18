@@ -68,9 +68,8 @@ public sealed record DisplayMessageRequest : ITmuxRequest<Server>
     /// <param name="server">The server the message is shown on.</param>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
     /// <remarks>
-    /// This takes the server because two of the flags depend on which tmux is
-    /// answering: literal expansion arrived in 3.4, and 3.2a refuses the
-    /// target-client flag even for a client that is really attached.
+    /// This takes the server because the literal flag depends on which tmux is
+    /// answering: literal expansion arrived in 3.4.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="server" /> is null.</exception>
     public TmuxCommand ToCommand(Server server)

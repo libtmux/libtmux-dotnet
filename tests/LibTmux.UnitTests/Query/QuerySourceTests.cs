@@ -36,7 +36,7 @@ public sealed class QuerySourceTests
         Assert.Throws<NotSupportedException>(() => ((IList<string>)local.FallbackReasons).Clear());
 
         QueryDocument inactive = QueryExtensions.Translate<Window>(window => !window.IsActive);
-        QueryPlan<Window> floor = inactive.Plan<Window>(TmuxVersion.Parse("3.2a"), QueryPushdown.Require);
+        QueryPlan<Window> floor = inactive.Plan<Window>(TmuxVersion.Parse("3.3a"), QueryPushdown.Require);
         Assert.Null(floor.ResidualPredicate);
         Assert.Equal("#{?#{==:#{window_active},1},0,1}", floor.PredicateFormat);
 
@@ -48,7 +48,7 @@ public sealed class QuerySourceTests
         ];
         foreach (QueryNode identity in trueIdentities)
         {
-            QueryPlan<Window> identityPlan = Document(identity).Plan<Window>(TmuxVersion.Parse("3.2a"), QueryPushdown.Require);
+            QueryPlan<Window> identityPlan = Document(identity).Plan<Window>(TmuxVersion.Parse("3.3a"), QueryPushdown.Require);
             Assert.Null(identityPlan.ResidualPredicate);
             Assert.NotEqual("1", identityPlan.PredicateFormat);
         }
@@ -154,7 +154,7 @@ public sealed class QuerySourceTests
         }, FakeMultiplexer.AnsweringVersion((request, _) =>
         {
             calls++;
-            byte[] output = System.Text.Encoding.UTF8.GetBytes("91:901\t3.2a\n");
+            byte[] output = System.Text.Encoding.UTF8.GetBytes("91:901\t3.3a\n");
             return Task.FromResult(new TmuxCommandResult(request.LogicalArguments, 0, output, ReadOnlyMemory<byte>.Empty,
                 Utf8BackslashDecoder.ProjectOutputLines(output), []));
         }, "tmux 3.7c\n"));

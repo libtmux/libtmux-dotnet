@@ -106,6 +106,52 @@ and for the warmup mistake that once put an impossible number in this table.
 
 ## Version differences
 
-Known behavior differences from tmux 3.2a onward go through the capability
+Known behavior differences from tmux 3.3a onward go through the capability
 model. Each measured difference has a row with a real-server proof in
 [the parity ledger](../parity/version-deltas.json).
+
+## Minimum version
+
+The library supports tmux 3.3a and newer, and decides it from the daemon a
+command reaches, not from the client executable. The 3.3 release without its
+patch letter is below the minimum. A release candidate or `next-X.Y` build
+ranks just below the release it names.
+
+Before the first command, the library asks the daemon for its version with
+`run-shell -C`, which fires no `after-*` or `command-error` hook, and throws
+`TmuxVersionTooLowException` for a daemon below the minimum or a report it
+cannot rank, such as `master`. Every command list then opens with an `if-shell`
+that fails unless the daemon still reports that version, so a replaced daemon
+is checked again before anything runs. On a replacement below the minimum the
+command is refused with no effect, a supported replacement is checked afresh,
+and a failed fence on tmux 3.5 or newer fires `command-error`.
+
+An endpoint with no daemon takes its version from the executable that would
+start one, which may report its own file name in place of `tmux`. `kill-server`
+on an absent endpoint does nothing. `-V` and `-h` describe the executable and
+check nothing. Aliases that redefine the commands the library uses are outside
+this contract.
+
+A refusal says what to do: upgrade tmux and restart the tmux server, since a
+running daemon keeps its version until it exits, or use LibTmux 0.0.0-alpha.21,
+the last release that supports tmux 3.2a. A daemon older than tmux 3.2 cannot
+run the probe at all, because `run-shell -C` arrived in 3.2: a 3.1 daemon
+answers with the usage line of `run-shell`, and a 3.0 or older daemon makes the
+client print `server version is too old for client`. Both are refused as below
+the minimum, as is a client executable older than 3.2, which does not know the
+`-N` the probe passes. Those daemons keep the client's stdout pipe open after
+the client exits (stderr closes), so the library stops reading one second after
+the client has gone and nothing more has arrived.
+
+A version is read only in the forms tmux has reported: `X.Y`, `X.Ya`,
+`X.Y-rc` or `X.Y-rcN`, and `next-X.Y`. Anything else, such as `3.4.1`,
+`3.4-dev` or `3.3a-openbsd`, cannot be ranked. It is refused with
+`TmuxVersionTooLowException`, whose `ActualVersion` is not valid, and the
+message names the minimum rather than calling the build too old.
+
+A control client's version is checked by a probe on a separate process just
+before it attaches, because a refusal printed over a control connection arrives
+outside any command. A daemon replaced in the moments between that probe and the
+attach is not fenced: the client attaches to the replacement, and the next
+command it carries is fenced like any other, so a replacement below the minimum
+is refused there and a supported one is checked afresh.

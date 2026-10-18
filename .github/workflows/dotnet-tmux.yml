@@ -111,7 +111,7 @@ jobs:
       # readable when the other lanes still run.
       fail-fast: false
       matrix:
-        tmux: ['3.2a', '3.3a', '3.4', '3.5', '3.6', '3.7a', '3.7b', '3.7c']
+        tmux: ['3.3a', '3.4', '3.5', '3.6', '3.7a', '3.7b', '3.7c', '3.8']
         framework: ['net8.0', 'net10.0']
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -267,6 +267,94 @@ jobs:
             dotnet "examples/LibTmux.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.Examples.dll"
           done
 
+  # A daemon below the floor must be refused before it is touched. The client
+  # is the supported 3.3a build, which can speak to both older protocols.
+  rejected:
+    needs: build
+    name: tmux ${{ matrix.rejected-version }} is refused
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        rejected-version: ['3.0a', '3.1c', '3.2a', '3.3']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            autoconf \
+            automake \
+            bison \
+            build-essential \
+            jq \
+            libevent-dev \
+            libncurses-dev \
+            pkg-config
+
+      - name: Restore the tmux builds
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: artifacts/tmux
+          key: tmux-unsupported-${{ matrix.rejected-version }}-${{ runner.os }}-${{ hashFiles('eng/tmux/build-version.sh') }}
+
+      - name: Build the supported and the rejected tmux
+        id: tmux
+        env:
+          REJECTED_VERSION: ${{ matrix.rejected-version }}
+        run: |
+          floor="$(eng/tmux/build-version.sh 3.3a | sed -n 's/^binary=//p')"
+          rejected="$(eng/tmux/build-version.sh "${REJECTED_VERSION}" | sed -n 's/^binary=//p')"
+          printf 'floor=%s\nrejected=%s\n' "${floor}" "${rejected}" | tee -a "${GITHUB_OUTPUT}"
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: integration-${{ github.sha }}-Release
+          path: artifacts
+
+      - name: Extract the same-commit assemblies
+        run: |
+          tar -xzf artifacts/integration.tar.gz
+          test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
+
+      - name: Refuse the unsupported daemon before any effect
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.floor }}
+          LIBTMUX_FLOOR_TMUX: ${{ steps.tmux.outputs.floor }}
+          LIBTMUX_REJECTED_TMUX: ${{ steps.tmux.outputs.rejected }}
+          LIBTMUX_REJECTED_REQUIRED: '1'
+          REJECTED_VERSION: ${{ matrix.rejected-version }}
+          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
+        run: |
+          mkdir -p "${TMUX_TMPDIR}"
+          test "$("${LIBTMUX_REJECTED_TMUX}" -V)" = "tmux ${REJECTED_VERSION}"
+          test "$("${LIBTMUX_TMUX}" -V)" = "tmux 3.3a"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
+          # The control client needs 3.7, which this lane does not install,
+          # so its hook test runs in the matrix. A client older than 3.2
+          # rejects -N, so the two tests that run the rejected build as a
+          # working client do not apply to a build before 3.2, and the tests
+          # of what only such a build does do not apply to the others.
+          case "${REJECTED_VERSION}" in
+            3.0a|3.1c) skipped=('*reports_a_different_version' '*executable_that_would_start_it_is_below_the_minimum') ;;
+            *) skipped=('*before_3_2*') ;;
+          esac
+          dotnet test \
+            --test-modules tests/LibTmux.IntegrationTests/bin/Release/net10.0/LibTmux.IntegrationTests.dll \
+            --filter-class LibTmux.IntegrationTests.Versioning.MinimumTmuxVersionTests \
+            --filter-not-method '*Attaching_and_watching_through_a_control_client_fires_no_hook' "${skipped[@]}" \
+            --fail-skips on \
+            --minimum-expected-tests 10
+
   advisory:
     needs: build
     name: tmux master (advisory)
@@ -334,12 +422,12 @@ jobs:
   # which can break for reasons that are not this library's problem.
   compatibility:
     name: compatibility
-    needs: [build, matrix]
+    needs: [build, matrix, rejected]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Reject unsuccessful dependencies
         id: require-success
-        if: ${{ always() && (needs.build.result != 'success' || needs.matrix.result != 'success') }}
+        if: ${{ always() && (needs.build.result != 'success' || needs.matrix.result != 'success' || needs.rejected.result != 'success') }}
         run: exit 1

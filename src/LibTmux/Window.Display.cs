@@ -9,7 +9,6 @@ namespace LibTmux;
 public sealed partial class Window
 {
     private const string DisplayMessageLiteralCapability = "display_message_literal";
-    private const string DisplayMessageClientCapability = "display_message_client";
 
     /// <summary>Shows a message on the client viewing this window.</summary>
     /// <param name="request">The message to show.</param>
@@ -36,17 +35,6 @@ public sealed partial class Window
         }
 
         Server owner = RequireOwner("display");
-        if (request.TargetClient is not null
-            && !Supports(owner, DisplayMessageClientCapability))
-        {
-            // tmux 3.2a declares the flag without a value, so naming a client
-            // there would silently address a different one.
-            throw new TmuxVersionTooLowException(
-                "Naming a display-message client requires tmux 3.3.",
-                TmuxVersion.Parse("3.3"),
-                owner.Version ?? default);
-        }
-
         List<string> arguments = ["display-message", "-t", Target];
         if (request.ReturnText)
         {

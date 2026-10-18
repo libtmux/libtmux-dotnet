@@ -114,6 +114,12 @@ internal static class ToolFailureFilter
         }
     };
 
+    /// <summary>Names this package in the library's remedy for a refused tmux.</summary>
+    /// <param name="error">The refusal.</param>
+    /// <returns>The refusal's message, where the last release to use is <c>LibTmux.Mcp</c>.</returns>
+    internal static string RefusalMessage(Exception error) =>
+        error.Message.Replace("or use LibTmux ", "or use LibTmux.Mcp ", StringComparison.Ordinal);
+
     /// <summary>Answers what to tell a caller about one failure.</summary>
     /// <param name="error">What went wrong.</param>
     /// <param name="declaration">What this server declared about the tool, when known.</param>
@@ -141,8 +147,10 @@ internal static class ToolFailureFilter
             _ when declaration is null && WasNotSelected(tool) =>
                 $"'{tool}' was not selected for this server{ExclusionCause(tool, selection)}. "
                 + "Read tmux://capabilities for the tools that are.",
-            TmuxVersionTooLowException => "This tmux is too old for that operation. "
-                + "Call get_server_info to see which version is running.",
+            // The message names the version found, the one needed and what to
+            // do; nothing was sent to tmux.
+            TmuxVersionTooLowException => $"{RefusalMessage(error)} Nothing was sent to tmux. "
+                + "The supported floor is in tmux://capabilities.",
             TmuxObjectNotFoundException => "That session, window or pane no longer exists. "
                 + "Call list_sessions, list_windows, or list_panes to see what does.",
 

@@ -27,13 +27,13 @@ sha256_file() {
 }
 
 if [[ $# -ne 1 ]]; then
-    echo "usage: build-version.sh <3.2a|3.3a|3.4|3.5|3.6|3.7|3.7a|3.7b|3.7c|master>" >&2
+    echo "usage: build-version.sh <3.0a|3.1c|3.2a|3.3|3.3a|3.4|3.5|3.6|3.7|3.7a|3.7b|3.7c|3.8|master>" >&2
     exit 2
 fi
 
 readonly VERSION="$1"
 case "${VERSION}" in
-    3.2a|3.3a|3.4|3.5|3.6|3.7|3.7a|3.7b|3.7c|master) ;;
+    3.0a|3.1c|3.2a|3.3|3.3a|3.4|3.5|3.6|3.7|3.7a|3.7b|3.7c|3.8|master) ;;
     *)
         echo "unsupported tmux version: ${VERSION}" >&2
         exit 2

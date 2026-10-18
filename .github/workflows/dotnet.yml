@@ -31,7 +31,9 @@ jobs:
   build:
     name: build and prove
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Master's runs of this job take 13.4 to 14.2 minutes, so 15 left no room
+    # for the tests this branch adds; the limit is there to stop a hang.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

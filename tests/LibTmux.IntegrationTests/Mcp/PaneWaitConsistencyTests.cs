@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Mcp;
 using LibTmux.Testing;
@@ -13,6 +14,7 @@ public sealed class PaneWaitConsistencyTests
     public async Task A_core_pane_wait_reads_rendered_output_and_preserves_the_daemon()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryServerScope scope = await new TmuxTestFactory()
             .CreateServerAsync(mcp.Options, token);
@@ -52,6 +54,7 @@ public sealed class PaneWaitConsistencyTests
     public async Task An_established_wait_recovers_after_unstable_captures()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryServerScope scope = await new TmuxTestFactory()
             .CreateServerAsync(mcp.Options, token);

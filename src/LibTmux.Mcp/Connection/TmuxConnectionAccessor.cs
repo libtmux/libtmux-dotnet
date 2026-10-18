@@ -78,6 +78,7 @@ public sealed class TmuxConnectionAccessor : IDisposable
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The server.</returns>
     /// <exception cref="McpException">tmux could not be reached.</exception>
+    /// <exception cref="TmuxVersionTooLowException">The daemon is below the minimum tmux.</exception>
     public async Task<Server> GetAsync(
         string? socketName = null,
         CancellationToken cancellationToken = default)
@@ -120,6 +121,14 @@ public sealed class TmuxConnectionAccessor : IDisposable
             _servers.TryRemove(key, out _);
             throw new McpException(
                 $"No tmux binary was found. Install tmux, or set {BinaryVariable} to one. ({error.Message})");
+        }
+        catch (TmuxVersionTooLowException)
+        {
+            // A refused tmux is not an absent one: falling back to an
+            // unmaterialized handle would let a listing answer "no sessions"
+            // for a daemon this server will not talk to.
+            _servers.TryRemove(key, out _);
+            throw;
         }
         catch (LibTmuxException error)
         {

@@ -318,7 +318,7 @@ public sealed class PaneOperationsTests
         // tmux 3.8 turned display-panes from an overlay into a mode, which
         // runs without a client, so only earlier versions still refuse it.
         bool displayPanesStillAnOverlay = pane.Server.Version is not TmuxVersion version
-            || version < TmuxVersion.Parse("3.8");
+            || version < TmuxVersion.Parse("3.8-rc2");
         if (displayPanesStillAnOverlay)
         {
             await Assert.ThrowsAsync<TmuxCommandException>(
@@ -468,18 +468,6 @@ public sealed class PaneOperationsTests
         GatedAsync(
             "split_window_appearance",
             (pane, token) => pane.SplitAsync(new SplitPaneRequest { Style = "fg=red" }, token));
-
-    [Fact(
-        Skip = "Requires a Unix process environment.",
-        SkipType = typeof(UnixTestEnvironment),
-        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
-    public Task DisplayPopup33OptionsVersionPolicy() =>
-        // A popup needs a client, so both branches end in tmux's refusal; the
-        // gate is proved by whether a warning was logged before dispatch.
-        GatedAsync(
-            "display_popup_3_3_options",
-            (pane, token) => Assert.ThrowsAsync<TmuxCommandException>(
-                () => pane.DisplayPopupAsync(new DisplayPopupRequest { Title = "t" }, token)));
 
     [Fact(
         Skip = "Requires a Unix process environment.",

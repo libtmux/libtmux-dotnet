@@ -10,11 +10,11 @@ matrix.
 
 ## Context
 
-Minimum support is tmux 3.2a. `MaximumTestedTmuxVersion` is informational, not
-a support ceiling. The earlier implementation nevertheless selected only eight
-exact capability snapshots. Stable releases such as 3.3, 3.3 micro releases,
-and 3.7c therefore appeared to carry no capabilities. Callers omitted valid
-flags or rejected valid operations.
+Minimum support is tmux 3.3a. `MaximumTestedTmuxVersion` is informational,
+not a support ceiling. The earlier implementation nevertheless selected only
+eight exact capability snapshots. Stable releases such as 3.3, 3.3 micro
+releases, and 3.7c therefore appeared to carry no capabilities. Callers omitted
+valid flags or rejected valid operations.
 
 The cumulative snapshots also made a profile's version serve two meanings: the
 server version for exact matches and an older provenance marker for any proposed
@@ -25,11 +25,11 @@ removed. A misspelled capability name read as ordinary absence.
 
 Represent each named capability by the first supported stable version and an
 optional first unsupported stable version. Stable final, micro, and patch
-releases at or above 3.2a are evaluated against those intervals. A capability
+releases at or above 3.3a are evaluated against those intervals. A capability
 without a recorded end remains supported on later stable releases; this does
 not infer capabilities that are absent from the ledger.
 
-Invalid values, versions below 3.2a, development builds, release candidates,
+Invalid values, versions below 3.3a, development builds, release candidates,
 and `next-*` builds have unknown capability state. Ordinary internal callers
 treat unknown as unsupported. Unknown capability names throw, so spelling drift
 does not silently disable behavior.

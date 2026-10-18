@@ -13,7 +13,8 @@ internal sealed partial class ReadTools
     /// <returns>The server's version and how much it holds.</returns>
     [Description(
         "Read the tmux server's version and how many sessions, windows and panes it "
-        + "holds. Use to confirm a socket is alive and which tmux is running it.")]
+        + "holds. Use to confirm a socket is alive and which tmux is running it. "
+        + "This server needs tmux 3.3a or newer and refuses an older one.")]
     public async Task<TmuxServerInfo> ServerInfoAsync(
         [Description("The tmux socket to read. Omit for the default server.")]
         string? socketName = null,

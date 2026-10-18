@@ -8,9 +8,13 @@ internal readonly record struct TmuxVersionBanner(
 
 internal static class TmuxVersionBannerParser
 {
+    // tmux 3.3a prints the executable's own basename in place of "tmux", so a
+    // build installed as tmux-3.3a reports "tmux-3.3a 3.3a". Later releases
+    // print "tmux" whatever the file is called.
     internal static bool TryParse(
         IReadOnlyList<string> lines,
-        out TmuxVersionBanner banner)
+        out TmuxVersionBanner banner,
+        string? executableName = null)
     {
         banner = default;
         if (lines.Count is < 1 or > 2)
@@ -19,17 +23,19 @@ internal static class TmuxVersionBannerParser
         }
 
         string first = lines[0];
-        if (!first.StartsWith("tmux ", StringComparison.Ordinal)
-            || !TmuxVersion.TryParse(first[5..], out TmuxVersion version))
+        if (!TryReadVersion(first, executableName, out TmuxVersion version))
         {
             return false;
         }
 
+        // The raw form is the one every reader of a handle's version expects,
+        // whatever name the executable reported itself under.
+        string raw = $"tmux {version.Raw}";
         if (lines.Count == 1)
         {
             banner = new TmuxVersionBanner(
                 TmuxImplementation.Tmux,
-                first,
+                raw,
                 version.Raw,
                 ImplementationLine: null);
             return true;
@@ -49,9 +55,30 @@ internal static class TmuxVersionBannerParser
 
         banner = new TmuxVersionBanner(
             TmuxImplementation.Psmux,
-            first,
+            raw,
             version.Raw,
             second);
         return true;
+    }
+
+    /// <summary>Reads the version from one <c>-V</c> line.</summary>
+    internal static bool TryReadVersion(
+        string line,
+        string? executableName,
+        out TmuxVersion version)
+    {
+        version = default;
+        if (line.StartsWith("tmux ", StringComparison.Ordinal))
+        {
+            return TmuxVersion.TryParse(line[5..], out version);
+        }
+
+        if (!string.IsNullOrEmpty(executableName)
+            && line.StartsWith(executableName + " ", StringComparison.Ordinal))
+        {
+            return TmuxVersion.TryParse(line[(executableName.Length + 1)..], out version);
+        }
+
+        return false;
     }
 }

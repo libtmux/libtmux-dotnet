@@ -571,6 +571,7 @@ public sealed class PaneRunTests
     public async Task A_wait_whose_watcher_meets_the_servers_exit_reports_the_pane_gone()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         string directory = Directory.CreateTempSubdirectory("ltm-exit-").FullName;
         string wrapper = Path.Combine(directory, "tmux-wrapper");
@@ -580,7 +581,7 @@ public sealed class PaneRunTests
             // and reports what tmux's client reports when that happens.
             await TestExecutable.WriteAsync(
                 wrapper,
-                "#!/bin/sh\nfor argument in \"$@\"; do\n  if [ \"$argument\" = -C ]; then\n"
+                "#!/bin/sh\nfor argument in \"$@\"; do\n  if [ \"$argument\" = attach-session ]; then\n"
                 + $"    '{raw.TmuxBinaryPath}' -S '{raw.SocketPath}' kill-server\n"
                 + "    printf '%%exit server exited unexpectedly\\n'\n    exit 1\n  fi\ndone\n"
                 + $"exec '{raw.TmuxBinaryPath}' \"$@\"\n",

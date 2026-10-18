@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.Versioning;
 
 namespace LibTmux.Internal;
@@ -115,13 +116,28 @@ internal sealed class TmuxControlClient
             try
             {
                 await started.WaitForReadyAsync(cancellationToken).ConfigureAwait(false);
-                (OwnControlClient own, string reportedPath) = await IdentifyAsync(started, cancellationToken)
-                    .ConfigureAwait(false);
-                _watchedPath = _configuredPath ?? reportedPath;
-                _watchedIdentity = UnixFileIdentity.TryRead(_watchedPath);
-                _own = own;
+                // tmux names a client with no terminal after the process it
+                // started, and says which session it joined as it attaches.
+                // Neither needs a command, so no after-hook can fire.
+                string name = started.ClientProcessId is int pid
+                    ? "client-" + pid.ToString(CultureInfo.InvariantCulture)
+                    : throw new TmuxProtocolException(
+                        "The control client has no process to name it by.",
+                        TmuxDispatchState.NotDispatched);
+                var joined = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _ = Task.Run(() => FollowAsync(started, joined), CancellationToken.None);
+                string sessionId = await joined.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                if (!started.IsRunning)
+                {
+                    throw new TmuxProtocolException(
+                        "The control client ended as it attached.",
+                        TmuxDispatchState.NotDispatched);
+                }
+
+                _watchedPath = _configuredPath;
+                _watchedIdentity = _watchedPath is null ? null : UnixFileIdentity.TryRead(_watchedPath);
+                _own = new OwnControlClient(name, sessionId);
                 _session = started;
-                _ = Task.Run(() => FollowAsync(started, own), CancellationToken.None);
                 return started;
             }
             catch (Exception)
@@ -200,7 +216,7 @@ internal sealed class TmuxControlClient
         try
         {
             _ = await running
-                .SendRawAsync([["display-message", "-p", string.Empty]], new ControlModeSendProbe(), cancellationToken)
+                .SendRawAsync([["if-shell", "-F", "1", string.Empty]], new ControlModeSendProbe(), cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception error) when (error is not OperationCanceledException)
@@ -242,37 +258,22 @@ internal sealed class TmuxControlClient
         }
     }
 
-    private static async Task<(OwnControlClient Own, string SocketPath)> IdentifyAsync(
-        ControlModeSession session,
-        CancellationToken cancellationToken)
-    {
-        IReadOnlyList<string> lines = await session
-            .SendRawAsync(
-                [["display-message", "-p", "#{client_name}\t#{session_id}\t#{socket_path}"]],
-                new ControlModeSendProbe(),
-                cancellationToken)
-            .ConfigureAwait(false);
-        string[] parts = lines.Count == 1 ? lines[0].Split('\t') : [];
-        return parts.Length == 3 && parts[0].Length > 0 && parts[1].Length > 0 && parts[2].Length > 0
-            ? (new OwnControlClient(parts[0], parts[1]), parts[2])
-            : throw new TmuxProtocolException(
-                "tmux did not name the control client.",
-                TmuxDispatchState.Dispatched);
-    }
-
     // The client moves to another session when its own is destroyed on a server
     // that keeps detached clients; tmux says so as a notification. Reading the
     // events also keeps the client's buffer from filling.
-    private async Task FollowAsync(ControlModeSession session, OwnControlClient first)
+    private async Task FollowAsync(ControlModeSession session, TaskCompletionSource<string> joined)
     {
         try
         {
             await foreach (TmuxEvent tmuxEvent in session.Events.ConfigureAwait(false))
             {
-                if (tmuxEvent is TmuxNotificationEvent { Name: "session-changed", Arguments.Count: > 0 } changed
-                    && ReferenceEquals(_session, session))
+                if (tmuxEvent is TmuxNotificationEvent { Name: "session-changed", Arguments.Count: > 0 } changed)
                 {
-                    _own = first with { SessionId = changed.Arguments[0] };
+                    _ = joined.TrySetResult(changed.Arguments[0]);
+                    if (ReferenceEquals(_session, session) && _own is { } current)
+                    {
+                        _own = current with { SessionId = changed.Arguments[0] };
+                    }
                 }
             }
         }
@@ -282,6 +283,9 @@ internal sealed class TmuxControlClient
         }
         finally
         {
+            _ = joined.TrySetException(new TmuxProtocolException(
+                "The control client ended before it joined a session.",
+                TmuxDispatchState.NotDispatched));
             try
             {
                 await session.DisposeAsync().ConfigureAwait(false);

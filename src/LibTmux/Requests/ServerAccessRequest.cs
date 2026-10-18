@@ -57,16 +57,11 @@ public sealed record ServerAccessRequest : ITmuxRequest<Server>
     /// <summary>Returns an access request as one tmux command.</summary>
     /// <param name="server">The server whose access is changed.</param>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
-    /// <remarks>
-    /// The command itself arrived in tmux 3.3, so batching does not soften the
-    /// refusal below that: an older server has nothing to send it to.
-    /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="server" /> is null.</exception>
-    /// <exception cref="TmuxVersionTooLowException">tmux is older than 3.3.</exception>
     [UnsupportedOSPlatform("windows")]
     public TmuxCommand ToCommand(Server server)
     {
         ArgumentNullException.ThrowIfNull(server);
-        return TmuxChaining.Command([.. server.BuildServerAccessArguments(this)]);
+        return TmuxChaining.Command([.. Server.BuildServerAccessArguments(this)]);
     }
 }
