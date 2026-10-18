@@ -5,9 +5,9 @@
 [![tmux 3.2a – 3.7c](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
 
 Describe a tmux session once, in YAML, and open it with one command.
-`tmux-workspace` reads [tmuxp](https://github.com/tmux-python/tmuxp)
-workspace files, captures running sessions back into them, and answers in JSON
-when a script asks.
+[`tmux-workspace`][api-workspace-cli] reads
+[tmuxp](https://github.com/tmux-python/tmuxp) workspace files, captures running
+sessions back into them, and answers in JSON when a script asks.
 
 Save this as `~/.tmuxp/myproject.yaml`:
 
@@ -193,9 +193,9 @@ has files to start from.
 
 ## Scripting
 
-`--json` prints one JSON document on stdout. `--ndjson` streams one record per
-line as a load progresses. Errors go to stderr as JSON lines with a stable
-`code`.
+[`--json`][api-workspace-output] prints one JSON document on stdout. `--ndjson`
+streams one record per line as a load progresses. Errors go to stderr as JSON
+lines with a stable `code`.
 
 List workspace names:
 
@@ -245,7 +245,7 @@ fish:
 $ tmux-workspace --generate fish > ~/.config/fish/completions/tmux-workspace.fish
 ```
 
-`--generate man` writes a manual page.
+[`--generate man`][api-workspace-completion] writes a manual page.
 
 ## Compatibility
 
@@ -282,3 +282,7 @@ records what is implemented so far and where it differs.
 ## License
 
 [MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
+
+[api-workspace-cli]: https://libtmux.org/en/csharp/latest/workspace/cli/
+[api-workspace-completion]: https://libtmux.org/en/csharp/latest/workspace/cli/completion/
+[api-workspace-output]: https://libtmux.org/en/csharp/latest/workspace/reference/output/

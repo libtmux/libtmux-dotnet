@@ -1,6 +1,8 @@
 # LibTmux.Testing
 
-Scoped tmux servers, sessions and windows for testing code that drives tmux,
+Scoped tmux [servers][api-testing-temporaryserverscope],
+[sessions][api-testing-temporarysessionscope] and
+[windows][api-testing-temporarywindowscope] for testing code that drives tmux,
 on top of [LibTmux](https://www.nuget.org/packages/LibTmux).
 
 > **Alpha.** The public API is not settled and can change between prereleases
@@ -28,9 +30,9 @@ string screen = await TmuxWait.UntilAsync(
     TimeSpan.FromMilliseconds(20));
 ```
 
-`TmuxTestFactory` creates the scopes and `TmuxNameGenerator` hands out names no
+[`TmuxTestFactory`][api-testing-tmuxtestfactory] creates the scopes and [`TmuxNameGenerator`][api-testing-tmuxnamegenerator] hands out names no
 live session is using. Waiting for a state rather than sleeping is
-`TmuxWait.UntilAsync`, which ships in `LibTmux` because reading back what a
+[`TmuxWait.UntilAsync`][api-tmuxwait-untilasync], which ships in `LibTmux` because reading back what a
 command produced is ordinary client work, not test scaffolding.
 
 This ships apart from `LibTmux` so an application that references the client
@@ -38,8 +40,8 @@ does not carry test scaffolding in its output or its trim closure.
 
 ## Reference
 
-- [`TmuxTestFactory`](https://libtmux.org/en/csharp/latest/reference/libtmux-testing-tmuxtestfactory/) and
-  [`TemporaryHierarchyScope`](https://libtmux.org/en/csharp/latest/reference/libtmux-testing-temporaryhierarchyscope/):
+- [`TmuxTestFactory`][api-testing-tmuxtestfactory] and
+  [`TemporaryHierarchyScope`][api-testing-temporaryhierarchyscope]:
   the scopes this package hands out
 - [Testing with libtmux](https://libtmux.org/en/csharp/latest/guides/testing-with-libtmux/): an isolated
   server, and cleanup failures
@@ -48,3 +50,11 @@ does not carry test scaffolding in its output or its trim closure.
 ## License
 
 [MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
+
+[api-testing-temporaryhierarchyscope]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-temporaryhierarchyscope/
+[api-testing-temporaryserverscope]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-temporaryserverscope/
+[api-testing-temporarysessionscope]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-temporarysessionscope/
+[api-testing-temporarywindowscope]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-temporarywindowscope/
+[api-testing-tmuxnamegenerator]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-tmuxnamegenerator/
+[api-testing-tmuxtestfactory]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-tmuxtestfactory/
+[api-tmuxwait-untilasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-tmuxwait-untilasync/

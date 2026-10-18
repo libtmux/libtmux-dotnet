@@ -20,7 +20,7 @@ var services = new ServiceCollection();
 services.AddLibTmux(options => options with { SocketName = "build" });
 ```
 
-`Server` is then injectable:
+[`Server`][api-server] is then injectable:
 
 ```csharp
 using System.Collections.Generic;
@@ -61,7 +61,7 @@ server applies commands in the order it receives them.
 
 ## Options
 
-`ServerConnectionOptions` is registered through `IOptions<T>`, so it binds from
+[`ServerConnectionOptions`][api-serverconnectionoptions] is registered through `IOptions<T>`, so it binds from
 configuration. This example also references `Microsoft.Extensions.Configuration`
 and `Microsoft.Extensions.Options.ConfigurationExtensions`:
 
@@ -92,10 +92,13 @@ is taken from it, so tmux commands are logged with everything else.
 
 ## Reference
 
-- [`Server`](https://libtmux.org/en/csharp/latest/reference/libtmux-server/): the handle this registers
+- [`Server`][api-server]: the handle this registers
 - Source: [`src/LibTmux.Extensions.DependencyInjection`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Extensions.DependencyInjection)
 - Package: [NuGet](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection)
 
 ## License
 
 [MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
+
+[api-server]: https://libtmux.org/en/csharp/latest/reference/libtmux-server/
+[api-serverconnectionoptions]: https://libtmux.org/en/csharp/latest/reference/libtmux-serverconnectionoptions/

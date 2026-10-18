@@ -56,6 +56,38 @@ public sealed class ReadmePackageListTests
         Assert.True(defects.Length == 0, $"{document}: {string.Join("; ", defects)}");
     }
 
+    [Fact]
+    public void The_root_index_has_a_row_for_every_package()
+    {
+        string markdown = File.ReadAllText(Path.Combine(RepositoryRoot(), "README.md"));
+
+        string[] defects = [.. IndexDefects(markdown, "## Packages", Packages())];
+
+        Assert.True(defects.Length == 0, string.Join("; ", defects));
+    }
+
+    [Fact]
+    public void The_core_index_has_a_row_for_every_other_package()
+    {
+        string markdown = File.ReadAllText(Path.Combine(RepositoryRoot(), "src/LibTmux/README.md"));
+
+        string[] defects = [.. IndexDefects(markdown, "## Related packages", Packages().Except(["LibTmux"]))];
+
+        Assert.True(defects.Length == 0, string.Join("; ", defects));
+    }
+
+    [Theory]
+    [InlineData("README.md", "## Testing your own code")]
+    [InlineData("README.md", "## Workspaces from the command line")]
+    [InlineData("README.md", "## An assistant on your terminal")]
+    [InlineData("src/LibTmux/README.md", "## Testing your own code")]
+    public void The_sections_that_map_the_page_stay(string document, string heading)
+    {
+        string markdown = File.ReadAllText(Path.Combine(RepositoryRoot(), document));
+
+        Assert.Contains($"\n{heading}\n", markdown, StringComparison.Ordinal);
+    }
+
     [Theory]
     [MemberData(nameof(Readmes))]
     public void Repository_links_resolve_in_the_checkout(string document)
@@ -151,6 +183,54 @@ public sealed class ReadmePackageListTests
     }
 
     [Fact]
+    public void An_index_without_its_heading_is_reported()
+    {
+        string defect = Assert.Single(IndexDefects("# Title\n\n| Package | Adds |\n|---|---|\n", "## Packages", ["LibTmux"]));
+
+        Assert.Contains("## Packages", defect, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_index_missing_a_row_is_reported()
+    {
+        string markdown = "## Packages\n\n| Package | Adds |\n|---|---|\n"
+            + "| **[LibTmux](a)** | the client |\n| [LibTmux.Workspace.Cli](b) | a tool |\n\n## Next\n";
+
+        string defect = Assert.Single(IndexDefects(markdown, "## Packages", ["LibTmux", "LibTmux.Workspace", "LibTmux.Workspace.Cli"]));
+
+        Assert.EndsWith("no row for LibTmux.Workspace", defect, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_row_in_a_later_section_is_not_the_index()
+    {
+        string markdown = "## Packages\n\nNo table here.\n\n## Next\n\n| [LibTmux](a) | x |\n";
+
+        Assert.Single(IndexDefects(markdown, "## Packages", ["LibTmux"]));
+    }
+
+    [Fact]
+    public void A_reference_link_counts_through_its_definition()
+    {
+        string markdown = $"### [`LibTmux`]({Repository}tree/master/src/LibTmux): the client\n\n"
+            + "[NuGet](https://www.nuget.org/packages/LibTmux) and [the API][api].\n\n"
+            + "[api]: https://libtmux.org/en/csharp/latest/reference/\n";
+
+        Assert.Empty(Defects(markdown, ["LibTmux"]));
+    }
+
+    [Fact]
+    public void A_reference_link_with_no_definition_is_not_a_reference()
+    {
+        string markdown = $"### [`LibTmux`]({Repository}tree/master/src/LibTmux): the client\n\n"
+            + "[NuGet](https://www.nuget.org/packages/LibTmux) and [the API][api].\n";
+
+        string defect = Assert.Single(Defects(markdown, ["LibTmux"]));
+
+        Assert.Contains("libtmux.org", defect, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_relative_package_link_is_not_a_heading()
     {
         string markdown = "### [`LibTmux`](src/LibTmux): the client\n";
@@ -165,6 +245,28 @@ public sealed class ReadmePackageListTests
         [NuGet](https://www.nuget.org/packages/{package}) and
         [libtmux.org](https://libtmux.org/en/csharp/latest/reference/).
         """;
+
+    /// <summary>Returns what is missing from a table that indexes the packages under one heading.</summary>
+    private static IEnumerable<string> IndexDefects(string markdown, string heading, IEnumerable<string> packages)
+    {
+        int start = markdown.IndexOf($"\n{heading}\n", StringComparison.Ordinal);
+        if (start < 0 && !markdown.StartsWith($"{heading}\n", StringComparison.Ordinal))
+        {
+            yield return $"the index heading {heading} is missing";
+            yield break;
+        }
+
+        string rest = markdown[Math.Max(start, 0)..];
+        Match next = Regex.Match(rest[(heading.Length + 1)..], @"^## ", RegexOptions.Multiline);
+        string section = next.Success ? rest[..(heading.Length + 1 + next.Index)] : rest;
+        foreach (string package in packages)
+        {
+            if (!Regex.IsMatch(section, $@"^\|\s*\**\[{Regex.Escape(package)}\]", RegexOptions.Multiline))
+            {
+                yield return $"the index under {heading} has no row for {package}";
+            }
+        }
+    }
 
     /// <summary>Returns what is wrong with the package list in a document.</summary>
     private static IEnumerable<string> Defects(string markdown, IEnumerable<string> packages)
@@ -189,7 +291,7 @@ public sealed class ReadmePackageListTests
                 continue;
             }
 
-            string section = SectionOf(markdown, package);
+            string section = Targets(markdown, SectionOf(markdown, package));
             if (!section.Contains($"https://www.nuget.org/packages/{package}", StringComparison.Ordinal))
             {
                 yield return $"the section for {package} has no NuGet link";
@@ -200,6 +302,20 @@ public sealed class ReadmePackageListTests
                 yield return $"the section for {package} has no libtmux.org link";
             }
         }
+    }
+
+    /// <summary>Returns a section with each reference-style link followed by the address its definition gives.</summary>
+    private static string Targets(string markdown, string section)
+    {
+        Dictionary<string, string> definitions = [];
+        foreach (Match definition in Regex.Matches(markdown, @"^\[(?<label>[^\]]+)\]:[ \t]*(?<url>\S+)", RegexOptions.Multiline))
+        {
+            definitions[definition.Groups["label"].Value] = definition.Groups["url"].Value;
+        }
+
+        IEnumerable<string> resolved = Regex.Matches(section, @"\]\[(?<label>[^\]]+)\]")
+            .Select(match => definitions.GetValueOrDefault(match.Groups["label"].Value, string.Empty));
+        return section + "\n" + string.Join('\n', resolved);
     }
 
     /// <summary>Returns the text under the heading that links a package, up to the next heading.</summary>

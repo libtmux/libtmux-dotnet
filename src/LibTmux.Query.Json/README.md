@@ -1,8 +1,8 @@
 # LibTmux.Query.Json
 
-JSON for [LibTmux](https://www.nuget.org/packages/LibTmux) query documents. The
-core library does not reference `System.Text.Json`, so a caller who does not
-want it does not get it.
+JSON for [LibTmux](https://www.nuget.org/packages/LibTmux)
+[query documents][api-query-querydocument]. The core library does not reference
+`System.Text.Json`, so a caller who does not want it does not get it.
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version.
@@ -90,13 +90,13 @@ Console.WriteLine(matched.Count);
 
 ## What reading a document costs
 
-Deserializing applies the limits in `QueryJsonLimits.Default`: document size,
+Deserializing applies the limits in [`QueryJsonLimits.Default`][api-query-json-queryjsonlimits-default]: document size,
 nesting depth, node count, string length, and regex pattern length. A caller
 may tighten those ceilings but cannot widen them. Schema version 2 is the
 supported contract and ships as `libtmux-query-v2.schema.json`. Other versions
 are rejected before their predicates are read.
 
-Evaluating the result with `Compile` or `Matching` resolves public properties
+Evaluating the result with [`Compile`][api-query-queryextensions-compile] or [`Matching`][api-query-queryextensions-matching] resolves public properties
 by name. Those methods warn trimmed callers to preserve that metadata.
 For a document received from another trust boundary, use the cancellable
 `Matching` overload with a deadline. It checks between source elements and
@@ -111,8 +111,8 @@ Console.WriteLine($"depth {QueryJsonLimits.Default.MaximumDepth}, nodes {QueryJs
 
 Discover fields, native properties and accepted operators through
 `QueryFieldCatalog.GetFields(QueryTarget.Pane)`. Write predicates against
-properties such as `Session.Name`,
-`Client.IsControlClient` and `Pane.CurrentCommand`. The wire name `pane_command`
+properties such as [`Session.Name`][api-session-name],
+[`Client.IsControlClient`][api-client-iscontrolclient] and [`Pane.CurrentCommand`][api-pane-currentcommand]. The wire name `pane_command`
 binds to the captured tmux `pane_current_command` value.
 
 ```csharp run
@@ -122,8 +122,8 @@ QueryDocument restoredPaths = QueryJson.Deserialize(QueryJson.Serialize(paths));
 Console.WriteLine(restoredPaths.Version);
 ```
 
-`Pane.CurrentCommand` and `Pane.CurrentPath` read captured state without I/O.
-They throw `IncompleteSnapshotException` when the field was never captured;
+`Pane.CurrentCommand` and [`Pane.CurrentPath`][api-pane-currentpath] read captured state without I/O.
+They throw [`IncompleteSnapshotException`][api-incompletesnapshotexception] when the field was never captured;
 equality distinguishes captured null from an empty string. Portable string
 operations read null as empty, matching tmux format expansion.
 
@@ -139,7 +139,7 @@ Console.WriteLine(capturedPanes.Panes.Matching(restoredDimensions).Count);
 
 `pane_current_path`, `window_active` and `window_index` query captured
 working directories and session-relative window placements.
-`Window.IsActive` and `Window.Index` describe the placement this handle was
+[`Window.IsActive`][api-window-isactive] and [`Window.Index`][api-window-index] describe the placement this handle was
 captured through. Two handles for the same linked window can disagree on
 both values.
 
@@ -177,12 +177,12 @@ Console.WriteLine(QueryJson.Serialize(selectedEditor));
 | --- | --- | --- |
 | `session_active_window` | `Session.ActiveWindow.Value` | Windows |
 | `session_active_pane` | `Session.ActivePane.Value` | Panes |
-| `session_panes` | `Session.Panes` | Panes |
-| `window_session` | `Window.Session` | Windows |
+| `session_panes` | [`Session.Panes`][api-session-panes] | Panes |
+| `window_session` | [`Window.Session`][api-window-session] | Windows |
 | `window_active_pane` | `Window.ActivePane.Value` | Panes |
-| `window_linked_sessions` | `Window.LinkedSessions` | Windows |
-| `pane_window` | `Pane.Window` | Panes |
-| `pane_session` | `Pane.Session` | Panes |
+| `window_linked_sessions` | [`Window.LinkedSessions`][api-window-linkedsessions] | Windows |
+| `pane_window` | [`Pane.Window`][api-pane-window] | Panes |
+| `pane_session` | [`Pane.Session`][api-pane-session] | Panes |
 
 Single relations serialize as a `related` node containing its relation
 field and child predicate. They require a captured child. Unavailable values
@@ -190,7 +190,7 @@ raise an error without fetching data. `RequiredSnapshotDepth` includes every
 referenced relation, including nested relations in either direction.
 
 A field outside the catalog throws
-`UnsupportedQueryExpressionException` at translation rather than falling back.
+[`UnsupportedQueryExpressionException`][api-unsupportedqueryexpressionexception] at translation rather than falling back.
 The document is interpreted locally or by an
 application that deliberately accepts this wire contract.
 
@@ -212,8 +212,8 @@ Pin the same LibTmux version on both sides of a process boundary.
 
 ## Reference
 
-- [`QueryJson`](https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjson/) and
-  [`QueryDocument`](https://libtmux.org/en/csharp/latest/reference/libtmux-query-querydocument/): the wire
+- [`QueryJson`][api-query-json-queryjson] and
+  [`QueryDocument`][api-query-querydocument]: the wire
   format and the document it carries
 - Source: [`src/LibTmux.Query.Json`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Query.Json)
 
@@ -222,3 +222,22 @@ Source, docs and issues: <https://github.com/libtmux/libtmux-dotnet>
 ## License
 
 [MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
+
+[api-client-iscontrolclient]: https://libtmux.org/en/csharp/latest/reference/libtmux-client-iscontrolclient/
+[api-incompletesnapshotexception]: https://libtmux.org/en/csharp/latest/reference/libtmux-incompletesnapshotexception/
+[api-pane-currentcommand]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-currentcommand/
+[api-pane-currentpath]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-currentpath/
+[api-pane-session]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-session/
+[api-pane-window]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-window/
+[api-query-json-queryjson]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjson/
+[api-query-json-queryjsonlimits-default]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjsonlimits-default/
+[api-query-querydocument]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-querydocument/
+[api-query-queryextensions-compile]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryextensions-compile/
+[api-query-queryextensions-matching]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryextensions-matching/
+[api-session-name]: https://libtmux.org/en/csharp/latest/reference/libtmux-session-name/
+[api-session-panes]: https://libtmux.org/en/csharp/latest/reference/libtmux-session-panes/
+[api-unsupportedqueryexpressionexception]: https://libtmux.org/en/csharp/latest/reference/libtmux-unsupportedqueryexpressionexception/
+[api-window-index]: https://libtmux.org/en/csharp/latest/reference/libtmux-window-index/
+[api-window-isactive]: https://libtmux.org/en/csharp/latest/reference/libtmux-window-isactive/
+[api-window-linkedsessions]: https://libtmux.org/en/csharp/latest/reference/libtmux-window-linkedsessions/
+[api-window-session]: https://libtmux.org/en/csharp/latest/reference/libtmux-window-session/

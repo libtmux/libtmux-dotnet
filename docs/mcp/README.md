@@ -139,7 +139,7 @@ to follow only new output.
 - If control mode cannot start or the stream is lost, the wait ends. Set
   `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` to re-read the pane every 60 ms
   instead. The result then says `pollingFallback: true`, a warning goes to
-  stderr, and `tmux://capabilities` reports the policy.
+  stderr, and [`tmux://capabilities`][api-mcp-capabilities] reports the policy.
 - `eventsDropped` counts notifications lost during the wait, possibly from other
   panes in the session. The server re-reads the pane, but a match shows what the
   capture held, not a complete terminal transcript.
@@ -448,7 +448,7 @@ for the current surface.
 | `tmux_server_info`, `tmux_whoami`, `tmux://self` | [`get_server_info`](https://libtmux.org/en/csharp/latest/mcp/tools/get_server_info/) and [`list_panes`](https://libtmux.org/en/csharp/latest/mcp/tools/list_panes/) | `callerPaneId` and `isCaller` replace the separate identity route. |
 | `tmux_show_options`, `tmux_split_pane` | [`show_option`](https://libtmux.org/en/csharp/latest/mcp/tools/show_option/), [`split_window`](https://libtmux.org/en/csharp/latest/mcp/tools/split_window/) | The new names match the cross-port surface. Spawn calls accept no command or environment payload. |
 | `tmux_clear_pane` | [`clear_pane_scrollback`](https://libtmux.org/en/csharp/latest/mcp/tools/clear_pane_scrollback/) | Scrollback deletion remains. Clearing the visible screen has no MCP replacement. |
-| `break_pane`, `join_pane` | No current MCP replacement; .NET callers can use `Pane.BreakAsync` and `Pane.JoinAsync` directly. | Cross-port MCP deliberately omits pane reparenting. The core library operations remain available. |
+| `break_pane`, `join_pane` | No current MCP replacement; .NET callers can use [`Pane.BreakAsync`][api-pane-breakasync] and [`Pane.JoinAsync`][api-pane-joinasync] directly. | Cross-port MCP deliberately omits pane reparenting. The core library operations remain available. |
 | `set_option` | [`set_history_limit`](https://libtmux.org/en/csharp/latest/mcp/tools/set_history_limit/), [`set_mouse_enabled`](https://libtmux.org/en/csharp/latest/mcp/tools/set_mouse_enabled/), [`set_pane_title`](https://libtmux.org/en/csharp/latest/mcp/tools/set_pane_title/), [`set_synchronize_panes`](https://libtmux.org/en/csharp/latest/mcp/tools/set_synchronize_panes/), or the core options API | The cross-port MCP exposes only purpose-specific setters. [`show_option`](https://libtmux.org/en/csharp/latest/mcp/tools/show_option/) still reads any option. |
 | `tmux_list_servers`, `tmux_kill_server`, `tmux://servers` | Socket environment variables and `tmux://capabilities` | One socket is pinned per process. Server discovery and server-wide teardown have no replacement. |
 | `tmux_list_buffers` and public buffer operations | [`paste_text`](https://libtmux.org/en/csharp/latest/mcp/tools/paste_text/) | Paste uses an ephemeral internal buffer; listing or managing tmux buffers has no replacement. |
@@ -504,3 +504,7 @@ Every log line goes to standard error, and the default level is `Warning` so a
 working server is quiet. A message written to the wrong stream does not produce
 a stray log line — it corrupts the protocol and the client disconnects. That is
 worth knowing if you wrap this in something of your own.
+
+[api-mcp-capabilities]: https://libtmux.org/en/csharp/latest/mcp/resources/tmux_capabilities/
+[api-pane-breakasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-breakasync/
+[api-pane-joinasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-joinasync/

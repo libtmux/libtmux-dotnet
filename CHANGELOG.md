@@ -21,8 +21,10 @@ version.
 ### Development
 
 - `ReadmePackageListTests` resolves every `tree/master` and `blob/master` link
-  in the root, package, and MCP READMEs against the checkout, and holds the
-  root and `LibTmux` READMEs to a heading that links each package's directory.
+  in the root, package, and MCP READMEs against the checkout, holds the root and
+  `LibTmux` READMEs to an index row for each package and to a heading that
+  links each package's directory, and fails if the sections that map the page
+  go.
 - `ReadmeCommandTests` parses every `tmux-workspace` command in those READMEs
   against the tool's command line, and loads the workspace the
   `LibTmux.Workspace.Cli` README shows with the command the root README shows.
@@ -32,10 +34,11 @@ version.
 - `ReadmeToolLinkTests` holds every tool name in the root, `LibTmux.Mcp`, and
   MCP behavior READMEs to a link to its libtmux.org page, taking the names from
   the server's manifest.
-- The root and `LibTmux` READMEs show a run example for each package, and the
-  `LibTmux.Testing` and `LibTmux.Extensions.DependencyInjection` READMEs run
-  theirs. `sync_fsharp_snippets.py` publishes F# examples into the root and
-  `LibTmux` READMEs too.
+- The root and `LibTmux` READMEs show a run example for each package under
+  `Package examples`, and the `LibTmux.Testing` and
+  `LibTmux.Extensions.DependencyInjection` READMEs run theirs.
+  `sync_fsharp_snippets.py` publishes F# examples into the root and `LibTmux`
+  READMEs too.
 
 ## [0.0.0-alpha.21] — 2026-10-11
 

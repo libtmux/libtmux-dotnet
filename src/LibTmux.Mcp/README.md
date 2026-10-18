@@ -161,8 +161,8 @@ panes is showing the stack trace, lay out a workspace and drive it.
 - Toolsets and filters shape what the client sees and can call. They are not
   authorization, and the socket is not a sandbox: execute tools run with the
   tmux user's authority over files, processes, and the network.
-- `tmux://capabilities` reports the pinned socket, the tool selection, and every
-  effective tool. Each tool also carries its row under
+- [`tmux://capabilities`][api-mcp-capabilities] reports the pinned socket, the
+  tool selection, and every effective tool. Each tool also carries its row under
   `_meta["com.git-pull.libtmux-mcp/capability"]`.
 - On shutdown the server removes only a dedicated daemon it launched. It leaves
   existing or replaced daemons running.
@@ -262,7 +262,7 @@ The supported range is 3.2a to 3.7c, proven from source on every commit.
   connect a client
 - [Every tool](https://libtmux.org/en/csharp/latest/mcp/tools/): arguments and
   results
-- [`McpServerComposition`](https://libtmux.org/en/csharp/latest/mcp/reference/libtmux-mcp-mcpservercomposition/):
+- [`McpServerComposition`][api-mcp-mcp-mcpservercomposition]:
   the server composition API
 - Source:
   [`src/LibTmux.Mcp`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Mcp)
@@ -272,3 +272,6 @@ Source, docs and issues: <https://github.com/libtmux/libtmux-dotnet>
 ## License
 
 [MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
+
+[api-mcp-capabilities]: https://libtmux.org/en/csharp/latest/mcp/resources/tmux_capabilities/
+[api-mcp-mcp-mcpservercomposition]: https://libtmux.org/en/csharp/latest/mcp/reference/libtmux-mcp-mcpservercomposition/
