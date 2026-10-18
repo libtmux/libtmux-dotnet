@@ -664,73 +664,13 @@ target frameworks, generates an SBOM and a provenance attestation, and pushes
 to NuGet through trusted publishing. Renaming that workflow file breaks the
 trusted-publishing policy registered on nuget.org, so change the policy first.
 
-### The psmux preview gates
+### The psmux preview
 
-Publishing the preview needs the accepted Windows x64 client. It is a published
-psmux release asset, so `release.yml` downloads and hash-checks it like any
-other pinned dependency — there is no artifact to host and no repository
-variable naming one. [`docs/psmux.md`](../docs/psmux.md) states the trust
-boundary it has to meet.
-
-`release.yml` still reads the repository variables `PSMUX_WSL_DISTRIBUTION` and
-`PSMUX_WSL_DOTNET_PATH`, and needs a self-hosted `Windows`, `X64`, `psmux`
-runner for the native and WSL gates, because those describe one machine rather
-than the artifact. `PSMUX_WSL_DOTNET_PATH` is the absolute Linux `dotnet` path
-for that checkout, which the runner reports:
-
-```console
-$ mise exec -- which dotnet
-```
-
-Those inputs make the gates runnable; they do not by themselves complete the
-runtime evidence.
-
-#### Provisioning the runner
-
-The machine needs Windows x64, `git`, PowerShell 7 (`pwsh`), and a WSL
-distribution holding a checkout with its own Linux `dotnet`. The psmux job
-drives both sides from one PowerShell process, so a runner without WSL fails
-the gate rather than skipping it.
-
-`pwsh` is the one a hosted runner would have supplied. Windows PowerShell 5.1
-is not it, and the job's steps ask for `pwsh` by name:
-
-```console
-$ winget install --id Microsoft.PowerShell --silent
-```
-
-A Windows `dotnet` is not a prerequisite. `global.json` pins an exact SDK, so
-the job installs that version into the runner's tool cache regardless of what
-the machine already has. Restart the listener after installing anything it
-needs to find on `PATH`; it reads the environment once, at start.
-
-Register it with the `psmux` label; `self-hosted`, `Windows` and `X64` are
-added for you, and `runs-on` matches on all four:
-
-```console
-$ ./config.cmd \
-    --unattended \
-    --replace \
-    --url https://github.com/libtmux/libtmux-dotnet \
-    --token "$(gh api -X POST \
-        repos/libtmux/libtmux-dotnet/actions/runners/registration-token \
-        --jq .token)" \
-    --name psmux-wsl-win \
-    --labels psmux
-```
-
-A registration token expires in an hour, so generate it when you use it. Run
-the listener with `./run.cmd`, or install it as a service with `./svc.cmd
-install` if it should survive a reboot. The runner must be online when the tag
-is pushed: `psmux` has no `ubuntu-latest` fallback, so a queued job waits
-rather than failing fast.
-
-Confirm what GitHub sees before relying on it:
-
-```console
-$ gh api repos/libtmux/libtmux-dotnet/actions/runners \
-    --jq '.runners[] | "\(.name) \(.status) [\([.labels[].name] | join(","))]"'
-```
+The psmux preview is supported at best effort, and CI coverage for it is highly
+limited: CI does not run psmux, and `release.yml` does not wait for it. To
+check the preview, run `eng/psmux/Invoke-PsmuxSmoke.ps1` by hand on a Windows
+x64 machine with WSL, as
+[`docs/psmux.md`](../docs/psmux.md#native-windows-and-wsl-smoke) describes.
 
 ### Recorded evidence is a release artifact
 

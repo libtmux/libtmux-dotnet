@@ -166,8 +166,8 @@ def test_commented_dependencies_do_not_gate_publication(
     path = repository / ".github/workflows/release.yml"
     path.write_text(
         path.read_text().replace(
-            "needs: [dotnet, compatibility, psmux]",
-            "needs: [validate] # needs: [dotnet, compatibility, psmux]",
+            "needs: [dotnet, compatibility]",
+            "needs: [validate] # needs: [dotnet, compatibility]",
         )
     )
     assert any("publish.needs" in error for error in verify(repository))
@@ -176,7 +176,7 @@ def test_commented_dependencies_do_not_gate_publication(
 @pytest.mark.parametrize(
     ("workflow", "keys", "value", "diagnostic"),
     [
-        ("release", ("jobs", "psmux", "needs"), ["validate"], "psmux.needs"),
+        ("release", ("jobs", "publish", "needs"), ["dotnet"], "publish.needs"),
         ("dotnet-tmux", ("jobs", "matrix", "needs"), [], "matrix.needs"),
         ("release", ("jobs", "publish", "permissions"), "write-all", "permissions"),
         ("release", ("jobs", "publish", "if"), "always()", "publish.if"),

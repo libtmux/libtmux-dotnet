@@ -2,8 +2,9 @@
 
 LibTmux contains an experimental facade for querying one isolated
 [psmux](https://github.com/psmux/psmux) namespace from native Windows .NET or
-from a WSL .NET process launching a Windows executable. The release workflow
-requires both paths to pass on net8.0 and net10.0; this is a deliberately narrow
+from a WSL .NET process launching a Windows executable. The
+[smoke harness](#native-windows-and-wsl-smoke) checks both paths on net8.0 and
+net10.0 when run by hand; CI does not run it. This is a deliberately narrow
 preview, not general Windows or tmux parity.
 
 The public preview is a separate, analyzer-clean API. It exposes only the
@@ -14,9 +15,9 @@ behavior audited for the pinned psmux build:
 | Connect and read the sole session | `PsmuxServer`, `PsmuxSession` |
 | Enumerate windows and panes | `PsmuxWindow`, `PsmuxPane` |
 | Capture pane text | `PsmuxPane.CaptureAsync(PsmuxCaptureOptions)` |
-| Accepted client artifact | One exact Windows x64 executable; release requires a published URL with pinned source and license provenance |
-| Native Windows .NET | Required by the release harness on net8.0 and net10.0 |
-| WSL-to-Windows process interop | Required by the release harness on net8.0 and net10.0 |
+| Accepted client artifact | One exact Windows x64 executable, published with pinned source and license provenance |
+| Native Windows .NET | Checked by the smoke harness on net8.0 and net10.0 |
+| WSL-to-Windows process interop | Checked by the smoke harness on net8.0 and net10.0 |
 | Session/server lifecycle or mutations | Rejected |
 | Raw commands, chaining, control mode, waits, streaming, MCP | Rejected or unavailable |
 | Multiple sessions, default namespace, socket paths | Rejected |
@@ -94,10 +95,6 @@ Commit `aa26cd3` — an untagged build that earlier releases of this preview
 pinned — is contained in `v3.3.8`. The startup reaper that makes an unaudited
 client dangerous is byte-identical between the two, so the audited behaviour is
 what the published release ships.
-
-What a release needs on top of this contract — the WSL repository variables and
-the self-hosted runner — is in
-[`CONTRIBUTING.md`](../.github/CONTRIBUTING.md#the-psmux-preview-gates).
 
 ## Query from C#
 
