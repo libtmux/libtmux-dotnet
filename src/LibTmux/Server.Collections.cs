@@ -26,7 +26,8 @@ public sealed partial class Server
     /// <exception cref="LibTmuxException">The listing failed, including an absent daemon.</exception>
     /// <remarks>
     /// A handle that has not found a live server yet discovers one first. The
-    /// control client this library keeps on the server is not counted as attached.
+    /// control client this library keeps on the server, when
+    /// <c>LIBTMUX_CONTROL_TRANSPORT=1</c> turns it on, is not counted as attached.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<Session>> GetAttachedSessionsAsync(

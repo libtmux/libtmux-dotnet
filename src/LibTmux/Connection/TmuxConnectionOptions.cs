@@ -69,13 +69,15 @@ public sealed record ServerConnectionOptions
 
     /// <summary>Gets the tmux executable path.</summary>
     /// <remarks>
-    /// One-shot commands travel over one control client the library keeps on
-    /// each server, so this executable is started once for that client
-    /// (<c>-C attach-session</c>) and again only for the commands that stay on a
-    /// process, such as <c>wait-for</c>, <c>new-session</c> and the
-    /// <c>kill-*</c> commands. A wrapper or shim that reads each command's
-    /// arguments does not see the commands the client carries. A wrapper that
-    /// fails or alters the client's launch leaves every command on a process.
+    /// Each one-shot command starts this executable. With
+    /// <c>LIBTMUX_CONTROL_TRANSPORT=1</c>, one-shot commands travel over one
+    /// control client the library keeps on each server instead, so it is
+    /// started once for that client (<c>-C attach-session</c>) and again only
+    /// for the commands that stay on a process, such as <c>wait-for</c>,
+    /// <c>new-session</c> and the <c>kill-*</c> commands. A wrapper or shim that
+    /// reads each command's arguments does not see the commands the client
+    /// carries, and one that fails or alters the client's launch leaves every
+    /// command on a process.
     /// </remarks>
     /// <exception cref="ArgumentException">The path is empty or whitespace.</exception>
     public string TmuxBinaryPath

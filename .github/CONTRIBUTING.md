@@ -159,12 +159,14 @@ $ mise exec -- dotnet test \
     --minimum-expected-tests 1
 ```
 
-One-shot commands travel over a control client the library keeps on each
-server. A test that needs every command to be a process of its own, such as one
-that reads the arguments an executable standing in for tmux receives, sets the
-internal `ServerConnectionOptions.ForceProcessTransport` and says why in a
-comment. To run a whole suite against the process transport, set
-`LIBTMUX_CONTROL_TRANSPORT=0`.
+One-shot commands run as a tmux process each. `LIBTMUX_CONTROL_TRANSPORT=1`,
+in the process or in a connection's `ChildEnvironment`, sends them over one
+control client the library keeps on each server instead; the tests of that
+client opt in through their connection. A test that needs every command to be
+a process of its own even when the client is on, such as one that reads the
+arguments an executable standing in for tmux receives, sets the internal
+`ServerConnectionOptions.ForceProcessTransport` and says why in a comment. To
+run a whole suite against the shared client, set `LIBTMUX_CONTROL_TRANSPORT=1`.
 
 ## Checks that must pass
 
