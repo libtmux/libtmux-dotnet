@@ -21,27 +21,32 @@ JSON for [LibTmux](https://www.nuget.org/packages/LibTmux)
 </div>
 <!-- /libtmux-logo -->
 
-> **Alpha.** The public API is not settled and can change between prereleases
-> without notice, so pin an exact version.
+A query in LibTmux is a document: an expression translated into a closed tree
+that can be checked, stored, logged, or sent somewhere else.
+
+This package carries that document across a process boundary. It suits a CLI
+that takes a filter argument, a service that accepts one over HTTP, and a tool
+that records what it queried.
+
+Add it to your project:
 
 ```console
 $ dotnet package add LibTmux.Query.Json --prerelease
 ```
 
-## When you want this
+> **Alpha.** The public API will change between prereleases without notice, so
+> pin an exact version.
 
-A query in LibTmux is a *document*, not a lambda: an expression is translated
-into a closed AST that can be checked, stored, logged, or sent somewhere else.
-This package is how that document crosses a process boundary.
+**Contents** — [Quick start](#quick-start) ·
+[Send a filter](#send-a-filter-to-another-process) ·
+[Limits](#limit-what-a-received-document-costs) ·
+[Fields](#choose-fields-and-relations) · [Leaves out](#what-it-leaves-out) ·
+[Support](#support-and-status)
 
-Reach for it when a filter is written in one place and evaluated in another —
-a CLI that takes a filter argument, a service that accepts one over HTTP, a
-tool that records what it queried.
+## Quick start
 
-## Use it
-
-A query is written over the objects the library hands back, and becomes a
-document that travels:
+Write a filter over the objects LibTmux returns, send it as text, and read it
+back. The block needs no tmux server:
 
 ```csharp run
 QueryDocument document = QueryExtensions.Translate<Session>(
@@ -55,7 +60,15 @@ QueryDocument parsed = QueryJson.Deserialize(wire);
 Console.WriteLine(parsed == document);
 ```
 
-`wire` is the versioned document, and it says what it is:
+It prints `True`: the document that came back means what the one that left
+meant.
+
+## Send a filter to another process
+
+### [`QueryJson.Serialize`][api-query-json-queryjson-serialize]: the document as versioned text
+
+`wire` in the quick start is this document. It names its schema and version, so
+a reader can reject one it does not know:
 
 ```json
 {
@@ -88,6 +101,8 @@ Console.WriteLine(parsed == document);
 }
 ```
 
+### [`QueryJson.Deserialize`][api-query-json-queryjson-deserialize]: apply a filter you received
+
 The same document filters what you already hold, wherever it was written:
 
 ```csharp run
@@ -105,32 +120,41 @@ IReadOnlyList<Session> matched = sessions.Matching(
 Console.WriteLine(matched.Count);
 ```
 
-## What reading a document costs
+It prints the number of sessions whose name starts with `build`.
 
-Deserializing applies the limits in [`QueryJsonLimits.Default`][api-query-json-queryjsonlimits-default]: document size,
-nesting depth, node count, string length, and regex pattern length. A caller
-may tighten those ceilings but cannot widen them. Schema version 2 is the
-supported contract and ships as `libtmux-query-v2.schema.json`. Other versions
-are rejected before their predicates are read.
+For a document from another trust boundary, use the cancellable
+[`QueryExtensions.Matching`][api-query-queryextensions-matching] overload with a
+deadline, as the block does.
 
-Evaluating the result with [`Compile`][api-query-queryextensions-compile] or [`Matching`][api-query-queryextensions-matching] resolves public properties
-by name. Those methods warn trimmed callers to preserve that metadata.
-For a document received from another trust boundary, use the cancellable
-`Matching` overload with a deadline. It checks between source elements and
-predicate nodes; a regex already running still has its separate one-second
-match ceiling.
+## Limit what a received document costs
+
+### [`QueryJsonLimits.Default`][api-query-json-queryjsonlimits-default]: ceilings on what a reader accepts
 
 ```csharp run
 Console.WriteLine($"depth {QueryJsonLimits.Default.MaximumDepth}, nodes {QueryJsonLimits.Default.MaximumNodes}");
 ```
 
-## The field catalog is closed
+It prints the nesting depth and node count the defaults allow.
 
-Discover fields, native properties and accepted operators through
-`QueryFieldCatalog.GetFields(QueryTarget.Pane)`. Write predicates against
-properties such as [`Session.Name`][api-session-name],
-[`Client.IsControlClient`][api-client-iscontrolclient] and [`Pane.CurrentCommand`][api-pane-currentcommand]. The wire name `pane_command`
-binds to the captured tmux `pane_current_command` value.
+- Deserializing applies limits on document size, nesting depth, node count,
+  string length, and regex pattern length. A caller may tighten them and cannot
+  widen them.
+- Schema version 2 is the supported contract, shipped as
+  `libtmux-query-v2.schema.json`. Other versions are rejected before their
+  predicates are read.
+- [`Compile`][api-query-queryextensions-compile] and
+  [`Matching`][api-query-queryextensions-matching] resolve public properties by
+  name, so they warn trimmed callers to preserve that metadata.
+
+## Choose fields and relations
+
+### [`QueryFieldCatalog`][api-query-queryfieldcatalog]: the closed set of fields
+
+`QueryFieldCatalog.GetFields(QueryTarget.Pane)` lists the fields, their native
+properties, and the operators each accepts. Write predicates against properties
+such as [`Session.Name`][api-session-name],
+[`Client.IsControlClient`][api-client-iscontrolclient], and
+[`Pane.CurrentCommand`][api-pane-currentcommand]:
 
 ```csharp run
 QueryDocument paths = QueryExtensions.Translate<Pane>(
@@ -139,10 +163,19 @@ QueryDocument restoredPaths = QueryJson.Deserialize(QueryJson.Serialize(paths));
 Console.WriteLine(restoredPaths.Version);
 ```
 
-`Pane.CurrentCommand` and [`Pane.CurrentPath`][api-pane-currentpath] read captured state without I/O.
-They throw [`IncompleteSnapshotException`][api-incompletesnapshotexception] when the field was never captured;
-equality distinguishes captured null from an empty string. Portable string
-operations read null as empty, matching tmux format expansion.
+It prints the document's schema version.
+
+- The wire name `pane_command` binds to tmux's `pane_current_command`.
+- [`Pane.CurrentPath`][api-pane-currentpath] and `Pane.CurrentCommand` read
+  captured state without I/O. Reading one that was never captured throws
+  [`IncompleteSnapshotException`][api-incompletesnapshotexception].
+- A field outside the catalog throws
+  [`UnsupportedQueryExpressionException`][api-unsupportedqueryexpressionexception]
+  at translation.
+- The catalog grows between alpha releases, and a reader rejects a name it does
+  not know, so pin the same LibTmux version on both sides of a process boundary.
+
+### Pane size
 
 Pane dimensions support numeric comparisons over the same captured objects:
 
@@ -154,21 +187,12 @@ Server capturedPanes = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, ct
 Console.WriteLine(capturedPanes.Panes.Matching(restoredDimensions).Count);
 ```
 
-`pane_current_path`, `window_active` and `window_index` query captured
-working directories and session-relative window placements.
-[`Window.IsActive`][api-window-isactive] and [`Window.Index`][api-window-index] describe the placement this handle was
-captured through. Two handles for the same linked window can disagree on
-both values.
+It prints how many captured panes are at least 50 columns by 20 rows.
 
-The catalog also covers pane position, title, edge flags and tmux index, plus
-window width and height. String predicates support ordinal equality, prefix,
-suffix and containment, with explicit ordinal ignore-case variants. Native
-tmux filtering only receives expressions the source planner can translate
-exactly; the rest runs against captured values.
+### `Any` and `All`: filters over a relation
 
-Collection predicates use native `Any` and `All`. Negate `Any` to require no
-matches. `All` is true for an empty captured collection; an uncaptured
-collection raises `IncompleteSnapshotException`.
+Collection predicates use `Any` and `All`. Negate `Any` to require no matches.
+`All` is true for an empty captured collection:
 
 ```csharp run
 QueryDocument linkedEditors = QueryExtensions.Translate<Session>(
@@ -178,17 +202,23 @@ QueryDocument linkedEditors = QueryExtensions.Translate<Session>(
 Console.WriteLine(linkedEditors.RequiredSnapshotDepth);
 ```
 
-The conditions inside one `Any` must match the same window placement.
-Separate `Any` calls may match different windows. Filtering result membership
-does not trim the captured relations used by later predicates.
+It prints the snapshot depth the document needs.
 
-Single relations use ordinary property navigation:
+- The conditions inside one `Any` must match the same window placement. Separate
+  `Any` calls may match different windows.
+- [`Window.IsActive`][api-window-isactive] and
+  [`Window.Index`][api-window-index] describe the placement the handle was
+  captured through. Two handles for the same linked window can disagree on both.
+
+### Single relations: ordinary property navigation
 
 ```csharp run
 QueryDocument selectedEditor = QueryExtensions.Translate<Session>(
     session => session.ActiveWindow.Value.Name == "editor");
 Console.WriteLine(QueryJson.Serialize(selectedEditor));
 ```
+
+It prints the serialized document.
 
 | Relation | Property | Required capture |
 | --- | --- | --- |
@@ -201,23 +231,8 @@ Console.WriteLine(QueryJson.Serialize(selectedEditor));
 | `pane_window` | [`Pane.Window`][api-pane-window] | Panes |
 | `pane_session` | [`Pane.Session`][api-pane-session] | Panes |
 
-Single relations serialize as a `related` node containing its relation
-field and child predicate. They require a captured child. Unavailable values
-raise an error without fetching data. `RequiredSnapshotDepth` includes every
-referenced relation, including nested relations in either direction.
-
-A field outside the catalog throws
-[`UnsupportedQueryExpressionException`][api-unsupportedqueryexpressionexception] at translation rather than falling back.
-The document is interpreted locally or by an
-application that deliberately accepts this wire contract.
-
-The catalog grows between alpha releases. A reader rejects a name it does not
-know, so pin the same LibTmux version on both sides of a process boundary.
-
-The catalog also includes pane state, exit status, history, terminal and start
-command, and window alerts, flags and layout. Read the descriptors for the
-installed package rather than assuming another alpha has the same fields.
-Pin the same LibTmux version on both sides of a process boundary.
+A single relation needs a captured child; an unavailable value raises an error
+without fetching data.
 
 ## Related packages
 
@@ -227,14 +242,34 @@ Pin the same LibTmux version on both sides of a process boundary.
 | [LibTmux.Workspace](https://www.nuget.org/packages/LibTmux.Workspace) | Sessions from tmuxp YAML |
 | [LibTmux.Mcp](https://www.nuget.org/packages/LibTmux.Mcp) | A Model Context Protocol server, as a .NET tool |
 
-## Reference
+## What it leaves out
 
+- **A query language.** Filters are C# expressions over LibTmux objects, and the
+  document is their serialized form.
+- **Unbounded input.** A reader enforces size, depth, node, string, and regex
+  limits before it evaluates anything.
+- **Guessing at fields.** A document that names a field outside the catalog is
+  rejected, and so is a schema version other than 2.
+
+## Support and status
+
+- **Alpha.** Any release may change or remove exported identifiers. Pin an exact
+  version.
+- **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux) and
+  `System.Text.Json`.
+- **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
+- **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on
+  Windows x64.
+
+## Documentation
+
+- [The full contracts](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Query.Json/docs/contracts.md):
+  limits, the field catalog, captured state, and relations
 - [`QueryJson`][api-query-json-queryjson] and
-  [`QueryDocument`][api-query-querydocument]: the wire
-  format and the document it carries
-- Source: [`src/LibTmux.Query.Json`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Query.Json)
-
-Source, docs and issues: <https://github.com/libtmux/libtmux-dotnet>
+  [`QueryDocument`][api-query-querydocument] on libtmux.org
+- Source:
+  [`src/LibTmux.Query.Json`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Query.Json);
+  issues and history on [GitHub](https://github.com/libtmux/libtmux-dotnet)
 
 ## License
 
@@ -247,10 +282,13 @@ Source, docs and issues: <https://github.com/libtmux/libtmux-dotnet>
 [api-pane-session]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-session/
 [api-pane-window]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-window/
 [api-query-json-queryjson]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjson/
+[api-query-json-queryjson-deserialize]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjson-deserialize/
+[api-query-json-queryjson-serialize]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjson-serialize/
 [api-query-json-queryjsonlimits-default]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjsonlimits-default/
 [api-query-querydocument]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-querydocument/
 [api-query-queryextensions-compile]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryextensions-compile/
 [api-query-queryextensions-matching]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryextensions-matching/
+[api-query-queryfieldcatalog]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryfieldcatalog/
 [api-session-name]: https://libtmux.org/en/csharp/latest/reference/libtmux-session-name/
 [api-session-panes]: https://libtmux.org/en/csharp/latest/reference/libtmux-session-panes/
 [api-unsupportedqueryexpressionexception]: https://libtmux.org/en/csharp/latest/reference/libtmux-unsupportedqueryexpressionexception/

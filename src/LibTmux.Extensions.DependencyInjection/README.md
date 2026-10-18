@@ -21,14 +21,18 @@ composes its services can take a tmux server handle as a dependency.
 </div>
 <!-- /libtmux-logo -->
 
-> **Alpha.** The public API is not settled and can change between prereleases
-> without notice, so pin an exact version.
+Add it to your project:
 
 ```console
 $ dotnet package add LibTmux.Extensions.DependencyInjection --prerelease
 ```
 
-## Registering
+> **Alpha.** The public API will change between prereleases without notice, so
+> pin an exact version.
+
+## Quick start
+
+Register the server, then take it as a constructor parameter:
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
@@ -52,7 +56,9 @@ public sealed class Builder(Server server)
 }
 ```
 
-Point the registration at a socket and resolve the handle:
+The next block points the registration at a socket and resolves the handle. It
+uses `server` and `ct` from a tmux server of its own, and it throws if the
+resolved handle reaches no sessions:
 
 ```csharp run
 ServiceCollection services = new();
@@ -68,19 +74,21 @@ if (sessions.Count == 0)
 }
 ```
 
-## What it registers, and why that lifetime
+## What `AddLibTmux` registers
 
-`Server` is a singleton. Handles are immutable and safe to share across
-threads, and `AddLibTmux` opens rather than connects: nothing runs tmux until
-something asks it to, and a tmux that restarts is picked up by the next call
-rather than turning the handle stale. Nothing serializes tmux itself — one
-server applies commands in the order it receives them.
+- [`Server`][api-server] is a singleton. Handles are immutable and safe to share
+  across threads.
+- `AddLibTmux` opens a server without connecting: nothing runs tmux until a call
+  needs it, and a tmux that restarts is picked up by the next call.
+- Nothing serializes tmux itself. One server applies commands in the order it
+  receives them.
 
-## Options
+## Bind options from configuration
 
-[`ServerConnectionOptions`][api-serverconnectionoptions] is registered through `IOptions<T>`, so it binds from
-configuration. This example also references `Microsoft.Extensions.Configuration`
-and `Microsoft.Extensions.Options.ConfigurationExtensions`:
+[`ServerConnectionOptions`][api-serverconnectionoptions] is registered through
+`IOptions<T>`, so it binds from configuration. This example also references
+`Microsoft.Extensions.Configuration` and
+`Microsoft.Extensions.Options.ConfigurationExtensions`:
 
 ```csharp
 using LibTmux;
@@ -93,8 +101,8 @@ services.Configure<ServerConnectionOptions>(configuration.GetSection("LibTmux"))
 services.AddLibTmux();
 ```
 
-The options are immutable, so the callback answers a copy rather than mutating
-one. It runs after binding, which makes it the last word:
+The options are immutable, so the callback receives a copy and returns one. It
+runs after binding, so it has the last word:
 
 ```csharp
 using System;
@@ -107,11 +115,30 @@ services.AddLibTmux(options => options with { CommandTimeout = TimeSpan.FromSeco
 When the options name no logger and the provider has an `ILoggerFactory`, one
 is taken from it, so tmux commands are logged with everything else.
 
-## Reference
+## What it leaves out
+
+- **Scoped or transient lifetimes.** [`Server`][api-server] is registered as a
+  singleton.
+- **Hosting.** It registers services and starts nothing in the background.
+
+## Support and status
+
+- **Alpha.** Any release may change or remove exported identifiers. Pin an exact
+  version.
+- **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux) and the
+  `Microsoft.Extensions.DependencyInjection` abstractions.
+- **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
+- **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on
+  Windows x64.
+
+## Documentation
 
 - [`Server`][api-server]: the handle this registers
-- Source: [`src/LibTmux.Extensions.DependencyInjection`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Extensions.DependencyInjection)
-- Package: [NuGet](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection)
+- Source:
+  [`src/LibTmux.Extensions.DependencyInjection`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Extensions.DependencyInjection);
+  issues and history on [GitHub](https://github.com/libtmux/libtmux-dotnet)
+- Package:
+  [NuGet](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection)
 
 ## License
 

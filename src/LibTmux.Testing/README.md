@@ -22,15 +22,22 @@ on top of [LibTmux](https://www.nuget.org/packages/LibTmux).
 </div>
 <!-- /libtmux-logo -->
 
-> **Alpha.** The public API is not settled and can change between prereleases
-> without notice, so pin an exact version.
+Each scope owns what it created and tears it down on dispose, including after a
+failure, so a test that throws does not leave a server behind.
+
+Add it to your test project:
 
 ```console
 $ dotnet package add LibTmux.Testing --prerelease
 ```
 
-Each scope owns what it created and tears it down on dispose, including after a
-failure, so a test that throws does not leave a server behind.
+> **Alpha.** The public API will change between prereleases without notice, so
+> pin an exact version.
+
+## Quick start
+
+Give a test a tmux server of its own, type into its pane, and wait for the
+result. The block uses `ct` from your test:
 
 ```csharp run
 TmuxTestFactory factory = new();
@@ -47,31 +54,65 @@ string screen = await TmuxWait.UntilAsync(
     TimeSpan.FromMilliseconds(20));
 ```
 
-[`TmuxTestFactory`][api-testing-tmuxtestfactory] creates the scopes and [`TmuxNameGenerator`][api-testing-tmuxnamegenerator] hands out names no
-live session is using. Waiting for a state rather than sleeping is
-[`TmuxWait.UntilAsync`][api-tmuxwait-untilasync], which ships in `LibTmux` because reading back what a
-command produced is ordinary client work, not test scaffolding.
+It prints nothing and returns once the pane shows `42`. Disposing the scope
+kills the server, even when an assertion above it throws.
 
-This ships apart from `LibTmux` so an application that references the client
-does not carry test scaffolding in its output or its trim closure.
+## Create the scopes a test needs
 
-## Reference
+### [`TmuxTestFactory`][api-testing-tmuxtestfactory]: a server, session, window, or whole hierarchy
 
+[`CreateHierarchyAsync`][api-testing-tmuxtestfactory-createhierarchyasync]
+starts a server on a socket of its own, with one session, window, and pane.
+
+The [`TemporaryServerScope`][api-testing-temporaryserverscope],
+[`TemporarySessionScope`][api-testing-temporarysessionscope], and
+[`TemporaryWindowScope`][api-testing-temporarywindowscope] types stop at the
+level their name gives. [`TmuxNameGenerator`][api-testing-tmuxnamegenerator]
+hands out names no live session is using.
+
+### [`TmuxWait.UntilAsync`][api-tmuxwait-untilasync]: wait for a state
+
+It polls a state until a condition holds or a timeout passes, and it replaces a
+sleep. It ships in `LibTmux`, because reading back what a command produced is
+ordinary client work.
+
+## What it leaves out
+
+- **Test scaffolding in your application.** This ships apart from `LibTmux`, so
+  an application that references the client carries no test scaffolding in its
+  output or its trim closure.
+- **Your own tmux.** Left alone, a test gets a socket nothing else can use, so a
+  throwaway server never points at your tmux or kills it on the way out.
+
+## Support and status
+
+- **Alpha.** Any release may change or remove exported identifiers. Pin an exact
+  version.
+- **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux).
+- **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
+- **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on
+  Windows x64.
+
+## Documentation
+
+- [Testing with libtmux][api-guide-testing] on libtmux.org: an isolated server
+  and cleanup failures
 - [`TmuxTestFactory`][api-testing-tmuxtestfactory] and
-  [`TemporaryHierarchyScope`][api-testing-temporaryhierarchyscope]:
-  the scopes this package hands out
-- [Testing with libtmux](https://libtmux.org/en/csharp/latest/guides/testing-with-libtmux/): an isolated
-  server, and cleanup failures
-- Source: [`src/LibTmux.Testing`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Testing)
+  [`TemporaryHierarchyScope`][api-testing-temporaryhierarchyscope]
+- Source:
+  [`src/LibTmux.Testing`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Testing);
+  issues and history on [GitHub](https://github.com/libtmux/libtmux-dotnet)
 
 ## License
 
 [MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
 
+[api-guide-testing]: https://libtmux.org/en/csharp/latest/guides/testing-with-libtmux/
 [api-testing-temporaryhierarchyscope]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-temporaryhierarchyscope/
 [api-testing-temporaryserverscope]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-temporaryserverscope/
 [api-testing-temporarysessionscope]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-temporarysessionscope/
 [api-testing-temporarywindowscope]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-temporarywindowscope/
 [api-testing-tmuxnamegenerator]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-tmuxnamegenerator/
 [api-testing-tmuxtestfactory]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-tmuxtestfactory/
+[api-testing-tmuxtestfactory-createhierarchyasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-tmuxtestfactory-createhierarchyasync/
 [api-tmuxwait-untilasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-tmuxwait-untilasync/
