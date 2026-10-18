@@ -12,11 +12,77 @@ version.
 
 ### Added
 
+- tmux 3.8 is supported and tested. A dead pane whose `pane_pid` is empty reads
+  as pid 0 and keeps its identity, the `display-panes` command runs without a
+  client, and the shared control client attaches with `new-layouts`. The JSON
+  layout form and `display-panes` without a client are recognised from
+  3.8-rc2, the first candidate that has them. (#83)
+- `tmux://capabilities` reports the minimum tmux as
+  `connection.minimumTmuxVersion`, and the MCP server instructions and
+  `get_server_info` name it. (#83)
+- `LibTmux.Workspace.Cli` reports a tmux below the minimum, or one that names
+  no release, with the `tmux_unsupported` code and exit status 1 from `load`,
+  `freeze` and `shell`. `shell` and extension loads refuse before the Python
+  bridge starts. The bridge runs `LIBTMUX_TMUX` when it is set, which it finds
+  as `tmux`, and otherwise the `tmux` on `PATH`. (#83)
+
 ### Fixed
+
+- `Server.IsAliveAsync` now throws `TmuxVersionTooLowException` for a daemon
+  below the minimum instead of answering `false`. (#83)
+- A pane wait on a daemon older than tmux 3.7 polls without
+  `AllowPollingFallback`, because no control client is attached there. (#83)
+- A text wait whose deadline timer fires early reports `TimedOut` only once the
+  whole timeout has elapsed on the monotonic clock. (#83)
+- The attach that ends `LibTmux.Workspace.Cli load` passes `-N`, so it never
+  starts a server when the one it was given has gone. (#83)
 
 ### Changed
 
+- **The minimum tmux is now 3.3a, checked against the daemon.**
+  - Previous behaviour: tmux 3.2a was supported, and the executable's version
+    decided what was allowed.
+  - New behaviour: the library asks the connected daemon for its version with
+    `run-shell -C`, which fires no `after-*` or `command-error` hook, and
+    throws `TmuxVersionTooLowException` with `Dispatch` set to `NotDispatched`
+    for 3.3, 3.2a and older. A daemon older than tmux 3.2, which cannot run
+    that check, is refused the same way. Every command list opens with a fence,
+    so a daemon replaced by an older one is refused before any command runs.
+  - Reason: 3.2a and the unpatched 3.3 are the releases whose differences the
+    library worked around, and a client's version says nothing about the daemon.
+  - Recommended action: upgrade tmux and restart the tmux server, or stay on
+    0.0.0-alpha.21, the last release that supports tmux 3.2a. The exception
+    message says so.
+
+  (#83)
+- `LibTmuxInfo.MinimumTmuxVersion` is 3.3a, and `Server.Version` is the version
+  the handle was checked on. An absent endpoint takes its version from the
+  executable that would start it, `kill-server` on one does nothing, and the
+  explicit control client no longer starts a server. (#83)
+- A tmux version is read only as `X.Y`, `X.Ya`, `X.Y-rc[N]` or `next-X.Y`.
+  `3.4.1`, `3.4-dev`, `3.3a-openbsd` and `master` are refused with
+  `TmuxVersionTooLowException`, whose `ActualVersion` is not valid and whose
+  message names the minimum without calling the build too old. `Dispatch` is
+  `NotDispatched`, and a failed version check is reported the same way. (#83)
+- The library names its own control client `client-<pid>` from the process it
+  started and learns its session from the attach, so no `list-clients` or
+  `display-message` runs and no user `after-*` hook fires when a client attaches
+  or a pane is watched. (#83)
+- `TmuxVersion.DetectAsync` accepts the file name tmux 3.3a prints in place of
+  `tmux`. (#83)
+- A `TmuxVersionTooLowException` reaches an MCP caller with the version found,
+  the remedy and a note that nothing was sent, and stops the server at startup
+  with the same text. A read tool reports it instead of an empty list, and the
+  note points at `tmux://capabilities` for the minimum. (#83)
+
 ### Removed
+
+- The 3.2a and 3.3 adaptations: `Server.ConfigureAccessAsync`, the prompt
+  history methods, the prompt `Type` and `ExpandFormat`, the display-message
+  target client and the popup appearance options no longer check the version
+  and no longer throw `TmuxVersionTooLowException` or drop a flag with a
+  warning, and an entity is read with one `display-message` on every release.
+  (#83)
 
 ### Development
 
