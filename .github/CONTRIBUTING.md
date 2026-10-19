@@ -169,8 +169,7 @@ comment. To run a whole suite against the process transport, set
 ## Checks that must pass
 
 [dotnet.yml](workflows/dotnet.yml) owns the primary Linux checks and the
-Windows build lane and the macOS arm64 lane. Its `gate` job requires `build`,
-`macos` and `windows`.
+Windows build lane. Its `gate` job requires `build` and `windows`.
 Aggregate jobs reject failed, cancelled, or skipped prerequisites.
 
 | Guarantee | Owner |
@@ -487,8 +486,7 @@ command without `--check`.
 `--smoke` selects one example to check the entrypoint. `ReadmeExampleTests`
 compiles its snippet set once, then executes the runnable blocks from that
 assembly. The Linux workflow runs this owner once per framework and excludes
-it from general integration and tmux-version lanes. The macOS integration run
-includes its own README check. [examples/README.md](../examples/README.md)
+it from general integration and tmux-version lanes. [examples/README.md](../examples/README.md)
 describes the snippet markers.
 
 The locked engineering runner owns Python tests. Package mutations are tagged
@@ -517,9 +515,10 @@ The `compatibility` job requires the producer and all supported lanes. Checks
 independent of tmux versions, including packaging and README compilation, run
 outside that matrix. The scheduled tmux-master lane remains advisory.
 
-`dotnet.yml` has a macOS arm64 lane that runs on pull requests and gates. See
-[MACOS_CI.md](MACOS_CI.md). Text captured from a pane may wrap with the
-host's prompt width; assertions about typed text use `joinWrappedLines`.
+macOS is supported at best effort, and CI coverage for it is highly limited:
+CI does not run macOS. [MACOS_CI.md](MACOS_CI.md) lists what a test needs to
+pass there. Text captured from a pane may wrap with the host's prompt width;
+assertions about typed text use `joinWrappedLines`.
 
 Action references are pinned to commits. CodeQL also runs on pull requests;
 Scorecard runs on its configured schedule. These workflows do not replace the
@@ -665,73 +664,13 @@ target frameworks, generates an SBOM and a provenance attestation, and pushes
 to NuGet through trusted publishing. Renaming that workflow file breaks the
 trusted-publishing policy registered on nuget.org, so change the policy first.
 
-### The psmux preview gates
+### The psmux preview
 
-Publishing the preview needs the accepted Windows x64 client. It is a published
-psmux release asset, so `release.yml` downloads and hash-checks it like any
-other pinned dependency — there is no artifact to host and no repository
-variable naming one. [`docs/psmux.md`](../docs/psmux.md) states the trust
-boundary it has to meet.
-
-`release.yml` still reads the repository variables `PSMUX_WSL_DISTRIBUTION` and
-`PSMUX_WSL_DOTNET_PATH`, and needs a self-hosted `Windows`, `X64`, `psmux`
-runner for the native and WSL gates, because those describe one machine rather
-than the artifact. `PSMUX_WSL_DOTNET_PATH` is the absolute Linux `dotnet` path
-for that checkout, which the runner reports:
-
-```console
-$ mise exec -- which dotnet
-```
-
-Those inputs make the gates runnable; they do not by themselves complete the
-runtime evidence.
-
-#### Provisioning the runner
-
-The machine needs Windows x64, `git`, PowerShell 7 (`pwsh`), and a WSL
-distribution holding a checkout with its own Linux `dotnet`. The psmux job
-drives both sides from one PowerShell process, so a runner without WSL fails
-the gate rather than skipping it.
-
-`pwsh` is the one a hosted runner would have supplied. Windows PowerShell 5.1
-is not it, and the job's steps ask for `pwsh` by name:
-
-```console
-$ winget install --id Microsoft.PowerShell --silent
-```
-
-A Windows `dotnet` is not a prerequisite. `global.json` pins an exact SDK, so
-the job installs that version into the runner's tool cache regardless of what
-the machine already has. Restart the listener after installing anything it
-needs to find on `PATH`; it reads the environment once, at start.
-
-Register it with the `psmux` label; `self-hosted`, `Windows` and `X64` are
-added for you, and `runs-on` matches on all four:
-
-```console
-$ ./config.cmd \
-    --unattended \
-    --replace \
-    --url https://github.com/libtmux/libtmux-dotnet \
-    --token "$(gh api -X POST \
-        repos/libtmux/libtmux-dotnet/actions/runners/registration-token \
-        --jq .token)" \
-    --name psmux-wsl-win \
-    --labels psmux
-```
-
-A registration token expires in an hour, so generate it when you use it. Run
-the listener with `./run.cmd`, or install it as a service with `./svc.cmd
-install` if it should survive a reboot. The runner must be online when the tag
-is pushed: `psmux` has no `ubuntu-latest` fallback, so a queued job waits
-rather than failing fast.
-
-Confirm what GitHub sees before relying on it:
-
-```console
-$ gh api repos/libtmux/libtmux-dotnet/actions/runners \
-    --jq '.runners[] | "\(.name) \(.status) [\([.labels[].name] | join(","))]"'
-```
+The psmux preview is supported at best effort, and CI coverage for it is highly
+limited: CI does not run psmux, and `release.yml` does not wait for it. To
+check the preview, run `eng/psmux/Invoke-PsmuxSmoke.ps1` by hand on a Windows
+x64 machine with WSL, as
+[`docs/psmux.md`](../docs/psmux.md#native-windows-and-wsl-smoke) describes.
 
 ### Recorded evidence is a release artifact
 
@@ -775,8 +714,8 @@ hour.
 ## Compatibility
 
 Stable tmux **3.3a and newer**, on **net8.0** and **net10.0**. The required
-Linux matrix covers 3.3a through 3.8; the advisory macOS lane uses the current
-Homebrew tmux. Windows is unsupported. The `LibTmux` core package and the
+Linux matrix covers 3.3a through 3.8. macOS is supported at best effort, with
+no CI coverage. Windows is unsupported. The `LibTmux` core package and the
 static `LibTmux.FSharp` snapshot route have Linux NativeAOT execution smoke
 tests. Optional packages make narrower compatibility claims in their project
 files and package READMEs.

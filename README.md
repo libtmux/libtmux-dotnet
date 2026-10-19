@@ -572,11 +572,12 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
   3.7c, and 3.8. Development, release-candidate, and `next-*` versions have
   unknown capability state.
 - **.NET.** net8.0 and net10.0.
-- **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on
-  Windows x64, where the types that need a real tmux are annotated unsupported.
+- **Systems.** Linux, including WSL. macOS is best effort, with highly limited
+  CI coverage. CI builds on Windows x64, where the types that need a real tmux
+  are annotated unsupported.
 - **Windows preview.** The [`Psmux*` preview](docs/psmux.md) reads a Windows
-  psmux session natively or from WSL. Its release gate runs both paths on net8.0
-  and net10.0.
+  psmux session natively or from WSL. It is best effort, with highly limited CI
+  coverage; its smoke harness runs by hand.
 - **Trimming and NativeAOT.** The `LibTmux` core is analyzer-gated, and its
   smoke app is published and run for `linux-x64` on net8.0 and net10.0.
 - **Trimmed callers.** [`Compile`][api-query-queryextensions-compile] and

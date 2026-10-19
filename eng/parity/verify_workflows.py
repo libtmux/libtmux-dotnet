@@ -155,8 +155,8 @@ def verify(root: pathlib.Path) -> list[str]:
             f"{name} must expose workflow_call",
         )
 
-    aggregate("dotnet", "gate", {"build", "macos", "windows"})
-    for name in ("build", "macos", "windows"):
+    aggregate("dotnet", "gate", {"build", "windows"})
+    for name in ("build", "windows"):
         required = job("dotnet", name)
         require("if" not in required, f"dotnet.{name}.if may not skip a required build")
     for identifier in (
@@ -381,8 +381,6 @@ def verify(root: pathlib.Path) -> list[str]:
         "validate",
         "dotnet",
         "compatibility",
-        "psmux-metadata",
-        "psmux",
         "publish",
     ):
         required = job("release", name)
@@ -397,13 +395,7 @@ def verify(root: pathlib.Path) -> list[str]:
             required.get("uses") == f"./.github/workflows/{workflow}.yml",
             f"release.{name}.uses must run the same-commit {workflow} workflow",
         )
-    needs("release", "psmux-metadata", {"validate"})
-    psmux = needs("release", "psmux", {"validate", "psmux-metadata"})
-    require(
-        names(psmux.get("runs-on")) == {"self-hosted", "Windows", "X64", "psmux"},
-        "release.psmux must use the provisioned Windows runner",
-    )
-    publish = needs("release", "publish", {"dotnet", "compatibility", "psmux"})
+    publish = needs("release", "publish", {"dotnet", "compatibility"})
     require(
         publish.get("environment") == "nuget",
         "release.publish must use the nuget environment",
