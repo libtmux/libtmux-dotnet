@@ -12,6 +12,25 @@ version.
 
 ### Added
 
+### Fixed
+
+### Changed
+
+### Removed
+
+### Development
+
+## [0.0.0-alpha.22] — 2026-10-19
+
+tmux 3.3a is now the minimum. Every command is checked against the daemon it
+reaches, before it has any effect, and an older or unrecognized daemon is
+refused with `TmuxVersionTooLowException` and the remedy. Pane waits poll below
+tmux 3.7, and tmux 3.8 joins the tested range. The package READMEs open on a
+quick start, and CI no longer runs macOS or the psmux smoke; both stay
+supported at best effort.
+
+### Added
+
 - tmux 3.8 is supported and tested. A dead pane whose `pane_pid` is empty reads
   as pid 0 and keeps its identity, the `display-panes` command runs without a
   client, and the shared control client attaches with `new-layouts`. The JSON
