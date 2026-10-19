@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text;
+using LibTmux.Support;
 
 namespace LibTmux.Internal;
 
@@ -127,7 +128,7 @@ internal sealed class TmuxControlTransport
     // fires while a control client is identifying itself crashes the server,
     // taking every session with it (tmux e5a2a25fa, issue 4980); the client
     // attaches lazily, on a command the caller did not expect to start one.
-    internal static readonly TmuxVersion FirstSafeVersion = TmuxVersion.Parse("3.7");
+    internal static readonly TmuxVersion FirstSafeVersion = Capabilities.SinceOf("control-mode");
 
     // From this release display-panes is a mode on the target pane and no
     // longer draws on a client, so it needs none.

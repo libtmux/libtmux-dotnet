@@ -6,8 +6,6 @@ namespace LibTmux;
 
 public sealed partial class Server
 {
-    private static readonly TmuxVersion CapturedRunShellOutput = TmuxVersion.Parse("3.5");
-
     /// <summary>Builds the arguments a shell request sends.</summary>
     /// <remarks>
     /// Three of these flags arrived at different tmux versions, so this stays
@@ -89,12 +87,13 @@ public sealed partial class Server
         if (!request.Background && !request.AsTmuxCommand && request.TargetPane is null)
         {
             TmuxVersion running = await ServerVersionAsync(cancellationToken).ConfigureAwait(false);
-            if (running < CapturedRunShellOutput)
+            Support.WorkaroundClaim captured = Support.Capabilities.Workaround("run-shell-output-in-copy-mode");
+            if (captured.Affects(running))
             {
                 throw new TmuxVersionTooLowException(
-                    $"Captured run-shell output needs tmux {CapturedRunShellOutput}: earlier releases "
+                    $"Captured run-shell output needs tmux {captured.Until}: earlier releases "
                     + $"show it in a pane instead of returning it; detected {running}.",
-                    CapturedRunShellOutput,
+                    captured.Until,
                     running,
                     TmuxDispatchState.NotDispatched);
             }

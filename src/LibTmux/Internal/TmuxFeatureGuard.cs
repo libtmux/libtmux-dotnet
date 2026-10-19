@@ -1,3 +1,5 @@
+using LibTmux.Support;
+
 namespace LibTmux.Internal;
 
 /// <summary>Refuses literal commands that a given tmux release mishandles.</summary>
@@ -11,13 +13,8 @@ namespace LibTmux.Internal;
 /// </remarks>
 internal static class TmuxFeatureGuard
 {
-    private static readonly TmuxVersion Version34 = TmuxVersion.Parse("3.4");
-    private static readonly TmuxVersion Version35 = TmuxVersion.Parse("3.5");
-    private static readonly TmuxVersion Version37 = TmuxVersion.Parse("3.7");
-    private static readonly TmuxVersion Version37a = TmuxVersion.Parse("3.7a");
-
     /// <summary>Gets the first release whose named-buffer delete and rename find their target exactly.</summary>
-    internal static TmuxVersion NamedBuffers => Version34;
+    internal static TmuxVersion NamedBuffers => Capabilities.SinceOf("buffer-delete-named");
 
     /// <summary>Throws when a command is unsafe on the checked release.</summary>
     /// <param name="version">The daemon's version.</param>
@@ -50,7 +47,7 @@ internal static class TmuxFeatureGuard
             {
                 if (Values(command, "btn", "n").Any())
                 {
-                    RequireNamedBuffers(version, "Renaming a buffer");
+                    RequireNamedBuffers(version, "Renaming a buffer", "buffer-rename");
                 }
             }
             else if (Is(word, "run-shell", "run", 3))
@@ -83,14 +80,19 @@ internal static class TmuxFeatureGuard
     /// <summary>Throws unless the release finds a named buffer exactly.</summary>
     /// <param name="version">The daemon's version.</param>
     /// <param name="operation">What is being done, for the message.</param>
-    internal static void RequireNamedBuffers(TmuxVersion version, string operation)
+    /// <param name="capability">The registry id that decides the release.</param>
+    internal static void RequireNamedBuffers(
+        TmuxVersion version,
+        string operation,
+        string capability = "buffer-delete-named")
     {
-        if (version < NamedBuffers)
+        TmuxVersion required = Capabilities.SinceOf(capability);
+        if (version < required)
         {
             throw new TmuxVersionTooLowException(
-                $"{operation} needs tmux {NamedBuffers}: earlier releases act on the most recent "
+                $"{operation} needs tmux {required}: earlier releases act on the most recent "
                 + $"buffer when the named one is missing; detected {version}.",
-                NamedBuffers,
+                required,
                 version,
                 TmuxDispatchState.NotDispatched);
         }
@@ -98,11 +100,12 @@ internal static class TmuxFeatureGuard
 
     private static void CheckBreakPane(TmuxVersion version, IReadOnlyList<string> command)
     {
-        if (version >= Version37 && version < Version37a && !Values(command, "Fnst", "n").Any())
+        WorkaroundClaim claim = Capabilities.Workaround("break-pane-misnames-windows");
+        if (claim.Affects(version) && !Values(command, "Fnst", "n").Any())
         {
             throw new TmuxVersionTooLowException(
-                $"break-pane without -n crashes tmux {version}; name the window or use tmux {Version37a}.",
-                Version37a,
+                $"break-pane without -n crashes tmux {version}; name the window or use tmux {claim.Until}.",
+                claim.Until,
                 version,
                 TmuxDispatchState.NotDispatched);
         }
@@ -112,12 +115,13 @@ internal static class TmuxFeatureGuard
     {
         // A foreground job that names no pane has its output shown in a
         // view-mode pane on these releases, so there is nothing to return.
-        if (version < Version35 && !Values(command, "cdt", "bCt").Any())
+        WorkaroundClaim claim = Capabilities.Workaround("run-shell-output-in-copy-mode");
+        if (claim.Affects(version) && !Values(command, "cdt", "bCt").Any())
         {
             throw new TmuxVersionTooLowException(
-                $"Foreground run-shell output needs tmux {Version35} or a named pane: earlier releases "
+                $"Foreground run-shell output needs tmux {claim.Until} or a named pane: earlier releases "
                 + $"show it in a pane instead of returning it; detected {version}.",
-                Version35,
+                claim.Until,
                 version,
                 TmuxDispatchState.NotDispatched);
         }
@@ -125,11 +129,12 @@ internal static class TmuxFeatureGuard
 
     private static void CheckSplit(TmuxVersion version, IReadOnlyList<string> command)
     {
-        if (version >= Version34 && version < Version35 && Values(command, "cFelpt", "p").Any())
+        WorkaroundClaim claim = Capabilities.Workaround("split-window-percent-size");
+        if (claim.Affects(version) && Values(command, "cFelpt", "p").Any())
         {
             throw new TmuxVersionTooLowException(
                 $"split-window -p is broken on tmux {version}; give the size with -l and a percent sign.",
-                Version35,
+                claim.Until,
                 version,
                 TmuxDispatchState.NotDispatched);
         }
@@ -137,7 +142,7 @@ internal static class TmuxFeatureGuard
 
     private static void CheckLayout(TmuxVersion version, IReadOnlyList<string> command)
     {
-        if (version >= Version34 || Values(command, "t", "nopE").Any())
+        if (version >= Capabilities.SinceOf("layout-without-checksum") || Values(command, "t", "nopE").Any())
         {
             return;
         }
@@ -157,7 +162,7 @@ internal static class TmuxFeatureGuard
 
     private static void CheckNames(TmuxVersion version, IEnumerable<string> names)
     {
-        if (version != Version37)
+        if (!Capabilities.Workaround("name-separators-rejected").Affects(version))
         {
             return;
         }
