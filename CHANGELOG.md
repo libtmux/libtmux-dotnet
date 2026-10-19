@@ -74,6 +74,11 @@ version.
   the remedy and a note that nothing was sent, and stops the server at startup
   with the same text. A read tool reports it instead of an empty list, and the
   note points at `tmux://capabilities` for the minimum. (#83)
+- The package READMEs open on a quick start and answer one task per section,
+  with each API as a linked subsection, a tested example, and a short note.
+  The long contract paragraphs of `LibTmux`, `LibTmux.Workspace`, and
+  `LibTmux.Query.Json` moved to a `docs/contracts.md` beside each README, and
+  every README ends with what it leaves out and what it supports.
 
 ### Removed
 
@@ -106,6 +111,12 @@ version.
   `LibTmux.Extensions.DependencyInjection` READMEs run theirs.
   `sync_fsharp_snippets.py` publishes F# examples into the root and `LibTmux`
   READMEs too.
+- `ReadmePackageListTests` also requires the root README, the MCP behavior
+  page, and every package README to open on `Quick start`, and fails a
+  paragraph or list item over four 80-column lines of rendered text. It no
+  longer compares per-package examples between the root and `LibTmux`
+  READMEs, which do not carry them now, and `sync_fsharp_snippets.py` stops
+  publishing F# examples into those two.
 
 ## [0.0.0-alpha.21] — 2026-10-11
 
