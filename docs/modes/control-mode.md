@@ -94,7 +94,9 @@ start with any number of spaces, a full pane width included, or hold rows of
 only spaces. Each read takes two captures and pairs their lines by the
 characters other than spaces. If the pane changed between them and they
 disagree about one line, that line alone is matched row by row and every other
-line is still joined.
+line is still joined. A server that stops during a wait ends it as
+`PaneExited` with the output read so far, the same as a pane that died; a live
+pane whose control stream is lost is the error above.
 
 ## Two things worth knowing
 

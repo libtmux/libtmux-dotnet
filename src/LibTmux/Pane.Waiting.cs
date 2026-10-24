@@ -49,7 +49,10 @@ public sealed partial class Pane
     /// <para>
     /// A pane whose original program has exited ends the wait as
     /// <see cref="PaneWaitOutcome.PaneExited" />, including at entry. A pane
-    /// removed during observation also ends the wait as PaneExited.
+    /// removed during observation also ends the wait as PaneExited, and so
+    /// does a server that stops during it: the result carries the output
+    /// read so far. A live pane whose control stream is lost raises
+    /// <see cref="TmuxTransportException" /> instead.
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>

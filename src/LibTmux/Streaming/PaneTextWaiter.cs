@@ -46,10 +46,11 @@ internal static class PaneTextWaiter
         bool pollingFallback = false;
         bool linesMissed = false;
         bool anchorLost = false;
+        bool reading = false;
         IReadOnlyList<string> lastTail = [];
         PaneWaitOutcome? confirmedOutcome = null;
         string? confirmedPattern = null;
-        PaneWaitResult DeadlineResult()
+        PaneWaitResult DeadlineResult(PaneWaitOutcome ending = PaneWaitOutcome.TimedOut)
         {
             IReadOnlyList<string> projected = typedProjection is null
                 ? tailLines?.Invoke(lastTail) ?? lastTail
@@ -63,7 +64,7 @@ internal static class PaneTextWaiter
             long dropped = lease is null ? 0 : PaneActivityHub.EventsDropped(lease);
             return new PaneWaitResult(
                 pane.Id,
-                confirmedOutcome ?? PaneWaitOutcome.TimedOut,
+                confirmedOutcome ?? ending,
                 confirmedPattern,
                 bounded.Lines,
                 elapsed.Elapsed,
@@ -705,6 +706,7 @@ internal static class PaneTextWaiter
                 }
             }
 
+            reading = true;
             originalPid = first.State.PanePid;
             lastTail = first.Lines;
             await RecheckArrangementAsync().ConfigureAwait(false);
@@ -906,6 +908,34 @@ internal static class PaneTextWaiter
             && !activity.LifetimeToken.IsCancellationRequested)
         {
             return DeadlineResult();
+        }
+        catch (Exception error) when (reading
+            && error is not OperationCanceledException
+            && error is not (MatchWorkExceededException or RegexMatchTimeoutException)
+            && !cancellationToken.IsCancellationRequested
+            && !activity.LifetimeToken.IsCancellationRequested)
+        {
+            // A read that fails once the wait is under way is either a
+            // server that has gone, which ends the wait as a pane that
+            // exited, or a lost stream or a refusal, which the caller must
+            // hear. list-sessions tells them apart without firing a hook.
+            bool alive;
+            try
+            {
+                alive = await pane.Server.IsAliveAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception probe) when (probe is not OperationCanceledException)
+            {
+                // A server that cannot be asked is not shown to be gone.
+                alive = true;
+            }
+
+            if (alive)
+            {
+                throw;
+            }
+
+            return DeadlineResult(PaneWaitOutcome.PaneExited);
         }
     }
 

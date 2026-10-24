@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Mcp;
 using LibTmux.Testing;
@@ -22,6 +24,9 @@ public sealed class PaneWaitEndingsTests
     // output rather than text already on screen.
     private static readonly string PrintsWrappedLater =
         $"sleep 1; printf '%s\\n' {Wrapped}; sleep 60";
+
+    private static readonly string PrintsThenWaits =
+        "printf 'SO_FAR_LINE\\n'; sleep 60";
 
     [UnixFact]
     public async Task A_library_wait_finds_text_that_wrapped_onto_two_rows()
@@ -171,6 +176,113 @@ public sealed class PaneWaitEndingsTests
         Assert.Equal(WaitOutcome.Matched, listedLater.Outcome);
     }
 
+    [UnixFact]
+    public async Task A_library_wait_ends_as_exited_when_the_server_is_killed()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(mcp.Options, token);
+        Pane pane = await StartPaneAsync(scope, "kill-lib", PrintsThenWaits, 80, token);
+        await WaitUntilPrintedAsync(pane, token);
+
+        Task<PaneWaitResult> waiting = pane.WaitForTextAsync(
+            PaneWaitRequest.FromTextPatterns(["NEVER_PRINTED"], simpleMatch: true) with { Timeout = TimeSpan.FromSeconds(30) },
+            token);
+        await Task.Delay(700, token);
+        await TmuxAsync(scope, ["kill-server"]);
+        PaneWaitResult result = await waiting.WaitAsync(TimeSpan.FromSeconds(20), token);
+
+        Assert.Equal(PaneWaitOutcome.PaneExited, result.Outcome);
+        Assert.Contains("SO_FAR_LINE", result.Tail);
+    }
+
+    [UnixFact]
+    public async Task A_library_wait_ends_as_exited_when_a_stopped_client_holds_the_server_up()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(mcp.Options, token);
+        Pane pane = await StartPaneAsync(scope, "stop-lib", PrintsThenWaits, 80, token);
+        await WaitUntilPrintedAsync(pane, token);
+        using StoppedClient stopped = await StoppedClient.StartAsync(scope, "stop-lib");
+
+        Task<PaneWaitResult> waiting = pane.WaitForTextAsync(
+            PaneWaitRequest.FromTextPatterns(["NEVER_PRINTED"], simpleMatch: true) with { Timeout = TimeSpan.FromSeconds(30) },
+            token);
+        await Task.Delay(700, token);
+        await TmuxAsync(scope, ["kill-server"]);
+        PaneWaitResult result = await waiting.WaitAsync(TimeSpan.FromSeconds(20), token);
+
+        Assert.Equal(PaneWaitOutcome.PaneExited, result.Outcome);
+        Assert.Contains("SO_FAR_LINE", result.Tail);
+    }
+
+    [UnixFact]
+    public async Task An_mcp_wait_reports_the_pane_died_when_the_server_is_killed()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(mcp.Options, token);
+        Pane pane = await StartPaneAsync(scope, "kill-mcp", PrintsThenWaits, 80, token);
+        await WaitUntilPrintedAsync(pane, token);
+
+        Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
+            pane.Id.ToString(), ["NEVER_PRINTED"], timeoutSeconds: 30, cancellationToken: token);
+        await Task.Delay(700, token);
+        await TmuxAsync(scope, ["kill-server"]);
+        WaitResult result = await waiting.WaitAsync(TimeSpan.FromSeconds(20), token);
+
+        Assert.Equal(WaitOutcome.PaneDied, result.Outcome);
+        Assert.Contains("SO_FAR_LINE", result.Tail.Lines);
+    }
+
+    [UnixFact]
+    public async Task An_mcp_wait_reports_the_pane_died_when_a_stopped_client_holds_the_server_up()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(mcp.Options, token);
+        Pane pane = await StartPaneAsync(scope, "stop-mcp", PrintsThenWaits, 80, token);
+        await WaitUntilPrintedAsync(pane, token);
+        using StoppedClient stopped = await StoppedClient.StartAsync(scope, "stop-mcp");
+
+        Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
+            pane.Id.ToString(), ["NEVER_PRINTED"], timeoutSeconds: 30, cancellationToken: token);
+        await Task.Delay(700, token);
+        await TmuxAsync(scope, ["kill-server"]);
+        WaitResult result = await waiting.WaitAsync(TimeSpan.FromSeconds(20), token);
+
+        Assert.Equal(WaitOutcome.PaneDied, result.Outcome);
+        Assert.Contains("SO_FAR_LINE", result.Tail.Lines);
+    }
+
+    [UnixFact]
+    public async Task A_wait_on_a_live_pane_whose_stream_drops_reports_the_lost_stream()
+    {
+        TmuxFeatureSupport.RequireControl();
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(mcp.Options, token);
+        Pane pane = await StartPaneAsync(scope, "drop-lib", PrintsThenWaits, 80, token);
+        await WaitUntilPrintedAsync(pane, token);
+
+        Task<PaneWaitResult> waiting = pane.WaitForTextAsync(
+            PaneWaitRequest.FromTextPatterns(["NEVER_PRINTED"], simpleMatch: true) with { Timeout = TimeSpan.FromSeconds(30) },
+            token);
+        await Task.Delay(1000, token);
+        await TmuxAsync(scope, ["detach-client", "-a"]);
+        string clients = await TmuxAsync(scope, ["list-clients", "-F", "#{client_name}"]);
+        foreach (string client in clients.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            await TmuxAsync(scope, ["detach-client", "-t", client]);
+        }
+
+        TmuxTransportException lost = await Assert.ThrowsAsync<TmuxTransportException>(
+            () => waiting.WaitAsync(TimeSpan.FromSeconds(20), token));
+        Assert.Contains("live control client", lost.Message, StringComparison.Ordinal);
+        Assert.True(await scope.Server.IsAliveAsync(token));
+    }
+
     private static async Task<Pane> StartPaneAsync(
         TemporaryServerScope scope,
         string name,
@@ -188,5 +300,75 @@ public sealed class PaneWaitEndingsTests
             },
             token);
         return Assert.Single(await session.GetPanesAsync(token));
+    }
+
+    private static async Task WaitUntilPrintedAsync(Pane pane, CancellationToken token)
+    {
+        PaneWaitResult seen = await pane.WaitForTextAsync(
+            PaneWaitRequest.FromTextPatterns(["SO_FAR_LINE"], simpleMatch: true) with { Timeout = TimeSpan.FromSeconds(10) },
+            token);
+        Assert.True(seen.Outcome is PaneWaitOutcome.PresentAtEntry or PaneWaitOutcome.Matched);
+    }
+
+    private static async Task<string> TmuxAsync(TemporaryServerScope scope, string[] arguments)
+    {
+        ProcessStartInfo start = new(RawTmuxTestContext.ConfiguredBinary)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        start.ArgumentList.Add("-L");
+        start.ArgumentList.Add(scope.Server.ConnectionOptions.SocketName!);
+        foreach (string argument in arguments)
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        using Process process = Process.Start(start)!;
+        string output = await process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        return output;
+    }
+
+    // A second control client that is stopped keeps the server alive while it
+    // shuts down, as a real client that is slow to leave does.
+    private sealed class StoppedClient : IDisposable
+    {
+        private readonly Process _process;
+
+        private StoppedClient(Process process) => _process = process;
+
+        internal static async Task<StoppedClient> StartAsync(TemporaryServerScope scope, string session)
+        {
+            ProcessStartInfo start = new(RawTmuxTestContext.ConfiguredBinary)
+            {
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            foreach (string argument in new[] { "-L", scope.Server.ConnectionOptions.SocketName!, "-C", "attach", "-t", session })
+            {
+                start.ArgumentList.Add(argument);
+            }
+
+            Process process = Process.Start(start)!;
+            _ = process.StandardOutput.ReadLineAsync();
+            await Task.Delay(500);
+            using Process stop = Process.Start("kill", ["-STOP", process.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+            await stop.WaitForExitAsync();
+            return new StoppedClient(process);
+        }
+
+        public void Dispose()
+        {
+            using Process resume = Process.Start("kill", ["-CONT", _process.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+            resume.WaitForExit();
+            if (!_process.HasExited)
+            {
+                _process.Kill();
+            }
+
+            _process.Dispose();
+        }
     }
 }
