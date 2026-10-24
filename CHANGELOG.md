@@ -16,6 +16,10 @@ version.
 
 ### Changed
 
+- The optional-features table names the exception each refusal raises, and the
+  matrix states which nested commands the check does not read, the releases
+  they affect and what happens there. A test pins the limit. (#108)
+
 ### Removed
 
 ### Development
