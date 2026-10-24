@@ -38,8 +38,10 @@ client (see [one-shot](one-shot.md#how-a-call-reaches-tmux)). Chaining starts
 one process for the whole sequence. `EnterControlModeAsync` starts a client of
 your own and keeps it.
 
-The recorded run below predates that shared client: its one-shot rows are a
-process per command. Run the benchmarks again to refresh them.
+The recorded run below was measured on 2026-08-16, before the shared client
+existed: its one-shot rows are a process per command, so on tmux 3.7 and newer
+they overstate what one-shot costs now. This table has not been repeated; run
+the benchmarks to refresh it.
 
 The number that belongs to the library is the **marginal** one: what a command
 costs *in addition to* the first, which is the difference between fifty and one
@@ -173,8 +175,24 @@ an effect. Nothing below raises the minimum for anything else.
 | `break-pane` without a window name | tmux 3.7a or any release but 3.7 | Refused on exactly 3.7 with `TmuxVersionTooLowException`; the typed `Pane.BreakAsync` names the window itself |
 | Window and session names with `:` or `.` | any release but 3.7 | Refused on exactly 3.7 with `ArgumentException` |
 | `split-window -p` | any release but 3.4 | Refused on 3.4 with `TmuxVersionTooLowException`; typed splits send `-l N%` |
-| `select-layout` with an unchecked layout | tmux 3.4 | Refused unless it is a checksummed layout or a unique preset name. A raw command raises `ArgumentException`; `Window.SelectLayoutAsync`, and a batched layout that names a window, raise `TmuxWindowException` |
-| `refresh-client -l`, the clipboard query | tmux 3.6a | Refused below 3.6a with `TmuxVersionTooLowException`. From 3.4 the command returns, but if the attached client leaves before its terminal answers the server ends; on 3.3a it ends the server with a client attached. A raw command sends the flag from 3.6a. `Server.RefreshClientAsync` sends it only from 3.7, so the typed call is safe on every release |
+| `select-layout` with an unchecked layout | tmux 3.4 | Refused unless it is a checksummed layout or a unique preset name, with `ArgumentException` for a raw command below 3.4 and `TmuxWindowException` for the typed calls ([below](#refusal-types-for-layouts-and-the-clipboard-query)) |
+| `refresh-client -l`, the clipboard query | tmux 3.6a | Refused below 3.6a with `TmuxVersionTooLowException` ([below](#refusal-types-for-layouts-and-the-clipboard-query)) |
+
+### Refusal types for layouts and the clipboard query
+
+Below 3.4, a raw `select-layout` command, sent through
+`Server.ExecuteCommandAsync` or `Chain()`, raises `ArgumentException`; from 3.4
+tmux answers it. `Window.SelectLayoutAsync`, and a batched layout that names a
+window, raise `TmuxWindowException` on every release. The `error` field of
+the `layout-without-checksum` entry in [`capabilities.json`](../../capabilities.json)
+names that typed call only; its `apis` list says which call it describes.
+
+`refresh-client -l` does not end the server from 3.4 unless the attached client
+leaves before its terminal answers; on 3.3a it ends the server when the attached
+client's terminal does not answer. A raw command sends the flag from 3.6a. `Server.RefreshClientAsync`
+sends it only from 3.7, so the typed call is safe on every release.
+
+### What is checked
 
 Every path that sends a command line is checked on the version of the daemon
 it reaches: `Server.ExecuteCommandAsync` and the same method on a session,
@@ -183,20 +201,23 @@ window and pane, `Chain()`, and the commands of a held control session from
 by alias, name or unique prefix, so `br`, `breakp` and `break-p` are
 `break-pane`, and a `;` list is checked one command at a time.
 
-The check reads the command it is given, and resolves the first word of each
-command. A command carried inside a string that tmux parses itself is sent as
-written: the body of an `if-shell`, the command of `run-shell -C`, a brace
-block, a hook, a key binding, a file given to `source-file` or a configured
-`command-alias`. Shell text is not read either. These are the refused commands,
-the releases they affect, and what happens there when one is nested:
+The check resolves the first word of each command in a `;` list. A command
+carried inside a string that tmux parses itself is sent as written: the body of
+an `if-shell`, the command of `run-shell -C`, a brace block, a hook, a key
+binding, a file given to `source-file` or a configured `command-alias`. Shell
+text is not read either. These are the refused commands, the releases they
+affect, and what happens there when one is nested:
 
 - `break-pane` without `-n`: exact tmux 3.7 only. The server exits. 3.7a fixes
-  it.
+  it ([3.7a `CHANGES`](https://github.com/tmux/tmux/blob/3.7a/CHANGES#L3);
+  [3.7 `cmd-break-pane.c`](https://github.com/tmux/tmux/blob/3.7/cmd-break-pane.c#L117-L124)).
 - `select-layout` with a string tmux cannot parse: tmux 3.3 and 3.3a. The
   server exits. 3.4 answers "invalid layout".
 - `refresh-client -l`: below 3.6a, and only with an attached client. The server
   exits on 3.3a when the client's terminal does not answer, and on 3.4 to 3.6
-  when the client leaves before it answers.
+  when the client leaves before it answers
+  ([3.6a `CHANGES`](https://github.com/tmux/tmux/blob/3.6a/CHANGES#L21), commit
+  `0af04295f`).
 - `delete-buffer -b NAME`, and `set-buffer -b NAME -n`: below 3.4. No crash; a
   name that does not exist acts on the newest buffer instead, so the wrong
   buffer is deleted or renamed.
@@ -207,9 +228,15 @@ the releases they affect, and what happens there when one is nested:
 
 For example, `if-shell -F 1 'break-pane -d'` passes the check unchanged, and
 ends a tmux 3.7 server where the same `break-pane` sent directly is refused.
-On exact tmux 3.7, name every `break-pane`, nested or not, and upgrade to 3.7a.
+On exact tmux 3.7, name every `break-pane`, nested or not, or upgrade to 3.7a. Naming one with
+`-n` avoids the crash, though 3.7 ignores the name.
 The default `prefix !` binding is itself a nameless `break-pane`, which no
-library check can reach.
+library check can reach
+([`key-bindings.c`](https://github.com/tmux/tmux/blob/3.7/key-bindings.c#L358)).
+
+The same list is published as [`capabilities.json`](../../capabilities.json) at
+the repository root: each optional feature with the release it starts at, how
+the library handles it, and the error it raises.
 
 Support is stated per feature and release as one of:
 
