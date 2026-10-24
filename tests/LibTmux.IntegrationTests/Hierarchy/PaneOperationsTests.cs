@@ -252,6 +252,7 @@ public sealed class PaneOperationsTests
     [UnixFact]
     public async Task Standalone_trim_moves_history_without_resizing_or_zooming()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane pane = await FirstPaneAsync(raw, token);

@@ -245,6 +245,12 @@ jobs:
           dotnet "examples/LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
           for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
             program="$(basename "${source}" .fs)"
+            # The manifest names a release for each program that needs one.
+            minimum="$(jq -r --arg id "fsharp-${program}" '.examples[] | select(.id == $id) | .requiresTmux // empty' examples/api/manifest.json)"
+            if [[ -n "${minimum}" && "$(printf '%s\n' "${minimum}" "${LIBTMUX_EXPECTED_TMUX_VERSION}" | sort -V | head -1)" != "${minimum}" ]]; then
+              echo "skip ${program}: needs tmux ${minimum}"
+              continue
+            fi
             # Each program prints what it found; its guide shows what it must print.
             printed="$(dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll")"
             printf '%s\n' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output "${program}"
@@ -355,6 +361,76 @@ jobs:
             --fail-skips on \
             --minimum-expected-tests 10
 
+  # Exactly tmux 3.7 is the one release that ends the server on an unnamed
+  # break-pane and rejects a name with a colon or a period. The matrix runs 3.7a
+  # to 3.7c, which do neither, so the tests that fire these commands at a real
+  # 3.7 daemon skip there. This lane runs them and fails if any is skipped.
+  exact_3_7:
+    needs: build
+    name: tmux 3.7 exactly
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            autoconf \
+            automake \
+            bison \
+            build-essential \
+            libevent-dev \
+            libncurses-dev \
+            pkg-config
+
+      - name: Restore the tmux build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: artifacts/tmux
+          key: tmux-3.7-${{ runner.os }}-${{ hashFiles('eng/tmux/build-version.sh') }}
+
+      - name: Build tmux 3.7
+        id: tmux
+        run: eng/tmux/build-version.sh 3.7 | tee -a "${GITHUB_OUTPUT}"
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: integration-${{ github.sha }}-Release
+          path: artifacts
+
+      - name: Extract the same-commit assemblies
+        run: |
+          tar -xzf artifacts/integration.tar.gz
+          test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
+
+      - name: Run the tests that need exactly 3.7
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_EXPECTED_TMUX_VERSION: '3.7'
+          LIBTMUX_INTEGRATION_REQUIRED: '1'
+          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
+        run: |
+          mkdir -p "${TMUX_TMPDIR}"
+          test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
+          # A test that skipped here would pass while proving nothing, so a
+          # skip fails the lane, and so does a run of fewer tests than there
+          # are, which a renamed test would cause.
+          dotnet test \
+            --test-modules tests/LibTmux.IntegrationTests/bin/Release/net10.0/LibTmux.IntegrationTests.dll \
+            --filter-method '*exact_3_7*' \
+            --fail-skips on \
+            --minimum-expected-tests 3
+
   advisory:
     needs: build
     name: tmux master (advisory)
@@ -422,12 +498,12 @@ jobs:
   # which can break for reasons that are not this library's problem.
   compatibility:
     name: compatibility
-    needs: [build, matrix, rejected]
+    needs: [build, exact_3_7, matrix, rejected]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Reject unsuccessful dependencies
         id: require-success
-        if: ${{ always() && (needs.build.result != 'success' || needs.matrix.result != 'success' || needs.rejected.result != 'success') }}
+        if: ${{ always() && (needs.build.result != 'success' || needs.exact_3_7.result != 'success' || needs.matrix.result != 'success' || needs.rejected.result != 'success') }}
         run: exit 1

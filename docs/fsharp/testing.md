@@ -100,6 +100,11 @@ type ShellTests(fixture: TmuxFixture) =
         task {
             let cancellationToken = TestContext.Current.CancellationToken
 
+            Assert.SkipWhen(
+                not (fixture.Pane.Server.Version.Value.IsAtLeast(TmuxVersion.Parse "3.4")),
+                "Running a command in a pane needs tmux 3.4."
+            )
+
             let! shell =
                 fixture.Pane
                 |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))

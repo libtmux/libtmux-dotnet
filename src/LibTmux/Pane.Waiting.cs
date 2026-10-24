@@ -9,14 +9,21 @@ namespace LibTmux;
 public sealed partial class Pane
 {
     /// <summary>Waits until the pane shows literal text.</summary>
-    /// <param name="text">The text to wait for, matched within a line.</param>
+    /// <param name="text">The text to wait for, matched within a line; a line the pane wrapped is one line.</param>
     /// <param name="timeout">How long to wait.</param>
     /// <param name="cancellationToken">Stops the wait.</param>
     /// <returns>How the wait ended.</returns>
     /// <remarks>
     /// Text already on screen ends the wait at once as
-    /// <see cref="PaneWaitOutcome.PresentAtEntry" />. Matching is line by line,
-    /// so the text cannot span lines.
+    /// <see cref="PaneWaitOutcome.PresentAtEntry" />. Matching is line by line.
+    /// A line the pane wrapped onto several rows is matched as one line, so
+    /// text that crosses a wrap is found, including the spaces a wrapped row
+    /// held; a real line break ends a line. A line may start with any number
+    /// of spaces, a full pane width included, or hold rows of only spaces.
+    /// Each read takes two captures and pairs their lines by the characters
+    /// other than spaces. If the pane changed between them and they disagree
+    /// about one line, that line alone is matched row by row; every other
+    /// line is still joined.
     /// </remarks>
     /// <exception cref="ArgumentException">The text is empty or contains a line break.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
@@ -42,7 +49,10 @@ public sealed partial class Pane
     /// <para>
     /// A pane whose original program has exited ends the wait as
     /// <see cref="PaneWaitOutcome.PaneExited" />, including at entry. A pane
-    /// removed during observation also ends the wait as PaneExited.
+    /// removed during observation also ends the wait as PaneExited, and so
+    /// does a server that stops during it: the result carries the output
+    /// read so far. A live pane whose control stream is lost raises
+    /// <see cref="TmuxTransportException" /> instead.
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>

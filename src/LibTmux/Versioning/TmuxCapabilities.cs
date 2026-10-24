@@ -94,6 +94,22 @@ internal static class TmuxCapabilities
     internal static bool IsSupported(TmuxVersion version, string capability) =>
         GetState(version, capability) is TmuxCapabilityState.Supported;
 
+    /// <summary>Gets the first release that has a capability.</summary>
+    /// <param name="capability">The behaviour-level capability name.</param>
+    internal static TmuxVersion SupportedFrom(string capability) => Interval(capability).Start;
+
+    /// <summary>Gets the first release after a capability's span.</summary>
+    /// <param name="capability">The behaviour-level capability name.</param>
+    /// <exception cref="InvalidOperationException">The capability has no recorded end.</exception>
+    internal static TmuxVersion UnsupportedFrom(string capability) =>
+        Interval(capability).End
+        ?? throw new InvalidOperationException($"Tmux capability '{capability}' has no recorded end.");
+
+    private static CapabilityInterval Interval(string capability) =>
+        Intervals.TryGetValue(capability, out CapabilityInterval interval)
+            ? interval
+            : throw new KeyNotFoundException($"Unknown tmux capability '{capability}'.");
+
     private static FrozenDictionary<string, CapabilityInterval> CreateIntervals()
     {
         TmuxVersion minimum = LibTmuxInfo.MinimumTmuxVersion;
@@ -150,16 +166,16 @@ internal static class TmuxCapabilities
                     nameof(unsupportedFrom));
             }
 
-            SupportedFrom = supportedFrom;
-            UnsupportedFrom = unsupportedFrom;
+            Start = supportedFrom;
+            End = unsupportedFrom;
         }
 
-        private TmuxVersion SupportedFrom { get; }
+        internal TmuxVersion Start { get; }
 
-        private TmuxVersion? UnsupportedFrom { get; }
+        internal TmuxVersion? End { get; }
 
         internal bool Contains(TmuxVersion version) =>
-            version >= SupportedFrom
-            && (UnsupportedFrom is not TmuxVersion end || version < end);
+            version >= Start
+            && (End is not TmuxVersion end || version < end);
     }
 }

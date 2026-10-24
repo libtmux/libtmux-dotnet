@@ -12,9 +12,61 @@ version.
 
 ### Added
 
+- `capabilities.json` at the repository root lists the optional tmux features
+  and release defects the library gates, with the release each starts at or
+  covers, for the documentation's capabilities page. It is written from the
+  registry the feature guard reads, and a unit test fails when the two differ.
+  (#84)
+- `ExampleAttribute.RequiresTmux` and `requiresTmux` in the API example
+  manifest name the first tmux an example runs on. (#84)
+
 ### Fixed
 
+- `Pane.BreakAsync` reads the new window from the pane when tmux prints no
+  identifier for a window's only pane. (#84)
+- `Pane.WaitForTextAsync` and the MCP `wait_for_text` now find text that
+  crosses a wrapped row, below tmux 3.7 and from it, spaces a wrapped row
+  held included. A wrapped line is one line; a real line break still ends one.
+  A line may start with any number of spaces, a full pane width included, or
+  hold rows of only spaces, and the lines after it still match. If the two
+  captures of a read disagree about a line, only that line is matched row by
+  row. (#84)
+- A pane wait now ends as `PaneWaitOutcome.PaneExited`, or `PaneDied` in MCP,
+  with the output read so far when the tmux server stops during it, as it does
+  when the pane dies. It used to raise a transport error with no output. A
+  live pane whose control stream is lost still raises `TmuxTransportException`.
+  (#84)
+- `IControlModeSession.SendAsync` now refuses the commands that the one-shot
+  methods refuse, by throwing `TmuxVersionTooLowException`. An unnamed `break-pane` sent through a session held on
+  exactly tmux 3.7 ended the server. (#84)
+- A command word is now read the way tmux reads it, by alias, name or unique
+  prefix, and a `;` list one command at a time, so `ru`, `br` and a command
+  after a `;` can no longer slip past the checks below. An alias wins over a
+  prefix that other commands share, so `set` and `show` read as `set-option`
+  and `show-options`. (#84)
+
 ### Changed
+
+- **An operation that is unsafe on one supported tmux is refused on that
+  tmux, and the minimum stays 3.3a.** Each is refused before anything is sent,
+  with `TmuxVersionTooLowException` and `Dispatch` set to `NotDispatched`.
+  See [the matrix](docs/modes/matrix.md#optional-features). (#84)
+  - `Server.EnterControlModeAsync`, and with it `ServerMirror`, needs tmux 3.7,
+    because a control client can crash an older server while it attaches. Pane
+    waits poll below it, with no opt-in.
+  - Deleting or renaming a buffer by name, `Pane.RunAsync` and the MCP
+    `paste_text` need 3.4, and a foreground `run-shell` that names no pane
+    needs 3.5, typed or raw.
+  - Raw commands and batches are refused on the release that mishandles them:
+    an unnamed `break-pane` and a name with `:` or `.` on exactly 3.7,
+    `split-window -p` on 3.4, an unchecked `select-layout` below 3.4, and
+    `refresh-client -l` below 3.6a, where 3.3a ends the server at once with a
+    client attached, and 3.4 through 3.6 end it when the client leaves before
+    its terminal answers. The typed
+    `Server.RefreshClientAsync` sends the flag only from 3.7, so it is safe.
+  - The checks read the command they are given, not a tmux command nested in
+    `if-shell`, `run-shell -C`, a brace block, a hook or a binding. Do not
+    nest a command that is refused.
 
 ### Removed
 

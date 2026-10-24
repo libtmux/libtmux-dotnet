@@ -189,7 +189,7 @@ It runs a POSIX shell command in a pane and returns
 [`PaneRunResult`][api-panerunresult]: the exit status and the rendered pane
 output. A command that exits nonzero returns normally with that status:
 
-```csharp run
+```csharp run tmux-3.4
 PaneRunResult run = await pane.RunAsync(
     "printf 'hello-from-libtmux\\n'",
     TimeSpan.FromSeconds(10),
@@ -441,7 +441,7 @@ Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "bu
 
 ### [`Server.EnterControlModeAsync`][api-server-entercontrolmodeasync]: one client, held open
 
-```csharp run
+```csharp run tmux-3.7
 // One client, held open, streaming what tmux does on its own.
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
 IReadOnlyList<string> reply = await control.SendAsync(

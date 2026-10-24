@@ -22,9 +22,26 @@ ServerConnectionOptions options = new()
 
 await using OwnedServerScope owned = await Server.CreateOwnedAsync(options, token);
 await using OwnedSessionScope session = await owned.Value.CreateOwnedSessionAsync(
-    new NewSessionRequest { Name = "demo", Command = "/bin/sh" }, token);
+    new NewSessionRequest
+    {
+        Name = "demo",
+        Command = "env PS1='ready> ' /bin/sh",
+    },
+    token);
 Server server = await Server.ConnectAsync(options, token);
 Pane pane = (await server.GetPanesAsync(token)).Single();
+// The shell has to be reading before anything is typed, or its prompt lands in front of the output.
+// PS1 rides on the command because a non-interactive bash default-shell drops it from the environment.
+PaneWaitResult prompt = await pane.WaitForTextAsync(
+    PaneWaitRequest.FromTextPatterns(["ready>"], simpleMatch: true)
+        with
+    { Timeout = TimeSpan.FromSeconds(5) },
+    token);
+if (prompt.Outcome is not (PaneWaitOutcome.Matched or PaneWaitOutcome.PresentAtEntry))
+{
+    throw new InvalidOperationException($"The shell never showed its prompt: {prompt.Outcome}.");
+}
+
 string channel = "capture-" + Guid.NewGuid().ToString("N");
 await using TmuxWaitChannel wait = server.OpenWaitChannel(channel);
 const string marker = "api capture ready";

@@ -1,4 +1,5 @@
 open System
+open System.Text.RegularExpressions
 open System.Collections.Generic
 open System.Diagnostics
 open System.IO
@@ -94,7 +95,10 @@ let runScenario mode =
                 let server = context.Server
 
                 let! first =
-                    server.CreateSessionAsync(NewSessionRequest(Name = "fsharp", Command = "/bin/sh"), token)
+                    server.CreateSessionAsync(
+                        NewSessionRequest(Name = "fsharp", Command = "env PS1='ready> ' /bin/sh"),
+                        token
+                    )
 
                 let! sessions = server.GetSessionsAsync(token)
 
@@ -108,82 +112,88 @@ let runScenario mode =
                 let! snapshot = server |> Server.capture token SnapshotDepth.Panes
                 serverProcessHandle <- Some(Process.GetProcessById(snapshot.Generation.Value.ProcessId))
 
-                let mutable clientProcess: Process option = None
-                use scopedCancellation = new CancellationTokenSource()
+                // A library-managed control client is promised from tmux 3.7.
+                let! tmuxVersion = TmuxVersion.DetectAsync(binary)
 
-                try
-                    let! controlState =
-                        task {
-                            try
-                                return!
-                                    server
-                                    |> Control.withSession token (fun session ->
-                                        task {
-                                            let! liveClients = server.GetClientsAsync(token)
+                if tmuxVersion.IsAtLeast(TmuxVersion.Parse "3.7") then
+                    let mutable clientProcess: Process option = None
+                    use scopedCancellation = new CancellationTokenSource()
 
-                                            let controlClient =
-                                                liveClients
-                                                |> Seq.filter (fun client -> client.IsControlClient)
-                                                |> Selection.exactlyOne
-                                                |> Result.defaultWith (fun error ->
-                                                    failwithf "Expected one control client: %A" error)
+                    try
+                        let! controlState =
+                            task {
+                                try
+                                    return!
+                                        server
+                                        |> Control.withSession token (fun session ->
+                                            task {
+                                                let! liveClients = server.GetClientsAsync(token)
 
-                                            let clientProcessId =
-                                                controlClient.RawFormatFields["client_pid"]
-                                                |> Option.ofObj
-                                                |> Option.map Int32.Parse
-                                                |> Option.defaultWith (fun () ->
-                                                    failwith "The control client has no process ID.")
+                                                let controlClient =
+                                                    liveClients
+                                                    |> Seq.filter (fun client -> client.IsControlClient)
+                                                    |> Selection.exactlyOne
+                                                    |> Result.defaultWith (fun error ->
+                                                        failwithf "Expected one control client: %A" error)
 
-                                            clientProcess <- Some(Process.GetProcessById(clientProcessId))
+                                                let clientProcessId =
+                                                    controlClient.RawFormatFields["client_pid"]
+                                                    |> Option.ofObj
+                                                    |> Option.map Int32.Parse
+                                                    |> Option.defaultWith (fun () ->
+                                                        failwith "The control client has no process ID.")
 
-                                            if mode = "failure" then
-                                                raise (InvalidOperationException "expected control scope failure")
+                                                clientProcess <- Some(Process.GetProcessById(clientProcessId))
 
-                                            if mode = "cancellation" then
-                                                scopedCancellation.Cancel()
-                                                do! Task.FromCanceled(scopedCancellation.Token)
+                                                if mode = "failure" then
+                                                    raise (InvalidOperationException "expected control scope failure")
 
-                                            let! lines =
-                                                session.SendAsync(
-                                                    TmuxCommand.Create("display-message", "-p", "scoped"),
-                                                    token
-                                                )
+                                                if mode = "cancellation" then
+                                                    scopedCancellation.Cancel()
+                                                    do! Task.FromCanceled(scopedCancellation.Token)
 
-                                            return StreamStep.Stop lines.Count
-                                        })
-                            with
-                            | :? InvalidOperationException as error when
-                                mode = "failure" && error.Message = "expected control scope failure"
-                                ->
-                                return StreamStep.Stop -1
-                            | :? OperationCanceledException as error when
-                                mode = "cancellation" && error.CancellationToken = scopedCancellation.Token
-                                ->
-                                return StreamStep.Stop -2
-                        }
+                                                let! lines =
+                                                    session.SendAsync(
+                                                        TmuxCommand.Create("display-message", "-p", "scoped"),
+                                                        token
+                                                    )
 
-                    let observedClient =
-                        clientProcess
-                        |> Option.defaultWith (fun () -> failwith "No control client process was observed.")
+                                                return StreamStep.Stop lines.Count
+                                            })
+                                with
+                                | :? InvalidOperationException as error when
+                                    mode = "failure" && error.Message = "expected control scope failure"
+                                    ->
+                                    return StreamStep.Stop -1
+                                | :? OperationCanceledException as error when
+                                    mode = "cancellation" && error.CancellationToken = scopedCancellation.Token
+                                    ->
+                                    return StreamStep.Stop -2
+                            }
 
-                    do! observedClient.WaitForExitAsync(token)
+                        let observedClient =
+                            clientProcess
+                            |> Option.defaultWith (fun () -> failwith "No control client process was observed.")
 
-                    if mode = "failure" then
-                        check "failed control scope closed client" observedClient.HasExited
+                        do! observedClient.WaitForExitAsync(token)
 
-                    if mode = "cancellation" then
-                        check "canceled control scope closed client" observedClient.HasExited
+                        if mode = "failure" then
+                            check "failed control scope closed client" observedClient.HasExited
 
-                    check "owned control client exited" observedClient.HasExited
+                        if mode = "cancellation" then
+                            check "canceled control scope closed client" observedClient.HasExited
 
-                    match mode, controlState with
-                    | "failure", StreamStep.Stop -1 -> ()
-                    | "cancellation", StreamStep.Stop -2 -> ()
-                    | "success", StreamStep.Stop 1 -> check "owned control scope returns a typed state" true
-                    | _ -> failwith "The owned control scope did not return its command result."
-                finally
-                    clientProcess |> Option.iter (fun client -> client.Dispose())
+                        check "owned control client exited" observedClient.HasExited
+
+                        match mode, controlState with
+                        | "failure", StreamStep.Stop -1 -> ()
+                        | "cancellation", StreamStep.Stop -2 -> ()
+                        | "success", StreamStep.Stop 1 -> check "owned control scope returns a typed state" true
+                        | _ -> failwith "The owned control scope did not return its command result."
+                    finally
+                        clientProcess |> Option.iter (fun client -> client.Dispose())
+                else
+                    printfn "SKIP owned control scope: needs tmux 3.7"
 
                 let! ordinalNear =
                     server.CreateSessionAsync(NewSessionRequest(Name = "FSharp-ordinal", Command = "/bin/sh"), token)
@@ -241,6 +251,18 @@ let runScenario mode =
 
                 let! absent = server |> Server.tryFindPane token (PaneId 999999)
                 check "successful absence uses option" absent.IsNone
+                // A new pane is blank until its shell prints the prompt.
+                let! prompt =
+                    pane
+                    |> Pane.waitFor
+                        token
+                        (PaneWaitRequest(
+                            Patterns = [| Regex "ready>" |],
+                            Timeout = TimeSpan.FromSeconds 5.,
+                            AllowPollingFallback = true
+                        ))
+
+                check "the shell drew its prompt" (prompt.Outcome <> PaneWaitOutcome.TimedOut)
                 let! lines = pane |> Pane.capture token (CapturePaneRequest())
                 check "task pipeline captures a live pane" (lines.Count > 0)
 

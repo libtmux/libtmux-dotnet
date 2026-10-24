@@ -46,10 +46,11 @@ internal static class PaneTextWaiter
         bool pollingFallback = false;
         bool linesMissed = false;
         bool anchorLost = false;
+        bool reading = false;
         IReadOnlyList<string> lastTail = [];
         PaneWaitOutcome? confirmedOutcome = null;
         string? confirmedPattern = null;
-        PaneWaitResult DeadlineResult()
+        PaneWaitResult DeadlineResult(PaneWaitOutcome ending = PaneWaitOutcome.TimedOut)
         {
             IReadOnlyList<string> projected = typedProjection is null
                 ? tailLines?.Invoke(lastTail) ?? lastTail
@@ -63,7 +64,7 @@ internal static class PaneTextWaiter
             long dropped = lease is null ? 0 : PaneActivityHub.EventsDropped(lease);
             return new PaneWaitResult(
                 pane.Id,
-                confirmedOutcome ?? PaneWaitOutcome.TimedOut,
+                confirmedOutcome ?? ending,
                 confirmedPattern,
                 bounded.Lines,
                 elapsed.Elapsed,
@@ -559,7 +560,7 @@ internal static class PaneTextWaiter
                         }
                         else
                         {
-                            IReadOnlyList<string> visible = ProjectMatch(final.Lines);
+                            IReadOnlyList<string> visible = ProjectMatch(final.MatchLines());
                             if (Match(options.Stops, visible, ref matchingWork, token,
                                 RemainingMatchBudget) is string stopped)
                             {
@@ -705,6 +706,7 @@ internal static class PaneTextWaiter
                 }
             }
 
+            reading = true;
             originalPid = first.State.PanePid;
             lastTail = first.Lines;
             await RecheckArrangementAsync().ConfigureAwait(false);
@@ -715,7 +717,7 @@ internal static class PaneTextWaiter
 
             if (afterEntry is null)
             {
-                IReadOnlyList<string> visibleAtEntry = ProjectMatch(first.Lines);
+                IReadOnlyList<string> visibleAtEntry = ProjectMatch(first.MatchLines());
                 if (Match(options.Stops, visibleAtEntry, ref matchingWork, token,
                     RemainingMatchBudget) is string stoppedAtEntry)
                 {
@@ -803,7 +805,7 @@ internal static class PaneTextWaiter
                 IReadOnlyList<string> visible = afterEntry is not null
                     ? ProjectTrigger(read, out matchSpans)
                     : read.AnchorLost && options.Wanted.Length == 0
-                        ? [] : ProjectMatch(read.Lines);
+                        ? [] : ProjectMatch(read.MatchLines());
                 if (Match(options.Stops, visible, ref matchingWork, token,
                     RemainingMatchBudget, matchSpans) is string stopped)
                 {
@@ -906,6 +908,34 @@ internal static class PaneTextWaiter
             && !activity.LifetimeToken.IsCancellationRequested)
         {
             return DeadlineResult();
+        }
+        catch (Exception error) when (reading
+            && error is not OperationCanceledException
+            && error is not (MatchWorkExceededException or RegexMatchTimeoutException)
+            && !cancellationToken.IsCancellationRequested
+            && !activity.LifetimeToken.IsCancellationRequested)
+        {
+            // A read that fails once the wait is under way is either a
+            // server that has gone, which ends the wait as a pane that
+            // exited, or a lost stream or a refusal, which the caller must
+            // hear. list-sessions tells them apart without firing a hook.
+            bool alive;
+            try
+            {
+                alive = await pane.Server.IsAliveAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception probe) when (probe is not OperationCanceledException)
+            {
+                // A server that cannot be asked is not shown to be gone.
+                alive = true;
+            }
+
+            if (alive)
+            {
+                throw;
+            }
+
+            return DeadlineResult(PaneWaitOutcome.PaneExited);
         }
     }
 
@@ -1027,7 +1057,7 @@ internal static class PaneTextWaiter
                 PaneRead read;
                 try
                 {
-                    read = await ReadVisibleAsync(pane, pid, control, token).ConfigureAwait(false);
+                    read = await ReadVisibleAsync(pane, pid, control, token, joinWrapped: false).ConfigureAwait(false);
                 }
                 catch (PaneGoneException error) when (atEntry)
                 {
@@ -1100,9 +1130,11 @@ internal static class PaneTextWaiter
         Pane pane,
         string? baselinePid,
         IControlModeSession? control,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        bool joinWrapped = true) =>
         ReadAsync(() => PaneReader.ReadVisibleAsync(
-            pane, baselinePid, Failure, control, cancellationToken, rejectDeadAtEntry: false),
+            pane, baselinePid, Failure, control, cancellationToken, rejectDeadAtEntry: false,
+            joinWrapped: joinWrapped),
             pane, cancellationToken);
 
     [UnsupportedOSPlatform("windows")]
@@ -1113,7 +1145,7 @@ internal static class PaneTextWaiter
         CancellationToken cancellationToken,
         bool? expectedAlternateScreen = null) =>
         ReadAsync(() => PaneReader.ReadSinceAsync(pane, cursor, Failure, control, cancellationToken,
-                expectedAlternateScreen),
+                expectedAlternateScreen, joinWrapped: true),
             pane, cancellationToken);
 
     [UnsupportedOSPlatform("windows")]

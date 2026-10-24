@@ -40,5 +40,6 @@
     <EmbeddedResource Include="../../src/LibTmux/Client.cs" Condition="Exists('$(MSBuildProjectDirectory)/../../src/LibTmux/Client.cs')" LogicalName="LibTmux.UnitTests.EntitySources.Client.cs" />
     <EmbeddedResource Include="../../src/LibTmux.Query.Json/libtmux-query-v2.schema.json" LogicalName="LibTmux.UnitTests.QuerySchema.json" />
     <EmbeddedResource Include="../Fixtures/layouts.json" LogicalName="LibTmux.Tests.Layouts.json" />
+    <EmbeddedResource Include="../Fixtures/wrapped-captures.json" LogicalName="LibTmux.Tests.WrappedCaptures.json" />
   </ItemGroup>
 </Project>

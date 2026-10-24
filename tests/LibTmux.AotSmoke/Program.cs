@@ -56,7 +56,7 @@ internal static class Program
 
             Task<PaneWaitResult> textWait = pane.WaitForTextAsync(
                 PaneWaitRequest.FromTextPatterns(["aot-observer-ready"], simpleMatch: true)
-                    with { Timeout = TimeSpan.FromSeconds(3) });
+                    with { Timeout = TimeSpan.FromSeconds(3), AllowPollingFallback = true });
             await pane.SendKeysAsync(new SendKeysRequest
             {
                 Text = "printf 'aot-%s\\n' observer-ready",

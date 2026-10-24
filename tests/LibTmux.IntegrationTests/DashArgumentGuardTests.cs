@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 
@@ -128,6 +129,7 @@ public sealed class DashArgumentGuardTests
     [UnixFact]
     public async Task Shell_commands_and_a_wait_for_channel_are_not_read_as_flags()
     {
+        TmuxFeatureSupport.RequireCapturedRunShell();
         CancellationToken token = TestContext.Current.CancellationToken;
         TmuxTestFactory factory = new();
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(

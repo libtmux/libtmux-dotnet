@@ -87,6 +87,17 @@ until the effective timeout, so late output can still match. The result includes
 unless the request sets `AllowPollingFallback = true`. Below tmux 3.7 the
 library attaches no control client, so a wait polls without being asked.
 
+A line the pane wrapped onto several rows is matched as one line, on the poll
+and on the control path alike, so a pattern that crosses a wrap matches, spaces
+a wrapped row held included; a real line break still ends a line. A line may
+start with any number of spaces, a full pane width included, or hold rows of
+only spaces. Each read takes two captures and pairs their lines by the
+characters other than spaces. If the pane changed between them and they
+disagree about one line, that line alone is matched row by row and every other
+line is still joined. A server that stops during a wait ends it as
+`PaneExited` with the output read so far, the same as a pane that died; a live
+pane whose control stream is lost is the error above.
+
 ## Two things worth knowing
 
 Entering control mode **attaches**. A control client that never attaches is

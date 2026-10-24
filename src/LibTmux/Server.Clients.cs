@@ -96,7 +96,9 @@ public sealed partial class Server
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <remarks>
     /// Asking for the clipboard arrived in tmux 3.7. Older servers are asked to
-    /// redraw and nothing else.
+    /// redraw and nothing else. A raw <c>refresh-client -l</c> is sent from
+    /// tmux 3.6a; before it the server can end when the client leaves before
+    /// its terminal answers, and this typed call never sends the flag below 3.7.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public Task RefreshClientAsync(

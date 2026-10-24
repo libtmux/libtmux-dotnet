@@ -1158,6 +1158,8 @@ public sealed class PaneWaitConsistencyTests
         internal ReadTools Tools { get; }
         internal ControlledClock Clock { get; } = new();
         internal QuietControl Control { get; } = new();
+        private string _lastCapture = string.Empty;
+
         internal int Captures { get; private set; }
         internal bool StableEntry { get; init; } = true;
         internal bool Dead { get; init; }
@@ -1213,6 +1215,12 @@ public sealed class PaneWaitConsistencyTests
                     : string.Concat(projection.Fields.Select(field => Field(field.WireName)
                         + FormatProjection.RowSeparator)) + "\n";
             }
+            else if (arguments.Contains("capture-pane", StringComparer.Ordinal)
+                && arguments.Contains("-J", StringComparer.Ordinal))
+            {
+                // The capture with wrapped lines joined answers as the plain one did.
+                payload = _lastCapture;
+            }
             else if (arguments.Contains("capture-pane", StringComparer.Ordinal))
             {
                 Captures++;
@@ -1256,6 +1264,7 @@ public sealed class PaneWaitConsistencyTests
 
                     payload = string.Join('\n', rows.Skip(captureStart)) + "\n";
                 }
+                _lastCapture = payload;
                 if (Captures == ChangeOutputAfterCaptureNumber)
                 {
                     Output = OutputAfterCapture!;

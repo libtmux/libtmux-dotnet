@@ -18,6 +18,214 @@ internal sealed record PaneRead(
 {
     internal IReadOnlyList<int>? RowPositions { get; init; }
     internal int AnchorShift { get; init; }
+
+    /// <summary>Gets which rows of the capture tmux wrapped, or null when none were.</summary>
+    internal WrappedRows? Wrapped { get; init; }
+
+    /// <summary>Gets the capture row behind each reported row, or null when they are the same list.</summary>
+    internal IReadOnlyList<int>? CapturedIndex { get; init; }
+
+    /// <summary>Reads the reported rows as lines of text, with a line tmux wrapped as one.</summary>
+    /// <returns>One entry per reported row, or per wrapped line that a reported row belongs to.</returns>
+    internal IReadOnlyList<string> MatchLines()
+    {
+        if (Wrapped is null)
+        {
+            return Lines;
+        }
+
+        List<string> lines = new(Lines.Count);
+        int previous = -1;
+        for (int index = 0; index < Lines.Count; index++)
+        {
+            int row = CapturedIndex is null ? index : CapturedIndex[index];
+            if (row < 0
+                || row >= Wrapped.Group.Count
+                || Wrapped.Group[row] == WrappedRows.Unpaired
+                || Wrapped.Text[Wrapped.Group[row]] is not { } joined)
+            {
+                lines.Add(Lines[index]);
+                continue;
+            }
+
+            int group = Wrapped.Group[row];
+            if (group != previous)
+            {
+                lines.Add(joined);
+                previous = group;
+            }
+        }
+
+        return lines;
+    }
+}
+
+/// <summary>Maps the rows of a capture to the lines tmux wrapped them from.</summary>
+/// <param name="Group">The wrapped line each capture row belongs to.</param>
+/// <param name="Text">
+/// The text of each wrapped line made of more than one row; null for a line
+/// that is one row.
+/// </param>
+internal sealed record WrappedRows(IReadOnlyList<int> Group, IReadOnlyList<string?> Text)
+{
+    /// <summary>The group of a row no joined line was found for.</summary>
+    internal const int Unpaired = -1;
+
+    /// <summary>Pairs a plain capture's rows with the same capture asked to join wrapped lines.</summary>
+    /// <param name="rows">The rows of <c>capture-pane -p</c>.</param>
+    /// <param name="joined">The lines of <c>capture-pane -p -J</c> over the same range.</param>
+    /// <returns>The pairing, or null when no line wrapped.</returns>
+    /// <remarks>
+    /// <para>
+    /// The two captures hold the same characters in the same order and differ
+    /// only in spaces: a plain row loses its trailing spaces and the rows of
+    /// a line are not separated in a joined one. So a line is found by its
+    /// characters other than spaces. A line takes rows until it has as many
+    /// of them as the joined line does, and the rows are checked against it.
+    /// Spaces cannot misplace a row, however many a line starts with, ends
+    /// with or has between its rows.
+    /// </para>
+    /// <para>
+    /// A row of nothing but spaces belongs to the line it sits inside. Between
+    /// two lines such rows are the empty or blank lines that the joined
+    /// capture also lists; any rows over are given to the line after them,
+    /// where a wrapped line that starts with a full width of spaces has them.
+    /// A line the two captures disagree about, as when the pane moved between
+    /// them, is left unpaired and matched row by row. Pairing carries on with
+    /// the next line; it never stops for the rest of the capture.
+    /// </para>
+    /// </remarks>
+    internal static WrappedRows? Pair(IReadOnlyList<string> rows, IReadOnlyList<string> joined)
+    {
+        if (joined.Count >= rows.Count)
+        {
+            return null;
+        }
+
+        int[] group = new int[rows.Count];
+        Array.Fill(group, Unpaired);
+        string?[] text = new string?[joined.Count];
+        int row = 0;
+        int line = 0;
+        while (line < joined.Count && row < rows.Count)
+        {
+            if (Characters(joined[line]) == 0)
+            {
+                // Blank lines in a run take a row each, and the rest of the
+                // blank rows go to the line after them.
+                int endLine = line;
+                while (endLine < joined.Count && Characters(joined[endLine]) == 0)
+                {
+                    endLine++;
+                }
+
+                int endRow = row;
+                while (endRow < rows.Count && Characters(rows[endRow]) == 0)
+                {
+                    endRow++;
+                }
+
+                if (endRow - row >= endLine - line)
+                {
+                    for (; line < endLine; line++, row++)
+                    {
+                        group[row] = line;
+                    }
+                }
+                else
+                {
+                    line = endLine;
+                    row = endRow;
+                }
+
+                continue;
+            }
+
+            // Where the line's rows start: the row after the last pair, or,
+            // when the pane moved, the next later row that holds the line.
+            int start = row;
+            int end = -1;
+            while (start < rows.Count && (end = EndOfLine(rows, start, joined[line])) < 0)
+            {
+                start++;
+            }
+
+            if (end >= 0 && end - start > 0)
+            {
+                for (int member = start; member < end; member++)
+                {
+                    group[member] = line;
+                }
+
+                if (end - start > 1)
+                {
+                    text[line] = joined[line].TrimEnd(' ');
+                }
+
+                row = end;
+            }
+            else
+            {
+                // No row holds this line. The next line starts after the
+                // row this one would have, never at the same one.
+                row++;
+            }
+
+            line++;
+        }
+
+        return text.Any(static line => line is not null) ? new WrappedRows(group, text) : null;
+    }
+
+    // The row after the last row of the line when its rows start at start and
+    // agree with it, otherwise -1.
+    private static int EndOfLine(IReadOnlyList<string> rows, int start, string whole)
+    {
+        int remaining = Characters(whole);
+        int at = 0;
+        int row = start;
+        while (remaining > 0 && row < rows.Count)
+        {
+            int held = Characters(rows[row]);
+            if (held > remaining || (held > 0 && !TakeCharacters(whole, rows[row], ref at)))
+            {
+                return -1;
+            }
+
+            remaining -= held;
+            row++;
+        }
+
+        return remaining == 0 ? row : -1;
+    }
+
+    private static int Characters(string text) => text.Count(static character => character != ' ');
+
+    // Whether the row's characters other than spaces come next in the line.
+    private static bool TakeCharacters(string whole, string row, ref int at)
+    {
+        foreach (char character in row)
+        {
+            if (character == ' ')
+            {
+                continue;
+            }
+
+            while (at < whole.Length && whole[at] == ' ')
+            {
+                at++;
+            }
+
+            if (at >= whole.Length || whole[at] != character)
+            {
+                return false;
+            }
+
+            at++;
+        }
+
+        return true;
+    }
 }
 
 /// <summary>Names why a pane could not be read consistently.</summary>
@@ -156,7 +364,8 @@ internal static class PaneReader
         IControlModeSession? control,
         CancellationToken cancellationToken,
         bool rejectDeadAtEntry = true,
-        Action<PaneGridState>? observeState = null)
+        Action<PaneGridState>? observeState = null,
+        bool joinWrapped = false)
     {
         for (int attempt = 0; attempt < StableReadAttempts; attempt++)
         {
@@ -168,7 +377,8 @@ internal static class PaneReader
                 throw fail(PaneReadFailure.Dead, pane);
             }
 
-            IReadOnlyList<string> lines = await CaptureAsync(pane, null, before, control, cancellationToken)
+            (IReadOnlyList<string> lines, WrappedRows? wrapped) = await CaptureWrappedAsync(
+                    pane, null, before, control, joinWrapped, cancellationToken)
                 .ConfigureAwait(false);
             PaneGridState after = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
@@ -183,7 +393,7 @@ internal static class PaneReader
                 }
 
                 IReadOnlyList<string> cursorRows = CursorRowsFromCapture(lines, 0, after);
-                return new PaneRead(after, lines, cursorRows, false, baselinePid is not null);
+                return new PaneRead(after, lines, cursorRows, false, baselinePid is not null) { Wrapped = wrapped };
             }
         }
 
@@ -217,6 +427,7 @@ internal static class PaneReader
     /// <param name="control">A control client attached to the pane's session, or null.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
     /// <param name="expectedAlternateScreen">The caller's known baseline screen mode, or null.</param>
+    /// <param name="joinWrapped">Whether to also capture the lines tmux wrapped, joined, for matching.</param>
     /// <returns>The read.</returns>
     internal static async Task<PaneRead> ReadSinceAsync(
         Pane pane,
@@ -224,7 +435,8 @@ internal static class PaneReader
         Func<PaneReadFailure, Pane, Exception> fail,
         IControlModeSession? control,
         CancellationToken cancellationToken,
-        bool? expectedAlternateScreen = null)
+        bool? expectedAlternateScreen = null,
+        bool joinWrapped = false)
     {
         // A busy read loses its text anchor, but not necessarily its row coordinates.
         // Every sampled state must preserve them; public cursors lack screen mode.
@@ -253,7 +465,7 @@ internal static class PaneReader
 
             if (AnchorLost(cursor, before))
             {
-                PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken)
+                PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken, joinWrapped: joinWrapped)
                     .ConfigureAwait(false);
                 return missed with { LinesMissed = true, AnchorLost = true };
             }
@@ -263,11 +475,11 @@ internal static class PaneReader
             int captureStart = trimRisk
                 ? -before.HistorySize
                 : Math.Min(previousStart, before.CursorY);
-            IReadOnlyList<string> capturedRows = trimRisk
-                ? await CaptureAsync(pane, int.MinValue, before, control, cancellationToken).ConfigureAwait(false)
+            (IReadOnlyList<string> capturedRows, WrappedRows? wrapped) = trimRisk
+                ? await CaptureWrappedAsync(pane, int.MinValue, before, control, joinWrapped, cancellationToken).ConfigureAwait(false)
                 : captureStart >= before.PaneHeight
-                    ? []
-                    : await CaptureAsync(pane, captureStart, before, control, cancellationToken).ConfigureAwait(false);
+                    ? ([], null)
+                    : await CaptureWrappedAsync(pane, captureStart, before, control, joinWrapped, cancellationToken).ConfigureAwait(false);
 
             PaneGridState after = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
@@ -298,7 +510,7 @@ internal static class PaneReader
                 int? match = FindUniqueAnchor(capturedRows, cursor, highest, cancellationToken);
                 if (match is null)
                 {
-                    PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken)
+                    PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken, joinWrapped: joinWrapped)
                         .ConfigureAwait(false);
                     return missed with { LinesMissed = true, AnchorLost = true };
                 }
@@ -312,6 +524,7 @@ internal static class PaneReader
 
             int cursorOffset = checked(after.CursorY - captureStart);
             List<int> rowPositions = [];
+            List<int> capturedIndex = [];
             List<string> reported = ReportRows(
                 capturedRows,
                 previousOffset,
@@ -319,11 +532,14 @@ internal static class PaneReader
                 cursor,
                 captureStart,
                 after.HistorySize,
-                rowPositions);
+                rowPositions,
+                capturedIndex);
             IReadOnlyList<string> cursorRows = RowsFromOffset(capturedRows, cursorOffset);
 
             return new PaneRead(after, reported, cursorRows, false, false)
             {
+                Wrapped = wrapped,
+                CapturedIndex = capturedIndex,
                 RowPositions = rowPositions,
                 AnchorShift = checked(after.HistorySize + captureStart + previousOffset
                     - cursor.AnchorAbsolute),
@@ -331,7 +547,7 @@ internal static class PaneReader
         }
 
         PaneRead busy = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken,
-                observeState: ObserveState)
+                observeState: ObserveState, joinWrapped: joinWrapped)
             .ConfigureAwait(false);
         List<int>? visiblePositions = null;
         if (trustedCoordinates)
@@ -355,17 +571,27 @@ internal static class PaneReader
     /// for everything tmux still holds.
     /// </param>
     /// <param name="cancellationToken">Cancels the tmux query.</param>
+    /// <param name="join">Whether tmux joins the rows it wrapped from one line.</param>
     /// <returns>The rows.</returns>
     internal static async Task<IReadOnlyList<string>> CaptureAsync(
         Pane pane,
         int? start,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool join = false)
     {
         CapturePaneRequest? request = start switch
         {
-            null => null,
-            int.MinValue => new CapturePaneRequest { StartLine = CapturePanePosition.BeginningOfHistory },
-            int value => new CapturePaneRequest { StartLine = new CapturePanePosition(value) },
+            null => join ? new CapturePaneRequest { JoinWrappedLines = true } : null,
+            int.MinValue => new CapturePaneRequest
+            {
+                StartLine = CapturePanePosition.BeginningOfHistory,
+                JoinWrappedLines = join,
+            },
+            int value => new CapturePaneRequest
+            {
+                StartLine = new CapturePanePosition(value),
+                JoinWrappedLines = join,
+            },
         };
         try
         {
@@ -398,12 +624,36 @@ internal static class PaneReader
     // trip, where a tmux process is a process start. It goes there only when
     // its rows fit well inside the client's block limits: a block over them
     // ends the client the wait is listening on.
+    // The rows, and which of them tmux wrapped from one line: a second
+    // capture joins them, so a match that crosses a wrap is found on the
+    // poll and on the control path alike.
+    private static async Task<(IReadOnlyList<string> Rows, WrappedRows? Wrapped)> CaptureWrappedAsync(
+        Pane pane,
+        int? start,
+        PaneGridState state,
+        IControlModeSession? control,
+        bool joinWrapped,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> rows = await CaptureAsync(pane, start, state, control, cancellationToken)
+            .ConfigureAwait(false);
+        if (!joinWrapped)
+        {
+            return (rows, null);
+        }
+
+        IReadOnlyList<string> joined = await CaptureAsync(pane, start, state, control, cancellationToken, join: true)
+            .ConfigureAwait(false);
+        return (rows, WrappedRows.Pair(rows, joined));
+    }
+
     private static async Task<IReadOnlyList<string>> CaptureAsync(
         Pane pane,
         int? start,
         PaneGridState state,
         IControlModeSession? control,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool join = false)
     {
         long rows = start switch
         {
@@ -418,9 +668,17 @@ internal static class PaneReader
         {
             CapturePaneRequest request = start switch
             {
-                null => new CapturePaneRequest(),
-                int.MinValue => new CapturePaneRequest { StartLine = CapturePanePosition.BeginningOfHistory },
-                int value => new CapturePaneRequest { StartLine = new CapturePanePosition(value) },
+                null => new CapturePaneRequest { JoinWrappedLines = join },
+                int.MinValue => new CapturePaneRequest
+                {
+                    StartLine = CapturePanePosition.BeginningOfHistory,
+                    JoinWrappedLines = join,
+                },
+                int value => new CapturePaneRequest
+                {
+                    StartLine = new CapturePanePosition(value),
+                    JoinWrappedLines = join,
+                },
             };
             if (await TryThroughControlAsync(pane, pane.BuildCaptureArguments(["-p"], request), control, cancellationToken)
                 .ConfigureAwait(false) is { } captured)
@@ -429,7 +687,7 @@ internal static class PaneReader
             }
         }
 
-        return await CaptureAsync(pane, start, cancellationToken).ConfigureAwait(false);
+        return await CaptureAsync(pane, start, cancellationToken, join).ConfigureAwait(false);
     }
 
     // Any failure through the control client, such as one that has just
@@ -504,7 +762,8 @@ internal static class PaneReader
         PaneCursor cursor,
         int captureStart,
         int historySize,
-        List<int> rowPositions)
+        List<int> rowPositions,
+        List<int> capturedIndex)
     {
         IReadOnlyList<string> previousRows = RowsFromOffset(capturedRows, previousOffset);
         List<int> relativePositions = [];
@@ -524,6 +783,7 @@ internal static class PaneReader
         foreach (int relative in relativePositions)
         {
             rowPositions.Add(checked(historySize + captureStart + previousOffset + relative));
+            capturedIndex.Add(checked(previousOffset + relative));
         }
 
         return reported;

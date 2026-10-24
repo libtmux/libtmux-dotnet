@@ -100,6 +100,14 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
     /// <summary>Gets the process id tmux reports as this client's <c>client_pid</c>, when known.</summary>
     internal int? ClientProcessId => _process.ProcessId;
 
+    /// <summary>Gets or sets the version of the server this session is attached to.</summary>
+    /// <remarks>
+    /// Set once the version has been checked. A session that has one refuses
+    /// the commands that version mishandles, as the one-shot transport does;
+    /// a session built without one, as a test double is, sends them all.
+    /// </remarks>
+    internal TmuxVersion? ServerVersion { get; set; }
+
     public bool IsRunning => Volatile.Read(ref _stopRequested) == 0 && !_process.HasExited;
 
     [UnsupportedOSPlatform("windows")]
@@ -284,6 +292,11 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
     {
         ArgumentNullException.ThrowIfNull(command);
         ValidateGeneration(command);
+        if (ServerVersion is TmuxVersion version)
+        {
+            TmuxFeatureGuard.Check(version, [command.ToArguments()]);
+        }
+
         if (IsUnsupportedRunShell(command))
         {
             throw new NotSupportedException(

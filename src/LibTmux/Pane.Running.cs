@@ -23,6 +23,7 @@ public sealed partial class Pane
     /// <exception cref="ArgumentException"><paramref name="command" /> is blank.</exception>
     /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited; or it changed during every read before the command was sent.</exception>
     /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
+    /// <exception cref="TmuxVersionTooLowException">The server is older than tmux 3.4, which cannot delete the command's buffer by name.</exception>
     /// <exception cref="LibTmuxException">The command's result could not be read, or its private files could not be deleted; inspect the failure before retrying.</exception>
     [UnsupportedOSPlatform("windows")]
     public Task<PaneRunResult> RunAsync(
@@ -64,6 +65,7 @@ public sealed partial class Pane
     /// <exception cref="ArgumentOutOfRangeException">The timeout or output budget is invalid.</exception>
     /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited; or it changed during every read before the command was sent.</exception>
     /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
+    /// <exception cref="TmuxVersionTooLowException">The server is older than tmux 3.4, which cannot delete the command's buffer by name.</exception>
     /// <exception cref="LibTmuxException">The command's result could not be read, or its private files could not be deleted; inspect the failure before retrying.</exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<PaneRunResult> RunAsync(

@@ -25,6 +25,10 @@ public sealed partial class Server
     /// <exception cref="StaleServerGenerationException">
     /// The endpoint changed servers while the control client was attaching.
     /// </exception>
+    /// <exception cref="TmuxVersionTooLowException">
+    /// The server is older than tmux 3.7, which a control client can crash
+    /// while it attaches. Nothing is attached.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public Task<IControlModeSession> EnterControlModeAsync(
         string? target = null,
@@ -54,6 +58,22 @@ public sealed partial class Server
                 "psmux control mode does not provide the attach readiness framing LibTmux requires.");
         }
 
+        // Decided on the checked daemon before any client attaches: a control
+        // client that attaches to a server older than this can crash it.
+        TmuxVersion daemon = live.Version
+            ?? throw new TmuxProtocolException(
+                "The server reported no version.",
+                TmuxDispatchState.NotDispatched);
+        if (daemon < TmuxControlTransport.FirstSafeVersion)
+        {
+            throw new TmuxVersionTooLowException(
+                $"A library-managed control client needs tmux {TmuxControlTransport.FirstSafeVersion}: "
+                + $"earlier servers can crash while it attaches; detected {daemon}.",
+                TmuxControlTransport.FirstSafeVersion,
+                daemon,
+                TmuxDispatchState.NotDispatched);
+        }
+
         ControlModeSession session = ControlModeSession.Start(
             connection.Options.TmuxBinaryPath,
             connection.PrefixArguments,
@@ -68,6 +88,7 @@ public sealed partial class Server
             // The daemon's version was just checked, so a client that finds it gone
             // must not start another one.
             preventServerStart: true);
+        session.ServerVersion = daemon;
 
         // Attaching is asynchronous, and a caller who sends a command before
         // tmux has answered its own attach would be handed that answer.

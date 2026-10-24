@@ -1,0 +1,281 @@
+{
+  "schema": "libtmux-capabilities/1",
+  "port": "csharp",
+  "floor": {
+    "minimum": "3.3a"
+  },
+  "capabilities": [
+    {
+      "id": "control-mode",
+      "name": "Control mode",
+      "summary": "Attach a library-managed control client and stream events.",
+      "since": "3.7",
+      "handling": "refuse",
+      "error": "LibTmux.TmuxVersionTooLowException",
+      "apis": [
+        "LibTmux.Server.EnterControlModeAsync"
+      ],
+      "commands": [
+        {
+          "command": "attach-session"
+        }
+      ]
+    },
+    {
+      "id": "buffer-delete-named",
+      "name": "Named buffer deletion",
+      "summary": "Delete one paste buffer by name without risking another buffer.",
+      "since": "3.4",
+      "handling": "refuse",
+      "error": "LibTmux.TmuxVersionTooLowException",
+      "apis": [
+        "LibTmux.TmuxBuffers.DeleteAsync",
+        "LibTmux.Pane.RunAsync"
+      ],
+      "commands": [
+        {
+          "command": "delete-buffer",
+          "flags": [
+            "-b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "buffer-rename",
+      "name": "Buffer rename",
+      "summary": "Rename one paste buffer by name without risking another buffer.",
+      "since": "3.4",
+      "handling": "refuse",
+      "error": "LibTmux.TmuxVersionTooLowException",
+      "apis": [
+        "LibTmux.Server.ExecuteCommandAsync"
+      ],
+      "commands": [
+        {
+          "command": "set-buffer",
+          "flags": [
+            "-b",
+            "-n"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "layout-without-checksum",
+      "name": "Layouts without a checksum",
+      "summary": "Apply a layout string; earlier releases crash on one that is not a checksummed layout or a preset name.",
+      "since": "3.4",
+      "handling": "refuse",
+      "error": "LibTmux.TmuxWindowException",
+      "apis": [
+        "LibTmux.Window.SelectLayoutAsync"
+      ],
+      "commands": [
+        {
+          "command": "select-layout"
+        }
+      ]
+    },
+    {
+      "id": "layout-mirrored-main",
+      "name": "Mirrored main layouts",
+      "summary": "Apply main-horizontal-mirrored and main-vertical-mirrored.",
+      "since": "3.5",
+      "handling": "refuse",
+      "error": "LibTmux.TmuxWindowException",
+      "apis": [
+        "LibTmux.Window.SelectLayoutAsync"
+      ],
+      "commands": [
+        {
+          "command": "select-layout"
+        }
+      ]
+    },
+    {
+      "id": "layout-json",
+      "name": "JSON layouts",
+      "summary": "Apply a layout in the JSON form that tmux reports.",
+      "since": "3.8-rc2",
+      "handling": "refuse",
+      "error": "LibTmux.TmuxWindowException",
+      "apis": [
+        "LibTmux.Window.SelectLayoutAsync"
+      ],
+      "commands": [
+        {
+          "command": "select-layout"
+        }
+      ]
+    },
+    {
+      "id": "clipboard-query",
+      "name": "Clipboard query",
+      "summary": "Ask the attached clients for their clipboard; earlier releases can end the server when a client leaves before its terminal answers.",
+      "since": "3.6a",
+      "handling": "refuse",
+      "error": "LibTmux.TmuxVersionTooLowException",
+      "apis": [
+        "LibTmux.Server.ExecuteCommandAsync"
+      ],
+      "commands": [
+        {
+          "command": "refresh-client",
+          "flags": [
+            "-l"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "capture-trim-blank-cells",
+      "name": "Capture without blank cells",
+      "summary": "Stop a capture at the last used cell; earlier releases omit the flag.",
+      "since": "3.4",
+      "handling": "fallback",
+      "apis": [
+        "LibTmux.CapturePaneRequest.TrimTrailingSpaces"
+      ],
+      "commands": [
+        {
+          "command": "capture-pane",
+          "flags": [
+            "-T"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "capture-line-flags",
+      "name": "Capture line flags",
+      "summary": "Prefix each captured row with its line flags; earlier releases omit the flag.",
+      "since": "3.7",
+      "handling": "fallback",
+      "apis": [
+        "LibTmux.CapturePaneRequest.LineFlags"
+      ],
+      "commands": [
+        {
+          "command": "capture-pane",
+          "flags": [
+            "-F"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "list-keys-format",
+      "name": "Format key bindings",
+      "summary": "Render key bindings with a format; earlier releases omit the format.",
+      "since": "3.7",
+      "handling": "fallback",
+      "apis": [
+        "LibTmux.TmuxKeys.GetAllAsync"
+      ],
+      "commands": [
+        {
+          "command": "list-keys",
+          "flags": [
+            "-F"
+          ]
+        }
+      ]
+    }
+  ],
+  "workarounds": [
+    {
+      "id": "run-shell-output-in-copy-mode",
+      "name": "Foreground run-shell output",
+      "summary": "A foreground run-shell naming no pane shows its output in a view-mode pane; the library refuses it.",
+      "releases": [
+        "3.3a",
+        "3.4"
+      ],
+      "handling": "refuse",
+      "apis": [
+        "LibTmux.Server.RunShellAsync"
+      ],
+      "commands": [
+        {
+          "command": "run-shell"
+        }
+      ]
+    },
+    {
+      "id": "break-pane-misnames-windows",
+      "name": "break-pane without a name",
+      "summary": "break-pane without -n crashes tmux 3.7; the library refuses it.",
+      "releases": [
+        "3.7"
+      ],
+      "handling": "refuse",
+      "apis": [
+        "LibTmux.Pane.BreakAsync"
+      ],
+      "commands": [
+        {
+          "command": "break-pane",
+          "flags": [
+            "-n"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "split-window-percent-size",
+      "name": "split-window -p",
+      "summary": "split-window -p reads its value from -l on tmux 3.4; the library refuses it.",
+      "releases": [
+        "3.4"
+      ],
+      "handling": "refuse",
+      "apis": [
+        "LibTmux.Server.ExecuteCommandAsync"
+      ],
+      "commands": [
+        {
+          "command": "split-window",
+          "flags": [
+            "-p"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "name-separators-rejected",
+      "name": "Colon and period in names",
+      "summary": "tmux 3.7 rejects \u0027:\u0027 and \u0027.\u0027 in session and window names; the library refuses them.",
+      "releases": [
+        "3.7"
+      ],
+      "handling": "refuse",
+      "apis": [
+        "LibTmux.NewSessionRequest.Name",
+        "LibTmux.NewWindowRequest.Name",
+        "LibTmux.Session.RenameAsync",
+        "LibTmux.Window.RenameAsync"
+      ],
+      "commands": [
+        {
+          "command": "new-session",
+          "flags": [
+            "-s"
+          ]
+        },
+        {
+          "command": "new-window",
+          "flags": [
+            "-n"
+          ]
+        },
+        {
+          "command": "rename-session"
+        },
+        {
+          "command": "rename-window"
+        }
+      ]
+    }
+  ]
+}

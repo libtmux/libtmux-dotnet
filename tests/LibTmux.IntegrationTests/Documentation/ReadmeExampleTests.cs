@@ -45,7 +45,7 @@ public sealed class ReadmeExampleTests
 
     /// <summary>Names the language and whether the block is meant to run.</summary>
     private static readonly Regex Fence = new(
-        @"^```csharp(?<run> run)?\r?$\n(?<body>.*?)^```\r?$",
+        @"^```csharp(?<run> run(?: tmux-(?<minimum>[0-9]+\.[0-9]+))?)?\r?$\n(?<body>.*?)^```\r?$",
         RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.Compiled);
 
     /// <summary>A file-level using is not a statement, and the harness adds its own.</summary>
@@ -101,8 +101,19 @@ public sealed class ReadmeExampleTests
         Type documented = Assembly.Load(assembly).GetType("Documented", throwOnError: true)!;
 
         TmuxTestFactory factory = new();
+        TmuxVersion running = await TmuxVersion.DetectAsync(
+            Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TestContext.Current.CancellationToken);
+        List<string> failures = [];
         foreach (Example example in runnable)
         {
+            // A block marked "run tmux-3.7" shows a feature promised from that
+            // release, so an older tmux compiles it and does not run it.
+            if (example.Minimum is { } minimum && running < minimum)
+            {
+                continue;
+            }
+
             // A socket per example, named for what it is. Sharing one would
             // mean each example starting a server on a socket the previous
             // example's kill has not finished releasing, which is a race that
@@ -135,14 +146,15 @@ public sealed class ReadmeExampleTests
             {
                 await (Task)method.Invoke(null, [])!;
             }
-            catch (TargetInvocationException invocation)
+            catch (Exception error) when (error is not OperationCanceledException)
             {
-                throw new InvalidOperationException(
+                failures.Add(
                     $"{example.Document} example {example.Ordinal} failed against tmux: "
-                    + invocation.InnerException?.Message,
-                    invocation.InnerException);
+                    + ((error as TargetInvocationException)?.InnerException?.Message ?? error.Message));
             }
         }
+
+        Assert.True(failures.Count == 0, string.Join("\n", failures));
     }
 
     /// <summary>Hands a live object to the examples under the name they use.</summary>
@@ -166,7 +178,10 @@ public sealed class ReadmeExampleTests
                     ordinal,
                     $"Block{examples.Count}",
                     match.Groups["run"].Success,
-                    match.Groups["body"].Value.TrimEnd()));
+                    match.Groups["body"].Value.TrimEnd(),
+                    match.Groups["minimum"].Success
+                        ? TmuxVersion.Parse(match.Groups["minimum"].Value)
+                        : null));
             }
         }
 
@@ -300,5 +315,6 @@ public sealed class ReadmeExampleTests
         int Ordinal,
         string Method,
         bool Run,
-        string Body);
+        string Body,
+        TmuxVersion? Minimum);
 }

@@ -57,6 +57,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task An_omitted_target_is_what_the_first_session_shows()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -81,6 +82,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_synchronized_cohort_reports_configured_membership()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -145,6 +147,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Pane_input_accepts_one_window_linked_twice_into_one_session()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -173,6 +176,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Run_shell_command_preserves_inherited_shell_state()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -260,6 +264,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Run_shell_command_preserves_options_across_accepted_shells()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         foreach ((string name, string arguments) in new[]
         {
@@ -323,6 +328,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Run_shell_command_rejects_oversized_inherited_traps()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -357,6 +363,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_timed_out_run_blocks_retry_until_real_completion()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -403,6 +410,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task An_empty_identifier_is_refused_rather_than_read_as_the_current_one()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -507,6 +515,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_wait_streams_from_tmux_rather_than_falling_back_to_polling()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();
@@ -535,6 +544,7 @@ public sealed class TmuxToolsTests
     // subscribed.
     private static async Task AssertIdleWaitAsync(bool timerFiresEarly)
     {
+        TmuxFeatureSupport.RequireControl();
         var clock = new ControlledClock();
         CancellationToken token = TestContext.Current.CancellationToken;
         await RawTmuxTestContext.SkipBelowControlClientAsync(token);
@@ -595,7 +605,7 @@ public sealed class TmuxToolsTests
 
         // The grid is read once more, and then only the reserve is left.
         ControlledClock.ArmedTimer last = await ArmedBeforeEndAsync(finishing, waiting, token);
-        Assert.Equal(3, logger.Captures);
+        Assert.Equal(3 * CapturesPerRead, logger.Captures);
         if (timerFiresEarly)
         {
             last.FireEarly();
@@ -606,7 +616,7 @@ public sealed class TmuxToolsTests
 
         Assert.Equal(WaitOutcome.Timeout, result.Outcome);
         Assert.False(result.PollingFallback);
-        Assert.Equal(3, logger.Captures);
+        Assert.Equal(3 * CapturesPerRead, logger.Captures);
         Assert.False(activity.IsStreaming);
     }
 
@@ -624,6 +634,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_text_wait_refreshes_after_notification_loss_and_discloses_it()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();
@@ -651,6 +662,9 @@ public sealed class TmuxToolsTests
         Assert.False(result.PollingFallback);
         Assert.False(mcp.Activity.IsStreaming);
     }
+
+    // A read captures the rows, and again with wrapped lines joined.
+    private const int CapturesPerRead = 2;
 
     private sealed class CaptureLogger : ILogger
     {
@@ -682,6 +696,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_read_sees_the_options_a_server_was_actually_configured_with()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -709,6 +724,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Setting_an_option_refuses_every_name_that_carries_code()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -763,6 +779,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_pane_that_never_existed_is_refused_by_name()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -783,6 +800,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Running_a_command_reports_its_real_exit_status()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -810,6 +828,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_pane_can_be_promoted_to_its_own_window_and_brought_back()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -867,6 +886,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_run_reports_what_the_command_printed_and_not_the_command()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -918,6 +938,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_run_reports_no_prompt_the_shell_drew_after_the_command()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -979,6 +1000,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_run_leaves_none_of_its_own_bookkeeping_on_screen()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1024,6 +1046,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Public_pane_run_source_line_is_hidden_from_later_mcp_capture()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1046,6 +1069,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_wide_prompt_does_not_swallow_what_the_command_printed()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1077,6 +1101,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Tailing_answers_only_what_is_new()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1106,6 +1131,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_cursor_from_another_pane_is_refused_rather_than_guessed_at()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1120,6 +1146,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Waiting_ends_on_the_text_it_was_told_to_wait_for()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1150,6 +1177,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task An_unmodelled_key_fails_open_on_a_readline_redraw_of_pending_input()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1218,6 +1246,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_wait_that_finds_nothing_says_so_and_says_how_long_it_waited()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1238,6 +1267,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task An_over_large_timeout_is_lowered_to_the_ceiling()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create(new ServerPolicy
         {
@@ -1257,6 +1287,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Searching_finds_a_pane_by_what_it_is_showing()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1277,6 +1308,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_pattern_that_cannot_be_compiled_is_refused_before_it_runs()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1289,6 +1321,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Building_a_workspace_answers_the_ids_the_next_call_needs()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1312,6 +1345,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Killing_removes_what_it_names_and_nothing_else()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1331,6 +1365,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_snapshot_describes_the_cursor_and_the_text_together()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1347,6 +1382,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_capture_keeps_the_newest_lines_and_reports_the_rest()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1372,6 +1408,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task The_environment_answers_names_and_withholds_credential_values()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1455,6 +1492,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task List_sessions_excludes_this_servers_own_observation_from_attached()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await RawTmuxTestContext.SkipBelowControlClientAsync(token);
         await using McpToolFixture mcp = McpToolFixture.Create();
@@ -1535,6 +1573,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task The_caller_pane_is_only_recognised_on_its_own_socket()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1583,6 +1622,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Replacing_a_window_answers_to_the_teardown_gate()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create(
             registry: CapabilityRegistry.Select(CapabilitySelection.WithoutTeardown));
@@ -1609,6 +1649,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_spawn_says_where_it_landed_when_tmux_ignored_the_directory()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1633,6 +1674,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_start_directory_is_judged_by_the_rule_tmux_applies_and_not_by_where_the_pane_is_yet()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1676,6 +1718,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task The_test_pane_is_handed_over_only_once_its_shell_has_started()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
 
         // A control: an ordinary shell is the pane's command when it is handed
@@ -1734,6 +1777,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Every_declared_format_literalization_is_proven_to_bite()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1864,6 +1908,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_capture_never_carries_raw_terminal_control_bytes()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1925,6 +1970,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task A_read_batch_holds_its_declared_bounds_and_its_declared_tools()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -1964,6 +2010,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Every_declared_input_bound_is_enforced_on_both_sides()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -2014,6 +2061,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Every_enumerated_parameter_value_is_answerable()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -2068,6 +2116,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Modal_panes_refuse_input_without_reaching_the_workload()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -2126,6 +2175,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Synchronized_input_refuses_when_a_sibling_is_human_owned()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -2176,6 +2226,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task An_effective_on_pane_cohort_refuses_modal_members_before_input()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -2245,6 +2296,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Pane_overrides_limit_input_to_the_source_effective_cohort()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -2270,6 +2322,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Paste_text_remains_target_only_when_a_synchronized_sibling_is_human_owned()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
@@ -2310,6 +2363,7 @@ public sealed class TmuxToolsTests
     [UnixFact]
     public async Task Batch_dispatch_rechecks_a_pane_that_enters_mode_after_preflight()
     {
+        TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
         await using TemporaryHierarchyScope scope = await mcp.CreateReadyHierarchyAsync(token);
