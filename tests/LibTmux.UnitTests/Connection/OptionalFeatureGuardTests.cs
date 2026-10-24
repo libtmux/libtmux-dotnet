@@ -191,6 +191,16 @@ public sealed class OptionalFeatureGuardTests
     }
 
     [Fact]
+    public void A_nested_command_is_not_read_so_the_documented_limit_holds()
+    {
+        TmuxVersion exact37 = TmuxVersion.Parse("3.7");
+
+        Assert.Throws<TmuxVersionTooLowException>(
+            () => TmuxFeatureGuard.Check(exact37, [["break-pane", "-d"]]));
+        TmuxFeatureGuard.Check(exact37, [["if-shell", "-F", "1", "break-pane -d"]]);
+    }
+
+    [Fact]
     public async Task A_batch_is_refused_whole_when_one_command_is_unsafe()
     {
         var daemon = new MinimumTmuxVersionTests.FakeDaemon("3.7");
