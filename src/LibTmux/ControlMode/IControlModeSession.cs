@@ -58,6 +58,14 @@ public interface IControlModeSession : IAsyncDisposable
     /// <exception cref="StaleServerGenerationException">
     /// The command targets a different tmux server generation.
     /// </exception>
+    /// <exception cref="TmuxVersionTooLowException">
+    /// The server's release cannot survive the command, as an unnamed
+    /// <c>break-pane</c> on tmux 3.7 cannot. The command is checked as the
+    /// one-shot methods check theirs, by its alias, name or unique prefix and
+    /// one command at a time in a <c>;</c> list; nothing is sent. A tmux
+    /// command nested in <c>if-shell</c>, <c>run-shell -C</c> or a brace block
+    /// is not read, so do not nest one that is refused.
+    /// </exception>
     /// <exception cref="NotSupportedException">
     /// The command is a <c>run-shell</c> or <c>run</c> invocation without an
     /// unambiguous direct background shell option.

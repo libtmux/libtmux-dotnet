@@ -77,4 +77,56 @@ public sealed class RawCommandGuardTests
 
         Assert.Empty(differences);
     }
+
+    [UnixFact]
+    public async Task An_unnamed_break_pane_is_refused_by_every_route_and_the_daemon_lives_on_exact_3_7()
+    {
+        Assert.SkipUnless(Version == TmuxVersion.Parse("3.7"), "Only exact tmux 3.7 crashes on an unnamed break-pane.");
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Pane first = (await server.GetPanesAsync(token))[0];
+        Pane second = await first.SplitAsync(cancellationToken: token);
+        string pane = second.Id.ToString();
+
+        foreach (string word in new[] { "break-pane", "breakp", "break-p", "br" })
+        {
+            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+                () => server.ExecuteCommandAsync([word, "-d", "-s", pane], token));
+            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+                () => server.ExecuteCommandAsync(["list-sessions", ";", word, "-d", "-s", pane], token));
+            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+                () => server.ExecuteCommandAsync(["list-sessions;", word, "-d", "-s", pane], token));
+            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+                () => server.Chain().Then(new TmuxCommand(word, ["-d", "-s", pane])).ExecuteAsync(token));
+            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+                () => second.ExecuteCommandAsync([word, "-d"], cancellationToken: token));
+        }
+
+        Assert.True(await server.IsAliveAsync(token));
+
+        await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
+        foreach (string word in new[] { "break-pane", "breakp", "break-p", "br" })
+        {
+            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+                async () => await control.SendAsync(TmuxCommand.Create(word, "-d", "-s", pane), token));
+            await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+                async () => await control.SendAsync(TmuxCommand.Create("list-sessions", ";", word, "-d", "-s", pane), token));
+        }
+
+        // The session is still usable, and so is the daemon, for a named break-pane.
+        _ = await control.SendAsync(TmuxCommand.Create("break-pane", "-d", "-n", "named", "-s", pane), token);
+        Assert.True(await server.IsAliveAsync(token));
+        Assert.Equal(2, (await server.GetWindowsAsync(token)).Count);
+    }
+
+    private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
+        Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
 }

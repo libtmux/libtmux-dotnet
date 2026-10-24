@@ -44,6 +44,30 @@ public sealed class ControlModeCorrelationTests
         Assert.Equal(["following"], await following);
     }
 
+    [Theory]
+    [InlineData("break-pane", "-d")]
+    [InlineData("breakp", "-d")]
+    [InlineData("break-p", "-d")]
+    [InlineData("br", "-d")]
+    public async Task A_session_attached_to_exact_3_7_refuses_an_unnamed_break_pane_and_writes_nothing(
+        string name,
+        string flag)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new ScriptedProcess(expectedWrites: 0);
+        await using var session = new ControlModeSession(process) { ServerVersion = TmuxVersion.Parse("3.7") };
+        await session.WaitForReadyAsync(token);
+
+        await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            async () => await session.SendAsync(TmuxCommand.Create(name, flag), token)
+                .WaitAsync(TimeSpan.FromSeconds(5), token));
+        await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            async () => await session.SendAsync(TmuxCommand.Create("list-sessions", ";", name, flag), token)
+                .WaitAsync(TimeSpan.FromSeconds(5), token));
+
+        Assert.Empty(process.Writes);
+    }
+
     [Fact]
     public async Task Output_carries_a_typed_pane_id_and_never_faults_on_a_bad_one()
     {

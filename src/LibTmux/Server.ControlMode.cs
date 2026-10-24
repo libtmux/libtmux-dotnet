@@ -88,6 +88,7 @@ public sealed partial class Server
             // The daemon's version was just checked, so a client that finds it gone
             // must not start another one.
             preventServerStart: true);
+        session.ServerVersion = daemon;
 
         // Attaching is asynchronous, and a caller who sends a command before
         // tmux has answered its own attach would be handed that answer.
