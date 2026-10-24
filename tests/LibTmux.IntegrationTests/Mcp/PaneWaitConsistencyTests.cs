@@ -89,7 +89,8 @@ public sealed class PaneWaitConsistencyTests
                     pane.Id.ToString(), signal, TimeSpan.FromSeconds(1), cancellation));
             }
 
-            if (invocation.Arguments.Contains("capture-pane", StringComparer.Ordinal))
+            if (invocation.Arguments.Contains("capture-pane", StringComparer.Ordinal)
+                && !invocation.Arguments.Contains("-J", StringComparer.Ordinal))
             {
                 int capture = ++captures;
                 // Keep the entry baseline stable, then invalidate all three

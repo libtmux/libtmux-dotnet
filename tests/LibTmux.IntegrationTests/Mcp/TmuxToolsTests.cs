@@ -605,7 +605,7 @@ public sealed class TmuxToolsTests
 
         // The grid is read once more, and then only the reserve is left.
         ControlledClock.ArmedTimer last = await ArmedBeforeEndAsync(finishing, waiting, token);
-        Assert.Equal(3, logger.Captures);
+        Assert.Equal(3 * CapturesPerRead, logger.Captures);
         if (timerFiresEarly)
         {
             last.FireEarly();
@@ -616,7 +616,7 @@ public sealed class TmuxToolsTests
 
         Assert.Equal(WaitOutcome.Timeout, result.Outcome);
         Assert.False(result.PollingFallback);
-        Assert.Equal(3, logger.Captures);
+        Assert.Equal(3 * CapturesPerRead, logger.Captures);
         Assert.False(activity.IsStreaming);
     }
 
@@ -662,6 +662,9 @@ public sealed class TmuxToolsTests
         Assert.False(result.PollingFallback);
         Assert.False(mcp.Activity.IsStreaming);
     }
+
+    // A read captures the rows, and again with wrapped lines joined.
+    private const int CapturesPerRead = 2;
 
     private sealed class CaptureLogger : ILogger
     {

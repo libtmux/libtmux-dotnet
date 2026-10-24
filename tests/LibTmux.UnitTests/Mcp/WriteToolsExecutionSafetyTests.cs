@@ -3047,6 +3047,7 @@ public sealed class WriteToolsExecutionSafetyTests
         private readonly ServerGeneration _generation;
         private readonly object _stateGate = new();
         private int _captureCount;
+        private IReadOnlyList<string> _lastCaptured = [];
         private int _clientListingCount;
         private int _paneListingCount;
         private int _retainedPaneProbeFailed;
@@ -3419,6 +3420,7 @@ public sealed class WriteToolsExecutionSafetyTests
             }
 
             if (arguments.Contains("capture-pane", StringComparer.Ordinal)
+                && !arguments.Contains("-J", StringComparer.Ordinal)
                 && BlockCaptureAttempt == Volatile.Read(ref _captureCount) + 1)
             {
                 _captureBlocked.TrySetResult();
@@ -3441,7 +3443,9 @@ public sealed class WriteToolsExecutionSafetyTests
                     StringComparison.Ordinal))
                     ? StateListing()
                     : arguments.Contains("capture-pane", StringComparer.Ordinal)
-                        ? Lines(CaptureLines())
+                        ? Lines(arguments.Contains("-J", StringComparer.Ordinal)
+                            ? _lastCaptured
+                            : _lastCaptured = CaptureLines())
                     : arguments.Contains("show-options", StringComparer.Ordinal)
                             ? StatusValue is null
                                 ? string.Empty
