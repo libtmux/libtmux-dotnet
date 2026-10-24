@@ -275,4 +275,68 @@ public sealed class OptionalFeatureGuardTests
                 TaskScheduler.Default)
             .Unwrap();
     }
+
+    // One refused form per guarded command, on a release that mishandles it;
+    // the arguments are joined with a bar.
+    public static TheoryData<string, string, string> RefusedForms => new()
+    {
+        { "break-pane", "3.7", "-s|%1" },
+        { "delete-buffer", "3.3a", "-b|victim" },
+        { "set-buffer", "3.3a", "-b|victim|-n|renamed|x" },
+        { "run-shell", "3.3a", "echo hi" },
+        { "split-window", "3.4", "-p|30" },
+        { "select-layout", "3.3a", "garbage" },
+        { "new-window", "3.7", "-n|a:b" },
+        { "new-session", "3.7", "-s|a:b" },
+        { "rename-window", "3.7", "a:b" },
+        { "rename-session", "3.7", "a:b" },
+    };
+
+    [Theory]
+    [MemberData(nameof(RefusedForms))]
+    public void Every_word_tmux_resolves_to_a_guarded_command_is_refused(
+        string command,
+        string release,
+        string joined)
+    {
+        string[] arguments = joined.Split('|');
+        TmuxVersion version = TmuxVersion.Parse(release);
+        string[] words = [.. Enumerable.Range(1, command.Length)
+            .Select(length => command[..length])
+            .Append(TmuxCommandNames.Listed(version).Single(entry => entry.Name == command).Alias ?? command)
+            .Where(word => TmuxCommandNames.Resolve(version, word) == command)];
+
+        Assert.Contains(command, words);
+        Assert.True(words.Length > 1, "an alias or a shorter prefix resolves too");
+        Assert.All(
+            words,
+            word => Assert.NotNull(Record.Exception(
+                () => TmuxFeatureGuard.Check(version, [[word, .. arguments]]))));
+    }
+
+    [Theory]
+    [MemberData(nameof(RefusedForms))]
+    public void A_refused_command_is_refused_inside_a_semicolon_list(
+        string command,
+        string release,
+        string joined)
+    {
+        string[] arguments = joined.Split('|');
+        TmuxVersion version = TmuxVersion.Parse(release);
+
+        Assert.NotNull(Record.Exception(
+            () => TmuxFeatureGuard.Check(version, [["list-sessions", ";", command, .. arguments]])));
+        Assert.NotNull(Record.Exception(
+            () => TmuxFeatureGuard.Check(version, [["list-sessions;", command, .. arguments]])));
+        Assert.NotNull(Record.Exception(
+            () => TmuxFeatureGuard.Check(version, [["list-sessions"], [command, .. arguments]])));
+    }
+
+    [Fact]
+    public void A_word_that_is_ambiguous_or_unknown_runs_nothing_and_is_not_refused()
+    {
+        TmuxFeatureGuard.Check(V33a, [["r", "-b", "echo hi"]]);
+        TmuxFeatureGuard.Check(V33a, [["s", "-b", "x"]]);
+        TmuxFeatureGuard.Check(V33a, [["not-a-command", "-b", "x"]]);
+    }
 }

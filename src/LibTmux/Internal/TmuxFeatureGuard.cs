@@ -6,9 +6,12 @@ namespace LibTmux.Internal;
 /// <remarks>
 /// <para>
 /// Typed operations avoid these forms themselves. This sees every command a
-/// request carries, including raw commands and batches, after the daemon's
-/// version has been checked and before anything is sent. Nothing here reads
-/// shell text or the body of a user-authored program.
+/// request carries, including raw commands, batches and the commands of a
+/// held control session, after the daemon's version has been checked and
+/// before anything is sent. A command word is resolved the way tmux resolves
+/// it, by alias, by name or by a unique prefix, and a <c>;</c> list is read
+/// one command at a time. Shell text, and a tmux command nested in
+/// <c>if-shell</c>, <c>run-shell -C</c> or a brace block, are not read.
 /// </para>
 /// </remarks>
 internal static class TmuxFeatureGuard
@@ -23,57 +26,83 @@ internal static class TmuxFeatureGuard
     /// <exception cref="ArgumentException">A name or layout the release would mishandle.</exception>
     internal static void Check(TmuxVersion version, IReadOnlyList<IReadOnlyList<string>> commands)
     {
-        foreach (IReadOnlyList<string> command in commands)
+        foreach (IReadOnlyList<string> line in commands)
         {
-            if (command.Count == 0)
+            foreach (IReadOnlyList<string> command in Split(line))
             {
-                continue;
+                CheckOne(version, command);
             }
+        }
+    }
 
-            string word = command[0];
-            if (Is(word, "break-pane", "breakp", 2))
-            {
+    private static void CheckOne(TmuxVersion version, IReadOnlyList<string> command)
+    {
+        switch (TmuxCommandNames.Resolve(version, command[0]))
+        {
+            case "break-pane":
                 CheckBreakPane(version, command);
                 CheckNames(version, Values(command, "Fnst", "n"));
-            }
-            else if (Is(word, "delete-buffer", "deleteb", 3))
-            {
+                break;
+            case "delete-buffer":
                 if (Values(command, "b", "b").Any())
                 {
                     RequireNamedBuffers(version, "Deleting a named buffer");
                 }
-            }
-            else if (Is(word, "set-buffer", "setb", 5))
-            {
+
+                break;
+            case "set-buffer":
                 if (Values(command, "btn", "n").Any())
                 {
                     RequireNamedBuffers(version, "Renaming a buffer", "buffer-rename");
                 }
-            }
-            else if (Is(word, "run-shell", "run", 3))
-            {
+
+                break;
+            case "run-shell":
                 CheckRunShell(version, command);
-            }
-            else if (Is(word, "split-window", "splitw", 2))
-            {
+                break;
+            case "split-window":
                 CheckSplit(version, command);
-            }
-            else if (Is(word, "select-layout", "selectl", 8))
-            {
+                break;
+            case "select-layout":
                 CheckLayout(version, command);
-            }
-            else if (Is(word, "new-window", "neww", 5))
-            {
+                break;
+            case "new-window":
                 CheckNames(version, Values(command, "cenFt", "n"));
-            }
-            else if (Is(word, "new-session", "new", 3))
-            {
+                break;
+            case "new-session":
                 CheckNames(version, Values(command, "cefFnstxy", "ns"));
-            }
-            else if (Is(word, "rename-window", "renamew", 8) || Is(word, "rename-session", "rename", 8))
-            {
+                break;
+            case "rename-window":
+            case "rename-session":
                 CheckNames(version, Positionals(command, "t").Take(1));
+                break;
+        }
+    }
+
+    // tmux reads an argument that is only a semicolon, or that ends in one,
+    // as the end of a command.
+    private static IEnumerable<IReadOnlyList<string>> Split(IReadOnlyList<string> line)
+    {
+        List<string> current = [];
+        foreach (string word in line)
+        {
+            bool ends = word.Length > 0 && word[^1] == ';' && !word.EndsWith("\\;", StringComparison.Ordinal);
+            string text = ends ? word[..^1] : word;
+            if (text.Length > 0)
+            {
+                current.Add(text);
             }
+
+            if (ends && current.Count > 0)
+            {
+                yield return current;
+                current = [];
+            }
+        }
+
+        if (current.Count > 0)
+        {
+            yield return current;
         }
     }
 
@@ -176,9 +205,6 @@ internal static class TmuxFeatureGuard
             }
         }
     }
-
-    private static bool Is(string word, string full, string alias, int shortest) =>
-        word == alias || (word.Length >= shortest && full.StartsWith(word, StringComparison.Ordinal));
 
     /// <summary>Reads the words after a command's leading flags.</summary>
     private static string[] Positionals(IReadOnlyList<string> command, string valueFlags)
