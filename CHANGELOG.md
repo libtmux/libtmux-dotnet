@@ -12,6 +12,23 @@ version.
 
 ### Added
 
+### Fixed
+
+### Changed
+
+### Removed
+
+### Development
+
+## [0.0.0-alpha.23] — 2026-10-24
+
+Unsafe optional tmux features are gated one at a time. Each is refused on the
+tmux releases where it is unsafe, before anything is sent, and the minimum
+stays 3.3a. Pane waits now find text that crosses a wrapped row, and end with
+the output read so far when the tmux server stops.
+
+### Added
+
 - `capabilities.json` at the repository root lists the optional tmux features
   and release defects the library gates, with the release each starts at or
   covers, for the documentation's capabilities page. It is written from the
@@ -67,10 +84,6 @@ version.
   - The checks read the command they are given, not a tmux command nested in
     `if-shell`, `run-shell -C`, a brace block, a hook or a binding. Do not
     nest a command that is refused.
-
-### Removed
-
-### Development
 
 ## [0.0.0-alpha.22] — 2026-10-19
 
@@ -1800,7 +1813,9 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.21...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.23...HEAD
+[0.0.0-alpha.23]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.23
+[0.0.0-alpha.22]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.22
 [0.0.0-alpha.21]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.21
 [0.0.0-alpha.20]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.20
 [0.0.0-alpha.19]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.19
