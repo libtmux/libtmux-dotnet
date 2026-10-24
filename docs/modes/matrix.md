@@ -168,13 +168,13 @@ an effect. Nothing below raises the minimum for anything else.
 | `Server.EnterControlModeAsync` and `ServerMirror` | tmux 3.7 | `TmuxVersionTooLowException` |
 | Pane waits: `Pane.WaitForTextAsync` and the MCP `wait_for_text` | none | The wait polls, with no opt-in. From 3.7 it listens to a control client, and a lost stream on a live pane needs `AllowPollingFallback` to keep going |
 | One-shot commands over the shared control client | tmux 3.7 | Each command runs on its own process |
-| `delete-buffer -b` and `set-buffer -n`, and work that cleans up a buffer by name: `Pane.RunAsync` and the MCP `paste_text` | tmux 3.4 | Refused before the buffer is staged; `paste-buffer -d -b` stays available |
-| A foreground `run-shell` that names no pane, from `Server.RunShellAsync` or a raw command | tmux 3.5 | Refused; a background, `-C` or pane-targeted request is sent |
-| `break-pane` without a window name | tmux 3.7a or any release but 3.7 | Refused on exactly 3.7; the typed `Pane.BreakAsync` names the window itself |
-| Window and session names with `:` or `.` | any release but 3.7 | Refused on exactly 3.7 |
-| `split-window -p` | any release but 3.4 | Refused on 3.4; typed splits send `-l N%` |
-| `select-layout` with an unchecked layout | tmux 3.4 | Refused unless it is a checksummed layout or a unique preset name |
-| `refresh-client -l`, the clipboard query | tmux 3.6a | Refused below 3.6a. From 3.4 the command returns, but if the attached client leaves before its terminal answers the server ends; on 3.3a it ends the server with a client attached. A raw command sends the flag from 3.6a. `Server.RefreshClientAsync` sends it only from 3.7, so the typed call is safe on every release |
+| `delete-buffer -b` and `set-buffer -n`, and work that cleans up a buffer by name: `Pane.RunAsync` and the MCP `paste_text` | tmux 3.4 | Refused before the buffer is staged, with `TmuxVersionTooLowException`; `paste-buffer -d -b` stays available |
+| A foreground `run-shell` that names no pane, from `Server.RunShellAsync` or a raw command | tmux 3.5 | Refused with `TmuxVersionTooLowException`; a background, `-C` or pane-targeted request is sent |
+| `break-pane` without a window name | tmux 3.7a or any release but 3.7 | Refused on exactly 3.7 with `TmuxVersionTooLowException`; the typed `Pane.BreakAsync` names the window itself |
+| Window and session names with `:` or `.` | any release but 3.7 | Refused on exactly 3.7 with `ArgumentException` |
+| `split-window -p` | any release but 3.4 | Refused on 3.4 with `TmuxVersionTooLowException`; typed splits send `-l N%` |
+| `select-layout` with an unchecked layout | tmux 3.4 | Refused unless it is a checksummed layout or a unique preset name. A raw command raises `ArgumentException`; `Window.SelectLayoutAsync`, and a batched layout that names a window, raise `TmuxWindowException` |
+| `refresh-client -l`, the clipboard query | tmux 3.6a | Refused below 3.6a with `TmuxVersionTooLowException`. From 3.4 the command returns, but if the attached client leaves before its terminal answers the server ends; on 3.3a it ends the server with a client attached. A raw command sends the flag from 3.6a. `Server.RefreshClientAsync` sends it only from 3.7, so the typed call is safe on every release |
 
 Every path that sends a command line is checked on the version of the daemon
 it reaches: `Server.ExecuteCommandAsync` and the same method on a session,
@@ -183,12 +183,33 @@ window and pane, `Chain()`, and the commands of a held control session from
 by alias, name or unique prefix, so `br`, `breakp` and `break-p` are
 `break-pane`, and a `;` list is checked one command at a time.
 
-The check reads the command it is given. It does not read shell text, and it
-does not read a tmux command nested inside another one: the body of an
-`if-shell`, the command of `run-shell -C`, a brace block, a `set-hook` or
-`bind-key` command, the contents of a file given to `source-file`, or a
-configured `command-alias`. Do not nest a command this table refuses; tmux
-runs it on a release that cannot survive it.
+The check reads the command it is given, and resolves the first word of each
+command. A command carried inside a string that tmux parses itself is sent as
+written: the body of an `if-shell`, the command of `run-shell -C`, a brace
+block, a hook, a key binding, a file given to `source-file` or a configured
+`command-alias`. Shell text is not read either. These are the refused commands,
+the releases they affect, and what happens there when one is nested:
+
+- `break-pane` without `-n`: exact tmux 3.7 only. The server exits. 3.7a fixes
+  it.
+- `select-layout` with a string tmux cannot parse: tmux 3.3 and 3.3a. The
+  server exits. 3.4 answers "invalid layout".
+- `refresh-client -l`: below 3.6a, and only with an attached client. The server
+  exits on 3.3a when the client's terminal does not answer, and on 3.4 to 3.6
+  when the client leaves before it answers.
+- `delete-buffer -b NAME`, and `set-buffer -b NAME -n`: below 3.4. No crash; a
+  name that does not exist acts on the newest buffer instead, so the wrong
+  buffer is deleted or renamed.
+- `split-window -p`: exactly 3.4. tmux answers "size missing" and changes
+  nothing.
+- Names containing `:` or `.`: exactly 3.7. tmux answers "invalid window name"
+  and changes nothing.
+
+For example, `if-shell -F 1 'break-pane -d'` passes the check unchanged, and
+ends a tmux 3.7 server where the same `break-pane` sent directly is refused.
+On exact tmux 3.7, name every `break-pane`, nested or not, and upgrade to 3.7a.
+The default `prefix !` binding is itself a nameless `break-pane`, which no
+library check can reach.
 
 Support is stated per feature and release as one of:
 
