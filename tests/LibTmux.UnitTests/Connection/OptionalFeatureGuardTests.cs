@@ -290,6 +290,7 @@ public sealed class OptionalFeatureGuardTests
         { "new-session", "3.7", "-s|a:b" },
         { "rename-window", "3.7", "a:b" },
         { "rename-session", "3.7", "a:b" },
+        { "refresh-client", "3.3a", "-l" },
     };
 
     [Theory]
@@ -339,4 +340,31 @@ public sealed class OptionalFeatureGuardTests
         TmuxFeatureGuard.Check(V33a, [["s", "-b", "x"]]);
         TmuxFeatureGuard.Check(V33a, [["not-a-command", "-b", "x"]]);
     }
+
+    [Theory]
+    [InlineData("3.3a", new[] { "refresh-client", "-l" })]
+    [InlineData("3.3a", new[] { "refresh-client", "-t", "/dev/pts/1", "-l" })]
+    [InlineData("3.3a", new[] { "refresh-c", "-Sl" })]
+    [InlineData("3.4", new[] { "refresh-client", "-l" })]
+    [InlineData("3.5", new[] { "refresh-client", "-t", "/dev/pts/1", "-l" })]
+    [InlineData("3.5a", new[] { "refresh-client", "-l" })]
+    [InlineData("3.6", new[] { "refresh-client", "-l" })]
+    public void A_clipboard_query_is_refused_before_3_6a(string version, string[] command)
+    {
+        TmuxVersionTooLowException refusal = Assert.Throws<TmuxVersionTooLowException>(
+            () => TmuxFeatureGuard.Check(TmuxVersion.Parse(version), [command]));
+
+        Assert.Equal(TmuxVersion.Parse("3.6a"), refusal.RequiredVersion);
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+    }
+
+    [Theory]
+    [InlineData("3.6a", new[] { "refresh-client", "-l" })]
+    [InlineData("3.8", new[] { "refresh-client", "-t", "c", "-l" })]
+    [InlineData("3.4", new[] { "refresh-client", "-S" })]
+    [InlineData("3.3a", new[] { "refresh-client", "-S" })]
+    [InlineData("3.3a", new[] { "refresh-client", "-t", "-l" })]
+    [InlineData("3.3a", new[] { "refresh-client", "-C", "80x24" })]
+    public void A_refresh_without_a_clipboard_query_is_sent(string version, string[] command) =>
+        TmuxFeatureGuard.Check(TmuxVersion.Parse(version), [command]);
 }

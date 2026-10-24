@@ -174,6 +174,7 @@ an effect. Nothing below raises the minimum for anything else.
 | Window and session names with `:` or `.` | any release but 3.7 | Refused on exactly 3.7 |
 | `split-window -p` | any release but 3.4 | Refused on 3.4; typed splits send `-l N%` |
 | `select-layout` with an unchecked layout | tmux 3.4 | Refused unless it is a checksummed layout or a unique preset name |
+| `refresh-client -l`, the clipboard query | tmux 3.6a | Refused below 3.6a. From 3.4 the command returns, but if the attached client leaves before its terminal answers the server ends; on 3.3a it ends the server with a client attached. A raw command sends the flag from 3.6a. `Server.RefreshClientAsync` sends it only from 3.7, so the typed call is safe on every release |
 
 Every path that sends a command line is checked on the version of the daemon
 it reaches: `Server.ExecuteCommandAsync` and the same method on a session,

@@ -110,6 +110,25 @@
       ]
     },
     {
+      "id": "clipboard-query",
+      "name": "Clipboard query",
+      "summary": "Ask the attached clients for their clipboard; earlier releases can end the server when a client leaves before its terminal answers.",
+      "since": "3.6a",
+      "handling": "refuse",
+      "error": "LibTmux.TmuxVersionTooLowException",
+      "apis": [
+        "LibTmux.Server.ExecuteCommandAsync"
+      ],
+      "commands": [
+        {
+          "command": "refresh-client",
+          "flags": [
+            "-l"
+          ]
+        }
+      ]
+    },
+    {
       "id": "capture-trim-blank-cells",
       "name": "Capture without blank cells",
       "summary": "Stop a capture at the last used cell; earlier releases omit the flag.",

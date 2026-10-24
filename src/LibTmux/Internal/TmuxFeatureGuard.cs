@@ -76,6 +76,9 @@ internal static class TmuxFeatureGuard
             case "rename-session":
                 CheckNames(version, Positionals(command, "t").Take(1));
                 break;
+            case "refresh-client":
+                CheckClipboardQuery(version, command);
+                break;
         }
     }
 
@@ -151,6 +154,19 @@ internal static class TmuxFeatureGuard
                 $"Foreground run-shell output needs tmux {claim.Until} or a named pane: earlier releases "
                 + $"show it in a pane instead of returning it; detected {version}.",
                 claim.Until,
+                version,
+                TmuxDispatchState.NotDispatched);
+        }
+    }
+
+    private static void CheckClipboardQuery(TmuxVersion version, IReadOnlyList<string> command)
+    {
+        TmuxVersion required = Capabilities.SinceOf("clipboard-query");
+        if (version < required && Values(command, "ABCfFrt", "l").Any())
+        {
+            throw new TmuxVersionTooLowException(
+                $"refresh-client -l can end tmux {version} when a client leaves before its terminal answers; it needs tmux {required}.",
+                required,
                 version,
                 TmuxDispatchState.NotDispatched);
         }

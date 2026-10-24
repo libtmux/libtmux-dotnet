@@ -179,6 +179,15 @@ internal static class Capabilities
             ["LibTmux.Window.SelectLayoutAsync"],
             [new("select-layout")]),
         new(
+            "clipboard-query",
+            "Clipboard query",
+            "Ask the attached clients for their clipboard; earlier releases can end the server when a client leaves before its terminal answers.",
+            "3.6a",
+            ClaimHandling.Refuse,
+            "LibTmux.TmuxVersionTooLowException",
+            ["LibTmux.Server.ExecuteCommandAsync"],
+            [new("refresh-client", "-l")]),
+        new(
             "capture-trim-blank-cells",
             "Capture without blank cells",
             "Stop a capture at the last used cell; earlier releases omit the flag.",
