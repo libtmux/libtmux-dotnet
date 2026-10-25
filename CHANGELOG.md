@@ -17,6 +17,14 @@ changelog marks each break. Pin an exact version to avoid one. Releases before
 
 ### Changed
 
+### Removed
+
+### Development
+
+## [0.1.0] — 2026-10-25
+
+### Changed
+
 - **Releases are numbered `0.1.N` and carry no `-alpha` tag.** The next release
   is `0.1.0`, then `0.1.1` and so on, each incrementing `N`. The API is still
   not settled, so pin an exact version; the changelog marks each break.
@@ -1875,7 +1883,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.24...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.1.0
 [0.0.0-alpha.24]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.24
 [0.0.0-alpha.23]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.23
 [0.0.0-alpha.22]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.22
