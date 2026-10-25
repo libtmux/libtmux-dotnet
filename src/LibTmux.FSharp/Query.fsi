@@ -156,7 +156,7 @@ module Query =
 
     /// <summary>Reads the matching objects in tmux's listing order.</summary>
     /// <remarks>A filter over a relation reads a snapshot of only the sessions that can match.</remarks>
-    /// <exception cref="T:LibTmux.TmuxVersionTooLowException">A raw client filter needs tmux 3.4.</exception>
+    /// <exception cref="T:LibTmux.TmuxVersionTooLowException">A raw client filter needs tmux 3.4; catch TmuxUnsupportedOnReleaseException for any release refusal.</exception>
     val list: cancellationToken: CancellationToken -> query: Query<'T> -> Task<IReadOnlyList<'T>>
 
     /// <summary>Reads the sole match, or why there is not exactly one.</summary>

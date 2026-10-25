@@ -54,6 +54,9 @@ internal sealed record CapabilityClaim(
 
     /// <summary>Gets the first release spelled as it is published.</summary>
     internal string SinceText => SinceVersion.Raw;
+
+    /// <summary>Gets the releases that are safe, in words.</summary>
+    internal string SafeReleases => $"{SinceText} or newer";
 }
 
 /// <summary>A defect in exact releases that the library refuses or repairs.</summary>
@@ -66,6 +69,7 @@ internal sealed record CapabilityClaim(
 /// names the interval that decides it.
 /// </param>
 /// <param name="Handling">Whether the library refuses or repairs.</param>
+/// <param name="Error">The public error a refusal throws; required to refuse.</param>
 /// <param name="Apis">Public API names, as the generated API reference spells them.</param>
 /// <param name="Commands">The tmux commands the claim concerns.</param>
 /// <param name="Behaviour">
@@ -79,6 +83,7 @@ internal sealed record WorkaroundClaim(
     IReadOnlyList<string> Releases,
     string? FixedIn,
     ClaimHandling Handling,
+    string? Error,
     IReadOnlyList<string> Apis,
     IReadOnlyList<CommandClaim> Commands,
     string? Behaviour = null)
@@ -92,6 +97,11 @@ internal sealed record WorkaroundClaim(
     internal TmuxVersion Until => Behaviour is null
         ? TmuxVersion.Parse(FixedIn!)
         : TmuxCapabilities.UnsupportedFrom(Behaviour);
+
+    /// <summary>Gets the releases that are safe, in words.</summary>
+    internal string SafeReleases => From <= LibTmuxInfo.MinimumTmuxVersion
+        ? $"{Until.Raw} or newer"
+        : $"earlier than {From.Raw}, or {Until.Raw} or newer";
 
     /// <summary>Gets whether the defect is present on a release.</summary>
     /// <param name="version">The daemon's version.</param>
@@ -153,11 +163,11 @@ internal static class Capabilities
         new(
             "layout-without-checksum",
             "Layouts without a checksum",
-            "Apply a layout string; earlier releases crash on one that is not a checksummed layout or a preset name. The error is that of the typed call; below 3.4 a raw select-layout command raises ArgumentException.",
+            "Apply a layout string; earlier releases crash on one that is not a checksummed layout or a preset name. A malformed layout through the typed call is refused on every release as TmuxWindowException; this claim is the raw select-layout command below 3.4.",
             "3.4",
             ClaimHandling.Refuse,
-            "LibTmux.TmuxWindowException",
-            ["LibTmux.Window.SelectLayoutAsync"],
+            "LibTmux.TmuxUnsupportedOnReleaseException",
+            ["LibTmux.Server.ExecuteCommandAsync"],
             [new("select-layout")]),
         new(
             "layout-mirrored-main",
@@ -165,7 +175,7 @@ internal static class Capabilities
             "Apply main-horizontal-mirrored and main-vertical-mirrored.",
             null,
             ClaimHandling.Refuse,
-            "LibTmux.TmuxWindowException",
+            "LibTmux.TmuxUnsupportedOnReleaseException",
             ["LibTmux.Window.SelectLayoutAsync"],
             [new("select-layout")],
             Behaviour: "layout_mirrors"),
@@ -175,7 +185,7 @@ internal static class Capabilities
             "Apply a layout in the JSON form that tmux reports.",
             "3.8-rc2",
             ClaimHandling.Refuse,
-            "LibTmux.TmuxWindowException",
+            "LibTmux.TmuxUnsupportedOnReleaseException",
             ["LibTmux.Window.SelectLayoutAsync"],
             [new("select-layout")]),
         new(
@@ -229,6 +239,7 @@ internal static class Capabilities
             ["3.3a", "3.4"],
             "3.5",
             ClaimHandling.Refuse,
+            "LibTmux.TmuxVersionTooLowException",
             ["LibTmux.Server.RunShellAsync"],
             [new("run-shell")]),
         new(
@@ -238,6 +249,7 @@ internal static class Capabilities
             ["3.7"],
             null,
             ClaimHandling.Refuse,
+            "LibTmux.TmuxVersionTooLowException",
             ["LibTmux.Pane.BreakAsync"],
             [new("break-pane", "-n")],
             Behaviour: "break_pane_3_7_workaround"),
@@ -248,20 +260,21 @@ internal static class Capabilities
             ["3.4"],
             "3.5",
             ClaimHandling.Refuse,
+            "LibTmux.TmuxVersionTooLowException",
             ["LibTmux.Server.ExecuteCommandAsync"],
             [new("split-window", "-p")]),
         new(
             "name-separators-rejected",
             "Colon and period in names",
-            "tmux 3.7 rejects ':' and '.' in session and window names; the library refuses them.",
+            "tmux 3.7 rejects ':' and '.' in session and window names; the library refuses them. The typed session calls refuse them on every release as ArgumentException.",
             ["3.7"],
             "3.7a",
             ClaimHandling.Refuse,
+            "LibTmux.TmuxUnsupportedOnReleaseException",
             [
-                "LibTmux.NewSessionRequest.Name",
                 "LibTmux.NewWindowRequest.Name",
-                "LibTmux.Session.RenameAsync",
                 "LibTmux.Window.RenameAsync",
+                "LibTmux.Server.ExecuteCommandAsync",
             ],
             [
                 new("new-session", "-s"),

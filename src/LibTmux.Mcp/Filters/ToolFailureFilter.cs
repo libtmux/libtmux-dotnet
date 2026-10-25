@@ -151,6 +151,7 @@ internal static class ToolFailureFilter
             // do; nothing was sent to tmux.
             TmuxVersionTooLowException => $"{RefusalMessage(error)} Nothing was sent to tmux. "
                 + "The supported floor is in tmux://capabilities.",
+            TmuxUnsupportedOnReleaseException => $"{RefusalMessage(error)} Nothing was sent to tmux.",
             TmuxObjectNotFoundException => "That session, window or pane no longer exists. "
                 + "Call list_sessions, list_windows, or list_panes to see what does.",
 

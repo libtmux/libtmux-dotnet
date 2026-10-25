@@ -82,7 +82,11 @@ public sealed partial class Window
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>A replacement handle carrying the new layout.</returns>
     /// <exception cref="TmuxWindowException">
-    /// The layout is one tmux may not recognise.
+    /// The layout is malformed or unknown on every release.
+    /// </exception>
+    /// <exception cref="TmuxUnsupportedOnReleaseException">
+    /// The layout is a form the running release lacks, such as a mirrored
+    /// preset or the JSON form.
     /// </exception>
     /// <remarks>
     /// Feeding a previously captured <see cref="Layout" /> back restores the
@@ -154,12 +158,25 @@ public sealed partial class Window
 
     private void ValidateLayout(string layout)
     {
-        if (!TmuxLayoutSyntax.IsValidCandidate(layout, 1)
-            || (layout.StartsWith('{')
-                && !TmuxLayoutSyntax.SupportsJsonLayout(RequireOwner("layout").Version)))
+        Server owner = RequireOwner("layout");
+        if (TmuxLayoutSyntax.IsValidCandidate(layout, 1)
+            && layout.StartsWith('{')
+            && !TmuxLayoutSyntax.SupportsJsonLayout(owner.Version))
+        {
+            Support.CapabilityClaim json = Support.Capabilities.All.Single(static item => item.Id == "layout-json");
+            throw new TmuxUnsupportedOnReleaseException(
+                TmuxLayoutSyntax.InvalidLayoutMessage(layout, mirrored: false, owner.RawVersion!),
+                owner.Version ?? default,
+                json.SafeReleases,
+                json.Id,
+                "select-layout",
+                TmuxDispatchState.NotDispatched);
+        }
+
+        if (!TmuxLayoutSyntax.IsValidCandidate(layout, 1))
         {
             throw new TmuxWindowException(
-                TmuxLayoutSyntax.InvalidLayoutMessage(layout, mirrored: false, RequireOwner("layout").RawVersion!),
+                TmuxLayoutSyntax.InvalidLayoutMessage(layout, mirrored: false, owner.RawVersion!),
                 _id,
                 TmuxDispatchState.NotDispatched);
         }

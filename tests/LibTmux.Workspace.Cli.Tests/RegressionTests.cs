@@ -739,6 +739,17 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal("tmux_unsupported", JsonNode.Parse(error.ToString())!["code"]!.ToString());
     }
 
+    [Fact]
+    public void A_release_refusal_and_its_floor_subclass_are_tmux_unsupported_and_nothing_else_is()
+    {
+        TmuxVersion version = TmuxVersion.Parse("3.7");
+
+        Assert.True(CliRunner.IsReleaseRefusal(new TmuxUnsupportedOnReleaseException("x", version, "3.7a or newer")));
+        Assert.True(CliRunner.IsReleaseRefusal(new TmuxVersionTooLowException("x", version, version)));
+        Assert.False(CliRunner.IsReleaseRefusal(new LibTmuxException("x")));
+        Assert.False(CliRunner.IsReleaseRefusal(new ArgumentException("x")));
+    }
+
     // load is the primary command and builds its own failure record, so the
     // refusal has to be mapped there as well as in the catch every other
     // command shares. The 3.3a row is the control: a tmux that is supported

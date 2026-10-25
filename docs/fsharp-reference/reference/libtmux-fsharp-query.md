@@ -68,7 +68,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Type parameters: 'T
 
-`TmuxVersionTooLowException` A raw client filter needs tmux 3.4.
+`TmuxVersionTooLowException` A raw client filter needs tmux 3.4; catch TmuxUnsupportedOnReleaseException for any release refusal.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L233)
 

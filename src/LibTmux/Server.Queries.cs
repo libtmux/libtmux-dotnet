@@ -154,7 +154,9 @@ public sealed partial class Server
             : throw new TmuxVersionTooLowException(
                 "Filtering clients in tmux requires tmux 3.4.",
                 TmuxVersion.Parse("3.4"),
-                Version ?? default);
+                Version ?? default,
+                TmuxDispatchState.NotDispatched,
+                command: "list-clients");
     }
 
     [UnsupportedOSPlatform("windows")]

@@ -44,6 +44,9 @@ internal static class Program
 
 internal static class CliRunner
 {
+    /// <summary>Reports whether a failure is a refusal for the running tmux release.</summary>
+    internal static bool IsReleaseRefusal(Exception failure) => failure is TmuxUnsupportedOnReleaseException;
+
     // The library's remedy names the library package; this tool installs as
     // LibTmux.Workspace.Cli.
     internal static string RefusalMessage(Exception failure) =>
@@ -114,7 +117,7 @@ internal static class CliRunner
         catch (OperationCanceledException) { await renderer.DiagnosticAsync("interrupted", "Operation cancelled.").ConfigureAwait(false); return 130; }
         catch (CliException failure) { await renderer.DiagnosticAsync(failure.Code, failure.Message).ConfigureAwait(false); return failure.ExitCode; }
         catch (StaleServerGenerationException failure) { await renderer.DiagnosticAsync("stale_server", failure.Message).ConfigureAwait(false); return 1; }
-        catch (TmuxVersionTooLowException failure) { await renderer.DiagnosticAsync("tmux_unsupported", RefusalMessage(failure)).ConfigureAwait(false); return 1; }
+        catch (Exception failure) when (IsReleaseRefusal(failure)) { await renderer.DiagnosticAsync("tmux_unsupported", RefusalMessage(failure)).ConfigureAwait(false); return 1; }
         catch (LibTmuxException failure)
         {
             await renderer.DiagnosticAsync("tmux_failed", failure.Message).ConfigureAwait(false);

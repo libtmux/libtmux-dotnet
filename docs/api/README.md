@@ -157,6 +157,7 @@ modes differ.
 | `LibTmux.TmuxProtocolException` | Reports an answer from tmux this library could not read. |
 | `LibTmux.TmuxSessionExistsException` | Thrown when a session name is already taken. |
 | `LibTmux.TmuxTransportException` | Reports a process-transport failure. |
+| `LibTmux.TmuxUnsupportedOnReleaseException` | Reports a command or feature that is unsafe or unavailable on the running tmux release. |
 | `LibTmux.TmuxVersion` | Represents one lossless parsed tmux version. |
 | `LibTmux.TmuxVersionTooLowException` | Reports an unsupported tmux version. |
 | `LibTmux.TmuxWait` | Waits for tmux to reach a state instead of sleeping. |
@@ -553,6 +554,7 @@ modes differ.
 | `LibTmux.TmuxSessionExistsException.#ctor(System.String,System.String,System.Exception)` | Initializes the exception for one taken session name. |
 | `LibTmux.TmuxTransportException.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},LibTmux.TmuxDispatchState,System.Exception)` | Initializes a transport exception that knows whether tmux was started. |
 | `LibTmux.TmuxTransportException.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Exception)` | Initializes a transport exception whose dispatch state is unknown. |
+| `LibTmux.TmuxUnsupportedOnReleaseException.#ctor(System.String,LibTmux.TmuxVersion,System.String,System.String,System.String,System.Exception)` | Initializes a release refusal. |
 | `LibTmux.TmuxVersion.#ctor(System.String)` | Initializes a tmux version. |
 | `LibTmux.TmuxVersion.CheckMinimumSupportedVersionAsync(System.Boolean,System.String,System.Threading.CancellationToken)` | Checks the package minimum and optionally throws. |
 | `LibTmux.TmuxVersion.CompareTo(LibTmux.TmuxVersion)` | Compares parsed tmux versions. |
@@ -1219,12 +1221,15 @@ modes differ.
 | `LibTmux.TmuxProtocolException.Payload` | Gets what tmux sent that could not be read. |
 | `LibTmux.TmuxSessionExistsException.SessionName` | Gets the session name that is already in use. |
 | `LibTmux.TmuxTransportException.Arguments` | Gets the logical tmux arguments. |
+| `LibTmux.TmuxUnsupportedOnReleaseException.ActualVersion` | Gets the running tmux release. |
+| `LibTmux.TmuxUnsupportedOnReleaseException.CapabilityId` | Gets the capability or workaround id in capabilities.json, or null when none covers the refusal. |
+| `LibTmux.TmuxUnsupportedOnReleaseException.Command` | Gets the refused tmux command, or null when the refusal is not about one command. |
+| `LibTmux.TmuxUnsupportedOnReleaseException.SafeReleases` | Gets the releases where the command is safe, such as 3.4 or newer. |
 | `LibTmux.TmuxVersion.IsValid` | Gets whether this value contains a parsed tmux version. |
 | `LibTmux.TmuxVersion.Major` | Gets the parsed major version. |
 | `LibTmux.TmuxVersion.Minor` | Gets the parsed minor version. |
 | `LibTmux.TmuxVersion.Raw` | Gets the exact normalized tmux version text. |
 | `LibTmux.TmuxVersion.Suffix` | Gets the exact preserved suffix projection. |
-| `LibTmux.TmuxVersionTooLowException.ActualVersion` | Gets the actual tmux version. |
 | `LibTmux.TmuxVersionTooLowException.RequiredVersion` | Gets the required tmux version. |
 | `LibTmux.TmuxWaitChannel.Channel` | Gets the channel being waited on. |
 | `LibTmux.TmuxWaitChannel.Signalled` | Gets whether the wait completed before withdrawal began. |

@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
+using LibTmux.Support;
 
 namespace LibTmux.UnitTests.Entities;
 
@@ -11,18 +12,18 @@ public sealed class LayoutValidationTests
     private static readonly ServerGeneration Generation = new(91, 901);
 
     [Theory]
-    [InlineData("3.7c", "3.3a", "main-h", true)]
-    [InlineData("3.3a", "3.7c", "main-h", false)]
-    [InlineData("3.7c", "3.3a", "main-horizontal-mirrored", false)]
-    [InlineData("3.3a", "3.7c", "main-horizontal-mirrored", true)]
-    [InlineData("3.7c", "next-3.8", "main-horizontal-mirrored", true)]
-    [InlineData("3.7c", "3.8-rc", "main-horizontal-mirrored", true)]
-    [InlineData("3.7c", "3.5-rc1", "main-horizontal-mirrored", true)]
-    [InlineData("3.7c", "next-3.5", "main-h", true)]
-    [InlineData("3.7c", "next-3.5", "main-horizontal-mirrored", false)]
-    [InlineData("3.3a", "3.5-rc1", "main-h", false)]
+    [InlineData("3.7c", "3.3a", "main-h", "accepted")]
+    [InlineData("3.3a", "3.7c", "main-h", "ambiguous")]
+    [InlineData("3.7c", "3.3a", "main-horizontal-mirrored", "unsupported")]
+    [InlineData("3.3a", "3.7c", "main-horizontal-mirrored", "accepted")]
+    [InlineData("3.7c", "next-3.8", "main-horizontal-mirrored", "accepted")]
+    [InlineData("3.7c", "3.8-rc", "main-horizontal-mirrored", "accepted")]
+    [InlineData("3.7c", "3.5-rc1", "main-horizontal-mirrored", "accepted")]
+    [InlineData("3.7c", "next-3.5", "main-h", "accepted")]
+    [InlineData("3.7c", "next-3.5", "main-horizontal-mirrored", "unsupported")]
+    [InlineData("3.3a", "3.5-rc1", "main-h", "ambiguous")]
     public async Task Daemon_version_controls_names_instead_of_client_banner(
-        string client, string daemon, string layout, bool accepted)
+        string client, string daemon, string layout, string outcome)
     {
         int queries = 0;
         Server server = CreateServer(client, request =>
@@ -33,9 +34,58 @@ public sealed class LayoutValidationTests
         });
 
         Task validation = server.ValidateLayoutsAsync([(layout, 1)], TestContext.Current.CancellationToken);
-        if (accepted) await validation;
-        else await Assert.ThrowsAsync<ArgumentException>(() => validation);
+        switch (outcome)
+        {
+            case "accepted":
+                await validation;
+                break;
+            case "ambiguous":
+                // Where mirrored presets exist the prefix is bad input, not a release refusal.
+                Exception bad = await Assert.ThrowsAsync<ArgumentException>(() => validation);
+                Assert.IsNotAssignableFrom<TmuxUnsupportedOnReleaseException>(bad);
+                break;
+            default:
+                TmuxUnsupportedOnReleaseException refusal =
+                    await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(() => validation);
+                Assert.Equal("layout-mirrored-main", refusal.CapabilityId);
+                Assert.Equal(TmuxVersion.Parse(daemon), refusal.ActualVersion);
+                break;
+        }
+
         Assert.Equal(1, queries);
+    }
+
+    [Fact]
+    public async Task An_ambiguous_prefix_on_3_7c_does_not_claim_the_release_is_unsafe()
+    {
+        Server server = CreateServer("3.7c", request => Result(request, 0, "91:901\t3.7c\n"));
+
+        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(() =>
+            server.ValidateLayoutsAsync([("main-h", 1)], TestContext.Current.CancellationToken));
+
+        Assert.Contains("matches more than one layout preset", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_json_layout_below_3_8_rc2_raises_the_type_the_manifest_names()
+    {
+        Server server = CreateServer("3.7c", _ => throw new InvalidOperationException("Nothing may be sent."));
+        Window window = new(server, server.Connection!, Generation, new WindowId(1), new Dictionary<string, string?>
+        {
+            ["window_id"] = "@1",
+            ["session_id"] = "$1",
+        });
+
+        TmuxUnsupportedOnReleaseException refusal = await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(() =>
+            window.SelectLayoutAsync(
+                new SelectLayoutRequest { Layout = "{\"V\":2,\"L\":{\"t\":\"p\"}}" },
+                TestContext.Current.CancellationToken));
+
+        CapabilityClaim claim = Capabilities.All.Single(item => item.Id == "layout-json");
+        Assert.Equal(claim.Error, refusal.GetType().FullName);
+        Assert.Equal("layout-json", refusal.CapabilityId);
+        Assert.Equal("select-layout", refusal.Command);
+        Assert.Equal(claim.SafeReleases, refusal.SafeReleases);
     }
 
     [Fact]
@@ -126,10 +176,12 @@ public sealed class LayoutValidationTests
         var request = new SelectLayoutRequest { Layout = "main-horizontal-mirrored" };
         TmuxCommand command = request.ToCommand(window);
         Assert.Equal(0, queries);
-        TmuxWindowException error = await Assert.ThrowsAsync<TmuxWindowException>(() => chained
+        TmuxUnsupportedOnReleaseException error = await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(() => chained
             ? server.Chain().Then("set-option", "-g", "@changed", "yes").Then(command).ExecuteAsync(TestContext.Current.CancellationToken)
             : window.SelectLayoutAsync(request, TestContext.Current.CancellationToken));
         Assert.Equal(TmuxDispatchState.NotDispatched, error.Dispatch);
+        Assert.Equal("layout-mirrored-main", error.CapabilityId);
+        Assert.Equal("select-layout", error.Command);
         Assert.Equal(1, queries);
     }
 
@@ -166,11 +218,11 @@ public sealed class LayoutValidationTests
             return Result(request, 0, "91:901\t3.3a\n");
         }, materialized: false);
 
-        TmuxWindowException error = await Assert.ThrowsAsync<TmuxWindowException>(() =>
+        TmuxUnsupportedOnReleaseException error = await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(() =>
             execution.Chain().Then([command, command]).ExecuteAsync(TestContext.Current.CancellationToken));
 
-        Assert.Equal(window.Id, error.WindowId);
         Assert.Equal(TmuxDispatchState.NotDispatched, error.Dispatch);
+        Assert.Contains($"Window {window.Id}:", error.Message, StringComparison.Ordinal);
         Assert.Equal(1, queries);
     }
 

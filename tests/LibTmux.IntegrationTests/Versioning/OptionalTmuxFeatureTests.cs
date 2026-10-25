@@ -131,9 +131,9 @@ public sealed class OptionalTmuxFeatureTests
         string before = (await raw.ExecuteAsync(
             ["display-message", "-p", "-t", raw.SessionName, "#{window_layout}"], token)).StandardOutputText;
 
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(
             () => server.ExecuteCommandAsync(["select-layout", "-t", raw.SessionName, "not-a-layout"], token));
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(
             () => server.ExecuteCommandAsync(["select-layout", "-t", raw.SessionName, "0000,80x24,0,0,0"], token));
 
         // The daemon is alive and the window keeps its layout.
@@ -182,9 +182,9 @@ public sealed class OptionalTmuxFeatureTests
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
 
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(
             () => server.ExecuteCommandAsync(["new-window", "-d", "-n", "a:b", "-t", raw.SessionName], token));
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(
             () => server.ExecuteCommandAsync(["rename-window", "-t", raw.SessionName, "a.b"], token));
 
         Assert.Single((await raw.ExecuteAsync(["list-windows", "-t", raw.SessionName], token)).StandardOutputLines);

@@ -305,6 +305,14 @@ It prints the version tmux reported and whether it is 3.4 or newer.
 
 A tmux below 3.3a is refused the same way.
 
+A command that a release mishandles or rejects raises
+[`TmuxUnsupportedOnReleaseException`][api-tmuxunsupportedonreleaseexception].
+`TmuxVersionTooLowException` derives from it, so catch the base type to cover
+every release refusal.
+
+It carries `ActualVersion`, `SafeReleases`, the `CapabilityId` from
+[`capabilities.json`](capabilities.json) and the refused `Command`.
+
 Upgrade tmux and restart the tmux server, or use LibTmux 0.0.0-alpha.21, the
 last release that supports tmux 3.2a. Every measured difference between 3.3a and
 3.8 is [recorded with the test that proves it](docs/parity/version-deltas.json).
@@ -656,6 +664,7 @@ discourse:
 [api-testing-tmuxtestfactory]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-tmuxtestfactory/
 [api-tmuxhooks]: https://libtmux.org/en/csharp/latest/reference/libtmux-tmuxhooks/
 [api-tmuxoptions]: https://libtmux.org/en/csharp/latest/reference/libtmux-tmuxoptions/
+[api-tmuxunsupportedonreleaseexception]: https://libtmux.org/en/csharp/latest/reference/libtmux-tmuxunsupportedonreleaseexception/
 [api-tmuxversiontoolowexception]: https://libtmux.org/en/csharp/latest/reference/libtmux-tmuxversiontoolowexception/
 [api-tmuxwait-untilasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-tmuxwait-untilasync/
 [api-unsafetmuxfilter]: https://libtmux.org/en/csharp/latest/reference/libtmux-unsafetmuxfilter/

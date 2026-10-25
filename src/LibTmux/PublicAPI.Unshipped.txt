@@ -1579,8 +1579,13 @@ LibTmux.TmuxVersion.Raw.get -> string!
 LibTmux.TmuxVersion.Suffix.get -> string?
 LibTmux.TmuxVersion.TmuxVersion() -> void
 LibTmux.TmuxVersion.TmuxVersion(string! raw) -> void
+LibTmux.TmuxUnsupportedOnReleaseException
+LibTmux.TmuxUnsupportedOnReleaseException.ActualVersion.get -> LibTmux.TmuxVersion
+LibTmux.TmuxUnsupportedOnReleaseException.CapabilityId.get -> string?
+LibTmux.TmuxUnsupportedOnReleaseException.Command.get -> string?
+LibTmux.TmuxUnsupportedOnReleaseException.SafeReleases.get -> string!
+LibTmux.TmuxUnsupportedOnReleaseException.TmuxUnsupportedOnReleaseException(string! message, LibTmux.TmuxVersion actualVersion, string! safeReleases, string? capabilityId = null, string? command = null, System.Exception? innerException = null) -> void
 LibTmux.TmuxVersionTooLowException
-LibTmux.TmuxVersionTooLowException.ActualVersion.get -> LibTmux.TmuxVersion
 LibTmux.TmuxVersionTooLowException.RequiredVersion.get -> LibTmux.TmuxVersion
 LibTmux.TmuxVersionTooLowException.TmuxVersionTooLowException(string! message, LibTmux.TmuxVersion requiredVersion, LibTmux.TmuxVersion actualVersion, System.Exception? innerException = null) -> void
 LibTmux.TmuxWait

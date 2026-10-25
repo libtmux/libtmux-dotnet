@@ -114,7 +114,8 @@ each documented on the function that raises it:
 | `TmuxSessionExistsException` | `Server.newSession` names a session that already exists. |
 | `TmuxObjectNotFoundException` | A mirror's anchor session is gone; `Mirror.views` raises the failure that ended the mirror. |
 | `TmuxOptionException` | tmux rejected an option name or value, or reported one the key cannot read. |
-| `TmuxVersionTooLowException` | A raw client filter ran on tmux older than 3.4. |
+| `TmuxUnsupportedOnReleaseException` | A command is unsafe or unavailable on the running tmux release; catch this to cover every release refusal. |
+| `TmuxVersionTooLowException` | A raw client filter ran on tmux older than 3.4. It derives from `TmuxUnsupportedOnReleaseException`. |
 | `IncompleteSnapshotException` | A captured relation or field was read that the capture did not include. |
 | `UnsupportedQueryExpressionException` | A `Filter.matches` pattern is invalid or longer than 1024 characters. |
 | `ArgumentException` | An argument is wrong before anything reaches tmux, such as an empty wait text or a negative retry count or delay. |

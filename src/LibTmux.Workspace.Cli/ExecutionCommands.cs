@@ -71,7 +71,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     context.CancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (ArgumentException error)
+        catch (Exception error) when (error is ArgumentException or TmuxUnsupportedOnReleaseException)
         {
             throw new CliException("invalid_workspace", error.Message);
         }
@@ -365,8 +365,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     ["reused"] = session is not null && !created,
                     ["status"] = "failed",
                 });
-                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "interrupted" : failure is StaleServerGenerationException ? "stale_server" : failure is TmuxVersionTooLowException ? "tmux_unsupported" : failure is IOException or UnauthorizedAccessException ? "output_failed" : "tmux_failed";
-                string reason = failure is TmuxVersionTooLowException ? CliRunner.RefusalMessage(failure) : failure.Message;
+                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "interrupted" : failure is StaleServerGenerationException ? "stale_server" : CliRunner.IsReleaseRefusal(failure) ? "tmux_unsupported" : failure is IOException or UnauthorizedAccessException ? "output_failed" : "tmux_failed";
+                string reason = CliRunner.IsReleaseRefusal(failure) ? CliRunner.RefusalMessage(failure) : failure.Message;
                 string message = appended.Count == 0 ? reason : $"{reason} Windows kept in {sessionName}: {string.Join(", ", appended)}.";
                 errors.Add(new JsonObject { ["code"] = code, ["message"] = message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["changed"] = changed, ["removed"] = removed });
                 if (cleanupError is not null) errors[^1]!["cleanup_error"] = cleanupError;

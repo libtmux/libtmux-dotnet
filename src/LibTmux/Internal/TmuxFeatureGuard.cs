@@ -22,8 +22,10 @@ internal static class TmuxFeatureGuard
     /// <summary>Throws when a command is unsafe on the checked release.</summary>
     /// <param name="version">The daemon's version.</param>
     /// <param name="commands">The commands about to be sent.</param>
-    /// <exception cref="TmuxVersionTooLowException">A release too old for the command's form.</exception>
-    /// <exception cref="ArgumentException">A name or layout the release would mishandle.</exception>
+    /// <exception cref="TmuxUnsupportedOnReleaseException">
+    /// A command, name or layout the release would mishandle or lacks;
+    /// <see cref="TmuxVersionTooLowException" /> where a plain release floor decides it.
+    /// </exception>
     internal static void Check(TmuxVersion version, IReadOnlyList<IReadOnlyList<string>> commands)
     {
         foreach (IReadOnlyList<string> line in commands)
@@ -41,7 +43,7 @@ internal static class TmuxFeatureGuard
         {
             case "break-pane":
                 CheckBreakPane(version, command);
-                CheckNames(version, Values(command, "Fnst", "n"));
+                CheckNames(version, "break-pane", Values(command, "Fnst", "n"));
                 break;
             case "delete-buffer":
                 if (Values(command, "b", "b").Any())
@@ -67,14 +69,16 @@ internal static class TmuxFeatureGuard
                 CheckLayout(version, command);
                 break;
             case "new-window":
-                CheckNames(version, Values(command, "cenFt", "n"));
+                CheckNames(version, "new-window", Values(command, "cenFt", "n"));
                 break;
             case "new-session":
-                CheckNames(version, Values(command, "cefFnstxy", "ns"));
+                CheckNames(version, "new-session", Values(command, "cefFnstxy", "ns"));
                 break;
             case "rename-window":
+                CheckNames(version, "rename-window", Positionals(command, "t").Take(1));
+                break;
             case "rename-session":
-                CheckNames(version, Positionals(command, "t").Take(1));
+                CheckNames(version, "rename-session", Positionals(command, "t").Take(1));
                 break;
             case "refresh-client":
                 CheckClipboardQuery(version, command);
@@ -126,7 +130,9 @@ internal static class TmuxFeatureGuard
                 + $"buffer when the named one is missing; detected {version}.",
                 required,
                 version,
-                TmuxDispatchState.NotDispatched);
+                TmuxDispatchState.NotDispatched,
+                capability,
+                capability == "buffer-rename" ? "set-buffer" : "delete-buffer");
         }
     }
 
@@ -139,7 +145,10 @@ internal static class TmuxFeatureGuard
                 $"break-pane without -n crashes tmux {version}; name the window or use tmux {claim.Until}.",
                 claim.Until,
                 version,
-                TmuxDispatchState.NotDispatched);
+                TmuxDispatchState.NotDispatched,
+                claim.Id,
+                "break-pane",
+                claim.SafeReleases);
         }
     }
 
@@ -155,7 +164,10 @@ internal static class TmuxFeatureGuard
                 + $"show it in a pane instead of returning it; detected {version}.",
                 claim.Until,
                 version,
-                TmuxDispatchState.NotDispatched);
+                TmuxDispatchState.NotDispatched,
+                claim.Id,
+                "run-shell",
+                claim.SafeReleases);
         }
     }
 
@@ -168,7 +180,9 @@ internal static class TmuxFeatureGuard
                 $"refresh-client -l can end tmux {version} when a client leaves before its terminal answers; it needs tmux {required}.",
                 required,
                 version,
-                TmuxDispatchState.NotDispatched);
+                TmuxDispatchState.NotDispatched,
+                "clipboard-query",
+                "refresh-client");
         }
     }
 
@@ -181,13 +195,17 @@ internal static class TmuxFeatureGuard
                 $"split-window -p is broken on tmux {version}; give the size with -l and a percent sign.",
                 claim.Until,
                 version,
-                TmuxDispatchState.NotDispatched);
+                TmuxDispatchState.NotDispatched,
+                claim.Id,
+                "split-window",
+                claim.SafeReleases);
         }
     }
 
     private static void CheckLayout(TmuxVersion version, IReadOnlyList<string> command)
     {
-        if (version >= Capabilities.SinceOf("layout-without-checksum") || Values(command, "t", "nopE").Any())
+        CapabilityClaim claim = Capabilities.All.Single(static item => item.Id == "layout-without-checksum");
+        if (version >= claim.SinceVersion || Values(command, "t", "nopE").Any())
         {
             return;
         }
@@ -199,15 +217,21 @@ internal static class TmuxFeatureGuard
 
         if (!TmuxLayoutSyntax.IsValidCandidate(layout, 1))
         {
-            throw new ArgumentException(
+            throw new TmuxUnsupportedOnReleaseException(
                 $"tmux {version} crashes on the layout '{layout}'; it is not a checksummed "
-                + "layout or an unambiguous preset name.");
+                + "layout or an unambiguous preset name.",
+                version,
+                claim.SafeReleases,
+                claim.Id,
+                "select-layout",
+                TmuxDispatchState.NotDispatched);
         }
     }
 
-    private static void CheckNames(TmuxVersion version, IEnumerable<string> names)
+    private static void CheckNames(TmuxVersion version, string command, IEnumerable<string> names)
     {
-        if (!Capabilities.Workaround("name-separators-rejected").Affects(version))
+        WorkaroundClaim claim = Capabilities.Workaround("name-separators-rejected");
+        if (!claim.Affects(version))
         {
             return;
         }
@@ -216,8 +240,13 @@ internal static class TmuxFeatureGuard
         {
             if (name.AsSpan().IndexOfAny(':', '.') >= 0)
             {
-                throw new ArgumentException(
-                    $"tmux {version} rejects ':' and '.' in the name '{name}'.");
+                throw new TmuxUnsupportedOnReleaseException(
+                    $"tmux {version} rejects ':' and '.' in the name '{name}'.",
+                    version,
+                    claim.SafeReleases,
+                    claim.Id,
+                    command,
+                    TmuxDispatchState.NotDispatched);
             }
         }
     }

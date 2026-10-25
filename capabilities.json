@@ -64,12 +64,12 @@
     {
       "id": "layout-without-checksum",
       "name": "Layouts without a checksum",
-      "summary": "Apply a layout string; earlier releases crash on one that is not a checksummed layout or a preset name. The error is that of the typed call; below 3.4 a raw select-layout command raises ArgumentException.",
+      "summary": "Apply a layout string; earlier releases crash on one that is not a checksummed layout or a preset name. A malformed layout through the typed call is refused on every release as TmuxWindowException; this claim is the raw select-layout command below 3.4.",
       "since": "3.4",
       "handling": "refuse",
-      "error": "LibTmux.TmuxWindowException",
+      "error": "LibTmux.TmuxUnsupportedOnReleaseException",
       "apis": [
-        "LibTmux.Window.SelectLayoutAsync"
+        "LibTmux.Server.ExecuteCommandAsync"
       ],
       "commands": [
         {
@@ -83,7 +83,7 @@
       "summary": "Apply main-horizontal-mirrored and main-vertical-mirrored.",
       "since": "3.5",
       "handling": "refuse",
-      "error": "LibTmux.TmuxWindowException",
+      "error": "LibTmux.TmuxUnsupportedOnReleaseException",
       "apis": [
         "LibTmux.Window.SelectLayoutAsync"
       ],
@@ -99,7 +99,7 @@
       "summary": "Apply a layout in the JSON form that tmux reports.",
       "since": "3.8-rc2",
       "handling": "refuse",
-      "error": "LibTmux.TmuxWindowException",
+      "error": "LibTmux.TmuxUnsupportedOnReleaseException",
       "apis": [
         "LibTmux.Window.SelectLayoutAsync"
       ],
@@ -193,6 +193,7 @@
         "3.4"
       ],
       "handling": "refuse",
+      "error": "LibTmux.TmuxVersionTooLowException",
       "apis": [
         "LibTmux.Server.RunShellAsync"
       ],
@@ -210,6 +211,7 @@
         "3.7"
       ],
       "handling": "refuse",
+      "error": "LibTmux.TmuxVersionTooLowException",
       "apis": [
         "LibTmux.Pane.BreakAsync"
       ],
@@ -230,6 +232,7 @@
         "3.4"
       ],
       "handling": "refuse",
+      "error": "LibTmux.TmuxVersionTooLowException",
       "apis": [
         "LibTmux.Server.ExecuteCommandAsync"
       ],
@@ -245,16 +248,16 @@
     {
       "id": "name-separators-rejected",
       "name": "Colon and period in names",
-      "summary": "tmux 3.7 rejects \u0027:\u0027 and \u0027.\u0027 in session and window names; the library refuses them.",
+      "summary": "tmux 3.7 rejects \u0027:\u0027 and \u0027.\u0027 in session and window names; the library refuses them. The typed session calls refuse them on every release as ArgumentException.",
       "releases": [
         "3.7"
       ],
       "handling": "refuse",
+      "error": "LibTmux.TmuxUnsupportedOnReleaseException",
       "apis": [
-        "LibTmux.NewSessionRequest.Name",
         "LibTmux.NewWindowRequest.Name",
-        "LibTmux.Session.RenameAsync",
-        "LibTmux.Window.RenameAsync"
+        "LibTmux.Window.RenameAsync",
+        "LibTmux.Server.ExecuteCommandAsync"
       ],
       "commands": [
         {

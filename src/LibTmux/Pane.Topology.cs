@@ -40,7 +40,9 @@ public sealed partial class Pane
             throw new TmuxVersionTooLowException(
                 "new-pane requires tmux 3.7.",
                 TmuxVersion.Parse("3.7"),
-                owner.Version ?? default);
+                owner.Version ?? default,
+                TmuxDispatchState.NotDispatched,
+                command: "new-pane");
         }
 
         List<string> arguments =
