@@ -12,12 +12,20 @@ version.
 
 ### Added
 
-- `TmuxUnsupportedOnReleaseException` is the one type for a command or feature
-  that is unsafe or unavailable on the running tmux release. It carries
-  `ActualVersion`, `SafeReleases`, `CapabilityId` and `Command`.
-  `TmuxVersionTooLowException` derives from it. (#110)
-
 ### Fixed
+
+### Changed
+
+### Removed
+
+### Development
+
+## [0.0.0-alpha.24] — 2026-10-25
+
+This release is breaking for code that caught `ArgumentException` or
+`TmuxWindowException` when tmux refused a command: they now raise
+`TmuxUnsupportedOnReleaseException`. The migration note is the first entry
+under Changed.
 
 ### Changed
 
@@ -62,9 +70,12 @@ version.
 - The README says that `tmux-workspace` and `libtmux-mcp` read `LIBTMUX_TMUX`
   and the `LibTmux` package does not. (#109)
 
-### Removed
+### Added
 
-### Development
+- `TmuxUnsupportedOnReleaseException` is the one type for a command or feature
+  that is unsafe or unavailable on the running tmux release. It carries
+  `ActualVersion`, `SafeReleases`, `CapabilityId` and `Command`.
+  `TmuxVersionTooLowException` derives from it. (#110)
 
 ## [0.0.0-alpha.23] — 2026-10-24
 
@@ -1859,7 +1870,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.23...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.24...HEAD
+[0.0.0-alpha.24]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.24
 [0.0.0-alpha.23]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.23
 [0.0.0-alpha.22]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.22
 [0.0.0-alpha.21]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.21
