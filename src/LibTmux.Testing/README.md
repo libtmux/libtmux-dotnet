@@ -28,7 +28,7 @@ failure, so a test that throws does not leave a server behind.
 Add it to your test project:
 
 ```console
-$ dotnet package add LibTmux.Testing --prerelease
+$ dotnet package add LibTmux.Testing
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.

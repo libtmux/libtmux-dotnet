@@ -31,7 +31,7 @@ Install the .NET tool, then register it with Claude Code. The client starts the
 server itself and speaks to it over standard input and output:
 
 ```console
-$ dotnet tool install --global LibTmux.Mcp --prerelease
+$ dotnet tool install --global LibTmux.Mcp
 ```
 
 ```console
@@ -65,7 +65,7 @@ install step:
   "mcpServers": {
     "tmux": {
       "command": "dnx",
-      "args": ["LibTmux.Mcp", "--prerelease", "--yes"]
+      "args": ["LibTmux.Mcp", "--yes"]
     }
   }
 }

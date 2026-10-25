@@ -31,7 +31,7 @@ sessions in tmuxp YAML and want typed results.
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux.Workspace --prerelease
+$ dotnet package add LibTmux.Workspace
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.

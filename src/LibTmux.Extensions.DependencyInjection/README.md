@@ -24,7 +24,7 @@ composes its services can take a tmux server handle as a dependency.
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux.Extensions.DependencyInjection --prerelease
+$ dotnet package add LibTmux.Extensions.DependencyInjection
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.

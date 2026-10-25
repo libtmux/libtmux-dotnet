@@ -30,7 +30,7 @@ core objects.
 Add it to an F# project:
 
 ```console
-$ dotnet package add LibTmux.FSharp --prerelease
+$ dotnet package add LibTmux.FSharp
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
@@ -114,7 +114,7 @@ with tmux on `PATH`:
 ```console
 $ dotnet new console --language F# --framework net8.0 --output tmux-demo && \
     cd tmux-demo && \
-    dotnet package add LibTmux.FSharp --prerelease && \
+    dotnet package add LibTmux.FSharp && \
     dotnet run
 ```
 

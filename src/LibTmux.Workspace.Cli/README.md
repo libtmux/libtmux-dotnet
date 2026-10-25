@@ -35,7 +35,7 @@ sessions back into them, and answers in JSON when a script asks.
 Install the tool, then save a workspace as `~/.tmuxp/myproject.yaml`:
 
 ```console
-$ dotnet tool install --global LibTmux.Workspace.Cli --prerelease
+$ dotnet tool install --global LibTmux.Workspace.Cli
 ```
 
 The file describes one session:
@@ -66,14 +66,13 @@ session you are in.
 
 ## Install
 
-The quick start installs the tool globally. `--prerelease` is required while
-every release is an alpha. If your shell cannot find `tmux-workspace`
-afterwards, add `$HOME/.dotnet/tools` to `PATH`.
+The quick start installs the tool globally. If your shell cannot find
+`tmux-workspace` afterwards, add `$HOME/.dotnet/tools` to `PATH`.
 
 Try it without installing anything, using the .NET 10 SDK:
 
 ```console
-$ dnx LibTmux.Workspace.Cli --prerelease --yes -- --help
+$ dnx LibTmux.Workspace.Cli --yes -- --help
 ```
 
 Pin it for everyone who clones a repository. Run this at the repository root,
@@ -81,13 +80,13 @@ commit the `dotnet-tools.json` it writes, and run the tool as
 `dotnet tmux-workspace`:
 
 ```console
-$ dotnet tool install LibTmux.Workspace.Cli --prerelease
+$ dotnet tool install LibTmux.Workspace.Cli
 ```
 
 Upgrade a global install:
 
 ```console
-$ dotnet tool update --global LibTmux.Workspace.Cli --prerelease
+$ dotnet tool update --global LibTmux.Workspace.Cli
 ```
 
 ## Commands

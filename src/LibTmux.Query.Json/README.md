@@ -31,7 +31,7 @@ that records what it queried.
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux.Query.Json --prerelease
+$ dotnet package add LibTmux.Query.Json
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.

@@ -11,7 +11,7 @@ building `LibTmux.Mcp` from source and calling `McpServerComposition.Add`,
 and that composition may change between releases.
 
 ```console
-$ dotnet tool install --global LibTmux.Mcp --prerelease
+$ dotnet tool install --global LibTmux.Mcp
 ```
 
 [Point a client at it](../../src/LibTmux.Mcp/README.md#point-a-client-at-it)
