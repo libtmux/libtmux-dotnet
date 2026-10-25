@@ -188,9 +188,11 @@ the `layout-without-checksum` entry in [`capabilities.json`](../../capabilities.
 names that typed call only; its `apis` list says which call it describes.
 
 `refresh-client -l` does not end the server from 3.4 unless the attached client
-leaves before its terminal answers; on 3.3a it ends the server when the attached
-client's terminal does not answer. A raw command sends the flag from 3.6a. `Server.RefreshClientAsync`
-sends it only from 3.7, so the typed call is safe on every release.
+leaves before its terminal answers; on 3.3a it ends the server at once when the
+attached client's terminal has the `Ms` clipboard capability, such as
+`xterm-256color` or `tmux-256color`. A raw command sends the flag from 3.6a.
+`Server.RefreshClientAsync` sends it only from 3.7, so the typed call is safe on
+every release.
 
 ### What is checked
 
@@ -214,9 +216,10 @@ affect, and what happens there when one is nested:
 - `select-layout` with a string tmux cannot parse: tmux 3.3 and 3.3a. The
   server exits. 3.4 answers "invalid layout".
 - `refresh-client -l`: below 3.6a, and only with an attached client. The server
-  exits on 3.3a when the client's terminal does not answer, and on 3.4 to 3.6
-  when the client leaves before it answers
-  ([3.6a `CHANGES`](https://github.com/tmux/tmux/blob/3.6a/CHANGES#L21), commit
+  exits at once on 3.3a when the client's terminal has the `Ms` clipboard
+  capability, such as `xterm-256color` or `tmux-256color`, and on 3.4 to 3.6
+  when the client leaves before its terminal answers ([3.6a
+  `CHANGES`](https://github.com/tmux/tmux/blob/3.6a/CHANGES#L21), commit
   `0af04295f`).
 - `delete-buffer -b NAME`, and `set-buffer -b NAME -n`: below 3.4. No crash; a
   name that does not exist acts on the newest buffer instead, so the wrong
