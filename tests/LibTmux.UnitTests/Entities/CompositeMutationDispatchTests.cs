@@ -304,9 +304,9 @@ public sealed class CompositeMutationDispatchTests
 
         // tmux's window_layout format became JSON at 3.8-rc2, so a JSON-shaped
         // layout is only trusted from a server that could have produced one.
-        // Below that it is refused the same way an unknown name is: before
-        // it ever reaches tmux.
-        await Assert.ThrowsAsync<TmuxWindowException>(() =>
+        // Below that it is refused as a release the library cannot trust,
+        // before it ever reaches tmux.
+        await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(() =>
             window.SelectLayoutAsync(
                 new SelectLayoutRequest { Layout = "{\"V\":2,\"L\":{\"t\":\"p\"}}" },
                 TestContext.Current.CancellationToken));

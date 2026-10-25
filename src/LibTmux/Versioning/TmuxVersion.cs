@@ -150,7 +150,8 @@ public readonly partial record struct TmuxVersion : IComparable<TmuxVersion>
             throw new TmuxVersionTooLowException(
                 $"tmux {minimum} or newer is required; detected {this}.",
                 minimum,
-                this);
+                this,
+                TmuxDispatchState.NotDispatched);
         }
     }
 

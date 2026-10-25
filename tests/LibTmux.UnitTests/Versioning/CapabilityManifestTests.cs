@@ -54,6 +54,7 @@ public sealed class CapabilityManifestTests
             static claim =>
             {
                 Assert.True(claim.Handling != ClaimHandling.Fallback, claim.Id);
+                Assert.True(claim.Handling != ClaimHandling.Refuse || claim.Error is not null, claim.Id);
                 Assert.True((claim.FixedIn is null) != (claim.Behaviour is null), claim.Id);
             });
     }
@@ -82,6 +83,7 @@ public sealed class CapabilityManifestTests
             .. Capabilities.All.SelectMany(static claim => claim.Apis),
             .. Capabilities.All.Select(static claim => claim.Error).OfType<string>(),
             .. Capabilities.Workarounds.SelectMany(static claim => claim.Apis),
+            .. Capabilities.Workarounds.Select(static claim => claim.Error).OfType<string>(),
         ];
 
         Assert.All(names, name => Assert.True(Resolves(library, name), name));
@@ -144,6 +146,11 @@ public sealed class CapabilityManifestTests
                 writer.WriteString("summary", claim.Summary);
                 WriteStrings(writer, "releases", claim.Releases);
                 writer.WriteString("handling", Handling(claim.Handling));
+                if (claim.Error is not null)
+                {
+                    writer.WriteString("error", claim.Error);
+                }
+
                 WriteStrings(writer, "apis", claim.Apis);
                 WriteCommands(writer, claim.Commands);
                 writer.WriteEndObject();

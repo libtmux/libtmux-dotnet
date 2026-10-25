@@ -38,7 +38,7 @@ public sealed partial class WorkspaceBuilder
                     journal[current] = new(action, WorkspaceActionState.Completed, CompletedDispatch(action), result);
                 }
                 catch (LibTmuxException failure) when (action.Kind == WorkspaceActionKind.SelectLayout
-                    && failure is TmuxWindowException or TmuxCommandException)
+                    && failure is TmuxWindowException or TmuxUnsupportedOnReleaseException or TmuxCommandException)
                 {
                     state.Unsupported.Add($"Layout for '{action.Target}' was rejected: {failure.Message}");
                     journal[current] = new(action, WorkspaceActionState.Rejected, failure.Dispatch, failure: failure);

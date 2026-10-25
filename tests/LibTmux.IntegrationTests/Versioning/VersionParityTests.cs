@@ -136,8 +136,13 @@ public sealed class VersionParityTests
             TmuxCommandResult before = await server.ExecuteCommandAsync(
                 ["display-message", "-p", "-t", window.Id.ToString(), "#{pid}:#{start_time}\t#{window_layout}"], token);
 
-            TmuxWindowException failure = await Assert.ThrowsAsync<TmuxWindowException>(() =>
-                window.SelectLayoutAsync(new SelectLayoutRequest { Layout = rejected }, token));
+            // Where mirrored presets exist "main-h" is an ambiguous prefix: bad
+            // input. Where they do not, the mirrored name is a release refusal.
+            LibTmuxException failure = mirrors == TmuxCapabilityState.Supported
+                ? await Assert.ThrowsAsync<TmuxWindowException>(() =>
+                    window.SelectLayoutAsync(new SelectLayoutRequest { Layout = rejected }, token))
+                : await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(() =>
+                    window.SelectLayoutAsync(new SelectLayoutRequest { Layout = rejected }, token));
 
             Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
             TmuxCommandResult after = await server.ExecuteCommandAsync(

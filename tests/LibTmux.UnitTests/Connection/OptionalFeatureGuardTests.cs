@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using LibTmux.Internal;
+using LibTmux.Support;
 
 namespace LibTmux.UnitTests.Connection;
 
@@ -114,10 +115,16 @@ public sealed class OptionalFeatureGuardTests
             return;
         }
 
-        Assert.Throws<ArgumentException>(
+        TmuxUnsupportedOnReleaseException refusal = Assert.Throws<TmuxUnsupportedOnReleaseException>(
             () => TmuxFeatureGuard.Check(V33a, [["select-layout", "-t", "@1", layout]]));
-        Assert.Throws<ArgumentException>(
+        Assert.Throws<TmuxUnsupportedOnReleaseException>(
             () => TmuxFeatureGuard.Check(V33a, [["selectl", layout]]));
+
+        Assert.Equal("layout-without-checksum", refusal.CapabilityId);
+        Assert.Equal("select-layout", refusal.Command);
+        Assert.Equal("3.4 or newer", refusal.SafeReleases);
+        Assert.Equal(V33a, refusal.ActualVersion);
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
     }
 
     [Theory]
@@ -149,9 +156,36 @@ public sealed class OptionalFeatureGuardTests
     [InlineData(new object[] { new[] { "rename-window", "-t", "@1", "a.b" } })]
     [InlineData(new object[] { new[] { "rename-session", "-t", "$1", "a:b" } })]
     [InlineData(new object[] { new[] { "break-pane", "-n", "a:b", "-s", "%1" } })]
-    public void A_name_with_a_colon_or_dot_is_refused_on_exact_3_7(string[] command) =>
-        Assert.Throws<ArgumentException>(
+    public void A_name_with_a_colon_or_dot_is_refused_on_exact_3_7(string[] command)
+    {
+        TmuxUnsupportedOnReleaseException refusal = Assert.Throws<TmuxUnsupportedOnReleaseException>(
             () => TmuxFeatureGuard.Check(TmuxVersion.Parse("3.7"), [command]));
+
+        Assert.Equal("name-separators-rejected", refusal.CapabilityId);
+        Assert.Equal("earlier than 3.7, or 3.7a or newer", refusal.SafeReleases);
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+    }
+
+    [Fact]
+    public void A_floor_refusal_is_both_the_old_type_and_the_common_one()
+    {
+        TmuxUnsupportedOnReleaseException refusal = Assert.Throws<TmuxVersionTooLowException>(
+            () => TmuxFeatureGuard.Check(V33a, [["delete-buffer", "-b", "named"]]));
+
+        Assert.Equal("buffer-delete-named", refusal.CapabilityId);
+        Assert.Equal("delete-buffer", refusal.Command);
+        Assert.Equal("3.4 or newer", refusal.SafeReleases);
+    }
+
+    [Fact]
+    public void A_break_pane_refusal_names_the_releases_that_are_safe()
+    {
+        TmuxUnsupportedOnReleaseException refusal = Assert.Throws<TmuxVersionTooLowException>(
+            () => TmuxFeatureGuard.Check(TmuxVersion.Parse("3.7"), [["break-pane", "-s", "%1"]]));
+
+        Assert.Equal("break-pane-misnames-windows", refusal.CapabilityId);
+        Assert.Equal("earlier than 3.7, or 3.7a or newer", refusal.SafeReleases);
+    }
 
     [Theory]
     [InlineData("3.7a")]
@@ -180,7 +214,7 @@ public sealed class OptionalFeatureGuardTests
             () => daemon.Server.ExecuteCommandAsync(
                 ["delete-buffer", "-b", "named"],
                 TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(
             () => daemon.Server.ExecuteCommandAsync(
                 ["select-layout", "bogus"],
                 TestContext.Current.CancellationToken));
@@ -227,6 +261,9 @@ public sealed class OptionalFeatureGuardTests
         Assert.Equal(TmuxVersion.Parse("3.7"), refusal.RequiredVersion);
         Assert.Equal(TmuxVersion.Parse("3.6b"), refusal.ActualVersion);
         Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.Equal("control-mode", refusal.CapabilityId);
+        Assert.Equal("attach-session", refusal.Command);
+        Assert.Equal("3.7 or newer", refusal.SafeReleases);
         Assert.Equal(before, daemon.Requests.Count);
     }
 
@@ -238,11 +275,14 @@ public sealed class OptionalFeatureGuardTests
         var daemon = new MinimumTmuxVersionTests.FakeDaemon(version);
         Server connected = await daemon.Server.ConnectAsync(TestContext.Current.CancellationToken);
 
-        await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+        TmuxVersionTooLowException refusal = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
             () => connected.RunShellAsync(
                 new RunShellRequest("echo hi"),
                 TestContext.Current.CancellationToken));
 
+        Assert.Equal("run-shell-output-in-copy-mode", refusal.CapabilityId);
+        Assert.Equal("run-shell", refusal.Command);
+        Assert.Equal("3.5 or newer", refusal.SafeReleases);
         Assert.DoesNotContain(daemon.Commands, command => command[0] == "run-shell");
         _ = await connected.RunShellAsync(
             new RunShellRequest("echo hi") { Background = true },
@@ -302,6 +342,63 @@ public sealed class OptionalFeatureGuardTests
         { "rename-session", "3.7", "a:b" },
         { "refresh-client", "3.3a", "-l" },
     };
+
+    // The refusal ids the forms above exercise; the rest are refused by a typed call.
+    private static readonly Dictionary<string, string> RefusedIds = new()
+    {
+        ["break-pane"] = "break-pane-misnames-windows",
+        ["delete-buffer"] = "buffer-delete-named",
+        ["set-buffer"] = "buffer-rename",
+        ["run-shell"] = "run-shell-output-in-copy-mode",
+        ["split-window"] = "split-window-percent-size",
+        ["select-layout"] = "layout-without-checksum",
+        ["new-window"] = "name-separators-rejected",
+        ["new-session"] = "name-separators-rejected",
+        ["rename-window"] = "name-separators-rejected",
+        ["rename-session"] = "name-separators-rejected",
+        ["refresh-client"] = "clipboard-query",
+    };
+
+    // No raw form reaches these; each has its own test of the thrown type and id.
+    private static readonly string[] TypedOnlyIds = ["control-mode", "layout-mirrored-main", "layout-json"];
+
+    [Theory]
+    [MemberData(nameof(RefusedForms))]
+    public void A_raw_refusal_throws_the_type_and_data_its_manifest_entry_names(
+        string command,
+        string release,
+        string joined)
+    {
+        string id = RefusedIds[command];
+        string? error = Capabilities.All.Where(claim => claim.Id == id).Select(claim => claim.Error)
+            .Concat(Capabilities.Workarounds.Where(claim => claim.Id == id).Select(claim => claim.Error))
+            .Single();
+        string safe = Capabilities.All.Where(claim => claim.Id == id).Select(claim => claim.SafeReleases)
+            .Concat(Capabilities.Workarounds.Where(claim => claim.Id == id).Select(claim => claim.SafeReleases))
+            .Single();
+
+        TmuxUnsupportedOnReleaseException refusal = Assert.ThrowsAny<TmuxUnsupportedOnReleaseException>(
+            () => TmuxFeatureGuard.Check(TmuxVersion.Parse(release), [[command, .. joined.Split('|')]]));
+
+        Assert.Equal(error, refusal.GetType().FullName);
+        Assert.Equal(id, refusal.CapabilityId);
+        Assert.Equal(command, refusal.Command);
+        Assert.Equal(safe, refusal.SafeReleases);
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+    }
+
+    [Fact]
+    public void Every_refusing_claim_is_exercised_by_a_raw_form_or_a_typed_test()
+    {
+        string[] refusing =
+        [
+            .. Capabilities.All.Where(claim => claim.Handling == ClaimHandling.Refuse).Select(claim => claim.Id),
+            .. Capabilities.Workarounds.Where(claim => claim.Handling == ClaimHandling.Refuse).Select(claim => claim.Id),
+        ];
+
+        Assert.All(refusing, id => Assert.True(
+            RefusedIds.ContainsValue(id) || TypedOnlyIds.Contains(id), id));
+    }
 
     [Theory]
     [MemberData(nameof(RefusedForms))]
@@ -366,6 +463,9 @@ public sealed class OptionalFeatureGuardTests
 
         Assert.Equal(TmuxVersion.Parse("3.6a"), refusal.RequiredVersion);
         Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.Equal("clipboard-query", refusal.CapabilityId);
+        Assert.Equal("refresh-client", refusal.Command);
+        Assert.Equal("3.6a or newer", refusal.SafeReleases);
     }
 
     [Theory]

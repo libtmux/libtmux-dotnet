@@ -63,7 +63,7 @@ public sealed partial class WorkspaceBuilder
                         .Select(window => (window.Layout!, Math.Max(1, window.Panes.Count))),
                     cancellationToken).ConfigureAwait(false);
             }
-            catch (ArgumentException error)
+            catch (Exception error) when (error is ArgumentException or TmuxUnsupportedOnReleaseException)
             {
                 for (int index = 0; index < workspace.Windows.Count; index++)
                 {
@@ -75,7 +75,7 @@ public sealed partial class WorkspaceBuilder
                         await layoutServer.ValidateLayoutsAsync(
                             [(window.Layout, Math.Max(1, window.Panes.Count))], cancellationToken).ConfigureAwait(false);
                     }
-                    catch (ArgumentException specific)
+                    catch (Exception specific) when (specific is ArgumentException or TmuxUnsupportedOnReleaseException)
                     {
                         string path = $"windows[{index}].layout";
                         throw workspace.At(path, $"Workspace path '{path}': {specific.Message}", specific);

@@ -71,7 +71,9 @@ public sealed partial class Server
                 + $"earlier servers can crash while it attaches; detected {daemon}.",
                 TmuxControlTransport.FirstSafeVersion,
                 daemon,
-                TmuxDispatchState.NotDispatched);
+                TmuxDispatchState.NotDispatched,
+                "control-mode",
+                "attach-session");
         }
 
         ControlModeSession session = ControlModeSession.Start(

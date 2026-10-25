@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using LibTmux.Internal;
+using LibTmux.Support;
 
 namespace LibTmux;
 
@@ -36,7 +37,8 @@ public sealed partial class Server
     /// version when no daemon is running. This never starts or changes a server.
     /// </remarks>
     /// <exception cref="ArgumentNullException">The layouts collection is null.</exception>
-    /// <exception cref="ArgumentException">A layout or pane count is invalid.</exception>
+    /// <exception cref="ArgumentException">A layout or pane count is invalid on every release.</exception>
+    /// <exception cref="TmuxUnsupportedOnReleaseException">A layout is a form the daemon's release lacks.</exception>
     /// <exception cref="InvalidDataException">The daemon version reply is malformed.</exception>
     /// <exception cref="OperationCanceledException">Validation was canceled.</exception>
     /// <exception cref="StaleServerGenerationException">The daemon changed.</exception>
@@ -102,10 +104,26 @@ public sealed partial class Server
                 : mirrors == TmuxCapabilityState.Unknown
                     || !TmuxLayoutSyntax.IsNamedLayout(layout, mirrors == TmuxCapabilityState.Supported))
             {
-                throw Invalid(
-                    TmuxLayoutSyntax.InvalidLayoutMessage(
-                        layout, mirrors == TmuxCapabilityState.Supported, $"tmux {version.Raw}"),
-                    layouts.First(item => item.Layout == layout).Window);
+                WindowId? named = layouts.First(item => item.Layout == layout).Window;
+                string message = TmuxLayoutSyntax.InvalidLayoutMessage(
+                    layout, mirrors == TmuxCapabilityState.Supported, $"tmux {version.Raw}");
+
+                // Where mirrored presets exist, a name that still fails is
+                // ambiguous on every release that has them: bad input.
+                if (!layout.StartsWith('{') && mirrors == TmuxCapabilityState.Supported)
+                {
+                    throw Invalid(message, named);
+                }
+
+                CapabilityClaim claim = Capabilities.All.Single(
+                    item => item.Id == (layout.StartsWith('{') ? "layout-json" : "layout-mirrored-main"));
+                throw new TmuxUnsupportedOnReleaseException(
+                    named is WindowId id ? $"Window {id}: {message}" : message,
+                    version,
+                    claim.SafeReleases,
+                    claim.Id,
+                    "select-layout",
+                    TmuxDispatchState.NotDispatched);
             }
         }
     }

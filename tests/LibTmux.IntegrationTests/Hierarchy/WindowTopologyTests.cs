@@ -515,7 +515,7 @@ public sealed class WindowTopologyTests
         }
         else
         {
-            await Assert.ThrowsAsync<TmuxWindowException>(() => mirrored);
+            await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(() => mirrored);
         }
 
         // tmux 3.8 made #{window_layout} JSON for a non-control client, and

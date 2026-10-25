@@ -95,7 +95,10 @@ public sealed partial class Server
                     + $"show it in a pane instead of returning it; detected {running}.",
                     captured.Until,
                     running,
-                    TmuxDispatchState.NotDispatched);
+                    TmuxDispatchState.NotDispatched,
+                    captured.Id,
+                    "run-shell",
+                    captured.SafeReleases);
             }
         }
 

@@ -44,6 +44,21 @@ public sealed class ToolResponseBudgetFilterTests
     // generic "may have acted" warning would contradict it, because nothing
     // was sent.
     [Fact]
+    public void A_release_refusal_says_nothing_was_sent_and_names_no_floor()
+    {
+        TmuxUnsupportedOnReleaseException refusal = new(
+            "break-pane without -n crashes tmux 3.7.",
+            TmuxVersion.Parse("3.7"),
+            "earlier than 3.7, or 3.7a or newer");
+
+        string advice = ToolFailureFilter.AdviceFor(refusal);
+
+        Assert.Contains("crashes tmux 3.7", advice, StringComparison.Ordinal);
+        Assert.Contains("Nothing was sent to tmux.", advice, StringComparison.Ordinal);
+        Assert.DoesNotContain("tmux://capabilities", advice, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_version_refusal_gives_an_actionable_result_and_says_nothing_was_sent()
     {
         TmuxVersionTooLowException refusal = Assert.Throws<TmuxVersionTooLowException>(
