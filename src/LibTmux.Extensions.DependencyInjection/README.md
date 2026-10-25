@@ -24,11 +24,12 @@ composes its services can take a tmux server handle as a dependency.
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux.Extensions.DependencyInjection --prerelease
+$ dotnet package add LibTmux.Extensions.DependencyInjection
 ```
 
-> **Alpha.** The public API will change between prereleases without notice, so
-> pin an exact version.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 ## Quick start
 
@@ -123,8 +124,9 @@ is taken from it, so tmux commands are logged with everything else.
 
 ## Support and status
 
-- **Alpha.** Any release may change or remove exported identifiers. Pin an exact
-  version.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux) and the
   `Microsoft.Extensions.DependencyInjection` abstractions.
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.

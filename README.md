@@ -30,12 +30,12 @@ buffers, typed and asynchronous, for tmux **3.3a and newer** on **net8.0** and
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux --prerelease
+$ dotnet package add LibTmux
 ```
 
-> **Alpha.** Releases carry an `-alpha` prerelease tag, and any release may
-> change or remove exported identifiers without a deprecation period. Pin an
-> exact version. It is not recommended for production.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 **Contents** — [Quick start](#quick-start) · [Is this for you?](#is-this-for-you) ·
 [Packages](#packages) · [Find things](#find-sessions-windows-and-panes) ·
@@ -74,7 +74,7 @@ tmux 3.3a or newer on `PATH` and a server running:
 ```console
 $ dotnet new console --output demo && \
     cd demo && \
-    dotnet package add LibTmux --prerelease
+    dotnet package add LibTmux
 ```
 
 It prints nothing. The new session `build` has a window `tests`, and its pane
@@ -114,7 +114,7 @@ and examples that run against live tmux in CI.
 | **[LibTmux.Mcp](src/LibTmux.Mcp/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Mcp?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Mcp) | You want an assistant driving tmux. Installs as a tool. |
 
 ```console
-$ dotnet package add LibTmux --prerelease
+$ dotnet package add LibTmux
 ```
 
 The core takes exactly one dependency. Anything that would add another ships as
@@ -399,7 +399,7 @@ command produced.
 [tmuxp](https://github.com/tmux-python/tmuxp) workspace files:
 
 ```console
-$ dotnet tool install --global LibTmux.Workspace.Cli --prerelease
+$ dotnet tool install --global LibTmux.Workspace.Cli
 ```
 
 With a workspace file saved as `~/.tmuxp/myproject.yaml`, such as the
@@ -423,7 +423,7 @@ $ tmux-workspace ls
 server. It is a separate package that installs as a .NET tool:
 
 ```console
-$ dotnet tool install --global LibTmux.Mcp --prerelease
+$ dotnet tool install --global LibTmux.Mcp
 ```
 
 ```json
@@ -580,7 +580,9 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 
 ## Support and status
 
-- **Alpha.** Any release may change or remove exported identifiers.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **tmux.** Stable 3.3a and newer. CI builds 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b,
   3.7c, and 3.8. Development, release-candidate, and `next-*` versions have
   unknown capability state.

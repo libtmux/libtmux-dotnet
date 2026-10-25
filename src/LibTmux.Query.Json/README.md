@@ -31,11 +31,12 @@ that records what it queried.
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux.Query.Json --prerelease
+$ dotnet package add LibTmux.Query.Json
 ```
 
-> **Alpha.** The public API will change between prereleases without notice, so
-> pin an exact version.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 **Contents** — [Quick start](#quick-start) ·
 [Send a filter](#send-a-filter-to-another-process) ·
@@ -172,7 +173,7 @@ It prints the document's schema version.
 - A field outside the catalog throws
   [`UnsupportedQueryExpressionException`][api-unsupportedqueryexpressionexception]
   at translation.
-- The catalog grows between alpha releases, and a reader rejects a name it does
+- The catalog grows between releases, and a reader rejects a name it does
   not know, so pin the same LibTmux version on both sides of a process boundary.
 
 ### Pane size
@@ -253,8 +254,9 @@ without fetching data.
 
 ## Support and status
 
-- **Alpha.** Any release may change or remove exported identifiers. Pin an exact
-  version.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux) and
   `System.Text.Json`.
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.

@@ -35,11 +35,12 @@ and agents that share a terminal.
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux --prerelease
+$ dotnet package add LibTmux
 ```
 
-> **Alpha.** The public API will change between prereleases without notice, so
-> pin an exact version.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 **Contents** — [Quick start](#quick-start) ·
 [Find things](#find-sessions-windows-and-panes) ·
@@ -77,7 +78,7 @@ tmux 3.3a or newer on `PATH` and a server running:
 ```console
 $ dotnet new console --output demo && \
     cd demo && \
-    dotnet package add LibTmux --prerelease
+    dotnet package add LibTmux
 ```
 
 It prints nothing. The new session `build` has a window `tests`, and its pane
@@ -557,7 +558,7 @@ socket, killed deterministically. It is a separate package, so test scaffolding
 stays out of an application's output:
 
 ```console
-$ dotnet package add LibTmux.Testing --prerelease
+$ dotnet package add LibTmux.Testing
 ```
 
 Disposing the scope kills the server, so a test that fails part way through
@@ -680,8 +681,9 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 
 ## Support and status
 
-- **Alpha.** Any release may change or remove exported identifiers. Pin an exact
-  version.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **tmux.** 3.3a to 3.8, proven against every supported version on each commit.
 - **.NET.** net8.0 and net10.0, with one dependency:
   `Microsoft.Extensions.Logging.Abstractions`.

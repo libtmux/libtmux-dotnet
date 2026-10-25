@@ -21,7 +21,7 @@ and are not defects. Below 9 means something is wrong rather than absent.
 
 | Criterion | Evidence |
 |---|---|
-| Install to working code in one screen | `dotnet package add LibTmux --prerelease`, then a seven-line example, both in the first 30 lines of the README |
+| Install to working code in one screen | `dotnet package add LibTmux`, then a seven-line example, both in the first 30 lines of the README |
 | One way to do a thing | Async only, no synchronous twins; every tmux-reaching call takes a `CancellationToken` |
 | The mode you are in is visible at the call | `session.CreateWindowAsync`, `server.EnterControlModeAsync`, `server.Chain()` — never a flag in options |
 | Failure says what to do next | `TmuxDispatchState` on every exception; the retry decision is an exception filter, [proved in tests](../tests/LibTmux.UnitTests/Exceptions/DispatchStateTests.cs) |

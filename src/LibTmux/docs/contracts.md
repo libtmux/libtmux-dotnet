@@ -136,8 +136,8 @@ I/O.
   `session.ActiveWindow.Value.Name` when the capture is known. Use
   `IsCaptured` when walking a partial hierarchy.
 - Replace `RaiseIfDeadAsync` with `ThrowIfDeadAsync`. The failure behavior is
-  unchanged; the old name is removed with no deprecation period, as in any alpha
-  release.
+  unchanged; the old name is removed with no deprecation period, as in any release
+  while the API is unsettled.
 - Catch listing failures where earlier releases returned an empty inventory.
   A stopped daemon is an error; an empty successful read remains an empty list.
 

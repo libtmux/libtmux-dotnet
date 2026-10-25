@@ -91,7 +91,7 @@ sentence of anything a reader must act on; leave the rest plain.
 
 Entries land under `## [Unreleased]`. The maintainer assigns the version when
 cutting a release, so nothing here predicts one. A released heading is
-`## [0.0.0-alpha.N] — YYYY-MM-DD`, and every bracketed heading gets a matching
+`## [0.1.N] — YYYY-MM-DD`, and every bracketed heading gets a matching
 reference-link definition at the bottom of the file — a bracket with no
 definition renders as literal text.
 

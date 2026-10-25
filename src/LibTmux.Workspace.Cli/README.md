@@ -26,15 +26,16 @@ sessions back into them, and answers in JSON when a script asks.
 </div>
 <!-- /libtmux-logo -->
 
-> **Alpha.** Every release carries an `-alpha` tag, and options may change
-> between releases. Pin a version where a script depends on it.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 ## Quick start
 
 Install the tool, then save a workspace as `~/.tmuxp/myproject.yaml`:
 
 ```console
-$ dotnet tool install --global LibTmux.Workspace.Cli --prerelease
+$ dotnet tool install --global LibTmux.Workspace.Cli
 ```
 
 The file describes one session:
@@ -65,14 +66,13 @@ session you are in.
 
 ## Install
 
-The quick start installs the tool globally. `--prerelease` is required while
-every release is an alpha. If your shell cannot find `tmux-workspace`
-afterwards, add `$HOME/.dotnet/tools` to `PATH`.
+The quick start installs the tool globally. If your shell cannot find
+`tmux-workspace` afterwards, add `$HOME/.dotnet/tools` to `PATH`.
 
 Try it without installing anything, using the .NET 10 SDK:
 
 ```console
-$ dnx LibTmux.Workspace.Cli --prerelease --yes -- --help
+$ dnx LibTmux.Workspace.Cli --yes -- --help
 ```
 
 Pin it for everyone who clones a repository. Run this at the repository root,
@@ -80,13 +80,13 @@ commit the `dotnet-tools.json` it writes, and run the tool as
 `dotnet tmux-workspace`:
 
 ```console
-$ dotnet tool install LibTmux.Workspace.Cli --prerelease
+$ dotnet tool install LibTmux.Workspace.Cli
 ```
 
 Upgrade a global install:
 
 ```console
-$ dotnet tool update --global LibTmux.Workspace.Cli --prerelease
+$ dotnet tool update --global LibTmux.Workspace.Cli
 ```
 
 ## Commands
@@ -313,8 +313,9 @@ implemented and where it differs.
 
 ## Support and status
 
-- **Alpha.** Options may change between releases. Pin a version where a script
-  depends on it.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **tmux.** 3.3a and newer.
 - **.NET.** A .NET 8 or .NET 10 runtime.
 - **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on

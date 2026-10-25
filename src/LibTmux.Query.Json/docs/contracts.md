@@ -58,12 +58,12 @@ A field outside the catalog throws
 at translation rather than falling back. The document is interpreted locally or
 by an application that deliberately accepts this wire contract.
 
-The catalog grows between alpha releases. A reader rejects a name it does not
+The catalog grows between releases. A reader rejects a name it does not
 know, so pin the same LibTmux version on both sides of a process boundary.
 
 The catalog also includes pane state, exit status, history, terminal and start
 command, and window alerts, flags and layout. Read the descriptors for the
-installed package rather than assuming another alpha has the same fields.
+installed package rather than assuming another release has the same fields.
 Pin the same LibTmux version on both sides of a process boundary.
 
 [api-incompletesnapshotexception]: https://libtmux.org/en/csharp/latest/reference/libtmux-incompletesnapshotexception/

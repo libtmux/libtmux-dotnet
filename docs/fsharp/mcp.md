@@ -8,10 +8,10 @@ waits, command runs and pane reads are the ones `Pane.waitForText`,
 an F# program runs it beside itself on a shared socket, as below. Adding its
 tools to an MCP server of your own is not offered as a package: it takes
 building `LibTmux.Mcp` from source and calling `McpServerComposition.Add`,
-and that composition may change between prereleases.
+and that composition may change between releases.
 
 ```console
-$ dotnet tool install --global LibTmux.Mcp --prerelease
+$ dotnet tool install --global LibTmux.Mcp
 ```
 
 [Point a client at it](../../src/LibTmux.Mcp/README.md#point-a-client-at-it)

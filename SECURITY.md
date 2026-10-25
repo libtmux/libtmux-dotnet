@@ -37,10 +37,9 @@ is where its interesting failure modes live:
 
 ## Supported versions
 
-While this is alpha, only the latest prerelease is supported. Fixes go into the
-next version rather than into patches of earlier ones. A published version is
-never deleted, so an old alpha stays installable and stays unfixed — pin
-deliberately.
+Only the latest `0.1.N` release is supported. Fixes go into the next version
+rather than into patches of earlier ones. A published version is never deleted,
+so an old release stays installable and stays unfixed — pin deliberately.
 
 ## Verifying a package
 
