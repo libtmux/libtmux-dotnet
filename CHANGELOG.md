@@ -19,6 +19,14 @@ version.
 - The optional-features table names the exception each refusal raises, and the
   matrix states which nested commands the check does not read, the releases
   they affect and what happens there. A test pins the limit. (#108)
+- The README and the version matrix link `capabilities.json`. (#109)
+- The version matrix cites pinned tmux sources for the nested-command limit.
+  (#109)
+- The version matrix says which layout path raises which exception, and the
+  `layout-without-checksum` summary in `capabilities.json` says the same.
+  (#109)
+- The README says that `tmux-workspace` and `libtmux-mcp` read `LIBTMUX_TMUX`
+  and the `LibTmux` package does not. (#109)
 
 ### Removed
 

@@ -153,7 +153,7 @@ internal static class Capabilities
         new(
             "layout-without-checksum",
             "Layouts without a checksum",
-            "Apply a layout string; earlier releases crash on one that is not a checksummed layout or a preset name.",
+            "Apply a layout string; earlier releases crash on one that is not a checksummed layout or a preset name. The error is that of the typed call; below 3.4 a raw select-layout command raises ArgumentException.",
             "3.4",
             ClaimHandling.Refuse,
             "LibTmux.TmuxWindowException",

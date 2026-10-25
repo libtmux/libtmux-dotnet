@@ -64,7 +64,7 @@
     {
       "id": "layout-without-checksum",
       "name": "Layouts without a checksum",
-      "summary": "Apply a layout string; earlier releases crash on one that is not a checksummed layout or a preset name.",
+      "summary": "Apply a layout string; earlier releases crash on one that is not a checksummed layout or a preset name. The error is that of the typed call; below 3.4 a raw select-layout command raises ArgumentException.",
       "since": "3.4",
       "handling": "refuse",
       "error": "LibTmux.TmuxWindowException",

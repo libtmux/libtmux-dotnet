@@ -309,6 +309,11 @@ Upgrade tmux and restart the tmux server, or use LibTmux 0.0.0-alpha.21, the
 last release that supports tmux 3.2a. Every measured difference between 3.3a and
 3.8 is [recorded with the test that proves it](docs/parity/version-deltas.json).
 
+The library starts the `tmux` found on `PATH`. To use another binary, set
+[`ServerConnectionOptions.TmuxBinaryPath`][api-serverconnectionoptions]. The
+`LibTmux` package never reads `LIBTMUX_TMUX`; within the shipped packages, only
+`tmux-workspace` and `libtmux-mcp` do.
+
 ## Choose how to reach tmux
 
 Which one a call uses is visible where the call starts, and all three work on
@@ -417,9 +422,9 @@ $ dotnet tool install --global LibTmux.Mcp --prerelease
 { "mcpServers": { "tmux": { "command": "libtmux-mcp" } } }
 ```
 
-- It exposes 45 tools from the `inspect` (18), `manage` (14), `execute` (9), and
-  `teardown` (4) sets, plus the static `tmux://capabilities` resource.
-- Existing and user-configured sockets omit teardown by default and expose 41.
+- It exposes its tools in `inspect`, `manage`, `execute`, and `teardown` sets,
+  plus the static `tmux://capabilities` resource.
+- Existing and user-configured sockets omit teardown by default.
 - [The full reference](docs/mcp/tools.md) is generated from the server itself.
 - Pin one socket for the process with `LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH`.
 
@@ -594,6 +599,9 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 - [tmux MCP tools](docs/mcp/tools.md) — every tool, capability row and resource,
   generated
 - [API policy](docs/public-api.md) — ownership and parity rules
+- [Optional tmux features](capabilities.json) — each feature the library gates,
+  the release it starts at, and the error it raises; summarized in
+  [Choosing a mode](docs/modes/matrix.md)
 - [Version deltas](docs/parity/version-deltas.json) — every tmux difference,
   with the test that proves it
 - [Decisions](docs/decisions/) — why the transport, object model and query

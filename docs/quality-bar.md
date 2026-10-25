@@ -9,7 +9,8 @@ behind each score. Every row names something a reader can check, and the check
 is a command or a file rather than a claim.
 
 This snapshot was assessed at `acd37f8` plus the documentation work that
-followed it, against tmux 3.2a–3.7b on net8.0 and net10.0.
+followed it, against tmux 3.2a–3.7b on net8.0 and net10.0. The library now
+supports tmux 3.3a and newer.
 
 Scoring: **10** means nothing known is missing. **9.5** means the gaps are named
 and are not defects. Below 9 means something is wrong rather than absent.
