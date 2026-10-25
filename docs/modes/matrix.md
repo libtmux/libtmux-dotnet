@@ -165,6 +165,14 @@ A few operations are unsafe on releases above it, so each carries its own
 requirement and is refused on the daemon that would be harmed, before it has
 an effect. Nothing below raises the minimum for anything else.
 
+Every refusal in the table raises `TmuxUnsupportedOnReleaseException` or a
+subclass, so one `catch` covers them. It carries `ActualVersion`,
+`SafeReleases`, the `CapabilityId` from [`capabilities.json`](../../capabilities.json)
+and the refused `Command`. `TmuxVersionTooLowException` derives from it and is
+raised where a release floor decides, so a `catch` of the old type keeps
+working for those rows. A name or a layout that is invalid on every release
+is not a release refusal; it stays `ArgumentException` or `TmuxWindowException`.
+
 | Operation | Requires | Below it |
 | --- | --- | --- |
 | `Server.EnterControlModeAsync` and `ServerMirror` | tmux 3.7 | `TmuxVersionTooLowException` |
@@ -173,19 +181,22 @@ an effect. Nothing below raises the minimum for anything else.
 | `delete-buffer -b` and `set-buffer -n`, and work that cleans up a buffer by name: `Pane.RunAsync` and the MCP `paste_text` | tmux 3.4 | Refused before the buffer is staged, with `TmuxVersionTooLowException`; `paste-buffer -d -b` stays available |
 | A foreground `run-shell` that names no pane, from `Server.RunShellAsync` or a raw command | tmux 3.5 | Refused with `TmuxVersionTooLowException`; a background, `-C` or pane-targeted request is sent |
 | `break-pane` without a window name | tmux 3.7a or any release but 3.7 | Refused on exactly 3.7 with `TmuxVersionTooLowException`; the typed `Pane.BreakAsync` names the window itself |
-| Window and session names with `:` or `.` | any release but 3.7 | Refused on exactly 3.7 with `ArgumentException` |
+| Window and session names with `:` or `.` | any release but 3.7 | Refused on exactly 3.7 with `TmuxUnsupportedOnReleaseException`; `NewSessionRequest`, `Session.RenameAsync` and the other typed session calls refuse them on every release with `ArgumentException` |
 | `split-window -p` | any release but 3.4 | Refused on 3.4 with `TmuxVersionTooLowException`; typed splits send `-l N%` |
-| `select-layout` with an unchecked layout | tmux 3.4 | Refused unless it is a checksummed layout or a unique preset name, with `ArgumentException` for a raw command below 3.4 and `TmuxWindowException` for the typed calls ([below](#refusal-types-for-layouts-and-the-clipboard-query)) |
+| `select-layout` with an unchecked layout | tmux 3.4 | Refused unless it is a checksummed layout or a unique preset name, with `TmuxUnsupportedOnReleaseException` for a raw command below 3.4 and `TmuxWindowException` for a malformed layout through the typed calls ([below](#refusal-types-for-layouts-and-the-clipboard-query)) |
 | `refresh-client -l`, the clipboard query | tmux 3.6a | Refused below 3.6a with `TmuxVersionTooLowException` ([below](#refusal-types-for-layouts-and-the-clipboard-query)) |
 
 ### Refusal types for layouts and the clipboard query
 
 Below 3.4, a raw `select-layout` command, sent through
-`Server.ExecuteCommandAsync` or `Chain()`, raises `ArgumentException`; from 3.4
-tmux answers it. `Window.SelectLayoutAsync`, and a batched layout that names a
-window, raise `TmuxWindowException` on every release. The `error` field of
-the `layout-without-checksum` entry in [`capabilities.json`](../../capabilities.json)
-names that typed call only; its `apis` list says which call it describes.
+`Server.ExecuteCommandAsync` or `Chain()`, raises
+`TmuxUnsupportedOnReleaseException`; from 3.4 tmux answers it.
+`Window.SelectLayoutAsync`, and a batched layout that names a window, raise
+`TmuxWindowException` for a layout that is malformed, unknown or an ambiguous
+preset prefix on the releases that have the mirrored presets, and
+`TmuxUnsupportedOnReleaseException` for a mirrored preset or the JSON form on
+a release that lacks it. The `error` field of each layout entry in
+[`capabilities.json`](../../capabilities.json) names the release refusal.
 
 `refresh-client -l` does not end the server from 3.4 unless the attached client
 leaves before its terminal answers; on 3.3a it ends the server at once when the
