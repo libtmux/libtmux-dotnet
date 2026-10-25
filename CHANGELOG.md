@@ -12,10 +12,44 @@ version.
 
 ### Added
 
+- `TmuxUnsupportedOnReleaseException` is the one type for a command or feature
+  that is unsafe or unavailable on the running tmux release. It carries
+  `ActualVersion`, `SafeReleases`, `CapabilityId` and `Command`.
+  `TmuxVersionTooLowException` derives from it. (#110)
+
 ### Fixed
 
 ### Changed
 
+- **Release refusals now raise `TmuxUnsupportedOnReleaseException` instead of
+  `ArgumentException` or `TmuxWindowException`.** (#110)
+  - Previous behaviour: a raw `select-layout` that crashes tmux below 3.4 and a
+    name with `:` or `.` on exactly 3.7 raised `ArgumentException`; a mirrored
+    or JSON layout on a release without it raised `TmuxWindowException` from
+    `Window.SelectLayoutAsync` and a batch, and `ArgumentException` from
+    `Server.ValidateLayoutsAsync`.
+  - New behaviour: all raise `TmuxUnsupportedOnReleaseException`, which has no
+    `WindowId`; a batched refusal names the window in its message. A layout
+    that is malformed or unknown, or an ambiguous preset prefix such as `main-h`
+    on tmux 3.5 and newer, still raises `TmuxWindowException` or
+    `ArgumentException`, and so do session names with `:` or `.` through the
+    typed calls.
+  - Reason: the same kind of refusal raised three types, and the manifest named
+    one that held for the typed call only.
+  - Recommended action: catch `TmuxUnsupportedOnReleaseException` where you
+    caught `ArgumentException` or `TmuxWindowException` for these cases. Code
+    that catches `TmuxVersionTooLowException` needs no change.
+- `capabilities.json` names the exception of each workaround, and the `apis`
+  of `layout-without-checksum` and `name-separators-rejected` list only the
+  calls that raise the entry's `error`. (#110)
+- `ActualVersion` is declared on `TmuxUnsupportedOnReleaseException` and
+  inherited by `TmuxVersionTooLowException`. The `new-pane` refusals, the
+  client-filter refusal and `TmuxVersion.EnsureAtLeast` now report
+  `Dispatch == NotDispatched`, and the first two set `Command`. (#110)
+- `tmux-workspace` reports the JSON `code` `tmux_unsupported` for any
+  `TmuxUnsupportedOnReleaseException`, not only `TmuxVersionTooLowException`.
+  The MCP failure advice for the base type says "Nothing was sent to tmux."
+  and does not point to `tmux://capabilities`. (#110)
 - The optional-features table names the exception each refusal raises, and the
   matrix states which nested commands the check does not read, the releases
   they affect and what happens there. A test pins the limit. (#108)
