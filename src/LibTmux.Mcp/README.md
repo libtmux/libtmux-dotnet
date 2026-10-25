@@ -21,8 +21,9 @@ built on [LibTmux](https://www.nuget.org/packages/LibTmux).
 </div>
 <!-- /libtmux-logo -->
 
-> **Alpha.** The tool surface will change between prereleases without notice, so
-> pin an exact version.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 ## Quick start
 
@@ -285,8 +286,9 @@ $ { printf '%s\n' \
 
 ## Support and status
 
-- **Alpha.** The tool surface will change between prereleases. Pin an exact
-  version.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **tmux.** Whatever `tmux` resolves to on the path, or the binary
   `LIBTMUX_TMUX` names. The supported range is 3.3a to 3.8, proven from source
   on every commit.

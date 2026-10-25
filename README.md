@@ -33,9 +33,9 @@ Add it to your project:
 $ dotnet package add LibTmux --prerelease
 ```
 
-> **Alpha.** Releases carry an `-alpha` prerelease tag, and any release may
-> change or remove exported identifiers without a deprecation period. Pin an
-> exact version. It is not recommended for production.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 **Contents** — [Quick start](#quick-start) · [Is this for you?](#is-this-for-you) ·
 [Packages](#packages) · [Find things](#find-sessions-windows-and-panes) ·
@@ -580,7 +580,9 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 
 ## Support and status
 
-- **Alpha.** Any release may change or remove exported identifiers.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **tmux.** Stable 3.3a and newer. CI builds 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b,
   3.7c, and 3.8. Development, release-candidate, and `next-*` versions have
   unknown capability state.

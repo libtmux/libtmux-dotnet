@@ -4,9 +4,10 @@ nuget.org shows release notes per version, so somebody landing on the newest
 package never learns what an older one fixed. This is the whole history in one
 place.
 
-Versions follow [Semantic Versioning](https://semver.org). During alpha the
-public API can change in any release with no deprecation period — pin an exact
-version.
+Releases are numbered `0.1.N`, and each release increments `N`. The API is not
+settled: any release may change or remove exported identifiers, and this
+changelog marks each break. Pin an exact version to avoid one. Releases before
+0.1.0 were alphas numbered `0.0.0-alpha.N`.
 
 ## [Unreleased]
 
@@ -15,6 +16,10 @@ version.
 ### Fixed
 
 ### Changed
+
+- **Releases are numbered `0.1.N` and carry no `-alpha` tag.** The next release
+  is `0.1.0`, then `0.1.1` and so on, each incrementing `N`. The API is still
+  not settled, so pin an exact version; the changelog marks each break.
 
 ### Removed
 

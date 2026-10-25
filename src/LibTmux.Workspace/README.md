@@ -34,8 +34,9 @@ Add it to your project:
 $ dotnet package add LibTmux.Workspace --prerelease
 ```
 
-> **Alpha.** The public API will change between prereleases without notice, so
-> pin an exact version.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 **Contents** — [Quick start](#quick-start) ·
 [Plan and apply](#plan-and-apply-a-workspace) ·
@@ -342,8 +343,9 @@ Both build the same topology for the subset they share.
 
 ## Support and status
 
-- **Alpha.** Any release may change or remove exported identifiers. Pin an exact
-  version.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux), and
   [YamlDotNet](https://github.com/aaubry/YamlDotNet) for the files.
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.

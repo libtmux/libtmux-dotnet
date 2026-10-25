@@ -33,7 +33,9 @@ Add it to an F# project:
 $ dotnet package add LibTmux.FSharp --prerelease
 ```
 
-> **Alpha.** Pin a package version and upgrade deliberately.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 **Contents** — [Quick start](#quick-start) ·
 [Find](#find-sessions-windows-and-panes) ·
@@ -384,7 +386,9 @@ gives the order. Code running inside a tmux pane can use
 
 ## Support and status
 
-- **Alpha.** Pin a package version and upgrade deliberately.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **.NET.** .NET 8 and .NET 10, using the matching `LibTmux` package version.
 - **F#.** FSharp.Core 8.0.100 or newer, so an application keeps its SDK's
   FSharp.Core. CI builds and runs a consumer with the .NET 8 SDK's F# compiler.

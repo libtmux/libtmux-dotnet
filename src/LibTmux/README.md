@@ -38,8 +38,9 @@ Add it to your project:
 $ dotnet package add LibTmux --prerelease
 ```
 
-> **Alpha.** The public API will change between prereleases without notice, so
-> pin an exact version.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 **Contents** — [Quick start](#quick-start) ·
 [Find things](#find-sessions-windows-and-panes) ·
@@ -680,8 +681,9 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 
 ## Support and status
 
-- **Alpha.** Any release may change or remove exported identifiers. Pin an exact
-  version.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **tmux.** 3.3a to 3.8, proven against every supported version on each commit.
 - **.NET.** net8.0 and net10.0, with one dependency:
   `Microsoft.Extensions.Logging.Abstractions`.

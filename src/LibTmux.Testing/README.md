@@ -31,8 +31,9 @@ Add it to your test project:
 $ dotnet package add LibTmux.Testing --prerelease
 ```
 
-> **Alpha.** The public API will change between prereleases without notice, so
-> pin an exact version.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 ## Quick start
 
@@ -86,8 +87,9 @@ ordinary client work.
 
 ## Support and status
 
-- **Alpha.** Any release may change or remove exported identifiers. Pin an exact
-  version.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux).
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
 - **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on

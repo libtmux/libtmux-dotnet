@@ -26,8 +26,9 @@ sessions back into them, and answers in JSON when a script asks.
 </div>
 <!-- /libtmux-logo -->
 
-> **Alpha.** Every release carries an `-alpha` tag, and options may change
-> between releases. Pin a version where a script depends on it.
+> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+> The API is not settled: any release may change or remove exported identifiers,
+> and the changelog marks each break. Pin an exact version to avoid one.
 
 ## Quick start
 
@@ -313,8 +314,9 @@ implemented and where it differs.
 
 ## Support and status
 
-- **Alpha.** Options may change between releases. Pin a version where a script
-  depends on it.
+- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
+  The API is not settled: any release may change or remove exported identifiers,
+  and the changelog marks each break. Pin an exact version to avoid one.
 - **tmux.** 3.3a and newer.
 - **.NET.** A .NET 8 or .NET 10 runtime.
 - **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on
