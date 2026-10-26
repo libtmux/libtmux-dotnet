@@ -13,7 +13,7 @@
 
 # LibTmux.Mcp
 
-[![NuGet](https://img.shields.io/nuget/v/LibTmux.Mcp)](https://www.nuget.org/packages/LibTmux.Mcp)
+[![LibTmux.Mcp](https://img.shields.io/nuget/v/LibTmux.Mcp?label=LibTmux.Mcp)](https://www.nuget.org/packages/LibTmux.Mcp)
 [![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/csharp/latest/mcp/)
 
 A server that gives an assistant hands on tmux over the

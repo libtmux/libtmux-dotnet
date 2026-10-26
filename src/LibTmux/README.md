@@ -13,7 +13,7 @@
 
 # LibTmux
 
-[![NuGet](https://img.shields.io/nuget/v/LibTmux)](https://www.nuget.org/packages/LibTmux)
+[![LibTmux](https://img.shields.io/nuget/v/LibTmux?label=LibTmux)](https://www.nuget.org/packages/LibTmux)
 [![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/csharp/)
 
 A typed, async-first [tmux](https://github.com/tmux/tmux) client for .NET:

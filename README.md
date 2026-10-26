@@ -9,12 +9,10 @@
 
 # libtmux for C#
 
-[![LibTmux](https://img.shields.io/nuget/vpre/LibTmux?logo=nuget&label=LibTmux)](https://www.nuget.org/packages/LibTmux)
+[![dotnet](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
+[![LibTmux](https://img.shields.io/nuget/v/LibTmux?label=LibTmux)](https://www.nuget.org/packages/LibTmux)
 [![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/csharp/)
-[![downloads](https://img.shields.io/nuget/dt/LibTmux?logo=nuget&label=downloads)](https://www.nuget.org/packages/LibTmux)
-[![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
-[![tmux 3.3a – 3.8](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
-[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
 
 Drive [tmux](https://github.com/tmux/tmux) from C#: [servers][api-server],
 [sessions][api-session], [windows][api-window], [panes][api-pane],
@@ -105,14 +103,14 @@ and examples that run against live tmux in CI.
 
 | Package | | Add it when |
 |---|---|---|
-| **[LibTmux](src/LibTmux/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux) | Always. The client. One dependency: logging abstractions. |
-| **[LibTmux.FSharp](src/LibTmux.FSharp/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.FSharp?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.FSharp) | You write F# and want curried task helpers, ordinary `seq` queries, and typed portable filters over the core values. |
-| **[LibTmux.Query.Json](src/LibTmux.Query.Json/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Query.Json?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Query.Json) | You send queries between processes and want them as JSON. |
-| **[LibTmux.Testing](src/LibTmux.Testing/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Testing?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Testing) | You test code that drives tmux and want scopes that clean up after themselves. |
-| **[LibTmux.Extensions.DependencyInjection](src/LibTmux.Extensions.DependencyInjection/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Extensions.DependencyInjection?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection) | Your application composes services and wants a tmux handle injected. |
-| **[LibTmux.Workspace](src/LibTmux.Workspace/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Workspace?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Workspace) | You have [tmuxp](https://github.com/tmux-python/tmuxp) YAML to build from. |
-| **[LibTmux.Workspace.Cli](src/LibTmux.Workspace.Cli/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Workspace.Cli?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Workspace.Cli) | You want `tmux-workspace`: load, freeze and convert tmuxp files from a shell. Installs as a tool. |
-| **[LibTmux.Mcp](src/LibTmux.Mcp/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Mcp?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Mcp) | You want an assistant driving tmux. Installs as a tool. |
+| **[LibTmux](src/LibTmux/README.md)** | [![LibTmux](https://img.shields.io/nuget/v/LibTmux?label=LibTmux)](https://www.nuget.org/packages/LibTmux) | Always. The client. One dependency: logging abstractions. |
+| **[LibTmux.FSharp](src/LibTmux.FSharp/README.md)** | [![LibTmux.FSharp](https://img.shields.io/nuget/v/LibTmux.FSharp?label=LibTmux.FSharp)](https://www.nuget.org/packages/LibTmux.FSharp) | You write F# and want curried task helpers, ordinary `seq` queries, and typed portable filters over the core values. |
+| **[LibTmux.Query.Json](src/LibTmux.Query.Json/README.md)** | [![LibTmux.Query.Json](https://img.shields.io/nuget/v/LibTmux.Query.Json?label=LibTmux.Query.Json)](https://www.nuget.org/packages/LibTmux.Query.Json) | You send queries between processes and want them as JSON. |
+| **[LibTmux.Testing](src/LibTmux.Testing/README.md)** | [![LibTmux.Testing](https://img.shields.io/nuget/v/LibTmux.Testing?label=LibTmux.Testing)](https://www.nuget.org/packages/LibTmux.Testing) | You test code that drives tmux and want scopes that clean up after themselves. |
+| **[LibTmux.Extensions.DependencyInjection](src/LibTmux.Extensions.DependencyInjection/README.md)** | [![LibTmux.Extensions.DependencyInjection](https://img.shields.io/nuget/v/LibTmux.Extensions.DependencyInjection?label=LibTmux.Extensions.DependencyInjection)](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection) | Your application composes services and wants a tmux handle injected. |
+| **[LibTmux.Workspace](src/LibTmux.Workspace/README.md)** | [![LibTmux.Workspace](https://img.shields.io/nuget/v/LibTmux.Workspace?label=LibTmux.Workspace)](https://www.nuget.org/packages/LibTmux.Workspace) | You have [tmuxp](https://github.com/tmux-python/tmuxp) YAML to build from. |
+| **[LibTmux.Workspace.Cli](src/LibTmux.Workspace.Cli/README.md)** | [![LibTmux.Workspace.Cli](https://img.shields.io/nuget/v/LibTmux.Workspace.Cli?label=LibTmux.Workspace.Cli)](https://www.nuget.org/packages/LibTmux.Workspace.Cli) | You want `tmux-workspace`: load, freeze and convert tmuxp files from a shell. Installs as a tool. |
+| **[LibTmux.Mcp](src/LibTmux.Mcp/README.md)** | [![LibTmux.Mcp](https://img.shields.io/nuget/v/LibTmux.Mcp?label=LibTmux.Mcp)](https://www.nuget.org/packages/LibTmux.Mcp) | You want an assistant driving tmux. Installs as a tool. |
 
 ```console
 $ dotnet package add LibTmux
