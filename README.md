@@ -10,6 +10,7 @@
 # libtmux for C#
 
 [![LibTmux](https://img.shields.io/nuget/vpre/LibTmux?logo=nuget&label=LibTmux)](https://www.nuget.org/packages/LibTmux)
+[![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/csharp/)
 [![downloads](https://img.shields.io/nuget/dt/LibTmux?logo=nuget&label=downloads)](https://www.nuget.org/packages/LibTmux)
 [![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
 [![tmux 3.3a – 3.8](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)

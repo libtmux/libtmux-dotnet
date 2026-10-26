@@ -13,6 +13,9 @@
 
 # LibTmux.Testing
 
+[![NuGet](https://img.shields.io/nuget/v/LibTmux.Testing)](https://www.nuget.org/packages/LibTmux.Testing)
+[![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/csharp/)
+
 Scoped tmux [servers][api-testing-temporaryserverscope],
 [sessions][api-testing-temporarysessionscope] and
 [windows][api-testing-temporarywindowscope] for testing code that drives tmux,
