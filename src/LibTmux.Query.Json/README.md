@@ -13,6 +13,9 @@
 
 # LibTmux.Query.Json
 
+[![NuGet](https://img.shields.io/nuget/v/LibTmux.Query.Json)](https://www.nuget.org/packages/LibTmux.Query.Json)
+[![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/csharp/)
+
 JSON for [LibTmux](https://www.nuget.org/packages/LibTmux)
 [query documents][api-query-querydocument]. The core library does not reference
 `System.Text.Json`, so a caller who does not want it does not get it.

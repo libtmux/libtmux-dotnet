@@ -13,6 +13,9 @@
 
 # LibTmux.FSharp
 
+[![NuGet](https://img.shields.io/nuget/v/LibTmux.FSharp)](https://www.nuget.org/packages/LibTmux.FSharp)
+[![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/fsharp/)
+
 Drive tmux from F#: [list and filter][api-fs-query-list] sessions, windows,
 panes and clients with typed filters, [type and wait][api-fs-pane-sendandwait]
 for what a pane prints, and [run a command][api-fs-pane-run] to its exit status.

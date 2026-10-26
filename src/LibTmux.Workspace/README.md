@@ -13,6 +13,9 @@
 
 # LibTmux.Workspace
 
+[![NuGet](https://img.shields.io/nuget/v/LibTmux.Workspace)](https://www.nuget.org/packages/LibTmux.Workspace)
+[![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/csharp/)
+
 Build tmux sessions from [tmuxp](https://github.com/tmux-python/tmuxp)
 YAML or JSON [workspace files][api-ws-workspace-workspacefile], on top of
 [LibTmux](https://www.nuget.org/packages/LibTmux).
