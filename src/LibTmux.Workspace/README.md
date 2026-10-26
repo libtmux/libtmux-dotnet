@@ -13,7 +13,7 @@
 
 # LibTmux.Workspace
 
-[![NuGet](https://img.shields.io/nuget/v/LibTmux.Workspace)](https://www.nuget.org/packages/LibTmux.Workspace)
+[![LibTmux.Workspace](https://img.shields.io/nuget/v/LibTmux.Workspace?label=LibTmux.Workspace)](https://www.nuget.org/packages/LibTmux.Workspace)
 [![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/csharp/latest/workspace/)
 
 Build tmux sessions from [tmuxp](https://github.com/tmux-python/tmuxp)

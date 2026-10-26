@@ -13,7 +13,7 @@
 
 # LibTmux.Extensions.DependencyInjection
 
-[![NuGet](https://img.shields.io/nuget/v/LibTmux.Extensions.DependencyInjection)](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection)
+[![LibTmux.Extensions.DependencyInjection](https://img.shields.io/nuget/v/LibTmux.Extensions.DependencyInjection?label=LibTmux.Extensions.DependencyInjection)](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection)
 [![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/csharp/)
 
 Registers [LibTmux](https://www.nuget.org/packages/LibTmux) with
