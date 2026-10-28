@@ -367,8 +367,8 @@ public readonly partial record struct TmuxVersion : IComparable<TmuxVersion>
         }
         else if (match.Groups["rcTag"].Success)
         {
-            // tmux 3.8's own candidate reports itself as "3.8-rc", with no
-            // trailing digit, unlike the numbered form older releases used.
+            // The tag form "X.Y-rc" carries no trailing digit, unlike the
+            // numbered "X.Y-rcN".
             if (match.Groups["rc"].Success)
             {
                 if (!TryParseComponent(match.Groups["rc"].Value, out sequence))

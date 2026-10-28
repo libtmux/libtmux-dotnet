@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.Versioning;
 using System.Text;
+using System.Text.RegularExpressions;
 using LibTmux.Internal;
 
 namespace LibTmux.UnitTests.Entities;
@@ -290,8 +291,8 @@ public sealed class CompositeMutationDispatchTests
 
     [Theory]
     [InlineData("tmux 3.7c")]
-    [InlineData("tmux 3.8-rc")]
-    public async Task Json_layouts_are_refused_before_dispatch_below_3_8_rc2(string rawVersion)
+    [InlineData("tmux 3.7b")]
+    public async Task Json_layouts_are_refused_before_dispatch_below_3_8(string rawVersion)
     {
         int dispatches = 0;
         Window window = CreateWindow(
@@ -302,10 +303,8 @@ public sealed class CompositeMutationDispatchTests
             },
             rawVersion: rawVersion);
 
-        // tmux's window_layout format became JSON at 3.8-rc2, so a JSON-shaped
-        // layout is only trusted from a server that could have produced one.
-        // Below that it is refused as a release the library cannot trust,
-        // before it ever reaches tmux.
+        // tmux's window_layout format became JSON at 3.8, so a JSON-shaped
+        // layout is refused below 3.8 before it ever reaches tmux.
         await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(() =>
             window.SelectLayoutAsync(
                 new SelectLayoutRequest { Layout = "{\"V\":2,\"L\":{\"t\":\"p\"}}" },
@@ -315,10 +314,45 @@ public sealed class CompositeMutationDispatchTests
     }
 
     [Theory]
-    [InlineData("tmux 3.8-rc2")]
-    [InlineData("tmux 3.8-rc3")]
     [InlineData("tmux 3.8")]
-    public void Captured_json_layouts_render_from_3_8_rc2(string rawVersion)
+    [InlineData("tmux 3.9")]
+    public async Task Json_layouts_dispatch_from_3_8(string rawVersion)
+    {
+        int dispatches = 0;
+        Window window = CreateWindow(
+            (request, _) =>
+            {
+                string[] arguments = [.. request.LogicalArguments];
+                if (arguments.Contains("select-layout", StringComparer.Ordinal))
+                {
+                    Interlocked.Increment(ref dispatches);
+                }
+
+                // The layout check asks the daemon's version first, and the
+                // refresh that follows the layout reads the window back:
+                // answer its framed template with the window's own ids.
+                string payload = ActualCommand(arguments) switch
+                {
+                    ProjectionRead => WindowRow(arguments[^1]),
+                    "display-message" => $"{Generation.ProcessId}:{Generation.StartTime}\t{rawVersion["tmux ".Length..]}\n",
+                    _ => string.Empty,
+                };
+                return Task.FromResult(Success(request, payload));
+            },
+            rawVersion: rawVersion);
+
+        Window applied = await window.SelectLayoutAsync(
+            new SelectLayoutRequest { Layout = "{\"V\":2,\"L\":{\"t\":\"p\"}}" },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(window.Id, applied.Id);
+        Assert.Equal(1, Volatile.Read(ref dispatches));
+    }
+
+    [Theory]
+    [InlineData("tmux 3.8")]
+    [InlineData("tmux 3.9")]
+    public void Captured_json_layouts_render_from_3_8(string rawVersion)
     {
         const string layout = "{\"V\":2,\"L\":{\"t\":\"p\"}}";
         Window window = CreateWindow(
@@ -814,6 +848,22 @@ public sealed class CompositeMutationDispatchTests
     // display-message serves three purposes: probing the generation, expanding
     // a format, and reading one entity. Only the read carries a framed template.
     private const string ProjectionRead = "read-one";
+
+    private static string WindowRow(string template)
+    {
+        Dictionary<string, string> values = new(StringComparer.Ordinal)
+        {
+            ["window_id"] = "@1",
+            ["session_id"] = "$1",
+            ["window_index"] = "0",
+            ["pid"] = Generation.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["start_time"] = Generation.StartTime.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        };
+        return Regex.Replace(
+            template,
+            @"#\{(\w+)\}",
+            match => values.GetValueOrDefault(match.Groups[1].Value, string.Empty)) + "\n";
+    }
 
     private static string ActualCommand(string[] arguments)
     {

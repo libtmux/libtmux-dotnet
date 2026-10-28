@@ -17,7 +17,7 @@ public sealed class LayoutValidationTests
     [InlineData("3.7c", "3.3a", "main-horizontal-mirrored", "unsupported")]
     [InlineData("3.3a", "3.7c", "main-horizontal-mirrored", "accepted")]
     [InlineData("3.7c", "next-3.8", "main-horizontal-mirrored", "accepted")]
-    [InlineData("3.7c", "3.8-rc", "main-horizontal-mirrored", "accepted")]
+    [InlineData("3.7c", "3.8", "main-horizontal-mirrored", "accepted")]
     [InlineData("3.7c", "3.5-rc1", "main-horizontal-mirrored", "accepted")]
     [InlineData("3.7c", "next-3.5", "main-h", "accepted")]
     [InlineData("3.7c", "next-3.5", "main-horizontal-mirrored", "unsupported")]
@@ -67,7 +67,7 @@ public sealed class LayoutValidationTests
     }
 
     [Fact]
-    public async Task A_json_layout_below_3_8_rc2_raises_the_type_the_manifest_names()
+    public async Task A_json_layout_below_3_8_raises_the_type_the_manifest_names()
     {
         Server server = CreateServer("3.7c", _ => throw new InvalidOperationException("Nothing may be sent."));
         Window window = new(server, server.Connection!, Generation, new WindowId(1), new Dictionary<string, string?>
@@ -86,6 +86,8 @@ public sealed class LayoutValidationTests
         Assert.Equal("layout-json", refusal.CapabilityId);
         Assert.Equal("select-layout", refusal.Command);
         Assert.Equal(claim.SafeReleases, refusal.SafeReleases);
+        Assert.Equal("3.8", claim.SinceText);
+        Assert.Equal("3.8 or newer", refusal.SafeReleases);
     }
 
     [Fact]
