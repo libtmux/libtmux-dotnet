@@ -419,7 +419,7 @@ public sealed class ControlModeSessionTests
         // tmux's classic %layout-change form on 3.8+ even where a plain
         // client's snapshot reads JSON (the shape the Go and TypeScript
         // ports also measured). EnterControlModeAsync now requests it.
-        bool jsonLayoutsKnown = server.Version!.Value >= TmuxVersion.Parse("3.8-rc2");
+        bool jsonLayoutsKnown = server.Version!.Value >= TmuxVersion.Parse("3.8");
         Assert.Equal(jsonLayoutsKnown, notifiedLayout.StartsWith('{'));
         Window read = await window.RefreshAsync(token);
         Assert.Equal(read.Layout.StartsWith('{'), notifiedLayout.StartsWith('{'));

@@ -97,7 +97,7 @@
       "id": "layout-json",
       "name": "JSON layouts",
       "summary": "Apply a layout in the JSON form that tmux reports.",
-      "since": "3.8-rc2",
+      "since": "3.8",
       "handling": "refuse",
       "error": "LibTmux.TmuxUnsupportedOnReleaseException",
       "apis": [

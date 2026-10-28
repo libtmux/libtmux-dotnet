@@ -194,9 +194,10 @@ Below 3.4, a raw `select-layout` command, sent through
 `Window.SelectLayoutAsync`, and a batched layout that names a window, raise
 `TmuxWindowException` for a layout that is malformed, unknown or an ambiguous
 preset prefix on the releases that have the mirrored presets, and
-`TmuxUnsupportedOnReleaseException` for a mirrored preset or the JSON form on
-a release that lacks it. The `error` field of each layout entry in
-[`capabilities.json`](../../capabilities.json) names the release refusal.
+`TmuxUnsupportedOnReleaseException` for a mirrored preset on a release that
+lacks it, or for the JSON form, which needs tmux 3.8. The `error` field of each
+layout entry in [`capabilities.json`](../../capabilities.json) names the
+release refusal.
 
 `refresh-client -l` does not end the server from 3.4 unless the attached client
 leaves before its terminal answers; on 3.3a it ends the server at once when the

@@ -17,6 +17,15 @@ changelog marks each break. Pin an exact version to avoid one. Releases before
 
 ### Changed
 
+- `Window.SelectLayoutAsync` accepts a JSON layout from tmux 3.8, the first
+  release that reads one, and the `layout-json` capability starts at 3.8. An
+  older release is refused with `TmuxUnsupportedOnReleaseException` before
+  anything is sent. Installed releases behave as before; upgrade to tmux 3.8
+  to apply a JSON layout.
+
+  The control transport runs `display-panes` without attaching a client from
+  tmux 3.8, the release that made it a mode. (#122)
+
 ### Removed
 
 ### Development

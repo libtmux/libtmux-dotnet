@@ -523,7 +523,7 @@ public sealed class WindowTopologyTests
         // current layout through the typed property and feed it
         // straight back in, rather than fabricating one, since the string is
         // opaque either way.
-        bool jsonLayoutsKnown = server.Version!.Value >= TmuxVersion.Parse("3.8-rc2");
+        bool jsonLayoutsKnown = server.Version!.Value >= TmuxVersion.Parse("3.8");
         Window read = await window.RefreshAsync(token);
         string dumpedLayout = read.Layout;
         Assert.Equal(read.RawFormatFields["window_layout"], dumpedLayout);

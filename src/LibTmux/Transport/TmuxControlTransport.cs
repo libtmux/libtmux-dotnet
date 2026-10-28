@@ -131,8 +131,10 @@ internal sealed class TmuxControlTransport
     internal static readonly TmuxVersion FirstSafeVersion = Capabilities.SinceOf("control-mode");
 
     // From this release display-panes is a mode on the target pane and no
-    // longer draws on a client, so it needs none.
-    private static readonly TmuxVersion PaneNumbersAsMode = TmuxVersion.Parse("3.8-rc2");
+    // longer draws on a client, so it needs none: tmux's CHANGES from 3.7c to
+    // 3.8 reads "display-panes is now a mode rather than an overlay", and
+    // window-panes.c first appears at the 3.8 tag.
+    internal static readonly TmuxVersion PaneNumbersAsMode = TmuxVersion.Parse("3.8");
 
     private static readonly string[] Named = [.. OnProcess, .. Reads];
 

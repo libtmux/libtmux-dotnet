@@ -178,6 +178,25 @@ public sealed class TmuxControlTransportTests
             probe.Processed);
     }
 
+    [Theory]
+    [InlineData("3.7c", true)]
+    [InlineData("3.8", false)]
+    public async Task Pane_numbers_name_another_client_only_below_3_8(string version, bool namesClient)
+    {
+        Probe probe = Probe.With(otherClient: true, version);
+
+        _ = await probe.RunAsync(["display-panes"]);
+
+        string[] sent = Assert.Single(probe.Processed);
+        Assert.Equal(namesClient, sent.Contains("client-9"));
+    }
+
+    [Fact]
+    // Pins the boundary value on purpose: the behavioural theory above cannot
+    // tell neighbouring boundaries apart.
+    public void Pane_numbers_stop_needing_a_client_at_3_8() =>
+        Assert.Equal("3.8", TmuxControlTransport.PaneNumbersAsMode.Raw);
+
     [Fact]
     public async Task A_message_with_no_other_client_to_show_on_is_not_sent()
     {
