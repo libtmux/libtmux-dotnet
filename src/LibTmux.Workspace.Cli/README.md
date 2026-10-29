@@ -106,8 +106,8 @@ Load the `.tmuxp.yaml` in a project directory:
 $ tmux-workspace load ~/code/myproject
 ```
 
-Load a workspace on a tmux socket of its own, so it cannot touch the tmux you
-are using:
+Load a workspace on a named tmux socket. Choose a name reserved for this
+workspace: `-L` selects an endpoint and may join a server already using that name:
 
 ```console
 $ tmux-workspace load -d -L demo myproject
@@ -319,8 +319,8 @@ implemented and where it differs.
   and the changelog marks each break. Pin an exact version to avoid one.
 - **tmux.** 3.3a and newer.
 - **.NET.** A .NET 8 or .NET 10 runtime.
-- **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on
-  Windows x64.
+- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
+  CI builds on Windows x64.
 - **Workspace files.** tmuxp's format, in YAML or JSON.
 - **Python bridge.** It runs the tmux the CLI uses: `LIBTMUX_TMUX` when set,
   otherwise the `tmux` on `PATH`.
