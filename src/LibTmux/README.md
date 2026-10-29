@@ -38,7 +38,7 @@ and agents that share a terminal.
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux
+$ dotnet add package LibTmux
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
@@ -81,7 +81,7 @@ tmux 3.3a or newer on `PATH` and a server running:
 ```console
 $ dotnet new console --output demo && \
     cd demo && \
-    dotnet package add LibTmux
+    dotnet add package LibTmux
 ```
 
 It prints nothing. The new session `build` has a window `tests`, and its pane
@@ -561,7 +561,7 @@ socket, killed deterministically. It is a separate package, so test scaffolding
 stays out of an application's output:
 
 ```console
-$ dotnet package add LibTmux.Testing
+$ dotnet add package LibTmux.Testing
 ```
 
 Disposing the scope kills the server, so a test that fails part way through

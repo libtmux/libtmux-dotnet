@@ -6,7 +6,7 @@ parallel without seeing each other's sessions, and nothing touches the tmux
 you are working in.
 
 ```console
-$ dotnet package add LibTmux.Testing
+$ dotnet add package LibTmux.Testing
 ```
 
 ## A scope per test
