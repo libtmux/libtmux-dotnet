@@ -158,7 +158,7 @@ stack trace, lay out a workspace and drive it.
 | `LIBTMUX_TMUX` | `tmux` | Which tmux binary to drive |
 | `LIBTMUX_MCP_WAIT_MAX_SECONDS` | `30` | Ceiling on any one wait |
 | `LIBTMUX_MCP_MAX_LINES` | `500` | Default line budget |
-| `LIBTMUX_MCP_MAX_BYTES` | `128000` | Byte budget per result |
+| `LIBTMUX_MCP_MAX_BYTES` | `128000` | Ordinary tool/resource byte budget; read batches use a separate fixed ceiling |
 | `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK` | `false` | Permit pane text waits to poll after control observation fails (tmux 3.7 and newer; older releases always poll) |
 
 ### Waiting
