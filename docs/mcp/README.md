@@ -324,7 +324,7 @@ Console.WriteLine($"{lineCount} new lines");
 <!-- endsnippet -->
 
 Ordinary tool and resource results use `LIBTMUX_MCP_MAX_BYTES`. Successful
-[`call_read_tools_batch`](#batches) results instead have a fixed
+[`call_read_tools_batch`](https://libtmux.org/en/csharp/latest/mcp/tools/call_read_tools_batch/) results instead have a fixed
 1,000,000-byte ceiling.
 
 The byte ceiling counts the serialized result, including text, structured
