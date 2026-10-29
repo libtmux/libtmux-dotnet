@@ -133,8 +133,8 @@ is taken from it, so tmux commands are logged with everything else.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux) and the
   `Microsoft.Extensions.DependencyInjection` abstractions.
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
-- **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on
-  Windows x64.
+- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
+  CI builds on Windows x64.
 
 ## Documentation
 

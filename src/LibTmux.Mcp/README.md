@@ -301,7 +301,8 @@ $ { printf '%s\n' \
   The message says to upgrade tmux and restart the tmux server, or to use
   LibTmux.Mcp 0.0.0-alpha.21, and that nothing was sent.
 - **.NET.** The tool targets .NET 8 and .NET 10.
-- **Systems.** Linux, including WSL, and macOS. CI also builds on Windows x64,
+- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
+  CI builds on Windows x64,
   where the tool exits with "tmux does not run on Windows."
 
 ## Reference

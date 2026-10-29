@@ -284,7 +284,7 @@ It adds a pane below the first and sets its height to ten rows.
 ### [`TmuxOptions`][api-tmuxoptions] and [`TmuxHooks`][api-tmuxhooks]: settings and callbacks
 
 tmux has no types, so an option value carries the text tmux reported alongside
-the readings that text supports. An option the window does not hold is reads as
+the readings that text supports. An option the window does not hold reads as
 the inherited value:
 
 ```csharp run
@@ -430,12 +430,12 @@ which is `/tmp` when unset. A name resolves under the same root.
 
 ### Three ways to send a command
 
-Which one a call uses is visible where the call starts, and all three work on
-every supported tmux.
+Which one a call uses is visible where the call starts. One-shot calls and
+chains work on every supported tmux; explicit control mode needs tmux 3.7+.
 
 | Mode | Flip it on | Dispatch | What one more command costs |
 |---|---|---|---|
-| One-shot | [`session.CreateWindowAsync(…)`][api-session-createwindowasync] | one command, awaited | another process — **~2.3 ms** |
+| One-shot | [`session.CreateWindowAsync(…)`][api-session-createwindowasync] | one command, awaited | another round trip on a shared client; a process where needed |
 | Control | [`server.EnterControlModeAsync(ct)`][api-server-entercontrolmodeasync] | one client, streamed | another round trip — **~0.2 ms** |
 | Chained | [`server.Chain()…ExecuteAsync(ct)`][api-server-chain] | N batched, one invocation | more bytes on one command line — **~0.02 ms** |
 
@@ -461,7 +461,8 @@ IReadOnlyList<string> reply = await control.SendAsync(
     ct);
 ```
 
-Control mode is an order of magnitude cheaper per command.
+The recorded process-transport baseline makes control mode an order of
+magnitude cheaper per command. One-shot calls can already share a client.
 [`IControlModeSession.SendAsync`][api-icontrolmodesession-sendasync] is safe to
 call concurrently.
 
@@ -572,8 +573,8 @@ stays out of an application's output:
 $ dotnet add package LibTmux.Testing
 ```
 
-Disposing the scope kills the server, so a test that fails part way through
-leaves nothing behind. [`TmuxTestFactory`][api-testing-tmuxtestfactory] hands
+Scope disposal attempts to stop the owned server even when the test body throws.
+[`TmuxTestFactory`][api-testing-tmuxtestfactory] hands
 out the scopes:
 
 ```csharp run
@@ -699,8 +700,8 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
   release and against 3.3a and 3.8 on each commit.
 - **.NET.** net8.0 and net10.0, with one dependency:
   `Microsoft.Extensions.Logging.Abstractions`.
-- **Systems.** Linux, including WSL. CI also runs on macOS arm64, and builds on
-  Windows x64, where [`Server`][api-server], [`Session`][api-session],
+- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
+  CI builds on Windows x64, where [`Server`][api-server], [`Session`][api-session],
   [`Window`][api-window], and [`Pane`][api-pane] are annotated unsupported.
 - **Trimming and NativeAOT.** Core APIs are analyzer-gated.
   [`Compile`][api-query-queryextensions-compile] and
