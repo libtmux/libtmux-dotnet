@@ -333,7 +333,7 @@ and can wait for each shell's prompt before sending it commands. Add the
 package and describe the session, or parse tmuxp YAML:
 
 ```console
-$ dotnet package add LibTmux.Workspace
+$ dotnet add package LibTmux.Workspace
 ```
 
 <!-- fsharp-snippet: DescribeSession run -->

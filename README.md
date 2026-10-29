@@ -29,7 +29,7 @@ buffers, typed and asynchronous, for tmux **3.3a and newer** on **net8.0** and
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux
+$ dotnet add package LibTmux
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
@@ -73,7 +73,7 @@ tmux 3.3a or newer on `PATH` and a server running:
 ```console
 $ dotnet new console --output demo && \
     cd demo && \
-    dotnet package add LibTmux
+    dotnet add package LibTmux
 ```
 
 It prints nothing. The new session `build` has a window `tests`, and its pane
@@ -113,7 +113,7 @@ and examples that run against live tmux in CI.
 | **[LibTmux.Mcp](src/LibTmux.Mcp/README.md)** | [![LibTmux.Mcp](https://img.shields.io/nuget/v/LibTmux.Mcp?label=LibTmux.Mcp)](https://www.nuget.org/packages/LibTmux.Mcp) | You want an assistant driving tmux. Installs as a tool. |
 
 ```console
-$ dotnet package add LibTmux
+$ dotnet add package LibTmux
 ```
 
 The core takes exactly one dependency. Anything that would add another ships as
