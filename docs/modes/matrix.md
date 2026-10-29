@@ -119,6 +119,10 @@ command reaches, not from the client executable. The 3.3 release without its
 patch letter is below the minimum. A release candidate or `next-X.Y` build
 ranks just below the release it names.
 
+tmux release candidates are not supported. Beyond that ordering, the library
+promises nothing about how a check treats one. See
+[Release candidates](https://libtmux.org/en/tmux/guides/tmux-support/#release-candidates).
+
 Before the first command, the library asks the daemon for its version with
 `run-shell -C`, which fires no `after-*` or `command-error` hook, and throws
 `TmuxVersionTooLowException` for a daemon below the minimum or a report it
