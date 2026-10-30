@@ -29,10 +29,11 @@ releases at or above 3.3a are evaluated against those intervals. A capability
 without a recorded end remains supported on later stable releases; this does
 not infer capabilities that are absent from the ledger.
 
-Invalid values, versions below 3.3a, development builds, release candidates,
-and `next-*` builds have unknown capability state. Ordinary internal callers
-treat unknown as unsupported. Unknown capability names throw, so spelling drift
-does not silently disable behavior.
+Invalid values, versions below 3.3a, development builds, and release
+candidates have unknown capability state. A `next-*` build is evaluated against
+the same intervals, ordered below the release it names. Ordinary internal
+callers treat unknown as unsupported. Unknown capability names throw, so
+spelling drift does not silently disable behavior.
 
 The psmux preview remains separate. Its exact binary attestation, typed facade,
 and command allowlist define that surface; its numeric compatibility banner

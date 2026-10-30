@@ -583,8 +583,13 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
   The API is not settled: any release may change or remove exported identifiers,
   and the changelog marks each break. Pin an exact version to avoid one.
 - **tmux.** Stable 3.3a and newer. CI builds 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b,
-  3.7c, and 3.8. Development, release-candidate, and `next-*` versions have
-  unknown capability state.
+  3.7c, and 3.8. Development builds have unknown capability state, and `next-*`
+  builds use the release intervals.
+- **tmux release candidates.** Not supported; see
+  [Release candidates](https://libtmux.org/en/tmux/guides/tmux-support/#release-candidates).
+  `TmuxVersion` parses a candidate such as `X.Y-rcN` and orders it below `X.Y`;
+  beyond that ordering, the library promises nothing about how a check treats
+  one.
 - **.NET.** net8.0 and net10.0.
 - **Systems.** Linux, including WSL. macOS is best effort, with highly limited
   CI coverage. CI builds on Windows x64, where the types that need a real tmux
