@@ -6,6 +6,40 @@ Assembly: LibTmux.FSharp.dll
 
 Starts queries confined to one session.
 
+<p class='fsdocs-para'>
+ Each function takes the session it acts on last. One that runs a tmux command
+ also takes the cancellation token first and returns a <code>Task</code>. The
+ session is the core <code>LibTmux.Session</code> handle, which is immutable and
+ safe to share.
+ </p><p class='fsdocs-para'><b>What is on here</b></p><p class='fsdocs-para'>
+ A tmux session has a good many members, but this module covers the part an
+ F# caller reaches first. The rest lives on the core handle. The members fall
+ into a few groups:
+ </p><p class='fsdocs-para'><b>Looking inside.</b> Start a query over the session&#39;s windows or panes;
+ either throws IncompleteSnapshotException when the
+ session was not read through a server. Or ask tmux now for the pane the
+ session shows, its current window&#39;s active pane, which throws
+ TmuxObjectNotFoundException when tmux reports none.
+ </p><p class='fsdocs-para'><a href="../reference/libtmux-fsharp-session.md#windows">Session.windows</a>,
+ <a href="../reference/libtmux-fsharp-session.md#panes">Session.panes</a>,
+ <a href="../reference/libtmux-fsharp-session.md#activePane">Session.activePane</a></p><p class='fsdocs-para'><b>Changing the session.</b> Renaming returns a handle carrying the new name,
+ and tmux expands the name as a format, so a <code>#</code> in it does not survive
+ verbatim. Killing the session takes its windows and panes with it, and leaves
+ off the core&#39;s other kill options. Creating a window returns it as the
+ request describes, and cancellation can leave the window created.
+ </p><p class='fsdocs-para'><a href="../reference/libtmux-fsharp-session.md#rename">Session.rename</a>,
+ <a href="../reference/libtmux-fsharp-session.md#kill">Session.kill</a>,
+ <a href="../reference/libtmux-fsharp-session.md#newWindow">Session.newWindow</a></p><p class='fsdocs-para'><b>Waiting.</b> Each wait on the session&#39;s panes attaches a control client
+ and lets it go when the wait ends. Holding one across a series of waits saves
+ that attach for each, until the handle is disposed; use it with <code>use!</code>.
+ </p><p class='fsdocs-para'><a href="../reference/libtmux-fsharp-session.md#holdWaitClient">Session.holdWaitClient</a></p><p class='fsdocs-para'>
+ The rest of a session is on the core <code>LibTmux.Session</code>, which F# calls
+ like any .NET type: selecting and stopping windows, locking, attaching and
+ detaching clients, and the session&#39;s options, hooks, and environment.
+ <a href="../reference/libtmux-fsharp-options.md">Options</a> reads and writes an option through the
+ options of that scope.
+ </p>
+
 ### Functions and values
 
 <a name="activePane"></a>

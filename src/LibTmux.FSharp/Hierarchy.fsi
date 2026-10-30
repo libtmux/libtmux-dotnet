@@ -26,101 +26,121 @@ open LibTmux
 /// core handle. The members fall into a few groups:
 /// </para>
 /// <para>
-/// <b>Connecting. </b><see cref="M:LibTmux.FSharp.Server.connect" /> finds a
-/// server already listening on the socket the options name and never starts
-/// one, while <see cref="M:LibTmux.FSharp.Server.createOwned" /> starts one
-/// there and owns it, stopping it when the scope is disposed; it refuses a
-/// server already listening on the default socket.
-/// <see cref="M:LibTmux.FSharp.Server.within" /> bounds every command by a
-/// timeout, and a command that outlasts it fails as <c>MayHaveRun</c>.
-/// <see cref="M:LibTmux.FSharp.Control.enter" /> in
-/// <see cref="T:LibTmux.FSharp.Control" /> opens a control client that reports
-/// what tmux does.
+/// <b>Connecting.</b> Find a server already listening on the socket the options
+/// name, which never starts one, or start one there and own it, which stops it
+/// when the scope is disposed and refuses a server already listening on the
+/// default socket. Bounding the server by a timeout makes a command that
+/// outlasts it fail as <c>MayHaveRun</c>. Entering control mode opens a control
+/// client that reports what tmux does.
 /// </para>
 /// <para>
-/// <b>Finding one thing. </b>
+/// <see cref="M:LibTmux.FSharp.Server.connect" />,
+/// <see cref="M:LibTmux.FSharp.Server.createOwned" />,
+/// <see cref="M:LibTmux.FSharp.Server.within" />,
+/// <see cref="M:LibTmux.FSharp.Control.enter" />
+/// </para>
+/// <para>
+/// <b>Finding one thing.</b> Look one up by id, or a client by its exact name;
+/// a client name that is null, empty or whitespace throws
+/// <see cref="T:System.ArgumentException" />. Each returns <c>None</c> after a
+/// successful lookup establishes absence, and connection, command and
+/// cancellation errors propagate unchanged.
+/// </para>
+/// <para>
 /// <see cref="M:LibTmux.FSharp.Server.tryFindSession" />,
-/// <see cref="M:LibTmux.FSharp.Server.tryFindWindow" />, and
-/// <see cref="M:LibTmux.FSharp.Server.tryFindPane" /> take an id, and
-/// <see cref="M:LibTmux.FSharp.Server.tryFindClient" /> takes an exact name.
-/// Each returns <c>None</c> after a successful lookup establishes absence;
-/// connection, command and cancellation errors propagate unchanged.
+/// <see cref="M:LibTmux.FSharp.Server.tryFindWindow" />,
+/// <see cref="M:LibTmux.FSharp.Server.tryFindPane" />,
+/// <see cref="M:LibTmux.FSharp.Server.tryFindClient" />
 /// </para>
 /// <para>
-/// <b>Listing everything. </b><see cref="M:LibTmux.FSharp.Server.sessions" />,
-/// <see cref="M:LibTmux.FSharp.Server.windows" />,
-/// <see cref="M:LibTmux.FSharp.Server.panes" />, and
-/// <see cref="M:LibTmux.FSharp.Server.clients" /> each describe a listing as a
-/// <see cref="T:LibTmux.FSharp.Query`1" /> and read nothing until it is run;
-/// every run reads tmux again. <see cref="M:LibTmux.FSharp.Server.capture" />
+/// <b>Listing everything.</b> Describe a listing of sessions, windows, panes, or
+/// clients as a <see cref="T:LibTmux.FSharp.Query`1" />, which reads nothing
+/// until it is run; every run reads tmux again. A linked window appears once
+/// for each session it is linked into, and tmux narrows a filtered client
+/// listing only from tmux 3.4, so older tmux lists every client. Capturing
 /// reads the tree to the depth asked for and returns a new handle whose
-/// captured relations answer without another command, and
-/// <see cref="M:LibTmux.FSharp.Snapshot.relation" /> says whether one was read.
+/// captured relations answer without another command.
 /// </para>
 /// <para>
-/// <b>Querying things and getting around. </b>
-/// <see cref="T:LibTmux.FSharp.Query" /> narrows a listing:
-/// <see cref="M:LibTmux.FSharp.Query.where" /> adds a
+/// <see cref="M:LibTmux.FSharp.Server.sessions" />,
+/// <see cref="M:LibTmux.FSharp.Server.windows" />,
+/// <see cref="M:LibTmux.FSharp.Server.panes" />,
+/// <see cref="M:LibTmux.FSharp.Server.clients" />,
+/// <see cref="M:LibTmux.FSharp.Server.capture" />,
+/// <see cref="M:LibTmux.FSharp.Snapshot.relation" />
+/// </para>
+/// <para>
+/// <b>Querying things and getting around.</b> Narrow a listing with the
+/// <see cref="T:LibTmux.FSharp.Query" /> module and a
 /// <see cref="T:LibTmux.FSharp.Filter`1" /> built from
 /// <see cref="T:LibTmux.FSharp.SessionFields" />,
 /// <see cref="T:LibTmux.FSharp.WindowFields" />,
 /// <see cref="T:LibTmux.FSharp.PaneFields" />, or
-/// <see cref="T:LibTmux.FSharp.ClientFields" />;
-/// <see cref="M:LibTmux.FSharp.Query.whereUnsafe" /> hands tmux a raw filter,
-/// and a malformed one keeps no rows rather than failing; and
-/// <see cref="M:LibTmux.FSharp.Query.showing" /> keeps the panes whose visible
-/// rows show some text. <see cref="M:LibTmux.FSharp.Query.list" /> runs the
-/// query, and <see cref="M:LibTmux.FSharp.Query.exactlyOne" />,
-/// <see cref="M:LibTmux.FSharp.Query.tryExactlyOne" />, and
-/// <see cref="M:LibTmux.FSharp.Query.atMostOne" /> read a single match.
-/// <see cref="M:LibTmux.FSharp.Query.matching" /> filters objects already read,
-/// and <see cref="T:LibTmux.FSharp.Selection" />'s
-/// <see cref="M:LibTmux.FSharp.Selection.exactlyOne" /> picks the sole element
-/// of any sequence. To move between levels,
-/// <see cref="M:LibTmux.FSharp.Session.windows" /> and
-/// <see cref="M:LibTmux.FSharp.Session.panes" /> start a query inside a
-/// session, <see cref="M:LibTmux.FSharp.Window.panes" /> starts one inside a
-/// window, and a session's <see cref="M:LibTmux.FSharp.Session.activePane" />
-/// and a window's <see cref="M:LibTmux.FSharp.Window.activePane" /> read the
-/// focused pane from tmux.
+/// <see cref="T:LibTmux.FSharp.ClientFields" />; a raw filter handed to tmux
+/// keeps no rows, rather than failing, when it is malformed, and a raw client
+/// filter throws <see cref="T:LibTmux.TmuxVersionTooLowException" /> on tmux
+/// older than 3.4. Running the query lists its matches; to read a single
+/// one, <c>exactlyOne</c> says why there is not exactly one, <c>tryExactlyOne</c>
+/// answers <c>None</c> for none or several, and <c>atMostOne</c> answers
+/// <c>None</c> only for none and throws for several. Moving between levels
+/// starts a query inside a session or window, and the active pane is read from
+/// tmux.
 /// </para>
 /// <para>
-/// <b>Changing things. </b><see cref="M:LibTmux.FSharp.Server.newSession" />
-/// creates a session from a <see cref="T:LibTmux.FSharp.SessionSpec" />, its
-/// windows and their splits included, one step after another, so a failure part
-/// way leaves what was already created. Everything after that is a function on
-/// the value it changes, in <see cref="T:LibTmux.FSharp.Session" />,
-/// <see cref="T:LibTmux.FSharp.Window" />, and
-/// <see cref="T:LibTmux.FSharp.Pane" />, and
-/// <see cref="T:LibTmux.FSharp.Chain" /> runs several commands in one tmux
-/// invocation.
+/// <see cref="M:LibTmux.FSharp.Query.where" />,
+/// <see cref="M:LibTmux.FSharp.Query.whereUnsafe" />,
+/// <see cref="M:LibTmux.FSharp.Query.showing" />,
+/// <see cref="M:LibTmux.FSharp.Query.list" />,
+/// <see cref="M:LibTmux.FSharp.Query.exactlyOne" />,
+/// <see cref="M:LibTmux.FSharp.Query.tryExactlyOne" />,
+/// <see cref="M:LibTmux.FSharp.Query.atMostOne" />,
+/// <see cref="M:LibTmux.FSharp.Query.matching" />,
+/// <see cref="M:LibTmux.FSharp.Selection.exactlyOne" />,
+/// <see cref="M:LibTmux.FSharp.Session.windows" />,
+/// <see cref="M:LibTmux.FSharp.Session.panes" />,
+/// <see cref="M:LibTmux.FSharp.Window.panes" />,
+/// <see cref="M:LibTmux.FSharp.Session.activePane" />,
+/// <see cref="M:LibTmux.FSharp.Window.activePane" />
 /// </para>
 /// <para>
-/// <b>Options and hooks. </b>This module has none.
+/// <b>Changing things.</b> Creating a session from a
+/// <see cref="T:LibTmux.FSharp.SessionSpec" /> includes its windows and their
+/// splits, made one step after another, so a failure part way leaves what was
+/// already created. A name already taken throws
+/// <see cref="T:LibTmux.TmuxSessionExistsException" />. Everything after that is
+/// a function on the value it changes, in the Session, Window, and Pane modules,
+/// and the Chain module runs several commands in one tmux invocation.
+/// </para>
+/// <para>
+/// <see cref="M:LibTmux.FSharp.Server.newSession" />,
+/// <see cref="T:LibTmux.FSharp.Session" />,
+/// <see cref="T:LibTmux.FSharp.Window" />,
+/// <see cref="T:LibTmux.FSharp.Pane" />,
+/// <see cref="T:LibTmux.FSharp.Chain" />
+/// </para>
+/// <para>
+/// <b>Options and hooks.</b> This module has none.
 /// <see cref="T:LibTmux.FSharp.Options" /> reads and writes an option through a
-/// typed key with <see cref="M:LibTmux.FSharp.Options.get" /> and
-/// <see cref="M:LibTmux.FSharp.Options.set" />, given the options of the scope
-/// the option belongs to, such as the core handle's <c>Options</c> for a server
-/// option. Its global hooks are the handle's <c>Hooks</c>.
+/// typed key, given the options of the scope the option belongs to, such as the
+/// core handle's <c>Options</c> for a server option. Its global hooks are the
+/// handle's <c>Hooks</c>.
 /// </para>
 /// <para>
-/// <b>Everything else tmux keeps. </b>Paste buffers, key bindings,
-/// configuration, shell commands, wait-for channels, and the message log are
-/// members of the core <c>LibTmux.Server</c>, which F# calls like any .NET
-/// type.
+/// <see cref="M:LibTmux.FSharp.Options.get" />,
+/// <see cref="M:LibTmux.FSharp.Options.set" />
 /// </para>
 /// <para>
-/// <b>Things that need a terminal. </b>Menus, command prompts, confirmations,
-/// and the commands that attach, switch, detach, lock, or suspend a client are
-/// members of the core <c>LibTmux.Server</c> too. All but attach act on an
-/// attached client, and tmux refuses them when there is none. Attaching makes
-/// the client instead, so it needs a terminal of its own.
-/// </para>
-/// <para>
-/// Anything tmux can do that is not here is reachable through the core handle's
-/// <c>ExecuteCommandAsync</c>, which runs one raw command and hands back its
-/// result, or through <see cref="T:LibTmux.FSharp.Chain" />, which runs several
-/// in one tmux invocation.
+/// Paste buffers, key bindings, configuration, shell commands, wait-for
+/// channels, and the message log are members of the core <c>LibTmux.Server</c>,
+/// which F# calls like any .NET type, and so are menus, command prompts,
+/// confirmations, and the commands that attach, switch, detach, lock, or suspend
+/// a client. All but attach act on an attached client, and tmux refuses them
+/// when there is none; attaching makes the client instead, so it needs a
+/// terminal of its own. Anything tmux can do that is not here is reachable
+/// through the core handle's <c>ExecuteCommandAsync</c>, which runs one raw
+/// command and hands back its result, or through
+/// <see cref="T:LibTmux.FSharp.Chain" />, which runs several in one tmux
+/// invocation.
 /// </para>
 /// </remarks>
 [<RequireQualifiedAccess>]
@@ -214,6 +234,61 @@ module Server =
         cancellationToken: CancellationToken -> name: string -> server: LibTmux.Server -> Task<LibTmux.Client option>
 
 /// <summary>Starts queries confined to one session.</summary>
+/// <remarks>
+/// <para>
+/// Each function takes the session it acts on last. One that runs a tmux command
+/// also takes the cancellation token first and returns a <c>Task</c>. The
+/// session is the core <c>LibTmux.Session</c> handle, which is immutable and
+/// safe to share.
+/// </para>
+/// <para>
+/// <b>What is on here</b>
+/// </para>
+/// <para>
+/// A tmux session has a good many members, but this module covers the part an
+/// F# caller reaches first. The rest lives on the core handle. The members fall
+/// into a few groups:
+/// </para>
+/// <para>
+/// <b>Looking inside.</b> Start a query over the session's windows or panes;
+/// either throws <see cref="T:LibTmux.IncompleteSnapshotException" /> when the
+/// session was not read through a server. Or ask tmux now for the pane the
+/// session shows, its current window's active pane, which throws
+/// <see cref="T:LibTmux.TmuxObjectNotFoundException" /> when tmux reports none.
+/// </para>
+/// <para>
+/// <see cref="M:LibTmux.FSharp.Session.windows" />,
+/// <see cref="M:LibTmux.FSharp.Session.panes" />,
+/// <see cref="M:LibTmux.FSharp.Session.activePane" />
+/// </para>
+/// <para>
+/// <b>Changing the session.</b> Renaming returns a handle carrying the new name,
+/// and tmux expands the name as a format, so a <c>#</c> in it does not survive
+/// verbatim. Killing the session takes its windows and panes with it, and leaves
+/// off the core's other kill options. Creating a window returns it as the
+/// request describes, and cancellation can leave the window created.
+/// </para>
+/// <para>
+/// <see cref="M:LibTmux.FSharp.Session.rename" />,
+/// <see cref="M:LibTmux.FSharp.Session.kill" />,
+/// <see cref="M:LibTmux.FSharp.Session.newWindow" />
+/// </para>
+/// <para>
+/// <b>Waiting.</b> Each wait on the session's panes attaches a control client
+/// and lets it go when the wait ends. Holding one across a series of waits saves
+/// that attach for each, until the handle is disposed; use it with <c>use!</c>.
+/// </para>
+/// <para>
+/// <see cref="M:LibTmux.FSharp.Session.holdWaitClient" />
+/// </para>
+/// <para>
+/// The rest of a session is on the core <c>LibTmux.Session</c>, which F# calls
+/// like any .NET type: selecting and stopping windows, locking, attaching and
+/// detaching clients, and the session's options, hooks, and environment.
+/// <see cref="T:LibTmux.FSharp.Options" /> reads and writes an option through the
+/// options of that scope.
+/// </para>
+/// </remarks>
 [<RequireQualifiedAccess>]
 module Session =
     /// <summary>Queries the window placements in a session.</summary>
