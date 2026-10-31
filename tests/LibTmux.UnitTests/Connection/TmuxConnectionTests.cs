@@ -26,6 +26,7 @@ internal sealed class ConnectionUnixFactAttribute : FactAttribute
     }
 }
 
+[Collection("Process environment")]
 public sealed class ConnectionValueTests
 {
 
