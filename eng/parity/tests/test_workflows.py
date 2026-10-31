@@ -419,6 +419,25 @@ def test_a_superseded_push_is_still_cancelled(repository: pathlib.Path, workflow
     assert any("still cancel a superseded push" in error for error in verify(repository))
 
 
+@pytest.mark.parametrize(
+    ("quoted", "bare"),
+    [
+        ("default: 'off'", "default: off"),
+        ("options: ['off', before-tests, on-failure]", "options: [off, before-tests, on-failure]"),
+    ],
+)
+def test_a_dispatch_value_that_yaml_reads_as_a_boolean_is_refused(
+    repository: pathlib.Path, quoted: str, bare: str
+) -> None:
+    """A bare off is false to GitHub, so a dispatch without tmate failed in the plan."""
+    path = repository / ".github/workflows/dotnet-tmux.yml"
+    source = path.read_text()
+    assert quoted in source
+    path.write_text(source.replace(quoted, bare))
+
+    assert any("tmate: quote the values" in error for error in verify(repository))
+
+
 def test_the_plan_and_the_workflow_agree_on_the_frameworks(
     repository: pathlib.Path,
 ) -> None:
