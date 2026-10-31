@@ -36,7 +36,7 @@ public sealed class ExampleNamespace : IAsyncDisposable
     [
         "TMUX_TMPDIR",
         "TMPDIR",
-        "LIBTMUX_SOCKET_NAME",
+        "LIBTMUX_SOCKET",
         "LIBTMUX_SOCKET_PATH",
         "LIBTMUX_MCP_COMMAND",
         "TMUX",
@@ -105,7 +105,7 @@ public sealed class ExampleNamespace : IAsyncDisposable
         // client at the server the developer is sitting in.
         Environment.SetEnvironmentVariable("TMUX_TMPDIR", SocketRoot);
         Environment.SetEnvironmentVariable("TMPDIR", directory);
-        Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_NAME", socketName);
+        Environment.SetEnvironmentVariable("LIBTMUX_SOCKET", socketName);
         Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_PATH", null);
         Environment.SetEnvironmentVariable(
             "LIBTMUX_MCP_COMMAND",

@@ -150,8 +150,9 @@ internal sealed class TmuxConnection
 
     /// <summary>The socket this connection resolved to, not what was asked for.</summary>
     /// <remarks>
-    /// A name factory or <c>LIBTMUX_SOCKET_NAME</c> leaves the options empty, so
+    /// A name factory or <c>LIBTMUX_SOCKET</c> leaves the options empty, so
     /// anything that records or asserts an endpoint has to read it from here.
+    /// Both are null when no socket was chosen and tmux is left to pick one.
     /// </remarks>
     internal (string? SocketName, string? SocketPath) ResolvedSocket =>
         (_resolvedSocketName, _resolvedSocketPath);
@@ -351,7 +352,10 @@ internal sealed class TmuxConnection
             process,
             TmuxControlClient.For(
                 _endpointFingerprint,
-                resolved.SocketPath ?? (resolved.SocketName is { } named ? UnixFileIdentity.NamedSocketPath(named) : null)),
+                resolved.SocketPath
+                    ?? resolved.ServerPath
+                    ?? UnixFileIdentity.NamedSocketPath(
+                        resolved.SocketName ?? TmuxConnectionEndpoint.DefaultSocketName)),
             () => ControlModeSession.Start(
                 Options.TmuxBinaryPath,
                 PrefixArguments,

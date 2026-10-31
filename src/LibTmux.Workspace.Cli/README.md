@@ -119,6 +119,15 @@ Attach to that socket with tmux:
 $ tmux -L demo attach
 ```
 
+Without `-L` or `-S`, `LIBTMUX_SOCKET_PATH` names a socket by path and
+`LIBTMUX_SOCKET` by name. The flags win over both, and the path wins over the
+name.
+
+With neither variable set the tool passes tmux no socket, and tmux picks the
+server: the one in `TMUX` from inside tmux, otherwise its default socket. A
+`load` that may switch to or append to your session asks for the `TMUX` server
+by name.
+
 Load several workspaces at once; the last one is the one you land in:
 
 ```console

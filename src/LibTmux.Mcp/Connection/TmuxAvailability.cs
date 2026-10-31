@@ -68,9 +68,9 @@ internal static class TmuxAvailability
     /// "no current target", <c>options.c</c> and <c>cmd-show-environment.c</c>
     /// name the level they wanted — so the family is matched rather than the
     /// one string a single tmux version happens to emit. "no current client"
-    /// is deliberately absent: nothing is attached to a dedicated socket even
-    /// when it holds sessions, so treating that as emptiness would hide a
-    /// real refusal.
+    /// is deliberately absent: nothing need be attached to a socket this server
+    /// drives even when it holds sessions, so treating that as emptiness would
+    /// hide a real refusal.
     /// </remarks>
     internal static bool IsServerEmpty(LibTmuxException error)
     {

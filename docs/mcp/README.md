@@ -384,17 +384,23 @@ $ claude mcp add tmux \
 ### Choosing the socket
 
 - `LIBTMUX_SOCKET` names a socket and `LIBTMUX_SOCKET_PATH` gives an absolute
-  socket path. Set only one.
+  socket path. When both are set the path wins, as it does in `libtmux-mcp`.
 - `LIBTMUX_TMUX_CONFIG` is an absolute path to a tmux configuration.
   `LIBTMUX_TMUX` selects the tmux executable; a bare or relative value is
   resolved once against the startup `PATH`.
-- With none of these set, the server uses the dedicated `libtmux-mcp` socket and
-  a minimal configuration. A newly created dedicated socket defaults to all four
-  toolsets.
-- An existing, named, path-pinned, or user-configured socket omits `teardown`
-  unless you select it by toolset or exact tool name.
-- On shutdown the server removes only a dedicated daemon whose launch marker
-  still matches this process. It leaves existing or replaced daemons running.
+- With neither socket variable set, the server passes tmux no socket, and tmux
+  picks the server: the one in `TMUX` when the client runs inside tmux,
+  otherwise the default socket.
+- `tmux://capabilities` reports that choice as the selector `default` and the
+  provenance `tmux-default`, with the socket tmux picked in `resolvedSocketPath`.
+- With no socket pinned the server loads no configuration of its own, so a server
+  it has to start reads the tmux configuration the person uses. A pinned socket
+  with no `LIBTMUX_TMUX_CONFIG` still gets the bundled minimal configuration.
+- `LIBTMUX_SOCKET_NAME`, the name the library read before `LIBTMUX_SOCKET`,
+  selects nothing. Setting it alone stops startup rather than reaching a
+  server the caller did not mean.
+- `teardown` is omitted unless you select it by toolset or exact tool name.
+- On shutdown the server leaves every tmux server running.
 - The socket limits which tmux objects a client can address. Execute tools run
   with the tmux user's authority over files, processes, the network, and
   credentials.

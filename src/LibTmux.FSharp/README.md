@@ -369,7 +369,7 @@ PowerShell, and a REPL.
 `options |> Server.connect ct` attaches to the server already running on the
 socket the options name. It never starts tmux.
 
-Default options resolve the default socket;
+Default options choose no socket, so tmux picks the server;
 [socket selection](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#serverconnectasync-which-server-it-reaches)
 gives the order. Code running inside a tmux pane can use
 `Server.FromEnvironment()` to find that pane's server.

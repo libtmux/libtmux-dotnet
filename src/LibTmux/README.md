@@ -410,15 +410,23 @@ With no arguments it takes the first of these that says anything:
 |---|---|
 | [`ServerConnectionOptions`][api-serverconnectionoptions] | an explicit `socketPath`, `socketName`, or `socketNameFactory` |
 | `LIBTMUX_SOCKET_PATH` | the socket, by path |
-| `LIBTMUX_SOCKET_NAME` | the socket, by name, under the root below |
-| `TMUX_TMPDIR` | the root a name resolves under — `/tmp` when unset |
-| — | the socket named `default` |
+| `LIBTMUX_SOCKET` | the socket, by name, under the root below |
+| — | no socket: tmux is given neither `-L` nor `-S` and picks the server itself |
+
+When nothing above chooses a socket, tmux follows `TMUX` to the server a pane
+belongs to, and without it uses the socket named `default` under `TMUX_TMPDIR`,
+which is `/tmp` when unset. A name resolves under the same root.
 
 - Options always win, so exporting a variable for a whole process cannot
-  redirect a call that named a socket.
+  redirect a call that named a socket. When both variables are set, the path
+  wins.
+- `LIBTMUX_SOCKET_NAME` was this variable's earlier name and selects nothing
+  now.
 - [`Server.FromEnvironment`][api-server-fromenvironment] reads the socket out of
-  the `TMUX` variable inside a pane;
-  [`Server.ConnectAsync`][api-server-connectasync] never consults it.
+  the `TMUX` variable inside a pane and passes it as a path. With no socket
+  chosen,
+  [`Server.ConnectAsync`][api-server-connectasync] passes none and leaves the
+  choice to tmux, which follows the `TMUX` it is handed.
 
 ### Three ways to send a command
 

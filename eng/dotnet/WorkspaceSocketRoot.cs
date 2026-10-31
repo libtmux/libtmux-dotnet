@@ -413,21 +413,21 @@ internal static class WorkspaceSocketRoot
     }
 
     // The lock lives as long as the process does, and the system lets go of it
-    // when the process is killed.
+    // when the process is killed. The stream belongs to the domain, not to this
+    // method: disposing it here would drop the lock, and ReleaseRun disposes it.
     [UnsupportedOSPlatform("windows")]
-    private static void HoldRun(string root)
-    {
-        FileStream held = new(
-            Path.Combine(root, LockName),
-            new FileStreamOptions
-            {
-                Mode = FileMode.CreateNew,
-                Access = FileAccess.Write,
-                Share = FileShare.None,
-                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
-            });
-        AppDomain.CurrentDomain.SetData(LockKey, held);
-    }
+    private static void HoldRun(string root) =>
+        AppDomain.CurrentDomain.SetData(
+            LockKey,
+            new FileStream(
+                Path.Combine(root, LockName),
+                new FileStreamOptions
+                {
+                    Mode = FileMode.CreateNew,
+                    Access = FileAccess.Write,
+                    Share = FileShare.None,
+                    UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
+                }));
 
     private static void ReleaseRun()
     {

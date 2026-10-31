@@ -280,6 +280,96 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal("tmux_unavailable", JsonNode.Parse(error.ToString())!["code"]!.ToString());
     }
 
+    // -L and -S come first, then LIBTMUX_SOCKET_PATH and LIBTMUX_SOCKET, then
+    // whatever tmux picks: the server in TMUX, else the default socket. Each
+    // case starts one server per candidate and reads which one the load landed on.
+    [Theory]
+    [InlineData("flag", "path-flag")]
+    [InlineData("variable-path", "path-variable")]
+    [InlineData("variable-name", "name-variable")]
+    [InlineData("tmux", "inside")]
+    [InlineData("default", "default")]
+    public async Task Load_picks_the_socket_in_the_documented_order(string chosen, string landed)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string tmux = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        string home = Path.Combine(_root, "order");
+        Directory.CreateDirectory(home);
+        string suffix = Guid.NewGuid().ToString("N")[..6];
+        string nameVariable = $"nv-{suffix}";
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["TMUX_TMPDIR"] = home,
+            ["TMUX"] = null,
+            ["TMUX_PANE"] = null,
+            ["LIBTMUX_SOCKET"] = null,
+            ["LIBTMUX_SOCKET_PATH"] = null,
+        };
+        Dictionary<string, Server> candidates = new(StringComparer.Ordinal)
+        {
+            ["path-flag"] = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = tmux, SocketPath = Path.Combine(home, "flag.socket"), ConfigurationFile = "/dev/null" }),
+            ["path-variable"] = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = tmux, SocketPath = Path.Combine(home, "variable.socket"), ConfigurationFile = "/dev/null" }),
+            ["name-variable"] = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = tmux, SocketName = nameVariable, ConfigurationFile = "/dev/null", ChildEnvironment = environment }),
+            ["inside"] = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = tmux, SocketPath = Path.Combine(home, "inside.socket"), ConfigurationFile = "/dev/null" }),
+            ["default"] = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = tmux, SocketName = "default", ConfigurationFile = "/dev/null", ChildEnvironment = environment }),
+        };
+        string file = Path.Combine(home, "order.yaml");
+        await File.WriteAllTextAsync(file, "session_name: ordered\nwindows: [{panes: [null]}]", token);
+        try
+        {
+            foreach (Server candidate in candidates.Values)
+            {
+                await Execute(candidate, "new-session", "-d", "-s", "occupied");
+            }
+
+            // Every variable is set whichever case runs, so the case shows which one wins.
+            environment["LIBTMUX_SOCKET"] = nameVariable;
+            environment["LIBTMUX_SOCKET_PATH"] = Path.Combine(home, "variable.socket");
+            environment["TMUX"] = await Execute(candidates["inside"], "display-message", "-p", "#{socket_path},#{pid},0");
+            List<string> arguments = ["load", file, "-d", "--json"];
+            if (chosen == "flag")
+            {
+                arguments.AddRange(["-S", Path.Combine(home, "flag.socket")]);
+            }
+            else if (chosen == "variable-name")
+            {
+                environment["LIBTMUX_SOCKET_PATH"] = null;
+            }
+            else if (chosen == "tmux")
+            {
+                environment["LIBTMUX_SOCKET"] = null;
+                environment["LIBTMUX_SOCKET_PATH"] = null;
+            }
+            else if (chosen == "default")
+            {
+                environment["LIBTMUX_SOCKET"] = null;
+                environment["LIBTMUX_SOCKET_PATH"] = null;
+                environment["TMUX"] = null;
+            }
+
+            using StringWriter output = new();
+            using StringWriter error = new();
+            int code = await CliRunner.RunAsync([.. arguments], output, error, home, environment, token);
+
+            Assert.True(code == 0, "The load failed: " + error);
+            foreach ((string name, Server candidate) in candidates)
+            {
+                string[] sessions = (await Execute(candidate, "list-sessions", "-F", "#{session_name}")).Split('\n');
+                Assert.True(
+                    sessions.Contains("ordered") == (name == landed),
+                    $"The load {(name == landed ? "missed" : "reached")} {name}.");
+            }
+        }
+        finally
+        {
+            using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
+            foreach (Server candidate in candidates.Values)
+            {
+                if (await candidate.IsAliveAsync(cleanup.Token)) await candidate.KillAsync(cancellationToken: cleanup.Token);
+            }
+        }
+    }
+
     // A session built without asking the terminal its size gets stretched
     // once a client attaches -- main-pane layouts come out at the wrong
     // ratio, and typing into a pane that is about to be resized by that
@@ -1274,6 +1364,7 @@ public sealed class RegressionTests : IDisposable
     [InlineData("other-path")]
     [InlineData("other-name")]
     [InlineData("other-name-unstarted")]
+    [InlineData("other-variable")]
     [InlineData("restarted")]
     public async Task Append_authenticates_the_current_panes_server(string selection)
     {
@@ -1304,6 +1395,9 @@ public sealed class RegressionTests : IDisposable
             }
             string file = Path.Combine(_root, "append.yaml");
             await File.WriteAllTextAsync(file, "session_name: append\nwindows: [{window_name: added, panes: [null]}]", TestContext.Current.CancellationToken);
+            // A socket variable comes ahead of the server in TMUX, so this one
+            // names another server than the pane's own.
+            if (selection == "other-variable") environment["LIBTMUX_SOCKET"] = "other";
             string[] endpoint = selection switch
             {
                 "same-path" => ["-S", socket],

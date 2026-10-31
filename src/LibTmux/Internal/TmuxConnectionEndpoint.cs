@@ -8,11 +8,11 @@ namespace LibTmux.Internal;
 /// <summary>Resolves one immutable connection endpoint and its child environment.</summary>
 internal static class TmuxConnectionEndpoint
 {
-    /// <summary>The socket tmux uses when a caller names none.</summary>
+    /// <summary>The name of the socket tmux falls back to when it is handed no socket and no <c>TMUX</c>.</summary>
     internal const string DefaultSocketName = "default";
 
     private const string DefaultSocketRoot = "/tmp";
-    private const string SocketNameVariable = "LIBTMUX_SOCKET_NAME";
+    private const string SocketNameVariable = "LIBTMUX_SOCKET";
     private const string SocketPathVariable = "LIBTMUX_SOCKET_PATH";
 
     internal static ResolvedTmuxConnection Resolve(ServerConnectionOptions options)
@@ -31,6 +31,7 @@ internal static class TmuxConnectionEndpoint
             : NormalizeSocketPath(
                 chosen ? null : ReadVariable(options.ChildEnvironment, SocketPathVariable));
         string? socketName = null;
+        string? serverPath = null;
         IReadOnlyDictionary<string, string?>? childEnvironment = options.ChildEnvironment;
         TmuxEndpointIdentity endpointIdentity;
         if (socketPath is null)
@@ -47,15 +48,30 @@ internal static class TmuxConnectionEndpoint
             }
 
             socketName ??= environmentSocketName;
-            socketName ??= DefaultSocketName;
             ResolvedSocketRoot socketRoot = ResolveSocketRoot(options.ChildEnvironment);
+
+            // With no socket chosen, tmux is handed neither -L nor -S and picks
+            // the server itself: the one TMUX names, else the default socket.
+            // TMUX is read once here, so the endpoint cannot move afterwards.
+            string? inherited = socketName is null && options.PsmuxPreview is null
+                ? ReadVariable(options.ChildEnvironment, TmuxEnvironmentVariables.ServerVariable)
+                : null;
+            serverPath = ServerSocketPath(inherited);
             childEnvironment = FreezeChildEnvironment(
                 options.ChildEnvironment,
                 socketRoot.EnvironmentValue,
-                options.PsmuxPreview?.DataDirectory);
-            endpointIdentity = options.PsmuxPreview is null
-                ? TmuxEndpointIdentity.ForName(socketRoot.Identity, socketName)
-                : TmuxEndpointIdentity.ForPsmux(options.PsmuxPreview.DataDirectory, socketName);
+                options.PsmuxPreview?.DataDirectory,
+                socketName is null && options.PsmuxPreview is null ? inherited : null,
+                socketName is null && options.PsmuxPreview is null);
+            endpointIdentity = options.PsmuxPreview is not null
+                ? TmuxEndpointIdentity.ForPsmux(
+                    options.PsmuxPreview.DataDirectory,
+                    socketName ?? DefaultSocketName)
+                : socketName is not null
+                    ? TmuxEndpointIdentity.ForName(socketRoot.Identity, socketName)
+                    : serverPath is not null
+                        ? TmuxEndpointIdentity.ForPath(serverPath)
+                        : TmuxEndpointIdentity.ForName(socketRoot.Identity, DefaultSocketName);
         }
         else
         {
@@ -68,7 +84,8 @@ internal static class TmuxConnectionEndpoint
             socketName,
             socketPath,
             endpointIdentity,
-            childEnvironment);
+            childEnvironment,
+            serverPath);
     }
 
     private static string[] BuildPrefixArguments(
@@ -151,15 +168,29 @@ internal static class TmuxConnectionEndpoint
         return new ResolvedSocketRoot(normalizedRoot, normalizedRoot);
     }
 
+    // The socket path tmux follows out of TMUX, which it reads up to the first
+    // comma and not at all when empty or starting with one.
+    private static string? ServerSocketPath(string? server) =>
+        string.IsNullOrEmpty(server) || server[0] == ','
+            ? null
+            : Path.GetFullPath(server.Split(',', 2)[0]);
+
     private static ReadOnlyDictionary<string, string?> FreezeChildEnvironment(
         IReadOnlyDictionary<string, string?>? childEnvironment,
         string? socketRoot,
-        string? psmuxDataDirectory)
+        string? psmuxDataDirectory,
+        string? server,
+        bool followServer)
     {
         var frozen = childEnvironment is null
             ? new Dictionary<string, string?>(StringComparer.Ordinal)
             : new Dictionary<string, string?>(childEnvironment, StringComparer.Ordinal);
         frozen["TMUX_TMPDIR"] = socketRoot;
+        if (followServer)
+        {
+            frozen[TmuxEnvironmentVariables.ServerVariable] = server;
+        }
+
         if (psmuxDataDirectory is not null)
         {
             frozen["PSMUX_DATA_DIR"] = psmuxDataDirectory;
@@ -182,7 +213,8 @@ internal sealed record ResolvedTmuxConnection(
     string? SocketName,
     string? SocketPath,
     TmuxEndpointIdentity EndpointIdentity,
-    IReadOnlyDictionary<string, string?>? ChildEnvironment);
+    IReadOnlyDictionary<string, string?>? ChildEnvironment,
+    string? ServerPath = null);
 
 internal readonly record struct TmuxEndpointIdentity(
     TmuxEndpointKind Kind,

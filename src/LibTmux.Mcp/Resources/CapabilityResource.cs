@@ -16,13 +16,16 @@ internal sealed record McpRuntimeDisclosure(
     string AttachCommand,
     bool TeardownExplicitlySelected)
 {
+    /// <summary>The selector reported when no socket was chosen and tmux picks the server.</summary>
+    internal const string DefaultSelector = "default";
+
     internal static McpRuntimeDisclosure Unknown(ServerConnectionOptions options)
     {
         string resolvedPath = options.SocketPath is string path ? Path.GetFullPath(path) : "";
         return new(
-            resolvedPath.Length == 0
-                ? $"name:{options.SocketName ?? "default"}"
-                : $"path:{resolvedPath}",
+            resolvedPath.Length > 0
+                ? $"path:{resolvedPath}"
+                : options.SocketName is string name ? $"name:{name}" : DefaultSelector,
             "unknown",
             "unknown",
             ServerState: "unknown",
@@ -35,10 +38,24 @@ internal sealed record McpRuntimeDisclosure(
         ServerConnectionOptions options,
         string resolvedSocketPath)
     {
-        string selector = resolvedSocketPath.Length == 0
-            ? $"-L {ShellQuote(options.SocketName ?? "default")}"
-            : $"-S {ShellQuote(resolvedSocketPath)}";
-        return $"{ShellQuote(options.TmuxBinaryPath)} -N {selector} attach";
+        string binary = ShellQuote(options.TmuxBinaryPath);
+        if (resolvedSocketPath.Length > 0)
+        {
+            return $"{binary} -N -S {ShellQuote(resolvedSocketPath)} attach";
+        }
+
+        // A socket name, or none, is a place under the root this server was
+        // started with, so the command names that root when there is one. With
+        // no socket chosen it carries none, and tmux picks the same server for
+        // the operator that it picked for this one.
+        string root = options.ChildEnvironment is not null
+            && options.ChildEnvironment.TryGetValue("TMUX_TMPDIR", out string? configured)
+            && !string.IsNullOrWhiteSpace(configured)
+                ? $"TMUX_TMPDIR={ShellQuote(configured)} "
+                : "";
+        return options.SocketName is string name
+            ? $"{root}{binary} -N -L {ShellQuote(name)} attach"
+            : $"{root}{binary} -N attach";
     }
 
     private static string ShellQuote(string value) =>

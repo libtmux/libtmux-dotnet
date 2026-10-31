@@ -2,12 +2,14 @@ using System.Diagnostics;
 
 namespace LibTmux.Internal;
 
-/// <summary>Isolates a tmux child process from an inherited tmux session.</summary>
+/// <summary>Takes <c>TMUX</c> out of a tmux child process's environment unless the caller names it.</summary>
 /// <remarks>
-/// A process running inside a pane inherits <c>TMUX</c>, and a bare tmux client
-/// that sees it will refuse to nest or will target the wrong server. Isolation
-/// happens on the child's environment block so the calling process's own
-/// environment is never mutated.
+/// A process running inside a pane inherits <c>TMUX</c>, which names that
+/// pane's server. A client given a socket with <c>-L</c> or <c>-S</c> is meant
+/// to reach that socket alone, so the child does not keep it. A connection that
+/// chose no socket names <c>TMUX</c> in the overrides, and tmux then follows the
+/// server the process runs in. Isolation happens on the child's environment
+/// block so the calling process's own environment is never mutated.
 /// </remarks>
 internal static class ChildProcessEnvironment
 {

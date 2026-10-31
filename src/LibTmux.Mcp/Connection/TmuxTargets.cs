@@ -252,8 +252,8 @@ internal static class TmuxTargets
     /// <c>TMUX_PANE</c> alone cannot answer this. tmux numbers panes per
     /// server, so <c>%1</c> in the terminal this conversation runs through and
     /// <c>%1</c> on the socket being driven are different panes whenever those
-    /// are different servers — which is the ordinary case, because the server
-    /// pins a dedicated socket by default. Believing the bare id marks an
+    /// are different servers — which is the ordinary case whenever the server
+    /// is pinned to a socket of its own. Believing the bare id marks an
     /// unrelated pane as the caller's own, protecting a scratch pane while
     /// leaving the real terminal unguarded.
     /// <c>TMUX</c> carries the socket path tmux exported into the pane, so
@@ -281,9 +281,9 @@ internal static class TmuxTargets
     /// <param name="cancellationToken">Cancels the tmux query.</param>
     /// <returns>The caller's socket path, or null when it is this one or unknown.</returns>
     /// <remarks>
-    /// A bare null caller pane reads as "could not determine". On the default
-    /// dedicated socket the truth is stronger: the caller's terminal is on
-    /// another server, so no listing from this one can ever contain it.
+    /// A bare null caller pane reads as "could not determine". On a socket of
+    /// its own the truth is stronger: the caller's terminal is on another
+    /// server, so no listing from this one can ever contain it.
     /// </remarks>
     internal static async Task<string?> ForeignCallerSocketAsync(
         Server server,

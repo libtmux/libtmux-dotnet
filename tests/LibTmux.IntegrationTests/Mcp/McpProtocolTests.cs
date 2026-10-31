@@ -137,19 +137,25 @@ public sealed class McpProtocolTests
     }
 
     [UnixFact]
-    public async Task Stdin_eof_cancels_a_pending_wait_and_removes_the_owned_daemon()
+    public async Task Stdin_eof_cancels_a_pending_wait_and_leaves_the_server_running()
     {
         TmuxFeatureSupport.RequireControl();
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = Path.Combine(WorkspaceSocketRoot.Root, $"mcp-eof-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
         string binary = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+
+        // No socket variable is set below, so the process drives the socket tmux
+        // picks, which is the default one under this root.
         Server endpoint = Server.Open(new ServerConnectionOptions
         {
             TmuxBinaryPath = binary,
-            SocketName = "libtmux-mcp",
             ConfigurationFile = "/dev/null",
-            ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = root },
+            ChildEnvironment = new Dictionary<string, string?>
+            {
+                ["TMUX_TMPDIR"] = root,
+                ["TMUX"] = null,
+            },
         });
         var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "LibTmux.Mcp"))
         {
@@ -169,6 +175,7 @@ public sealed class McpProtocolTests
         startInfo.Environment.Remove("BASH_ENV");
         startInfo.Environment["SHELL"] = "/bin/sh";
         startInfo.Environment["LIBTMUX_TMUX"] = binary;
+        startInfo.Environment["LIBTMUX_TMUX_CONFIG"] = "/dev/null";
         startInfo.Environment["TMUX_TMPDIR"] = root;
         using Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("The MCP test process did not start.");
@@ -220,9 +227,10 @@ public sealed class McpProtocolTests
             {
                 Assert.Equal("2.0", JsonNode.Parse(line)?["jsonrpc"]?.GetValue<string>());
             }
+            // The server was not this process's to stop, so it is still there.
             TmuxCommandResult probe = await endpoint.ExecuteCommandAsync(
                 ["display-message", "-p", "#{pid}"], token);
-            Assert.NotEqual(0, probe.ExitCode);
+            Assert.Equal(0, probe.ExitCode);
         }
         finally
         {
@@ -350,9 +358,9 @@ public sealed class McpProtocolTests
             document.RootElement.GetProperty("effectiveTools").EnumerateArray()
                 .Select(name => name.GetString()).Order(StringComparer.Ordinal));
         JsonElement socket = document.RootElement.GetProperty("socket");
-        Assert.Equal("default-dedicated", socket.GetProperty("selectionProvenance").GetString());
-        Assert.Equal("created", socket.GetProperty("serverState").GetString());
-        Assert.Equal("minimal", socket.GetProperty("configurationProvenance").GetString());
+        Assert.Equal("operator-current", socket.GetProperty("selectionProvenance").GetString());
+        Assert.Equal("absent", socket.GetProperty("serverState").GetString());
+        Assert.Equal("user-configured", socket.GetProperty("configurationProvenance").GetString());
         Assert.Equal("tmux-objects-only", socket.GetProperty("namespaceBoundary").GetString());
         Assert.True(socket.TryGetProperty("selector", out _));
         JsonElement boundary = document.RootElement.GetProperty("boundary");
@@ -863,118 +871,185 @@ public sealed class McpProtocolTests
     }
 
     [UnixFact]
-    public async Task Default_startup_proves_new_minimal_daemon_ownership()
+    public async Task Startup_with_no_socket_selected_leaves_the_choice_to_tmux()
     {
-        // McpStartup hands tmux only TMUX_TMPDIR, so TMUX and the socket
-        // variables reach it from this process.
-        WorkspaceSocketRoot.Require();
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = Path.Combine(Path.GetTempPath(), $"libtmux-mcp-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
-        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
-        {
-            ["TMUX_TMPDIR"] = root,
-            ["LIBTMUX_TMUX"] = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            ["PATH"] = System.Environment.GetEnvironmentVariable("PATH"),
-        };
+        Dictionary<string, string?> environment = UnselectedEnvironment(root);
 
         try
         {
-            McpStartup created = await McpStartup.ResolveAsync(
+            McpStartup startup = await McpStartup.ResolveAsync(
                 name => environment.GetValueOrDefault(name), token);
-            Assert.Equal("created", created.Disclosure.ServerState);
-            Assert.Equal("minimal", created.Disclosure.ConfigurationProvenance);
-            Assert.Equal("default-dedicated", created.Disclosure.SocketProvenance);
-            Assert.False(string.IsNullOrWhiteSpace(created.Disclosure.ResolvedSocketPath));
-            Assert.True(Path.IsPathFullyQualified(created.ConnectionOptions.TmuxBinaryPath));
-            Assert.Null(created.ConnectionOptions.SocketName);
-            Assert.Equal(
-                created.Disclosure.ResolvedSocketPath,
-                created.ConnectionOptions.SocketPath);
-            Assert.Contains(" -N -S '", created.Disclosure.AttachCommand, StringComparison.Ordinal);
-            Assert.Contains(Toolset.Teardown, created.Selection.Toolsets);
-            Assert.True(File.Exists(created.ConnectionOptions.ConfigurationFile));
-            Assert.Contains("@libtmux_mcp_owner", await File.ReadAllTextAsync(
-                created.ConnectionOptions.ConfigurationFile!, token), StringComparison.Ordinal);
-            TmuxCommandResult globalEnvironment = await Server.Open(created.ConnectionOptions)
-                .ExecuteCommandAsync(["show-environment", "-g"], token);
-            Assert.DoesNotContain(
-                globalEnvironment.StandardOutputLines,
-                line => line.StartsWith("LIBTMUX_MCP_OWNER=", StringComparison.Ordinal));
 
-            McpStartup existing = await McpStartup.ResolveAsync(
-                name => environment.GetValueOrDefault(name), token);
-            Assert.Equal("existing", existing.Disclosure.ServerState);
-            Assert.Equal("unknown", existing.Disclosure.ConfigurationProvenance);
-            Assert.Null(existing.ConnectionOptions.SocketName);
-            Assert.Equal(
-                created.Disclosure.ResolvedSocketPath,
-                existing.ConnectionOptions.SocketPath);
-            Assert.DoesNotContain(Toolset.Teardown, existing.Selection.Toolsets);
+            // Neither -L nor -S, and no configuration of the server's own.
+            Assert.Null(startup.ConnectionOptions.SocketName);
+            Assert.Null(startup.ConnectionOptions.SocketPath);
+            Assert.Null(startup.ConnectionOptions.ConfigurationFile);
+            Assert.Equal("default", startup.Disclosure.SocketSelector);
+            Assert.Equal("tmux-default", startup.Disclosure.SocketProvenance);
+            Assert.Equal("tmux-default", startup.Disclosure.ConfigurationProvenance);
+            Assert.Equal("absent", startup.Disclosure.ServerState);
+            Assert.Equal(string.Empty, startup.Disclosure.ResolvedSocketPath);
+            Assert.DoesNotContain(" -L ", startup.Disclosure.AttachCommand, StringComparison.Ordinal);
+            Assert.DoesNotContain(" -S ", startup.Disclosure.AttachCommand, StringComparison.Ordinal);
 
-            IAsyncDisposable owner = Assert.IsAssignableFrom<IAsyncDisposable>(created);
-            await owner.DisposeAsync();
-            TmuxCommandResult afterCleanup = await Server.Open(created.ConnectionOptions)
-                .ExecuteCommandAsync(["list-sessions"], token);
-            Assert.NotEqual(0, afterCleanup.ExitCode);
+            // The server looks for its socket under this root, so the command does too.
+            Assert.StartsWith($"TMUX_TMPDIR='{root}' ", startup.Disclosure.AttachCommand, StringComparison.Ordinal);
+            Assert.EndsWith(" -N attach", startup.Disclosure.AttachCommand, StringComparison.Ordinal);
+            Assert.DoesNotContain(Toolset.Teardown, startup.Selection.Toolsets);
+
+            // The probe asked and nothing started: no server owns the socket.
+            Assert.False(File.Exists(Path.Combine(root, $"tmux-{PaneInputEndpoint.UserId}", "default")));
         }
         finally
         {
-            await Server.Open(new ServerConnectionOptions
-            {
-                TmuxBinaryPath = environment["LIBTMUX_TMUX"]!,
-                SocketName = "libtmux-mcp",
-                ConfigurationFile = McpStartup.MinimalConfigurationPath,
-                ChildEnvironment = new Dictionary<string, string?>
-                {
-                    ["TMUX_TMPDIR"] = root,
-                }
-            }).KillAsync(CancellationToken.None);
-
             Directory.Delete(root, recursive: true);
         }
     }
 
     [UnixFact]
-    public async Task Default_cleanup_refuses_a_foreign_owner_marker()
+    public async Task Startup_with_no_socket_selected_drives_the_server_tmux_picks()
     {
-        // McpStartup hands tmux only TMUX_TMPDIR, so TMUX and the socket
-        // variables reach it from this process.
-        WorkspaceSocketRoot.Require();
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = Path.Combine(Path.GetTempPath(), $"libtmux-mcp-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
-        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        Dictionary<string, string?> environment = UnselectedEnvironment(root);
+        Server seeded = Server.Open(new ServerConnectionOptions
         {
-            ["TMUX_TMPDIR"] = root,
-            ["LIBTMUX_TMUX"] = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            ["PATH"] = System.Environment.GetEnvironmentVariable("PATH"),
-        };
+            TmuxBinaryPath = environment["LIBTMUX_TMUX"]!,
+            ConfigurationFile = "/dev/null",
+            ChildEnvironment = new Dictionary<string, string?>
+            {
+                ["TMUX_TMPDIR"] = root,
+                ["TMUX"] = null,
+            },
+        });
 
         try
         {
-            McpStartup created = await McpStartup.ResolveAsync(
+            await seeded.ExecuteCommandAsync(["new-session", "-d", "-s", "seed"], token);
+
+            McpStartup startup = await McpStartup.ResolveAsync(
                 name => environment.GetValueOrDefault(name), token);
-            Server server = Server.Open(created.ConnectionOptions);
-            _ = await server.ExecuteCommandAsync(
-                ["set-option", "-g", "@libtmux_mcp_owner", "foreign-owner"],
-                token);
 
-            IAsyncDisposable owner = Assert.IsAssignableFrom<IAsyncDisposable>(created);
-            await owner.DisposeAsync();
+            string defaultSocket = Path.Combine(root, $"tmux-{PaneInputEndpoint.UserId}", "default");
+            Assert.Equal("existing", startup.Disclosure.ServerState);
+            Assert.Equal("tmux-default", startup.Disclosure.SocketProvenance);
+            Assert.Equal("unknown", startup.Disclosure.ConfigurationProvenance);
+            Assert.Equal(defaultSocket, startup.Disclosure.ResolvedSocketPath);
+            Assert.Null(startup.ConnectionOptions.SocketName);
+            Assert.Equal(defaultSocket, startup.ConnectionOptions.SocketPath);
+            Assert.DoesNotContain(Toolset.Teardown, startup.Selection.Toolsets);
+        }
+        finally
+        {
+            await seeded.KillAsync(CancellationToken.None);
+            Directory.Delete(root, recursive: true);
+        }
+    }
 
-            TmuxCommandResult marker = await server.ExecuteCommandAsync(
-                ["show-options", "-gqv", "@libtmux_mcp_owner"],
-                token);
-            Assert.Equal(0, marker.ExitCode);
-            Assert.Equal("foreign-owner", Assert.Single(marker.StandardOutputLines));
-            await server.KillAsync(token);
+    // tmux follows TMUX only when it is handed neither -L nor -S, so a server
+    // started from inside a pane drives the pane's own server.
+    [UnixFact]
+    public async Task Startup_with_no_socket_selected_follows_TMUX()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string root = Path.Combine(Path.GetTempPath(), $"libtmux-mcp-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        string inside = Path.Combine(root, "inside.sock");
+        Dictionary<string, string?> environment = UnselectedEnvironment(root);
+        Server seeded = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = environment["LIBTMUX_TMUX"]!,
+            SocketPath = inside,
+            ConfigurationFile = "/dev/null",
+        });
+
+        try
+        {
+            await seeded.ExecuteCommandAsync(["new-session", "-d", "-s", "seed"], token);
+            TmuxCommandResult pid = await seeded.ExecuteCommandAsync(
+                ["display-message", "-p", "#{pid}"], token);
+            environment["TMUX"] = $"{inside},{Assert.Single(pid.StandardOutputLines)},0";
+
+            McpStartup startup = await McpStartup.ResolveAsync(
+                name => environment.GetValueOrDefault(name), token);
+
+            Assert.Equal("existing", startup.Disclosure.ServerState);
+            Assert.Equal("tmux-default", startup.Disclosure.SocketProvenance);
+            Assert.Equal(inside, startup.Disclosure.ResolvedSocketPath);
+            Assert.Equal(inside, startup.ConnectionOptions.SocketPath);
+        }
+        finally
+        {
+            await seeded.KillAsync(CancellationToken.None);
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    // libtmux-mcp hands both variables to Server, which keeps the path.
+    [UnixFact]
+    public async Task Startup_lets_the_socket_path_win_over_the_socket_name()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string root = Path.Combine(Path.GetTempPath(), $"libtmux-mcp-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        string path = Path.Combine(root, "chosen.sock");
+        Dictionary<string, string?> environment = UnselectedEnvironment(root);
+        environment[McpStartup.SocketVariable] = "loses";
+        environment[McpStartup.SocketPathVariable] = path;
+
+        try
+        {
+            McpStartup startup = await McpStartup.ResolveAsync(
+                name => environment.GetValueOrDefault(name), token);
+
+            Assert.Equal(path, startup.ConnectionOptions.SocketPath);
+            Assert.Null(startup.ConnectionOptions.SocketName);
+            Assert.Equal($"path:{path}", startup.Disclosure.SocketSelector);
+            Assert.Equal("operator-current", startup.Disclosure.SocketProvenance);
         }
         finally
         {
             Directory.Delete(root, recursive: true);
         }
     }
+
+    // The library read LIBTMUX_SOCKET_NAME before it read LIBTMUX_SOCKET. Left
+    // alone it would now reach the tmux the person uses, not the socket it names.
+    [UnixFact]
+    public async Task Startup_refuses_the_retired_socket_name_on_its_own()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string root = Path.Combine(Path.GetTempPath(), $"libtmux-mcp-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        Dictionary<string, string?> environment = UnselectedEnvironment(root);
+        environment[McpStartup.LibrarySocketNameVariable] = "retired";
+
+        try
+        {
+            McpException refused = await Assert.ThrowsAsync<McpException>(() =>
+                McpStartup.ResolveAsync(name => environment.GetValueOrDefault(name), token));
+
+            Assert.Contains(McpStartup.LibrarySocketNameVariable, refused.Message, StringComparison.Ordinal);
+            Assert.Contains(McpStartup.SocketVariable, refused.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("retired", refused.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static Dictionary<string, string?> UnselectedEnvironment(string root) =>
+        new(StringComparer.Ordinal)
+        {
+            ["TMUX_TMPDIR"] = root,
+            ["LIBTMUX_TMUX"] = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            ["PATH"] = System.Environment.GetEnvironmentVariable("PATH"),
+        };
 
     [UnixFact]
     public async Task A_direct_call_is_held_to_the_schema_a_batch_call_is()
@@ -1377,9 +1452,9 @@ public sealed class McpProtocolTests
                 CapabilitySelection.All,
                 new McpRuntimeDisclosure(
                     $"name:{socketName}",
-                    "default-dedicated",
-                    "minimal",
-                    ServerState: "created",
+                    "operator-current",
+                    "user-configured",
+                    ServerState: "absent",
                     ResolvedSocketPath: "",
                     AttachCommand: $"tmux -N -L '{socketName}' attach",
                     TeardownExplicitlySelected: false));
