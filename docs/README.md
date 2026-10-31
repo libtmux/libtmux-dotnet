@@ -1,6 +1,6 @@
 # LibTmux
 
-> Stable tmux 3.3a and newer are supported; the required matrix builds 3.3a
+> Stable tmux 3.3a and newer are supported; the release matrix builds 3.3a
 > through 3.8. The API shape is not settled. The [psmux preview](psmux.md) is
 > experimental and query-only.
 

@@ -508,12 +508,53 @@ behavior, and prove changed gates reject a deliberate break.
 graph once for both frameworks. An archive named for the source SHA and Release
 configuration supplies every supported tmux lane; consumers check the revision
 stamp and execute test modules and the F# example without restore or build.
-Missing artifacts and empty test selections fail. The matrix covers every
-version in `eng/tmux/versions.json` on net8.0 and net10.0.
+Missing artifacts and empty test selections fail. A push and a pull request
+run the oldest and the newest version in `eng/tmux/versions.json` on net8.0 and
+net10.0. The weekly schedule, a dispatch with `scope=full` and the release
+workflow, which passes `scope: full`, run every version, the four refusal
+lanes and the lane for exactly tmux 3.7. `eng/tmux/plan.py` decides this from
+the manifest and the event, so the workflow lists no version.
 
-The `compatibility` job requires the producer and all supported lanes. Checks
+The `compatibility` job requires the producer, the matrix and every lane the
+plan put in scope; a lane the plan left out must be skipped. Checks
 independent of tmux versions, including packaging and README compilation, run
-outside that matrix. The scheduled tmux-master lane remains advisory.
+outside that matrix. The tmux-master lane runs on the schedule and on a full
+dispatch, and remains advisory.
+
+### Running CI against any tmux
+
+A dispatch runs the compatibility checks on any branch against a tmux that is
+not in the table, or against one release on one framework. The workflow file
+has to be on the default branch before `gh workflow run` finds it. This builds
+tmux 3.6b and tmux master from source and runs both on net10.0:
+
+```console
+$ gh workflow run dotnet-tmux.yml --ref my-branch -f scope=custom -f tmux-ref=3.6b,master -f dotnet=net10.0
+```
+
+`tmux-ref` takes versions, tags, branches and full 40-character commits from
+[github.com/tmux/tmux](https://github.com/tmux/tmux), separated by commas, and
+needs `scope=custom`. A table version such as `3.8` goes through the release
+build and is checked against `tmux -V`; anything else is resolved to a commit,
+cached by that commit, and built from source. `scope=full` runs everything the
+release workflow does, plus the master lane. `dotnet` takes `net8.0`,
+`net10.0` or both, and an empty value runs both. Reproduce a ref build
+locally with `eng/tmux/build-version.sh --ref 3.6b`.
+
+To look at the runner, add `tmate`. The session opens for the person who
+started the run, who needs an SSH key on their GitHub profile, and it needs
+exactly one leg, so give `tmux-ref` one ref and `dotnet` one framework.
+`before-tests` opens it before the tests and `on-failure` opens it only after
+a failure. The connection command is in the step log, and the step ends after
+30 minutes.
+
+```console
+$ gh workflow run dotnet-tmux.yml --ref my-branch -f scope=custom -f tmux-ref=3.7c -f dotnet=net8.0 -f tmate=on-failure
+```
+
+The plan refuses a run that cannot happen, such as `tmux-ref` without
+`scope=custom` or a session that would land on several legs, before any
+runner builds anything.
 
 macOS is supported at best effort, and CI coverage for it is highly limited:
 CI does not run macOS. [MACOS_CI.md](MACOS_CI.md) lists what a test needs to
@@ -568,8 +609,8 @@ being right about tmux, and only tmux can say whether it is.
 
 **A new tmux version starts in the manifest.**
 [`eng/tmux/versions.json`](../eng/tmux/versions.json) decides which versions
-this repository supports. The workflow matrix, both build scripts, the runtime
-constants and every README repeat that list, and
+this repository supports. The workflow reads it through `eng/tmux/plan.py`;
+both build scripts, the runtime constants and every README repeat it, and
 `eng/parity/verify_tmux_versions.py` names each one that has not caught up:
 
 ```console
@@ -717,8 +758,8 @@ hour.
 
 ## Compatibility
 
-Stable tmux **3.3a and newer**, on **net8.0** and **net10.0**. The required
-Linux matrix covers 3.3a through 3.8. macOS is supported at best effort, with
+Stable tmux **3.3a and newer**, on **net8.0** and **net10.0**. The Linux
+matrix a release runs covers 3.3a through 3.8, and a push runs 3.3a and 3.8. macOS is supported at best effort, with
 no CI coverage. Windows is unsupported. The `LibTmux` core package and the
 static `LibTmux.FSharp` snapshot route have Linux NativeAOT execution smoke
 tests. Optional packages make narrower compatibility claims in their project

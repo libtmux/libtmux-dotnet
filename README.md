@@ -582,9 +582,10 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 - **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
   The API is not settled: any release may change or remove exported identifiers,
   and the changelog marks each break. Pin an exact version to avoid one.
-- **tmux.** Stable 3.3a and newer. CI builds 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b,
-  3.7c, and 3.8. Development builds have unknown capability state, and `next-*`
-  builds use the release intervals.
+- **tmux.** Stable 3.3a and newer. A release is built and tested against 3.3a,
+  3.4, 3.5, 3.6, 3.7a, 3.7b, 3.7c, and 3.8; each push runs 3.3a and 3.8.
+  Development builds have unknown capability state, and `next-*` builds use
+  the release intervals.
 - **tmux release candidates.** Not supported; see
   [Release candidates](https://libtmux.org/en/tmux/guides/tmux-support/#release-candidates).
   `TmuxVersion` parses a candidate such as `X.Y-rcN` and orders it below `X.Y`;

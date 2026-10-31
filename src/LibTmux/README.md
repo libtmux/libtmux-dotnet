@@ -687,7 +687,8 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 - **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
   The API is not settled: any release may change or remove exported identifiers,
   and the changelog marks each break. Pin an exact version to avoid one.
-- **tmux.** 3.3a to 3.8, proven against every supported version on each commit.
+- **tmux.** 3.3a to 3.8, proven against every supported version before each
+  release and against 3.3a and 3.8 on each commit.
 - **.NET.** net8.0 and net10.0, with one dependency:
   `Microsoft.Extensions.Logging.Abstractions`.
 - **Systems.** Linux, including WSL. CI also runs on macOS arm64, and builds on
