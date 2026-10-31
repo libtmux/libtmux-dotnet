@@ -6,6 +6,8 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Sandbox.fs" />
+    <Compile Include="SandboxTests.fs" />
     <Compile Include="ContractTests.fs" />
     <Compile Include="ControlTests.fs" />
     <Compile Include="QueryTests.fs" />
