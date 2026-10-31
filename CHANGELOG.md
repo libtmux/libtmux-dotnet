@@ -33,6 +33,11 @@ changelog marks each break. Pin an exact version to avoid one. Releases before
     `SocketPath`, or `LIBTMUX_SOCKET` and `LIBTMUX_SOCKET_PATH`.
 - **`LIBTMUX_SOCKET` names the socket; `LIBTMUX_SOCKET_NAME` selects nothing.**
   A program that set the old name now reaches the server tmux picks. (#134)
+- `tmux-workspace` chooses its socket from `-S` and `-L`, then
+  `LIBTMUX_SOCKET_PATH` and `LIBTMUX_SOCKET`, then whatever tmux picks. A `load`
+  that may switch to or append to the current session passes the server in
+  `TMUX` only when none of those chose one; it used to pass it ahead of the
+  variables, and every other command used to pass it too. (#134)
 - `Window.SelectLayoutAsync` accepts a JSON layout from tmux 3.8, the first
   release that reads one, and the `layout-json` capability starts at 3.8. An
   older release is refused with `TmuxUnsupportedOnReleaseException` before

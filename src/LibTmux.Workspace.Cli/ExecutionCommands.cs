@@ -17,14 +17,25 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     private ServerGeneration? _loadGeneration;
     private Server Server => _server ??= Server.Open(Connection());
 
-    internal ServerConnectionOptions Connection()
+    // -L and -S come first. With neither, the core reads LIBTMUX_SOCKET_PATH and
+    // LIBTMUX_SOCKET from the environment it is handed below, and with neither of
+    // those tmux picks the server itself. The server named by TMUX is passed as a
+    // socket only where the command asks for the pane's own server, as a load
+    // that may switch to it or append to it does, and only when nothing above
+    // chose one.
+    internal ServerConnectionOptions Connection(bool currentServer = false)
     {
         string? socket = invocation.Text("socket_path");
         string? name = invocation.Text("socket_name");
-        if (socket is null && name is null) socket = LoadHandoff.CurrentSocket(context, out _);
+        if (currentServer && socket is null && name is null && !SocketVariableChooses())
+            socket = LoadHandoff.CurrentSocket(context, out _);
         if (socket is not null) socket = Path.GetFullPath(socket, context.Directory);
         return new ServerConnectionOptions { TmuxBinaryPath = TmuxExecutable(), SocketName = name, SocketPath = socket, ConfigurationFile = invocation.Text("tmux_config"), ColorMode = invocation.Flag("colors256") ? TmuxColorMode.Colors256 : TmuxColorMode.Default, ChildEnvironment = context.Environment };
     }
+
+    private bool SocketVariableChooses() =>
+        !string.IsNullOrWhiteSpace(context.Environment.GetValueOrDefault("LIBTMUX_SOCKET_PATH"))
+        || !string.IsNullOrWhiteSpace(context.Environment.GetValueOrDefault("LIBTMUX_SOCKET"));
 
     // A missing tmux executable is its own tmux_unavailable code, not the
     // generic executable_unavailable shared with EDITOR/before_script.
@@ -57,7 +68,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 await output.WarningAsync(code, message).ConfigureAwait(false);
         bool extensions = inputs.Any(input => input.Document["plugins"] is not null and not JsonArray { Count: 0 } || input.Document["workspace_builder"] is not null);
         LoadHandoff handoff = new(context, invocation, output);
-        await handoff.ResolveAsync(Connection(), inputs[^1].Plan.Name).ConfigureAwait(false);
+        await handoff.ResolveAsync(Connection(currentServer: !invocation.Flag("detached")), inputs[^1].Plan.Name).ConfigureAwait(false);
         if (extensions && handoff.Mode == LoadMode.Append) throw new CliException("usage", "Append with Python workspace extensions is unsupported. Load the extensions into a separate session with -d.", 2);
         if (extensions && handoff.Mode is LoadMode.Attach or LoadMode.Switch) throw new CliException("usage", "Python extension handoff is not yet supported. Load the extensions with -d.", 2);
         _server = handoff.Server;
