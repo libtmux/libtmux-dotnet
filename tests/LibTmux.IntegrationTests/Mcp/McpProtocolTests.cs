@@ -985,6 +985,34 @@ public sealed class McpProtocolTests
         }
     }
 
+    // libtmux-mcp hands both variables to Server, which keeps the path.
+    [UnixFact]
+    public async Task Startup_lets_the_socket_path_win_over_the_socket_name()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string root = Path.Combine(Path.GetTempPath(), $"libtmux-mcp-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        string path = Path.Combine(root, "chosen.sock");
+        Dictionary<string, string?> environment = UnselectedEnvironment(root);
+        environment[McpStartup.SocketVariable] = "loses";
+        environment[McpStartup.SocketPathVariable] = path;
+
+        try
+        {
+            McpStartup startup = await McpStartup.ResolveAsync(
+                name => environment.GetValueOrDefault(name), token);
+
+            Assert.Equal(path, startup.ConnectionOptions.SocketPath);
+            Assert.Null(startup.ConnectionOptions.SocketName);
+            Assert.Equal($"path:{path}", startup.Disclosure.SocketSelector);
+            Assert.Equal("operator-current", startup.Disclosure.SocketProvenance);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     // The library read LIBTMUX_SOCKET_NAME before it read LIBTMUX_SOCKET. Left
     // alone it would now reach the tmux the person uses, not the socket it names.
     [UnixFact]

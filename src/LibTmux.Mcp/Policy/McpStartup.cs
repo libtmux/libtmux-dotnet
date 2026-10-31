@@ -60,10 +60,12 @@ internal sealed record McpStartup(
         string? socketPath = NonBlank(Read(SocketPathVariable), SocketPathVariable);
         RequireSafeRouteValue(socketName, SocketVariable);
         RequireSafeRouteValue(socketPath, SocketPathVariable);
-        if (socketName is not null && socketPath is not null)
+
+        // With both set the path wins, as it does in libtmux-mcp, which hands
+        // both to Server and gets the one socket_path names.
+        if (socketPath is not null)
         {
-            throw new McpException(
-                $"{SocketVariable} and {SocketPathVariable} are mutually exclusive.");
+            socketName = null;
         }
 
         // Neither socket variable leaves the choice to tmux: the server in

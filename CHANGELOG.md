@@ -51,6 +51,9 @@ changelog marks each break. Pin an exact version to avoid one. Releases before
   - Recommended action: set `LIBTMUX_SOCKET` to keep the assistant on a server
     of its own. `LIBTMUX_SOCKET_NAME` on its own stops startup and names
     `LIBTMUX_SOCKET`.
+- `libtmux-mcp` lets `LIBTMUX_SOCKET_PATH` win when `LIBTMUX_SOCKET` is also
+  set, as the Python `libtmux-mcp` does. Startup used to refuse both at once.
+  (#134)
 - `Window.SelectLayoutAsync` accepts a JSON layout from tmux 3.8, the first
   release that reads one, and the `layout-json` capability starts at 3.8. An
   older release is refused with `TmuxUnsupportedOnReleaseException` before

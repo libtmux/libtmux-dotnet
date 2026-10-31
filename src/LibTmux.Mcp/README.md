@@ -152,7 +152,7 @@ stack trace, lay out a workspace and drive it.
 | Variable | Default | Does |
 |---|---|---|
 | `LIBTMUX_SOCKET` | *(unset)* | One socket name pinned at startup |
-| `LIBTMUX_SOCKET_PATH` | *(unset)* | One absolute socket path, mutually exclusive with `LIBTMUX_SOCKET` |
+| `LIBTMUX_SOCKET_PATH` | *(unset)* | One absolute socket path, which wins when `LIBTMUX_SOCKET` is also set |
 | `LIBTMUX_TMUX_CONFIG` | bundled minimal configuration on a pinned socket, none otherwise | An explicit absolute tmux configuration path |
 | `LIBTMUX_TOOLSETS` | provenance-dependent | Unordered `inspect`, `manage`, `execute`, and `teardown` selection |
 | `LIBTMUX_TOOLS` | *(unset)* | Additional exact tool names |
@@ -182,8 +182,8 @@ stack trace, lay out a workspace and drive it.
 - Every default omits `teardown`. Select it by toolset or by exact tool name.
 - Exclusions always win over inclusions.
 - Startup stops on an unknown toolset or tool name, an empty item in a list,
-  both socket variables at once, `LIBTMUX_SOCKET_NAME` on its own, an empty or
-  relative `LIBTMUX_TMUX_CONFIG`, and `LIBTMUX_SAFETY` in the environment.
+  `LIBTMUX_SOCKET_NAME` on its own, an empty or relative `LIBTMUX_TMUX_CONFIG`,
+  and `LIBTMUX_SAFETY` in the environment.
 - Toolsets and filters shape what the client sees and can call. Execute tools
   run with the tmux user's authority over files, processes, and the network.
 - [`tmux://capabilities`][api-mcp-capabilities] reports the pinned socket, the

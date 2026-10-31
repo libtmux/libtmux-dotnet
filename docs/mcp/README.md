@@ -384,7 +384,7 @@ $ claude mcp add tmux \
 ### Choosing the socket
 
 - `LIBTMUX_SOCKET` names a socket and `LIBTMUX_SOCKET_PATH` gives an absolute
-  socket path. Set only one.
+  socket path. When both are set the path wins, as it does in `libtmux-mcp`.
 - `LIBTMUX_TMUX_CONFIG` is an absolute path to a tmux configuration.
   `LIBTMUX_TMUX` selects the tmux executable; a bare or relative value is
   resolved once against the startup `PATH`.
