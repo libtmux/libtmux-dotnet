@@ -23,140 +23,264 @@ namespace LibTmux;
 /// members. They fall into a few groups:
 /// </para>
 /// <para>
-/// <b>Connecting. </b><see cref="Server.Open" /> makes a handle without running
-/// tmux, and <see cref="Server.ConnectionOptions" /> holds the options it was
-/// opened with.
-/// <see cref="Server.ConnectAsync(ServerConnectionOptions, CancellationToken)" />
-/// takes options and finds the server already listening, never starting one;
-/// the instance <see cref="Server.ConnectAsync(CancellationToken)" /> does the
-/// same for a handle from <c>Open</c>. <see cref="Server.FromEnvironment" />
-/// reads the server this process is already inside, and
-/// <see cref="Server.CreateOwnedAsync" /> starts a server and owns it, stopping
-/// it when the scope is disposed. A connected handle is bound to the server it
+/// <b>Connecting.</b> Open a handle without running tmux, then connect it to
+/// find the server already listening; connecting never starts one. Take the
+/// server this process is already inside, or start one and own it, so that
+/// disposing the scope stops it. A connected handle is bound to the server it
 /// found, so after tmux restarts its sessions, windows, and panes throw
 /// <see cref="StaleServerGenerationException" /> rather than reach the new one.
-/// <see cref="Server.IsMaterialized" /> says whether a handle has found a
-/// server, <see cref="Server.Generation" /> which one, and
-/// <see cref="Server.Version" /> the version of the tmux executable.
-/// <see cref="Server.InspectAsync" /> looks at the live server without running
-/// <see cref="ServerConnectionOptions.InitializeAsync" />, answering
-/// <c>null</c> when none is listening, and <see cref="Server.DaemonVersion" />
-/// carries the daemon version it read.
-/// <see cref="Server.IsAliveAsync" /> asks whether a server is answering and
-/// never reports a failure, <see cref="Server.ThrowIfDeadAsync" /> throws when
-/// none is, and <see cref="Server.StartServerAsync" /> starts the daemon
-/// without creating a session. <see cref="Server.Within" /> bounds every
-/// command by a timeout, and
-/// <see cref="Server.EnterControlModeAsync(string, CancellationToken)" /> opens
-/// a control client that reports what tmux does.
 /// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Open: <see cref="Server.Open" />,
+/// <see cref="Server.ConnectionOptions" /></description>
+/// </item>
+/// <item>
+/// <description>Connect:
+/// <see cref="Server.ConnectAsync(ServerConnectionOptions, CancellationToken)" />,
+/// <see cref="Server.ConnectAsync(CancellationToken)" /></description>
+/// </item>
+/// <item>
+/// <description>Inside tmux:
+/// <see cref="Server.FromEnvironment" /></description>
+/// </item>
+/// <item>
+/// <description>Own: <see cref="Server.CreateOwnedAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Timeout: <see cref="Server.Within" /></description>
+/// </item>
+/// <item>
+/// <description>Control mode:
+/// <see cref="Server.EnterControlModeAsync(string, CancellationToken)" />
+/// </description>
+/// </item>
+/// </list>
 /// <para>
-/// <b>Finding one thing. </b><see cref="Server.GetSessionAsync" />,
-/// <see cref="Server.GetWindowAsync" />, and <see cref="Server.GetPaneAsync" />
-/// read one object by its identifier and throw
-/// <see cref="TmuxObjectNotFoundException" /> when it is absent;
-/// <see cref="Server.FindSessionAsync" />,
-/// <see cref="Server.FindWindowAsync" />, and
-/// <see cref="Server.FindPaneAsync" /> answer <c>null</c> instead, but only
-/// after a read that succeeded. <see cref="Server.HasSessionAsync" /> asks by
-/// name whether a session exists, and the static
-/// <see cref="Client.GetAsync" /> on <see cref="Client" /> finds a client by
-/// name.
+/// <b>Checking the server.</b> Ask whether a server is answering, or have the
+/// call throw when none is. Inspecting reads the live server without running
+/// <see cref="ServerConnectionOptions.InitializeAsync" />, and answers
+/// <c>null</c> when none is listening. Starting the daemon returns no handle,
+/// because with tmux's exit-empty default a server holding no sessions exits
+/// as soon as it starts.
 /// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Ask: <see cref="Server.IsAliveAsync" />,
+/// <see cref="Server.ThrowIfDeadAsync" />,
+/// <see cref="Server.InspectAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Start: <see cref="Server.StartServerAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Which server: <see cref="Server.IsMaterialized" />,
+/// <see cref="Server.Generation" /></description>
+/// </item>
+/// <item>
+/// <description>Which tmux: <see cref="Server.Version" />,
+/// <see cref="Server.DaemonVersion" /></description>
+/// </item>
+/// </list>
 /// <para>
-/// <b>Listing everything. </b><see cref="Server.GetSessionsAsync" />,
-/// <see cref="Server.GetWindowsAsync" />, <see cref="Server.GetPanesAsync" />,
-/// and <see cref="Server.GetClientsAsync" /> each read all of their kind on the
-/// server and throw when the listing fails, so an outage never reads as an
-/// empty server. <see cref="Server.GetAttachedSessionsAsync" /> keeps the
-/// sessions that have a client attached.
-/// <see cref="Server.CaptureSnapshotAsync(SnapshotDepth, CancellationToken)" />
-/// reads one listing per level, down to the depth asked for, and answers a new
-/// handle whose <see cref="Server.Sessions" />, <see cref="Server.Windows" />,
-/// and <see cref="Server.Panes" /> then answer without another command;
-/// <see cref="Server.SnapshotMetadata" /> records how the capture went. Clients
-/// are not part of a capture, so <see cref="Server.Clients" /> stays
-/// uncaptured.
+/// <b>Finding one thing.</b> Read one session, window, or pane by its
+/// identifier. The Get methods throw
+/// <see cref="TmuxObjectNotFoundException" /> when it is absent; the Find
+/// methods answer <c>null</c> instead, but only after a read that succeeded.
+/// Ask by name whether a session exists, or find a client by name.
 /// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Get: <see cref="Server.GetSessionAsync" />,
+/// <see cref="Server.GetWindowAsync" />,
+/// <see cref="Server.GetPaneAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Find: <see cref="Server.FindSessionAsync" />,
+/// <see cref="Server.FindWindowAsync" />,
+/// <see cref="Server.FindPaneAsync" /></description>
+/// </item>
+/// <item>
+/// <description>By name: <see cref="Server.HasSessionAsync" />,
+/// <see cref="Client.GetAsync" /></description>
+/// </item>
+/// </list>
 /// <para>
-/// <b>Querying things and getting around. </b>
-/// <see cref="Server.SearchSessionsAsync" />,
-/// <see cref="Server.SearchWindowsAsync" />,
-/// <see cref="Server.SearchPanesAsync" />, and
-/// <see cref="Server.SearchClientsAsync" /> hand tmux an
-/// <see cref="UnsafeTmuxFilter" />, so rows it rejects never become objects;
-/// tmux reads the text itself, and a malformed filter returns no rows rather
-/// than an error. To filter what has already been read, give the
+/// <b>Listing everything.</b> Read every session, window, pane, or client on
+/// the server. Each throws when the listing fails, so an outage never reads as
+/// an empty server. A capture reads one listing per level, down to the depth
+/// asked for, and answers a new handle whose relations then answer without
+/// another command; clients are not part of a capture.
+/// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Read: <see cref="Server.GetSessionsAsync" />,
+/// <see cref="Server.GetWindowsAsync" />,
+/// <see cref="Server.GetPanesAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Attached: <see cref="Server.GetClientsAsync" />,
+/// <see cref="Server.GetAttachedSessionsAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Capture:
+/// <see cref="Server.CaptureSnapshotAsync(SnapshotDepth, CancellationToken)" />,
+/// <see cref="Server.SnapshotMetadata" /></description>
+/// </item>
+/// <item>
+/// <description>Captured: <see cref="Server.Sessions" />,
+/// <see cref="Server.Windows" />, <see cref="Server.Panes" />,
+/// <see cref="Server.Clients" /></description>
+/// </item>
+/// </list>
+/// <para>
+/// <b>Querying things and getting around.</b> Searching hands tmux an
+/// <see cref="UnsafeTmuxFilter" />, so rows it rejects never become objects; a
+/// malformed filter returns no rows rather than an error, and searching clients
+/// needs tmux 3.4. To filter what has already been read, give the
 /// <c>Matching</c> extension in <see cref="Query.QueryExtensions" /> a C#
-/// predicate. The same class turns a predicate into a portable document with
-/// <see cref="Query.QueryExtensions.Translate" /> and plans it for tmux to
-/// evaluate with <see cref="Query.QueryExtensions.Plan" />. To move between
-/// levels, read a session's <see cref="Session.Windows" /> and
-/// <see cref="Session.Panes" /> and a window's <see cref="Window.Panes" /> to
-/// go down; a window's <see cref="Window.Session" /> and a pane's
-/// <see cref="Pane.Window" /> and <see cref="Pane.Session" /> to go up; and a
-/// session's <see cref="Session.ActiveWindow" /> and
-/// <see cref="Session.ActivePane" /> and a window's
-/// <see cref="Window.ActivePane" /> to reach the focused child. Reading any of
-/// these never reaches tmux, and one the capture did not read throws
+/// predicate; the same class translates a predicate into a portable document
+/// and plans it for tmux to evaluate. Moving between levels of a capture never
+/// reaches tmux, and a relation the capture did not read throws
 /// <see cref="IncompleteSnapshotException" /> rather than reading as empty.
 /// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Search: <see cref="Server.SearchSessionsAsync" />,
+/// <see cref="Server.SearchWindowsAsync" />,
+/// <see cref="Server.SearchPanesAsync" />,
+/// <see cref="Server.SearchClientsAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Translate and plan:
+/// <see cref="Query.QueryExtensions.Translate" />,
+/// <see cref="Query.QueryExtensions.Plan" /></description>
+/// </item>
+/// <item>
+/// <description>Down: <see cref="Session.Windows" />,
+/// <see cref="Session.Panes" />, <see cref="Window.Panes" /></description>
+/// </item>
+/// <item>
+/// <description>Up: <see cref="Window.Session" />, <see cref="Pane.Window" />,
+/// <see cref="Pane.Session" /></description>
+/// </item>
+/// <item>
+/// <description>Focused: <see cref="Session.ActiveWindow" />,
+/// <see cref="Session.ActivePane" />,
+/// <see cref="Window.ActivePane" /></description>
+/// </item>
+/// </list>
 /// <para>
-/// <b>Changing things. </b><see cref="Server.CreateSessionAsync" /> makes a
-/// session, <see cref="Server.CreateSessionWithReceiptAsync" /> also hands back
-/// the identifiers of its first window and pane, and
-/// <see cref="Server.CreateOwnedSessionAsync" /> returns a scope that stops the
-/// session when disposed. <see cref="Server.KillSessionAsync" /> stops one
-/// session by name, <see cref="Server.KillAsync" /> stops the server and counts
-/// one that is already gone as success, and <see cref="Server.LockAsync" />
-/// locks every client attached to it. Windows and panes change through
+/// <b>Changing things.</b> Create a session, with the identifiers of its first
+/// window and pane in the receipt form, or inside a scope that stops it when
+/// disposed. Creating a session under a name already taken throws
+/// <see cref="TmuxSessionExistsException" />. Stopping the server counts one
+/// that is already gone as success; windows and panes change through
 /// <see cref="Session" />, <see cref="Window" />, and <see cref="Pane" />.
 /// </para>
 /// <para>
-/// <b>Options and hooks. </b><see cref="Server.Options" /> holds the server's
-/// options, <see cref="Server.Hooks" /> its global hooks, and
-/// <see cref="Server.Environment" /> the variables new sessions inherit.
+/// <see cref="Server.CreateSessionAsync" />,
+/// <see cref="Server.CreateSessionWithReceiptAsync" />,
+/// <see cref="Server.CreateOwnedSessionAsync" />,
+/// <see cref="Server.KillSessionAsync" />, <see cref="Server.KillAsync" />,
+/// <see cref="Server.LockAsync" />
 /// </para>
 /// <para>
-/// <b>Everything else tmux keeps. </b>Paste buffers
-/// (<see cref="Server.Buffers" />), key bindings (<see cref="Server.Keys" />),
-/// configuration (<see cref="Server.SourceFileAsync" />), shell commands
-/// (<see cref="Server.RunShellAsync" />, <see cref="Server.IfShellAsync" />),
-/// wait-for channels (<see cref="Server.WaitForAsync" />, and
-/// <see cref="Server.OpenWaitChannel" /> when a wait needs a deadline),
-/// messages and formats (<see cref="Server.DisplayMessageAsync" />,
-/// <see cref="Server.GetMessagesAsync" />), the commands this tmux knows
-/// (<see cref="Server.GetCommandsAsync" />), command-prompt history
-/// (<see cref="Server.GetPromptHistoryAsync" />,
-/// <see cref="Server.ClearPromptHistoryAsync" />), other users' access
-/// (<see cref="Server.ConfigureAccessAsync" />), and layout checks
-/// (<see cref="Server.ValidateLayoutsAsync" />,
-/// <see cref="Server.IsValidLayoutCandidate" />).
+/// <b>Options and hooks.</b> The server's options, its global hooks, and the
+/// environment new sessions inherit are objects of their own:
+/// <see cref="TmuxOptions" />, <see cref="TmuxHooks" />, and
+/// <see cref="TmuxEnvironment" />. Server options belong to the daemon rather
+/// than to anything inside it, so nothing is targeted. tmux has no server hook
+/// table, so the global one serves as the server's.
 /// </para>
 /// <para>
-/// <b>Things that need a terminal. </b><see cref="Server.ShowMenuAsync" />,
-/// <see cref="Server.ShowCommandPromptAsync" />, and
-/// <see cref="Server.ConfirmBeforeAsync" /> draw on an attached client, and
-/// <see cref="Server.SwitchClientAsync" /> moves the caller's own to another
-/// session; tmux refuses all four when no client is attached.
-/// <see cref="Server.AttachSessionAsync" /> makes the client instead, so it
-/// needs a terminal of its own.
-/// <see cref="Server.RefreshClientAsync" />,
-/// <see cref="Server.SuspendClientAsync" />,
-/// <see cref="Server.LockClientAsync" />,
-/// <see cref="Server.DetachClientAsync" />, and
-/// <see cref="Server.DetachAllClientsAsync" /> take the name of a client, which
-/// <see cref="Server.GetClientsAsync" /> lists.
+/// <see cref="Server.Options" />, <see cref="Server.Hooks" />,
+/// <see cref="Server.Environment" />
 /// </para>
 /// <para>
-/// Anything tmux can do that is not here is reachable through
-/// <see cref="Server.ExecuteCommandAsync" />, which runs one raw command and
-/// hands back its result, or <see cref="Server.Chain" />, which runs several in
+/// <b>Everything else tmux keeps.</b> Cancelling a shell command stops the call
+/// from waiting, not the command from running. Prefer an open wait channel to a
+/// plain wait whenever the wait has a deadline, because cancelling a plain wait
+/// leaves its queue entry in tmux before 3.8, and that entry takes the next
+/// signal. A layout check at parse time never contacts tmux; the check against
+/// a server also catches names that only some tmux versions accept.
+/// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Buffers and keys: <see cref="Server.Buffers" />,
+/// <see cref="Server.Keys" /></description>
+/// </item>
+/// <item>
+/// <description>Configuration:
+/// <see cref="Server.SourceFileAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Shell: <see cref="Server.RunShellAsync" />,
+/// <see cref="Server.IfShellAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Channels: <see cref="Server.WaitForAsync" />,
+/// <see cref="Server.OpenWaitChannel" /></description>
+/// </item>
+/// <item>
+/// <description>Messages: <see cref="Server.DisplayMessageAsync" />,
+/// <see cref="Server.GetMessagesAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Commands and prompts: <see cref="Server.GetCommandsAsync" />,
+/// <see cref="Server.GetPromptHistoryAsync" />,
+/// <see cref="Server.ClearPromptHistoryAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Access:
+/// <see cref="Server.ConfigureAccessAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Layouts: <see cref="Server.ValidateLayoutsAsync" />,
+/// <see cref="Server.IsValidLayoutCandidate" /></description>
+/// </item>
+/// </list>
+/// <para>
+/// <b>Things that need a terminal.</b> Menus, command prompts, and
+/// confirmations draw on an attached client, and switching the caller's own
+/// client acts on one; tmux refuses all four when none is attached. Attaching
+/// makes the client instead, so it needs a terminal of its own. The other
+/// client commands take the name of a client, which the client listing returns.
+/// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Draw: <see cref="Server.ShowMenuAsync" />,
+/// <see cref="Server.ShowCommandPromptAsync" />,
+/// <see cref="Server.ConfirmBeforeAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Switch: <see cref="Server.SwitchClientAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Attach: <see cref="Server.AttachSessionAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Refresh or suspend: <see cref="Server.RefreshClientAsync" />,
+/// <see cref="Server.SuspendClientAsync" /></description>
+/// </item>
+/// <item>
+/// <description>Lock or detach: <see cref="Server.LockClientAsync" />,
+/// <see cref="Server.DetachClientAsync" />,
+/// <see cref="Server.DetachAllClientsAsync" /></description>
+/// </item>
+/// </list>
+/// <para>
+/// <b>Raw commands.</b> Anything tmux can do that is not here runs as a raw
+/// command, one at a time with its result handed back, or several chained into
 /// one tmux invocation. A process the library cannot dispatch itself, such as
-/// an interactive attach, takes <see cref="Server.EndpointArguments" /> to
-/// select the endpoint and <see cref="Server.BuildGuardedCommandLine" /> to
-/// build a command line that runs only while the server generation is still
-/// current.
+/// an interactive attach, takes the endpoint arguments to select the endpoint
+/// and a guarded command line that runs only while the server generation is
+/// still current.
+/// </para>
+/// <para>
+/// <see cref="Server.ExecuteCommandAsync" />, <see cref="Server.Chain" />,
+/// <see cref="Server.EndpointArguments" />,
+/// <see cref="Server.BuildGuardedCommandLine" />
 /// </para>
 /// </remarks>
 public sealed partial class Server
