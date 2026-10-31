@@ -47,6 +47,25 @@ class WorkflowLoader(yaml.CBaseLoader):
         return result
 
 
+def misread_as_booleans(source: str) -> list[str]:
+    """Name each dispatch input with a default or option YAML reads as a boolean.
+
+    GitHub reads a workflow as YAML 1.1, where an unquoted off is false. The
+    loader above reads scalars literally and cannot see it, so this one does.
+    """
+    document = yaml.safe_load(source)
+    triggers = document.get("on", document.get(True, {}))
+    inputs = triggers.get("workflow_dispatch", {}).get("inputs", {})
+    return [
+        name
+        for name, spec in inputs.items()
+        if any(
+            isinstance(value, bool)
+            for value in [spec.get("default"), *spec.get("options", [])]
+        )
+    ]
+
+
 def names(value: object) -> set[str]:
     """Normalize a literal GitHub dependency or event list."""
     if isinstance(value, str):
@@ -60,6 +79,7 @@ def verify(root: pathlib.Path) -> list[str]:
     """Return violations of the repository's required workflow policy."""
     errors: list[str] = []
     documents: dict[str, dict[str, t.Any]] = {}
+    sources: dict[str, str] = {}
     for name in ("dotnet", "dotnet-tmux", "release"):
         try:
             source = (root / f".github/workflows/{name}.yml").read_text(
@@ -71,6 +91,7 @@ def verify(root: pathlib.Path) -> list[str]:
             ):
                 raise TypeError("expected a workflow with jobs")
             documents[name] = document
+            sources[name] = source
         except (OSError, TypeError, ValueError, yaml.YAMLError) as error:
             errors.append(f"{name}.yml: {error}")
     if errors:
@@ -297,6 +318,11 @@ def verify(root: pathlib.Path) -> list[str]:
         "dotnet-tmux.workflow_call must require the scope input",
     )
     dispatch_inputs = triggers.get("workflow_dispatch", {}).get("inputs", {})
+    for input_name in misread_as_booleans(sources["dotnet-tmux"]):
+        errors.append(
+            f"dotnet-tmux.workflow_dispatch.{input_name}: quote the values, "
+            "which YAML reads as booleans and GitHub offers as true or false"
+        )
     for name in ("scope", "tmux-ref", "dotnet", "tmate"):
         require(
             name in dispatch_inputs,
