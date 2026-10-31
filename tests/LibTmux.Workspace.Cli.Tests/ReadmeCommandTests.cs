@@ -20,7 +20,6 @@ public sealed class ReadmeCommandTests : IAsyncDisposable
 
     private readonly string _root = Path.Combine(
         Path.GetTempPath(),
-        "libtmux-dotnet-test",
         "cli-readme-" + Guid.NewGuid().ToString("N")[..8]);
 
     public ReadmeCommandTests() => Directory.CreateDirectory(_root);

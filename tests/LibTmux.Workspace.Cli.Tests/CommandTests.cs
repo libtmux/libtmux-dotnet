@@ -6,7 +6,7 @@ namespace LibTmux.Workspace.Cli.Tests;
 
 public sealed class CommandTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "libtmux-dotnet-test", "cli-" + Guid.NewGuid().ToString("N"));
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "cli-" + Guid.NewGuid().ToString("N")[..8]);
 
     public CommandTests() => Directory.CreateDirectory(_root);
 

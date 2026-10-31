@@ -9,10 +9,20 @@ import re
 from pathlib import Path
 import shlex
 import shutil
+import subprocess
+import tempfile
+import zipfile
 
 import pytest
 
-from eng.docs.verify_api_examples import ROOT, run_consumers, unique_object, validate
+from eng.docs.verify_api_examples import (
+    LONGEST_PROGRAM_SOCKET_NAME,
+    ROOT,
+    maximum_socket_root_bytes,
+    run_consumers,
+    unique_object,
+    validate,
+)
 
 
 @pytest.fixture
@@ -116,6 +126,120 @@ def test_local_package_mapping_cannot_fall_back_to_a_published_library(example_t
     config.write_text(config.read_text().replace('pattern="LibTmux.*"', 'pattern="Other.*"'))
     with pytest.raises(ValueError, match="only from the native local pack"):
         validate(root, manifest, inventory)
+
+
+SELECTORS = ("TMUX", "TMUX_PANE", "LIBTMUX_SOCKET", "LIBTMUX_SOCKET_PATH", "LIBTMUX_SOCKET_NAME")
+
+
+@pytest.fixture
+def consumer_inputs(tmp_path: Path):
+    """A one-program manifest, packed libraries and a tmux stand-in, without dotnet or tmux."""
+    root = tmp_path / "repository"
+    (root / "examples/api").mkdir(parents=True)
+    (root / "examples/api/manifest.json").write_text("{}")
+    for name in ("NuGet.config", "Example.csproj", "Demo.cs"):
+        (root / name).write_text(name)
+    manifest = {
+        "setupFiles": ["NuGet.config"],
+        "profiles": {"csharp": {"projectFile": "Example.csproj", "entrypoint": "Program.cs"}},
+        "examples": [{"id": "demo", "profile": "csharp", "sourceFile": "Demo.cs", "output": "shown\n"}],
+    }
+    packages = tmp_path / "packages"
+    packages.mkdir()
+    with zipfile.ZipFile(packages / "LibTmux.nupkg", "w") as archive:
+        for framework in ("net8.0", "net10.0"):
+            for name in ("LibTmux.dll", "LibTmux.FSharp.dll"):
+                archive.writestr(f"lib/{framework}/{name}", f"{framework}/{name}")
+    inventory = tmp_path / "inventory.json"
+    inventory.write_text("{}")
+    tmux = tmp_path / "tmux"
+    tmux.write_text("tmux")
+    return root, manifest, packages, tmp_path / "output", inventory, tmux
+
+
+def fake_commands(monkeypatch, seen: list[dict[str, str]]) -> None:
+    """Answer every command run_consumers starts, writing down the environment it was given."""
+
+    def check_output(arguments, **_):
+        return "tmux 3.8a\n" if arguments[-1] == "-V" else ("" if "status" in arguments else "revision\n")
+
+    def run(arguments, cwd, env, capture_output, timeout):
+        seen.append(dict(env))
+        if arguments[1] == "build":
+            for framework in ("net8.0", "net10.0"):
+                deployed = Path(cwd) / "bin/Release" / framework
+                deployed.mkdir(parents=True, exist_ok=True)
+                (deployed / "LibTmux.dll").write_text(f"{framework}/LibTmux.dll")
+        output = b"shown\n" if arguments[1].endswith("Example.dll") else b""
+        return subprocess.CompletedProcess(arguments, 0, stdout=output, stderr=b"")
+
+    monkeypatch.setattr(subprocess, "check_output", check_output)
+    monkeypatch.setattr(subprocess, "run", run)
+
+
+def test_consumers_run_with_no_tmux_selector_in_their_environment(consumer_inputs, tmp_path, monkeypatch):
+    root, manifest, packages, output, inventory, tmux = consumer_inputs
+    for name in SELECTORS:
+        monkeypatch.setenv(name, "decoy")
+    monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
+    # Short, as the script requires: a pytest temporary directory is not.
+    sockets = Path(tempfile.mkdtemp(prefix="vae", dir="/tmp"))
+    monkeypatch.setenv("TMUX_TMPDIR", str(sockets))
+    seen: list[dict[str, str]] = []
+    fake_commands(monkeypatch, seen)
+
+    try:
+        run_consumers(root, manifest, packages, output, inventory)
+    finally:
+        shutil.rmtree(sockets)
+
+    # Names and booleans only: a failed assertion must not print an environment.
+    ran = len(seen) > 0
+    handed = sorted({name for each in seen for name in each if name in SELECTORS})
+    kept = all("LIBTMUX_TMUX" in each and "NUGET_PACKAGES" in each for each in seen)
+    assert ran, "run_consumers ran no command"
+    assert handed == []
+    assert kept, "run_consumers dropped a variable it should have kept"
+
+
+def test_consumers_refuse_a_socket_root_one_byte_over_what_a_socket_path_allows(consumer_inputs, monkeypatch):
+    root, manifest, packages, output, inventory, tmux = consumer_inputs
+    monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
+    sockets = Path("/tmp") / ("x" * (maximum_socket_root_bytes() + 1 - len("/tmp/")))
+    assert len(os.fsencode(sockets)) == maximum_socket_root_bytes() + 1
+    monkeypatch.setenv("TMUX_TMPDIR", str(sockets))
+    fake_commands(monkeypatch, [])
+
+    with pytest.raises(ValueError, match="TMUX_TMPDIR is longer than") as refusal:
+        run_consumers(root, manifest, packages, output, inventory)
+    assert str(sockets) not in str(refusal.value)
+    assert not sockets.exists(), "a root over the limit was made"
+
+
+def test_consumers_accept_a_socket_root_at_what_a_socket_path_allows(consumer_inputs, monkeypatch):
+    root, manifest, packages, output, inventory, tmux = consumer_inputs
+    monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
+    sockets = Path("/tmp") / ("y" * (maximum_socket_root_bytes() - len("/tmp/")))
+    assert len(os.fsencode(sockets)) == maximum_socket_root_bytes()
+    monkeypatch.setenv("TMUX_TMPDIR", str(sockets))
+    fake_commands(monkeypatch, [])
+    try:
+        run_consumers(root, manifest, packages, output, inventory)
+    finally:
+        shutil.rmtree(sockets)
+
+
+def test_the_longest_socket_name_a_program_uses_is_covered():
+    # The limit above is computed from this name, so a longer one must raise it.
+    names = []
+    for source in [*(ROOT / "examples").glob("*/Programs/*"), *(ROOT / "examples").glob("*/Snippets/*")]:
+        for match in re.finditer(
+            r'"([A-Za-z0-9-]+)"\s*\+\s*Guid\.NewGuid\(\)\.ToString\(\s*"N"\s*\)(?:\s*\+\s*"([A-Za-z0-9-]*)")?',
+            source.read_text(),
+        ):
+            names.append(len(match.group(1)) + 32 + len(match.group(2) or ""))
+    assert names, "no program names a socket"
+    assert max(names) <= LONGEST_PROGRAM_SOCKET_NAME
 
 
 def test_symlink_cannot_supply_an_external_program(example_tree, tmp_path_factory):

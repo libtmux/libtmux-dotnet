@@ -51,6 +51,7 @@ public sealed class McpProtocolTests
             RedirectStandardOutput = true,
             UseShellExecute = false,
         };
+        WorkspaceSocketRoot.Isolate(startInfo);
         startInfo.Environment["LIBTMUX_SOCKET"] = socketName;
         startInfo.Environment["LIBTMUX_TOOLSETS"] = "inspect,manage,execute";
         startInfo.Environment["LIBTMUX_TMUX_CONFIG"] = "/dev/null";
@@ -864,6 +865,9 @@ public sealed class McpProtocolTests
     [UnixFact]
     public async Task Default_startup_proves_new_minimal_daemon_ownership()
     {
+        // McpStartup hands tmux only TMUX_TMPDIR, so TMUX and the socket
+        // variables reach it from this process.
+        WorkspaceSocketRoot.Require();
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = Path.Combine(Path.GetTempPath(), $"libtmux-mcp-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -934,6 +938,9 @@ public sealed class McpProtocolTests
     [UnixFact]
     public async Task Default_cleanup_refuses_a_foreign_owner_marker()
     {
+        // McpStartup hands tmux only TMUX_TMPDIR, so TMUX and the socket
+        // variables reach it from this process.
+        WorkspaceSocketRoot.Require();
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = Path.Combine(Path.GetTempPath(), $"libtmux-mcp-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);

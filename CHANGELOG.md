@@ -30,6 +30,19 @@ changelog marks each break. Pin an exact version to avoid one. Releases before
 
 ### Development
 
+- The C# and F# test projects claim a socket root of their own before the first
+  test. Each run makes an owner-only directory under `/tmp/libtmux-dotnet-test`,
+  points `TMUX_TMPDIR` and `TMPDIR` at it, clears `TMUX`, `TMUX_PANE` and every
+  `LIBTMUX_SOCKET*` variable, and stops with an error that names the variable
+  when one survives. `LIBTMUX_TEST_SOCKET_ROOT` moves the parent of the runs.
+  (#133)
+- When a test process exits, every tmux server left anywhere under its run's
+  directory is stopped through its `-S` path and the run fails with exit code
+  78. The directory is removed once no server in it answers. (#133)
+- `SandboxCanaryTests` starts a bare `tmux` and shows that it lands in the run's
+  directory, and hands a recording stand-in a decoy for each variable to show
+  that the check can fail. (#133)
+
 ## [0.1.0] — 2026-10-25
 
 ### Changed

@@ -81,6 +81,52 @@ tmux reads `TMUX_TMPDIR` when it execs and puts a `-L name` socket in
 `$TMUX_TMPDIR/tmux-$UID/name`, so exporting it before the run is enough. A
 `-S path` socket ignores it and needs a path under the root instead.
 
+The test projects claim a root themselves before the first test, whatever the
+shell exports. Each run makes a directory of its own, `rXXXXXXXX` under
+`/tmp/libtmux-dotnet-test`, owner-only and 39 bytes or less, so two test
+assemblies started together never meet at `tmux-$UID/default`. They set
+`TMUX_TMPDIR` and `TMPDIR` to it, clear `TMUX`, `TMUX_PANE` and every
+`LIBTMUX_SOCKET*` variable, and stop with an error that names the variable when
+one survives. A suite started from inside a tmux pane cannot reach that pane's
+server, and a `LIBTMUX_SOCKET_PATH` left in your shell cannot move a bare
+`Server.Open()`.
+
+When the process exits, every server left anywhere under the run's directory is
+stopped through its `-S` path, and the run fails with exit code 78 even when
+every test passed. A server counts when connecting to its socket succeeds, so
+one started with `-S <directory>/custom.sock` is found as well as one on
+`tmux-$UID/default`; a socket nothing answers on is no leak, except that the
+default socket counts while its file is there. Each stop is checked: the server
+has stopped when a connect to it fails, retried for about three seconds.
+Nothing outside the directory is stopped, no link is followed, and the sockets
+the .NET runtime keeps in the temporary directory are not servers.
+
+A run's directory goes when the run ends, once no server in it answers. tmux
+leaves the socket file of a server it stopped, so a socket counts as dead when
+connecting to it fails. A directory with a server still answering, or one that
+did not stop when asked, stays, and the run says so. A process that refuses to
+run removes its directory before it stops. A run that was killed leaves its
+directory, and the next run removes it when nothing holds it, it is over a
+minute old, and no server answers in it.
+
+To keep the runs somewhere else, set `LIBTMUX_TEST_SOCKET_ROOT` to the
+directory that holds them. It is refused, before any test runs, unless it is an
+absolute path of 29 bytes or less in UTF-8, owner-only, not already a tmux root,
+and empty of anything but earlier runs, so a directory like `/run/user/1000`
+cannot be named by mistake. 29 is the longest parent at which every suite's own
+socket paths fit, measured with a four-digit uid: at 30 the example namespace
+has to trim a socket name, at 31 two MCP tests fail with "File name too long",
+and at 50 fifty-eight more tests do. A uid of more digits leaves less room.
+
+The claim covers the test projects. These entry points do not carry it, and each
+names its own socket: the F# `AotSmoke` and `Sdk8Consumer` programs, the F#
+`PackageConsumer`, which also removes `LIBTMUX_SOCKET*` from its tmux's
+environment, the F# `Quickstart` and `Examples` programs, the C# examples built
+one at a time with `ExampleProgram`, and `eng/docs/verify_api_examples.py`,
+which gives each program a fresh `TMUX_TMPDIR`, refuses a caller's that is too
+long for the longest socket name the programs use, and removes `TMUX`,
+`TMUX_PANE` and `LIBTMUX_SOCKET*` from their environment.
+
 Two things are never safe here, because the processes and directories belong
 to other workspaces:
 
@@ -91,7 +137,7 @@ To find what this repository left behind, list its root rather than matching
 process names:
 
 ```console
-$ ls /tmp/libtmux-dotnet-test/tmux-$(id -u)
+$ ls /tmp/libtmux-dotnet-test/*/tmux-$(id -u)
 ```
 
 A socket file outlives the server that made it, so read that listing as

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 import hashlib
 import json
 import os
@@ -17,10 +18,32 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 FRAMEWORKS = ("net8.0", "net10.0")
+# A unix socket address holds this many bytes. Each program gets a directory of
+# `/a-` and eight characters under TMUX_TMPDIR, and its socket is
+# `/tmux-<uid>/<name>` below that, the name being at longest this long.
+SOCKET_ADDRESS_BYTES = 107
+PROGRAM_DIRECTORY_BYTES = 11
+LONGEST_PROGRAM_SOCKET_NAME = 58
+
+
+def maximum_socket_root_bytes() -> int:
+    """Return the longest TMUX_TMPDIR at which every program's socket path fits."""
+    return (
+        SOCKET_ADDRESS_BYTES - PROGRAM_DIRECTORY_BYTES - len(f"/tmux-{os.getuid()}/") - LONGEST_PROGRAM_SOCKET_NAME
+    )
 PROFILE_SOURCES = {
     "fsharp": "examples/LibTmux.FSharp.Examples/Programs/*.fs",
     "csharp": "examples/LibTmux.Examples/Programs/*.cs",
 }
+
+
+def without_tmux_selectors(source: Mapping[str, str]) -> dict[str, str]:
+    """Drop what would send a program to a server it did not start."""
+    return {
+        key: value
+        for key, value in source.items()
+        if key not in {"TMUX", "TMUX_PANE"} and not key.startswith("LIBTMUX_SOCKET")
+    }
 
 
 def unique_object(pairs: list[tuple[str, object]]) -> dict:
@@ -199,9 +222,13 @@ def run_consumers(
         "compilerInventorySha256": digest(inventory_path),
         "files": {}, "packages": {}, "assemblies": {}, "commands": [], "programs": [],
     }
-    environment = {key: value for key, value in os.environ.items() if key not in {"TMUX", "TMUX_PANE"}}
+    environment = without_tmux_selectors(os.environ)
     environment["NUGET_PACKAGES"] = str(output / "packages")
     socket_root = Path(environment.get("TMUX_TMPDIR", "/tmp/libtmux-dotnet-test"))
+    if len(os.fsencode(socket_root)) > maximum_socket_root_bytes():
+        raise ValueError(
+            f"TMUX_TMPDIR is longer than {maximum_socket_root_bytes()} bytes, which leaves no room for the longest socket path"
+        )
     socket_root.mkdir(parents=True, exist_ok=True)
     tmux = environment.get("LIBTMUX_TMUX", "tmux")
     receipt["tmuxVersion"] = subprocess.check_output([tmux, "-V"], text=True).strip()
