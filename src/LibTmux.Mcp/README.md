@@ -294,7 +294,7 @@ $ { printf '%s\n' \
   and the changelog marks each break. Pin an exact version to avoid one.
 - **tmux.** Whatever `tmux` resolves to on the path, or the binary
   `LIBTMUX_TMUX` names. The supported range is 3.3a to 3.8, proven from source
-  on every commit.
+  before each release.
 - **The floor.** `tmux://capabilities` reports it as
   `connection.minimumTmuxVersion`. A tmux below it stops the server at startup.
 - **An older daemon.** A daemon replaced by an older one fails the tool call.

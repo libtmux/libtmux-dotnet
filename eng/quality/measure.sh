@@ -15,10 +15,12 @@ DOC_FILES=(README.md src/LibTmux/README.md src/LibTmux.Query.Json/README.md
            docs/modes/one-shot.md docs/modes/control-mode.md
            docs/modes/chaining.md docs/modes/matrix.md)
 
+# The workflow lists no versions: eng/tmux/plan.py reads them from the manifest,
+# so the full scope is what a release proves.
 printf '%-38s %s\n' "tmux versions proven in CI" \
-  "$(rg -o "'3\.[0-9a-z]+'" .github/workflows/dotnet-tmux.yml | sort -u | wc -l | tr -d ' ')"
+  "$(python3 eng/tmux/plan.py --event schedule | jq '[.matrix.include[].tmux] | unique | length')"
 printf '%-38s %s\n' "target frameworks" \
-  "$(rg -o "'net[0-9.]+'" .github/workflows/dotnet-tmux.yml | sort -u | tr '\n' ' ')"
+  "$(python3 eng/tmux/plan.py --event schedule | jq -r '[.matrix.include[].framework] | unique | join(" ")')"
 printf '%-38s %s\n' "doc examples compiled" "$(sum_matches '```csharp' "${DOC_FILES[@]}")"
 printf '%-38s %s\n' "doc examples executed on live tmux" "$(sum_matches '```csharp run' "${DOC_FILES[@]}")"
 printf '%-38s %s\n' "fuzz cases per run" \

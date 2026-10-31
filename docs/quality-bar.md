@@ -54,7 +54,7 @@ target, but it is a constraint worth naming.
 
 | Criterion | Evidence |
 |---|---|
-| Compatibility range is proven, not claimed | 7 tmux versions built from source and run against the full suite on every commit, behind a `compatibility` required check |
+| Compatibility range is proven, not claimed | 7 tmux versions built from source and run against the full suite before every release, with the oldest and newest on every commit, behind a `compatibility` required check |
 | Version differences are modelled | Capability model; every difference has a row in [`version-deltas.json`](parity/version-deltas.json) naming the test that proves it |
 | Hostile output cannot crash a parser | 8,000 [fuzz cases](../tests/LibTmux.UnitTests/Fuzzing/ParserFuzzTests.cs) plus a corpus; refusal required, crash and hang forbidden |
 | A query document is input, not instructions | Schema and version must match the current contract; string, pattern, dialect and regex-option limits enforced on **read**; each regex match is capped at 1s and aggregate matching accepts caller cancellation between nodes; a field resolves only through the catalog ([wire tests](../tests/LibTmux.UnitTests/Query/QueryJsonTrustBoundaryTests.cs), [execution tests](../tests/LibTmux.UnitTests/Query/QuerySemanticsTests.cs)) |

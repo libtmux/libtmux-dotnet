@@ -11,8 +11,9 @@ policy, using YAML values so comments cannot satisfy required dependencies.
 from __future__ import annotations
 
 import argparse
-import json
 import pathlib
+import re
+import runpy
 import sys
 import typing as t
 
@@ -20,6 +21,16 @@ import yaml
 
 TARGET_FRAMEWORKS = {"net8.0", "net10.0"}
 FSHARP_PROGRAM_LOOP = "for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do"
+
+TMATE_ACTION = "mxschmitt/action-tmate"
+
+# The lanes that run beside the supported matrix, each with the plan output
+# that puts it in scope. The aggregate requires a planned lane to succeed and
+# an unplanned one to be skipped.
+PLANNED_LANES = {
+    "exact_3_7": "needs.plan.outputs.exact_3_7 == 'true'",
+    "rejected": "needs.plan.outputs.rejected != '[]'",
+}
 
 
 class WorkflowLoader(yaml.CBaseLoader):
@@ -118,14 +129,22 @@ def verify(root: pathlib.Path) -> list[str]:
             )
         return step
 
-    def aggregate(workflow: str, name: str, dependencies: set[str]) -> None:
-        value = needs(workflow, name, dependencies)
+    def aggregate(
+        workflow: str,
+        name: str,
+        dependencies: set[str],
+        planned: dict[str, str] | None = None,
+    ) -> None:
+        planned = planned or {}
+        value = needs(workflow, name, dependencies | set(planned))
         require(
             value.get("if") in {"always()", "${{ always() }}"},
             f"{workflow}.{name}.if must be always()",
         )
         checks = " || ".join(
-            f"needs.{dependency}.result != 'success'"
+            f"needs.{dependency}.result != ({planned[dependency]} && 'success' || 'skipped')"
+            if dependency in planned
+            else f"needs.{dependency}.result != 'success'"
             for dependency in sorted(names(value.get("needs")))
         )
         condition = "${{ always() && (" + checks + ") }}"
@@ -153,6 +172,17 @@ def verify(root: pathlib.Path) -> list[str]:
         require(
             "workflow_call" in names(documents[name].get("on")),
             f"{name} must expose workflow_call",
+        )
+        concurrency = documents[name].get("concurrency", {})
+        require(
+            "".join(str(concurrency.get("group", "")).split())
+            == f"{name}-${{{{github.ref}}}}${{{{github.event_name=='workflow_dispatch'"
+            "&&format('-{0}',github.run_id)||''}}",
+            f"{name}.concurrency must add github.run_id to a dispatch run's group",
+        )
+        require(
+            concurrency.get("cancel-in-progress") == "true",
+            f"{name}.concurrency must still cancel a superseded push",
         )
 
     aggregate("dotnet", "gate", {"build", "windows"})
@@ -254,25 +284,134 @@ def verify(root: pathlib.Path) -> list[str]:
             "dotnet.build.Documents must check F# snippets",
         )
 
-    matrix = needs("dotnet-tmux", "matrix", {"build"})
-    strategy = matrix.get("strategy", {})
-    coverage = strategy.get("matrix", {})
-    supported = set(
-        json.loads((root / "eng/tmux/versions.json").read_text())["supported"]
-    )
+    plan_script = runpy.run_path(str(root / "eng/tmux/plan.py"))
     require(
-        names(coverage.get("tmux")) == supported,
-        "supported tmux matrix differs from manifest",
-    )
-    require(
-        names(coverage.get("framework")) == TARGET_FRAMEWORKS,
+        set(plan_script["FRAMEWORKS"]) == TARGET_FRAMEWORKS,
         "supported framework matrix differs",
     )
-    require(not coverage.get("exclude"), "supported matrix exclusions are forbidden")
+    tmux_workflow = documents["dotnet-tmux"]
+    triggers = tmux_workflow.get("on", {})
+    call_inputs = triggers.get("workflow_call", {}).get("inputs", {})
+    require(
+        call_inputs.get("scope", {}).get("required") == "true",
+        "dotnet-tmux.workflow_call must require the scope input",
+    )
+    dispatch_inputs = triggers.get("workflow_dispatch", {}).get("inputs", {})
+    for name in ("scope", "tmux-ref", "dotnet", "tmate"):
+        require(
+            name in dispatch_inputs,
+            f"dotnet-tmux.workflow_dispatch must offer the {name} input",
+        )
+    require(
+        dispatch_inputs.get("scope", {}).get("default") == "edges"
+        and names(dispatch_inputs.get("scope", {}).get("options"))
+        == set(plan_script["SCOPES"]),
+        "dotnet-tmux.workflow_dispatch scope must default to edges and offer every scope",
+    )
+    for job_name, value in tmux_workflow["jobs"].items():
+        for step in value.get("steps", []):
+            run = step.get("run", "")
+            require(
+                "${{ inputs." not in run and "${{ github.event.inputs." not in run,
+                f"dotnet-tmux.{job_name}: pass inputs to a run step through env",
+            )
+
+    planner = job("dotnet-tmux", "plan")
+    require("if" not in planner, "dotnet-tmux.plan.if may not skip the plan")
+    plan_step = required_step("dotnet-tmux", "plan", "plan")
+    require(
+        "eng/tmux/plan.py" in plan_step.get("run", ""),
+        "dotnet-tmux.plan.plan must run the plan script",
+    )
+    plan_env = plan_step.get("env", {})
+    require(
+        plan_env.get("EVENT") == "${{ github.event_name }}"
+        and plan_env.get("SCOPE") == "${{ inputs.scope }}"
+        and plan_env.get("TMUX_REF") == "${{ inputs.tmux-ref }}"
+        and plan_env.get("DOTNET") == "${{ inputs.dotnet }}"
+        and plan_env.get("TMATE") == "${{ inputs.tmate }}",
+        "dotnet-tmux.plan.plan must read the event and every input through env",
+    )
+    for output in ("matrix", "rejected", "exact_3_7", "advisory"):
+        require(
+            planner.get("outputs", {}).get(output)
+            == "${{ steps.plan.outputs." + output + " }}",
+            f"dotnet-tmux.plan must publish the {output} output",
+        )
+
+    matrix = needs("dotnet-tmux", "matrix", {"plan", "build"})
+    require(
+        "".join(str(matrix.get("timeout-minutes", "")).split())
+        == "${{matrix.tmate=='off'&&30||60}}",
+        "dotnet-tmux.matrix must cap the job and give the debugging leg 60 minutes",
+    )
+    debug_sessions = [
+        (workflow, job_name, step)
+        for workflow, document in documents.items()
+        for job_name, value in document["jobs"].items()
+        for step in value.get("steps", [])
+        if str(step.get("uses", "")).startswith(TMATE_ACTION + "@")
+    ]
+    for workflow, job_name, step in debug_sessions:
+        label = f"{workflow}.{job_name}"
+        require(
+            (workflow, job_name) == ("dotnet-tmux", "matrix"),
+            f"{label}: a debugging session belongs only in the tmux matrix",
+        )
+        require(
+            re.fullmatch(TMATE_ACTION + "@[0-9a-f]{40}", step["uses"]) is not None,
+            f"{label}: the debugging action must be pinned to a full commit SHA",
+        )
+        require(
+            step.get("with", {}).get("limit-access-to-actor") == "true",
+            f"{label}: a debugging session must be limited to the actor",
+        )
+        require(
+            bool(step.get("timeout-minutes")),
+            f"{label}: a debugging session needs its own time limit",
+        )
+        require(
+            "github.event_name=='workflow_dispatch'" in "".join(str(step.get("if", "")).split())
+            and "matrix.tmate==" in "".join(str(step.get("if", "")).split()),
+            f"{label}: a debugging session runs only on a dispatch, on the leg the plan chose",
+        )
+    for path in sorted((root / ".github/workflows").glob("*.yml")):
+        if path.name != "dotnet-tmux.yml" and TMATE_ACTION in path.read_text(encoding="utf-8"):
+            errors.append(
+                f"{path.name}: a debugging session belongs only in the tmux matrix"
+            )
+    require(
+        len(debug_sessions) == 2,
+        "dotnet-tmux.matrix must offer a debugging session before the tests and after a failure",
+    )
+    strategy = matrix.get("strategy", {})
+    require(
+        "".join(str(strategy.get("matrix", "")).split())
+        == "${{fromJSON(needs.plan.outputs.matrix)}}",
+        "dotnet-tmux.matrix must take its legs from the plan",
+    )
     require(
         strategy.get("fail-fast") == "false", "supported matrix fail-fast must be false"
     )
     require("if" not in matrix, "dotnet-tmux.matrix.if may not skip compatibility")
+    for lane, condition in PLANNED_LANES.items():
+        planned_lane = needs("dotnet-tmux", lane, {"plan", "build"})
+        require(
+            "".join(str(planned_lane.get("if", "")).split()) == "".join(condition.split()),
+            f"dotnet-tmux.{lane}.if must be the plan's {lane} output",
+        )
+    rejected_matrix = job("dotnet-tmux", "rejected").get("strategy", {}).get("matrix", {})
+    require(
+        "".join(str(rejected_matrix.get("rejected-version", "")).split())
+        == "${{fromJSON(needs.plan.outputs.rejected)}}",
+        "dotnet-tmux.rejected must take its versions from the plan",
+    )
+    advisory = documents["dotnet-tmux"]["jobs"].get("advisory", {})
+    require(
+        "".join(str(advisory.get("if", "")).split()) == "needs.plan.outputs.advisory=='true'"
+        and {"plan", "build"} <= names(advisory.get("needs")),
+        "dotnet-tmux.advisory must run when the plan's advisory output says so",
+    )
     producer = job("dotnet-tmux", "build")
     require("if" not in producer, "dotnet-tmux.build.if may not skip the producer")
     fsharp_build = required_step("dotnet-tmux", "build", "fsharp-examples-build")
@@ -314,7 +453,7 @@ def verify(root: pathlib.Path) -> list[str]:
     example_env = {**matrix.get("env", {}), **fsharp_example.get("env", {})}
     require(
         example_env.get("LIBTMUX_TMUX") == "${{ steps.tmux.outputs.binary }}"
-        and example_env.get("LIBTMUX_EXPECTED_TMUX_VERSION") == "${{ matrix.tmux }}"
+        and example_env.get("LIBTMUX_EXPECTED_TMUX_VERSION") == "${{ matrix.expected }}"
         and example_env.get("MATRIX_FRAMEWORK") == "${{ matrix.framework }}",
         "dotnet-tmux.matrix.fsharp-examples must use the selected tmux and framework",
     )
@@ -354,7 +493,7 @@ def verify(root: pathlib.Path) -> list[str]:
     csharp_env = {**matrix.get("env", {}), **csharp_example.get("env", {})}
     require(
         csharp_env.get("LIBTMUX_TMUX") == "${{ steps.tmux.outputs.binary }}"
-        and csharp_env.get("LIBTMUX_EXPECTED_TMUX_VERSION") == "${{ matrix.tmux }}"
+        and csharp_env.get("LIBTMUX_EXPECTED_TMUX_VERSION") == "${{ matrix.expected }}"
         and csharp_env.get("MATRIX_FRAMEWORK") == "${{ matrix.framework }}",
         "dotnet-tmux.matrix.csharp-examples must use the selected tmux and framework",
     )
@@ -365,7 +504,7 @@ def verify(root: pathlib.Path) -> list[str]:
         in {line.strip() for line in csharp_example.get("run", "").splitlines()},
         "dotnet-tmux.matrix must execute every complete C# program",
     )
-    aggregate("dotnet-tmux", "compatibility", {"build", "matrix"})
+    aggregate("dotnet-tmux", "compatibility", {"plan", "build", "matrix"}, PLANNED_LANES)
 
     release = documents["release"]
     triggers = release.get("on", {})
@@ -395,6 +534,10 @@ def verify(root: pathlib.Path) -> list[str]:
             required.get("uses") == f"./.github/workflows/{workflow}.yml",
             f"release.{name}.uses must run the same-commit {workflow} workflow",
         )
+    require(
+        job("release", "compatibility").get("with", {}).get("scope") == "full",
+        "release.compatibility must run the tmux workflow at full scope",
+    )
     publish = needs("release", "publish", {"dotnet", "compatibility"})
     require(
         publish.get("environment") == "nuget",

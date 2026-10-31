@@ -14,7 +14,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: dotnet-${{ github.ref }}
+  # A dispatch is a request for that run, so another dispatch on the same ref
+  # does not cancel it and it does not cancel the ref's push run.
+  group: dotnet-${{ github.ref }}${{ github.event_name == 'workflow_dispatch' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 env:

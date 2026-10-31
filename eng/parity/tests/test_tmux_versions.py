@@ -5,7 +5,14 @@ from __future__ import annotations
 import json
 import pathlib
 import runpy
+import shutil
 import typing as t
+
+PLAN = pathlib.Path(__file__).parents[2] / "tmux" / "plan.py"
+WORKFLOW = (
+    "matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}\n"
+    "rejected-version: ${{ fromJSON(needs.plan.outputs.rejected) }}\n"
+)
 
 
 def load_checker() -> dict[str, t.Any]:
@@ -35,9 +42,7 @@ def write(root: pathlib.Path, supported: list[str]) -> pathlib.Path:
     }
     files = {
         "eng/tmux/versions.json": json.dumps(manifest),
-        ".github/workflows/dotnet-tmux.yml": "tmux: [{}]\nrejected-version: ['3.0a', '3.1c', '3.2a', '3.3']".format(
-            ", ".join(f"'{version}'" for version in supported)
-        ),
+        ".github/workflows/dotnet-tmux.yml": WORKFLOW,
         "eng/tmux/run-matrix.sh": "REQUIRED_VERSIONS=({})\ntmuxVersions:[{}]".format(
             " ".join(supported),
             ",".join(f'"{version}"' for version in supported),
@@ -62,6 +67,7 @@ def write(root: pathlib.Path, supported: list[str]) -> pathlib.Path:
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
+    shutil.copyfile(PLAN, root / "eng" / "tmux" / "plan.py")
 
     return root
 
@@ -91,17 +97,83 @@ def test_a_version_no_consumer_carries_is_reported(tmp_path: pathlib.Path) -> No
     ]
 
 
-def test_a_rejection_lane_that_drifted_is_reported(tmp_path: pathlib.Path) -> None:
-    """The versions the workflow proves are refused must be the manifest's."""
+def test_a_rejection_lane_that_stopped_reading_the_plan_is_reported(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The versions the workflow proves are refused come from the plan."""
     root = write(tmp_path, VERSIONS)
     (root / ".github" / "workflows" / "dotnet-tmux.yml").write_text(
-        "tmux: [{}]\nrejected-version: ['3.2a']".format(
-            ", ".join(f"'{version}'" for version in VERSIONS)
-        ),
+        "matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}\n"
+        "rejected-version: ['3.2a']\n",
         encoding="utf-8",
     )
 
     assert verify(root) == [
         ".github/workflows/dotnet-tmux.yml: does not carry "
-        "rejected-version: ['3.0a', '3.1c', '3.2a', '3.3']"
+        "fromJSON(needs.plan.outputs.rejected)"
     ]
+
+
+def test_a_matrix_that_lists_its_own_versions_is_reported(tmp_path: pathlib.Path) -> None:
+    """A second list in the workflow is the drift this check exists to prevent."""
+    root = write(tmp_path, VERSIONS)
+    (root / ".github" / "workflows" / "dotnet-tmux.yml").write_text(
+        "tmux: ['3.3a', '3.8']\n"
+        "rejected-version: ${{ fromJSON(needs.plan.outputs.rejected) }}\n",
+        encoding="utf-8",
+    )
+
+    assert verify(root) == [
+        ".github/workflows/dotnet-tmux.yml: does not carry "
+        "fromJSON(needs.plan.outputs.matrix)"
+    ]
+
+
+def test_a_plan_that_hard_codes_the_edges_is_reported(tmp_path: pathlib.Path) -> None:
+    """A push must cover the manifest's floor and newest release, whatever they are."""
+    root = write(tmp_path, [*VERSIONS, "3.9"])
+    path = root / "eng" / "tmux" / "plan.py"
+    source = path.read_text(encoding="utf-8")
+    broken = source.replace(
+        "    return list(dict.fromkeys([*supported[:1], *supported[-1:]]))",
+        '    return ["3.3a", "3.8"]',
+    )
+    assert broken != source
+    path.write_text(broken, encoding="utf-8")
+
+    assert verify(root) == [
+        "eng/tmux/plan.py: a push covers 3.3a, 3.8, not the floor and the newest "
+        "tested release, 3.3a, 3.9"
+    ]
+
+
+def test_a_plan_whose_full_scope_drops_a_version_is_reported(tmp_path: pathlib.Path) -> None:
+    """The full scope is the whole table and every refusal lane."""
+    root = write(tmp_path, VERSIONS)
+    path = root / "eng" / "tmux" / "plan.py"
+    source = path.read_text(encoding="utf-8")
+    broken = source.replace("        versions = list(supported)", "        versions = list(supported[1:])")
+    assert broken != source
+    path.write_text(broken, encoding="utf-8")
+
+    assert any("the full scope covers" in line for line in verify(root))
+
+
+def test_a_plan_that_forgets_the_refusal_lanes_is_reported(tmp_path: pathlib.Path) -> None:
+    root = write(tmp_path, VERSIONS)
+    path = root / "eng" / "tmux" / "plan.py"
+    source = path.read_text(encoding="utf-8")
+    broken = source.replace(
+        '"rejected": list(rejected) if full else [],', '"rejected": [],'
+    )
+    assert broken != source
+    path.write_text(broken, encoding="utf-8")
+
+    assert any("the full scope refuses" in line for line in verify(root))
+
+
+def test_a_missing_plan_is_reported(tmp_path: pathlib.Path) -> None:
+    root = write(tmp_path, VERSIONS)
+    (root / "eng" / "tmux" / "plan.py").unlink()
+
+    assert verify(root) == ["eng/tmux/plan.py: missing, so what CI covers cannot be checked"]

@@ -395,8 +395,9 @@ gives the order. Code running inside a tmux pane can use
 - **.NET.** .NET 8 and .NET 10, using the matching `LibTmux` package version.
 - **F#.** FSharp.Core 8.0.100 or newer, so an application keeps its SDK's
   FSharp.Core. CI builds and runs a consumer with the .NET 8 SDK's F# compiler.
-- **tmux.** CI runs the F# integration example against tmux 3.3a, 3.4, 3.5, 3.6,
-  3.7a, 3.7b, 3.7c, and 3.8 on both target frameworks.
+- **tmux.** A release runs the F# integration example against tmux 3.3a, 3.4,
+  3.5, 3.6, 3.7a, 3.7b, 3.7c, and 3.8 on both target frameworks, and each push
+  runs it against 3.3a and 3.8.
 - **Systems.** Linux, including WSL. CI also runs the F# example console on
   macOS arm64. Native Windows is unsupported: the core marks its tmux calls
   `[UnsupportedOSPlatform("windows")]`.
