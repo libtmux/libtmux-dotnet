@@ -34,7 +34,7 @@ that records what it queried.
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux.Query.Json
+$ dotnet add package LibTmux.Query.Json
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
@@ -263,8 +263,8 @@ without fetching data.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux) and
   `System.Text.Json`.
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
-- **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on
-  Windows x64.
+- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
+  CI builds on Windows x64.
 
 ## Documentation
 

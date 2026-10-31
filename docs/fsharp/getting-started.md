@@ -170,9 +170,9 @@ Calling `Pane.sendLine` and then `Pane.waitForText` for text the typed line
 contains can end on the shell's echo before the command runs; use
 `Pane.sendAndWait` instead. Every wait also ends early when the pane's program
 exits during it or a full-screen program takes over, raises
-`TmuxPaneException` on a pane whose program had already exited, and sleeps on
-the pane's own output through a control client rather than polling. A wait
-attaches that client and reads the pane through it, which costs a few
+`TmuxPaneException` on a pane whose program had already exited. From tmux 3.7,
+it sleeps on the pane's own output through a control client; earlier releases
+poll. Attaching that client and reading the pane through it costs a few
 milliseconds more than reading the screen once; for a series of waits on one
 session, `use! _ = Session.holdWaitClient ct session` keeps the client attached
 so each wait skips that and takes about as long as one read. Read output
@@ -333,7 +333,7 @@ and can wait for each shell's prompt before sending it commands. Add the
 package and describe the session, or parse tmuxp YAML:
 
 ```console
-$ dotnet package add LibTmux.Workspace
+$ dotnet add package LibTmux.Workspace
 ```
 
 <!-- fsharp-snippet: DescribeSession run -->
@@ -365,9 +365,11 @@ let buildWorkspaceAsync (cancellationToken: CancellationToken) (server: Server) 
 ```
 <!-- endfsharp-snippet -->
 
-`WorkspaceBuilder` creates every pane and applies each layout before typing,
-then waits for each pane's shell to show a prompt; pass `PaneReadiness.Never` to
-type at once. `BuildAsync` returns the session and windows it created.
+`WorkspaceBuilder` creates topology and sends input immediately by default;
+it does not wait for shell prompts or command completion. For startup signals,
+pass `WorkspacePlanOptions` with `Readiness = WorkspaceReadiness.Cooperative`
+to `PlanAsync`, then call `ApplyAsync`. `BuildAsync` returns the session and
+windows it created.
 `WorkspaceFile.Parse` reads the same description from tmuxp YAML text.
 
 ## Read a snapshot

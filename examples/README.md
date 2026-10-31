@@ -1,15 +1,14 @@
 # Examples
 
-Every example here runs against a real tmux server of its own, as a test, on
-every build. Nothing in this directory can quietly stop compiling or stop being
-true — and because the READMEs quote from it, neither can they.
+The ordinary example suite runs against real tmux servers it owns in CI.
+Platform previews use their documented manual harnesses.
 
 [Complete API programs](api/README.md) have their own imports, entry point,
 package setup and owned-server cleanup. Their manifest attaches whole files
 to native compiler IDs, and the packed-consumer gate runs those files outside
 the repository's build properties.
 
-Two mechanisms sit on top of that, and they catch different failures:
+The following checks catch different failures:
 
 | Check | Where | Fails when |
 | --- | --- | --- |
@@ -77,10 +76,10 @@ written above the block:
 <!-- snippet: ConnectAndBuild usings: LibTmux -->
 ```
 
-Nine documents publish snippets: the root README, each of the four package
-READMEs, and the four files under `docs/modes/`. Decision records are
-deliberately excluded — they quote what was run at the time, and an example
-edited later to keep compiling records nothing.
+[`sync_snippets.py`](../eng/docs/sync_snippets.py) lists the documents that
+publish snippets. Decision records are deliberately excluded: they quote what
+was run at the time, and an example edited later to keep compiling records
+nothing.
 
 ### The loop runs one way
 
@@ -105,8 +104,8 @@ to it and would never be published at all.
 
 ## Blocks that are not snippets
 
-A C# block does not have to be a snippet. `ReadmeExampleTests` compiles every
-`csharp` block in those same nine documents against the real assemblies, and
+A C# block does not have to be a snippet. `ReadmeExampleTests` compiles
+`csharp` blocks in its document list against the real assemblies, and
 executes the ones tagged `csharp run` against a tmux server of their own:
 
 ````markdown

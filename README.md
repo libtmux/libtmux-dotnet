@@ -29,7 +29,7 @@ buffers, typed and asynchronous, for tmux **3.3a and newer** on **net8.0** and
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux
+$ dotnet add package LibTmux
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
@@ -73,7 +73,7 @@ tmux 3.3a or newer on `PATH` and a server running:
 ```console
 $ dotnet new console --output demo && \
     cd demo && \
-    dotnet package add LibTmux
+    dotnet add package LibTmux
 ```
 
 It prints nothing. The new session `build` has a window `tests`, and its pane
@@ -113,7 +113,7 @@ and examples that run against live tmux in CI.
 | **[LibTmux.Mcp](src/LibTmux.Mcp/README.md)** | [![LibTmux.Mcp](https://img.shields.io/nuget/v/LibTmux.Mcp?label=LibTmux.Mcp)](https://www.nuget.org/packages/LibTmux.Mcp) | You want an assistant driving tmux. Installs as a tool. |
 
 ```console
-$ dotnet package add LibTmux
+$ dotnet add package LibTmux
 ```
 
 The core takes exactly one dependency. Anything that would add another ships as
@@ -323,8 +323,8 @@ The library starts the `tmux` found on `PATH`. To use another binary, set
 
 ## Choose how to reach tmux
 
-Which one a call uses is visible where the call starts, and all three work on
-every supported tmux.
+Which one a call uses is visible where the call starts. One-shot calls and
+chains work on every supported tmux; explicit control mode needs tmux 3.7+.
 
 | Mode | Flip it on | Dispatch | What one more command costs |
 |---|---|---|---|
@@ -368,9 +368,9 @@ await server.Chain()
     .ExecuteAsync(ct);
 ```
 
-Control mode is an order of magnitude cheaper per command, because its client is
-already running. A chain wins for a batch by paying one round trip for the whole
-sequence.
+The recorded process-transport baseline makes control mode an order of
+magnitude cheaper per command. One-shot calls can already share a client;
+an explicit control session also exposes its notification stream.
 
 ## Testing your own code
 
@@ -386,8 +386,8 @@ await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync()
 await scope.Pane.SendTextAsync("echo hello");
 ```
 
-Disposing kills the server, so a test that fails part way through leaves nothing
-behind. [`TmuxWait.UntilAsync`][api-tmuxwait-untilasync], in the client package,
+Disposal attempts to stop the owned server even when the test body throws.
+[`TmuxWait.UntilAsync`][api-tmuxwait-untilasync], in the client package,
 waits for a state that production code also needs when it reads back what a
 command produced.
 
@@ -403,7 +403,7 @@ $ dotnet tool install --global LibTmux.Workspace.Cli
 
 With a workspace file saved as `~/.tmuxp/myproject.yaml`, such as the
 [example in the package README](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace.Cli#tmux-workspace),
-build it without attaching, on a tmux socket of its own:
+build it without attaching, on the named tmux socket `demo`:
 
 ```console
 $ tmux-workspace load -d -L demo myproject
@@ -435,7 +435,7 @@ $ dotnet tool install --global LibTmux.Mcp
 - [The full reference](docs/mcp/tools.md) is generated from the server itself.
 - Pin one socket for the process with `LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH`.
 
-It is built so an assistant never gets stuck and never wastes context:
+Tools expose status, bounded output, and wait behavior:
 
 - [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/)
   returns the shell's real exit status.
@@ -591,11 +591,11 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
   beyond that ordering, the library promises nothing about how a check treats
   one.
 - **.NET.** net8.0 and net10.0.
-- **Systems.** Linux, including WSL. macOS is best effort, with highly limited
-  CI coverage. CI builds on Windows x64, where the types that need a real tmux
+- **Systems.** Linux, including WSL. macOS is best effort, without CI
+  coverage. CI builds on Windows x64, where the types that need a real tmux
   are annotated unsupported.
 - **Windows preview.** The [`Psmux*` preview](docs/psmux.md) reads a Windows
-  psmux session natively or from WSL. It is best effort, with highly limited CI
+  psmux session natively or from WSL. It is best effort, with no CI
   coverage; its smoke harness runs by hand.
 - **Trimming and NativeAOT.** The `LibTmux` core is analyzer-gated, and its
   smoke app is published and run for `linux-x64` on net8.0 and net10.0.

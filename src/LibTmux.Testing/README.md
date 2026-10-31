@@ -25,13 +25,13 @@ on top of [LibTmux](https://www.nuget.org/packages/LibTmux).
 </div>
 <!-- /libtmux-logo -->
 
-Each scope owns what it created and tears it down on dispose, including after a
-failure, so a test that throws does not leave a server behind.
+Each scope owns what it created. Disposal attempts to tear it down even when
+the test body throws.
 
 Add it to your test project:
 
 ```console
-$ dotnet package add LibTmux.Testing
+$ dotnet add package LibTmux.Testing
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
@@ -85,8 +85,8 @@ ordinary client work.
 - **Test scaffolding in your application.** This ships apart from `LibTmux`, so
   an application that references the client carries no test scaffolding in its
   output or its trim closure.
-- **Your own tmux.** Left alone, a test gets a socket nothing else can use, so a
-  throwaway server never points at your tmux or kills it on the way out.
+- **Your existing tmux.** Default settings create a server on a unique socket.
+  Disposal stops only the daemon the scope owns.
 
 ## Support and status
 
@@ -95,8 +95,8 @@ ordinary client work.
   and the changelog marks each break. Pin an exact version to avoid one.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux).
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
-- **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on
-  Windows x64.
+- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
+  CI builds on Windows x64.
 
 ## Documentation
 

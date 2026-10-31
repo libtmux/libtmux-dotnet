@@ -1,8 +1,8 @@
 # Execution modes
 
-The caller chooses how commands reach tmux: one tmux process per command, a
-control client that stays attached, or a chain that runs several commands in
-one tmux call.
+The caller chooses one-shot operations, a held control client, or a chain that
+runs several commands in one tmux call. One-shot operations reuse a shared
+control client where supported and fall back to processes where needed.
 
 Use one-shot operations when one task describes the work. Use a control client
 when tmux must report work that nobody explicitly requested. Use the `Chain`
@@ -10,6 +10,8 @@ module when several commands should run together, each acting on what the one
 before made.
 
 ## Control mode
+
+Explicit control mode requires tmux 3.7 or newer.
 
 `Control.withSession` opens and owns a core control client. It ends the client
 after its task finishes. `readUntilTerminalAsync` borrows a client, so it
