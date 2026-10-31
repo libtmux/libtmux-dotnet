@@ -70,6 +70,13 @@ Give this repository a socket root of its own before running anything:
 - Tests: `TMUX_TMPDIR=/tmp/libtmux-dotnet-test`
 - Servers you start by hand: `TMUX_TMPDIR=/tmp/libtmux-dotnet-dev`
 
+A connection that names no socket passes tmux none, so tmux picks the server:
+the one in `TMUX` from inside a pane, otherwise the default socket under
+`TMUX_TMPDIR`. An example, `tmux-workspace` or `libtmux-mcp` started by hand
+therefore reaches the tmux you are using unless the shell it starts from has
+moved it. Export the root above, or `LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH`
+for a socket of its own, and clear `TMUX`.
+
 This matters more than it looks. Several libtmux ports live on this machine
 and run real tmux at the same time. A socket in the default root is reachable
 by all of them, so one port's cleanup sweep kills another port's servers

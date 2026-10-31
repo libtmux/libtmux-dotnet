@@ -16,13 +16,16 @@ internal sealed record McpRuntimeDisclosure(
     string AttachCommand,
     bool TeardownExplicitlySelected)
 {
+    /// <summary>The selector reported when no socket was chosen and tmux picks the server.</summary>
+    internal const string DefaultSelector = "default";
+
     internal static McpRuntimeDisclosure Unknown(ServerConnectionOptions options)
     {
         string resolvedPath = options.SocketPath is string path ? Path.GetFullPath(path) : "";
         return new(
-            resolvedPath.Length == 0
-                ? $"name:{options.SocketName ?? "default"}"
-                : $"path:{resolvedPath}",
+            resolvedPath.Length > 0
+                ? $"path:{resolvedPath}"
+                : options.SocketName is string name ? $"name:{name}" : DefaultSelector,
             "unknown",
             "unknown",
             ServerState: "unknown",
@@ -35,10 +38,17 @@ internal sealed record McpRuntimeDisclosure(
         ServerConnectionOptions options,
         string resolvedSocketPath)
     {
-        string selector = resolvedSocketPath.Length == 0
-            ? $"-L {ShellQuote(options.SocketName ?? "default")}"
-            : $"-S {ShellQuote(resolvedSocketPath)}";
-        return $"{ShellQuote(options.TmuxBinaryPath)} -N {selector} attach";
+        string binary = ShellQuote(options.TmuxBinaryPath);
+        if (resolvedSocketPath.Length > 0)
+        {
+            return $"{binary} -N -S {ShellQuote(resolvedSocketPath)} attach";
+        }
+
+        // With no socket chosen the command carries none, so tmux picks the
+        // same server for the operator that it picked for this one.
+        return options.SocketName is string name
+            ? $"{binary} -N -L {ShellQuote(name)} attach"
+            : $"{binary} -N attach";
     }
 
     private static string ShellQuote(string value) =>

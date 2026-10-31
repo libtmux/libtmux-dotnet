@@ -78,12 +78,32 @@ public sealed class ServerPolicyTests
             BindingFlags.NonPublic | BindingFlags.Static)!;
         string path = Path.GetFullPath("tmux-test.conf");
 
-        var parsed = ((string? Path, string Provenance))parser.Invoke(null, [path])!;
+        var parsed = ((string? Path, string Provenance))parser.Invoke(null, [path, true])!;
 
         Assert.Equal(path, parsed.Path);
         Assert.Equal("user-configured", parsed.Provenance);
-        Assert.Throws<TargetInvocationException>(() => parser.Invoke(null, [string.Empty]));
-        Assert.Throws<TargetInvocationException>(() => parser.Invoke(null, ["relative.conf"]));
+        Assert.Throws<TargetInvocationException>(() => parser.Invoke(null, [string.Empty, true]));
+        Assert.Throws<TargetInvocationException>(() => parser.Invoke(null, ["relative.conf", true]));
+    }
+
+    // The bundled configuration keeps a server of this server's own alive with no
+    // sessions. The server tmux picks belongs to the person using it.
+    [Theory]
+    [InlineData(true, null, "tmux-default")]
+    [InlineData(false, "minimal.conf", "minimal")]
+    public void Only_a_pinned_socket_gets_the_bundled_configuration(
+        bool unselected,
+        string? file,
+        string provenance)
+    {
+        MethodInfo parser = typeof(McpStartup).GetMethod(
+            "ParseConfiguration",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var parsed = ((string? Path, string Provenance))parser.Invoke(null, [null, unselected])!;
+
+        Assert.Equal(file, parsed.Path is null ? null : System.IO.Path.GetFileName(parsed.Path));
+        Assert.Equal(provenance, parsed.Provenance);
     }
 
     [Fact]
@@ -98,6 +118,12 @@ public sealed class ServerPolicyTests
         Assert.Equal(
             "minimal",
             McpStartup.ReportedConfigurationProvenance("minimal", existing: false));
+        Assert.Equal(
+            "tmux-default",
+            McpStartup.ReportedConfigurationProvenance("tmux-default", existing: false));
+        Assert.Equal(
+            "unknown",
+            McpStartup.ReportedConfigurationProvenance("tmux-default", existing: true));
     }
 
     [Fact]
@@ -117,6 +143,18 @@ public sealed class ServerPolicyTests
             definition.Toolset == Toolset.Teardown);
         Assert.Equal("unknown", provider.GetRequiredService<McpRuntimeDisclosure>()
             .ConfigurationProvenance);
+    }
+
+    // An embedded server that chose no socket is reached by tmux's own rules, so
+    // the command shown to an operator carries no socket either.
+    [Fact]
+    public void Public_composition_with_no_socket_discloses_no_socket()
+    {
+        McpRuntimeDisclosure runtime = McpRuntimeDisclosure.Unknown(
+            new ServerConnectionOptions { TmuxBinaryPath = "tmux" });
+
+        Assert.Equal("default", runtime.SocketSelector);
+        Assert.Equal("'tmux' -N attach", runtime.AttachCommand);
     }
 
     [UnixFact]

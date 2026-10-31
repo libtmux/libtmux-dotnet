@@ -431,9 +431,11 @@ $ dotnet tool install --global LibTmux.Mcp
 
 - It exposes its tools in `inspect`, `manage`, `execute`, and `teardown` sets,
   plus the static `tmux://capabilities` resource.
-- Existing and user-configured sockets omit teardown by default.
+- Teardown is omitted by default.
 - [The full reference](docs/mcp/tools.md) is generated from the server itself.
 - Pin one socket for the process with `LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH`.
+  With neither set, tmux picks the server: the one in `TMUX`, otherwise its
+  default socket.
 
 It is built so an assistant never gets stuck and never wastes context:
 

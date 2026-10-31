@@ -83,7 +83,7 @@ internal static class Program
         if (!running.IsCompleted)
         {
             // The SDK drains handlers after EOF without cancelling them. End
-            // their waits before disposing the observer and owned daemon.
+            // their waits before disposing the observer.
             await shutdown.CancelAsync().ConfigureAwait(false);
         }
         await running.ConfigureAwait(false);
@@ -110,9 +110,6 @@ internal static class Program
             resolved.Selection,
             resolved.Disclosure);
 
-        services.AddSingleton<McpStartup>(_ => resolved);
-        ServiceProvider provider = services.BuildServiceProvider();
-        _ = provider.GetRequiredService<McpStartup>();
-        return provider;
+        return services.BuildServiceProvider();
     }
 }

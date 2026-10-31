@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.Runtime.Versioning;
-using System.Security.Cryptography;
 using ModelContextProtocol;
 
 namespace LibTmux.Mcp;
@@ -10,21 +9,17 @@ internal sealed record McpStartup(
     ServerConnectionOptions ConnectionOptions,
     CapabilitySelection Selection,
     McpRuntimeDisclosure Disclosure)
-    : IAsyncDisposable
 {
     internal const string SocketVariable = "LIBTMUX_SOCKET";
     internal const string SocketPathVariable = "LIBTMUX_SOCKET_PATH";
 
-    /// <summary>The library's own socket selector, which this server does not read.</summary>
+    /// <summary>The variable the library read for a socket name before it read <c>LIBTMUX_SOCKET</c>.</summary>
     internal const string LibrarySocketNameVariable = "LIBTMUX_SOCKET_NAME";
     internal const string ConfigurationVariable = "LIBTMUX_TMUX_CONFIG";
     private const string TmuxBinaryVariable = "LIBTMUX_TMUX";
     private const string TmuxTemporaryDirectoryVariable = "TMUX_TMPDIR";
+    private const string TmuxServerVariable = "TMUX";
     private const string PathVariable = "PATH";
-    private const string OwnerVariable = "LIBTMUX_MCP_OWNER";
-    private const string OwnerOption = "@libtmux_mcp_owner";
-    private const string DedicatedSocketName = "libtmux-mcp";
-    private OwnedDedicatedDaemon? OwnedDaemon { get; init; }
 
     internal static string MinimalConfigurationPath =>
         Path.Combine(AppContext.BaseDirectory, "minimal.conf");
@@ -46,6 +41,7 @@ internal sealed record McpStartup(
             ConfigurationVariable,
             TmuxBinaryVariable,
             TmuxTemporaryDirectoryVariable,
+            TmuxServerVariable,
             PathVariable,
         ];
         Dictionary<string, string?> environment = variables.ToDictionary(
@@ -55,8 +51,7 @@ internal sealed record McpStartup(
         string? Read(string name) => environment[name];
 
         // Validate retired settings, toolset tokens, and tool names before the
-        // first tmux process is opened. The default subset is filled only after
-        // the liveness probe establishes socket provenance.
+        // first tmux process is opened.
         CapabilitySelection parsed = CapabilitySelection.FromEnvironment(
             Read,
             ImmutableHashSet<Toolset>.Empty);
@@ -71,31 +66,31 @@ internal sealed record McpStartup(
                 $"{SocketVariable} and {SocketPathVariable} are mutually exclusive.");
         }
 
-        // The library selects a socket with LIBTMUX_SOCKET_NAME and this server
-        // does not, so setting only that one silently lands on the dedicated
-        // socket while the caller believes it is somewhere else. Socket
-        // selection is frozen at startup and the capability model treats it as
-        // a boundary, so refusing beats ignoring: a probe that thought it was
-        // isolated read and wrote another server's sessions for hours.
+        // Neither socket variable leaves the choice to tmux: the server in
+        // TMUX, otherwise its default socket. The name the library read before
+        // LIBTMUX_SOCKET selects nothing now, so setting only that one would
+        // land on that server while the caller believes it is somewhere else.
+        // Socket selection is frozen at startup and the capability model treats
+        // it as a boundary, so refusing beats ignoring: a probe that thought it
+        // was isolated read and wrote another server's sessions for hours.
         if (socketName is null
             && socketPath is null
             && NonBlank(Read(LibrarySocketNameVariable), LibrarySocketNameVariable) is not null)
         {
             throw new McpException(
-                $"{LibrarySocketNameVariable} selects a socket for the libtmux library, "
-                + $"not for this server. Use {SocketVariable} for a socket name, or "
+                $"{LibrarySocketNameVariable} no longer selects a socket. "
+                + $"Use {SocketVariable} for a socket name, or "
                 + $"{SocketPathVariable} for an absolute path.");
         }
 
-        bool dedicated = socketName is null && socketPath is null;
-        socketName ??= dedicated ? DedicatedSocketName : null;
+        bool unselected = socketName is null && socketPath is null;
         if (socketPath is not null && !Path.IsPathFullyQualified(socketPath))
         {
             throw new McpException($"{SocketPathVariable} must be a fully qualified path.");
         }
 
         (string? configurationFile, string configurationProvenance) =
-            ParseConfiguration(Read(ConfigurationVariable));
+            ParseConfiguration(Read(ConfigurationVariable), unselected);
         string binary = ResolveExecutablePath(
             NonBlank(Read(TmuxBinaryVariable), TmuxBinaryVariable) ?? "tmux",
             Read(PathVariable));
@@ -103,8 +98,16 @@ internal sealed record McpStartup(
         RequireSafeRouteValue(
             tmuxTemporaryDirectory,
             TmuxTemporaryDirectoryVariable);
+        string? tmuxServer = Read(TmuxServerVariable);
+        if (unselected)
+        {
+            RequireSafeRouteValue(tmuxServer, TmuxServerVariable);
+        }
+
         Dictionary<string, string?> childEnvironment = ChildEnvironment(
-            tmuxTemporaryDirectory);
+            tmuxTemporaryDirectory,
+            unselected ? tmuxServer : null,
+            unselected);
         ServerConnectionOptions options = Options(
             binary,
             socketName,
@@ -114,46 +117,11 @@ internal sealed record McpStartup(
         ProbeState probe = await ProbeAsync(Server.Open(options), cancellationToken)
             .ConfigureAwait(false);
         bool existing = probe == ProbeState.Existing;
-        bool newDedicatedMinimal = false;
-        string? markerNonce = null;
-        if (dedicated && !existing
-            && string.Equals(configurationProvenance, "minimal", StringComparison.Ordinal))
-        {
-            string nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16))
-                .ToLowerInvariant();
-            Dictionary<string, string?> startupEnvironment = new(
-                childEnvironment,
-                StringComparer.Ordinal)
-            {
-                [OwnerVariable] = nonce,
-            };
-            Server starting = Server.Open(Options(
-                binary,
-                socketName,
-                socketPath,
-                configurationFile,
-                startupEnvironment));
-            await starting.StartServerAsync(cancellationToken).ConfigureAwait(false);
-            TmuxCommandResult marker = await starting.ExecuteCommandAsync(
-                    ["show-options", "-gqv", OwnerOption],
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (marker.ExitCode != 0
-                || !string.Equals(
-                    string.Join('\n', marker.StandardOutputLines).TrimEnd(),
-                    nonce,
-                    StringComparison.Ordinal))
-            {
-                throw new McpException(
-                    "Another tmux daemon won startup; provenance is unknown.");
-            }
 
-            newDedicatedMinimal = true;
-            markerNonce = nonce;
-        }
-        ImmutableHashSet<Toolset> defaults = newDedicatedMinimal
-            ? Enum.GetValues<Toolset>().ToImmutableHashSet()
-            : ImmutableHashSet.Create(Toolset.Inspect, Toolset.Manage, Toolset.Execute);
+        // Only a server the caller started or selected is ever driven here, so
+        // teardown is never a default.
+        ImmutableHashSet<Toolset> defaults =
+            ImmutableHashSet.Create(Toolset.Inspect, Toolset.Manage, Toolset.Execute);
         CapabilitySelection selection = Read(CapabilitySelection.ToolsetsVariable) is null
             ? parsed with { Toolsets = defaults }
             : parsed;
@@ -166,18 +134,18 @@ internal sealed record McpStartup(
         bool explicitlySelectedTeardown = teardownWasNamed
             && CapabilityRegistry.Manifest.Any(definition =>
                 definition.Toolset == Toolset.Teardown && selection.Includes(definition));
-        string selector = socketPath is null
-            ? $"name:{socketName}"
-            : $"path:{socketPath}";
-        string socketProvenance = dedicated ? "default-dedicated" : "operator-current";
+        string selector = unselected
+            ? McpRuntimeDisclosure.DefaultSelector
+            : socketPath is null
+                ? $"name:{socketName}"
+                : $"path:{socketPath}";
+        string socketProvenance = unselected ? "tmux-default" : "operator-current";
         string reportedConfiguration = ReportedConfigurationProvenance(
             configurationProvenance,
             existing);
-        string serverState = existing
-            ? "existing"
-            : newDedicatedMinimal ? "created" : "absent";
+        string serverState = existing ? "existing" : "absent";
         string resolvedSocketPath = socketPath is null ? "" : Path.GetFullPath(socketPath);
-        if (existing || newDedicatedMinimal)
+        if (existing)
         {
             resolvedSocketPath = ComposeSocketPath(socketName, childEnvironment)
                 ?? await ResolveSocketPathAsync(Server.Open(options), cancellationToken)
@@ -190,7 +158,10 @@ internal sealed record McpStartup(
                 socketName: null,
                 socketPath: resolvedSocketPath,
                 configurationFile: configurationFile,
-                childEnvironment: childEnvironment);
+                childEnvironment: ChildEnvironment(
+                    tmuxTemporaryDirectory,
+                    tmuxServer: null,
+                    unselected: false));
         return new McpStartup(
             pinnedOptions,
             selection,
@@ -201,12 +172,7 @@ internal sealed record McpStartup(
                 serverState,
                 resolvedSocketPath,
                 McpRuntimeDisclosure.BuildAttachCommand(pinnedOptions, resolvedSocketPath),
-                explicitlySelectedTeardown))
-        {
-            OwnedDaemon = newDedicatedMinimal
-                ? new OwnedDedicatedDaemon(pinnedOptions, nonce: markerNonce!)
-                : null,
-        };
+                explicitlySelectedTeardown));
     }
 
     /// <summary>Builds the path a socket name resolves to, without asking tmux.</summary>
@@ -270,10 +236,18 @@ internal sealed record McpStartup(
         return path;
     }
 
-    private static (string? Path, string Provenance) ParseConfiguration(string? value)
+    private static (string? Path, string Provenance) ParseConfiguration(string? value, bool unselected)
     {
         if (value is null)
         {
+            // The bundled configuration keeps a server of this server's own
+            // alive while it has no sessions. It is not for the server tmux
+            // picks, which belongs to the person using it and loads their own.
+            if (unselected)
+            {
+                return (null, "tmux-default");
+            }
+
             if (!File.Exists(MinimalConfigurationPath))
             {
                 throw new McpException(
@@ -293,13 +267,7 @@ internal sealed record McpStartup(
     }
 
     internal static string ReportedConfigurationProvenance(string configured, bool existing) =>
-        existing
-            ? "unknown"
-            : string.Equals(configured, "user-configured", StringComparison.Ordinal)
-                ? "user-configured"
-                : "minimal";
-
-    public ValueTask DisposeAsync() => OwnedDaemon?.DisposeAsync() ?? ValueTask.CompletedTask;
+        existing ? "unknown" : configured;
 
     private static ServerConnectionOptions Options(
         string binary,
@@ -315,7 +283,10 @@ internal sealed record McpStartup(
             ChildEnvironment = childEnvironment,
         };
 
-    private static Dictionary<string, string?> ChildEnvironment(string? tmuxTemporaryDirectory)
+    private static Dictionary<string, string?> ChildEnvironment(
+        string? tmuxTemporaryDirectory,
+        string? tmuxServer,
+        bool unselected)
     {
         string? frozen = string.IsNullOrWhiteSpace(tmuxTemporaryDirectory)
             ? null
@@ -325,6 +296,16 @@ internal sealed record McpStartup(
         {
             [TmuxTemporaryDirectoryVariable] = frozen,
         };
+
+        if (unselected)
+        {
+            // With no -L and no -S, tmux follows TMUX and then its default
+            // socket. The values this server read are the ones it hands on, so
+            // the library does not read the process again and find others.
+            environment[TmuxServerVariable] = tmuxServer;
+            environment[SocketVariable] = null;
+            environment[SocketPathVariable] = null;
+        }
 
         return environment;
     }
@@ -471,42 +452,5 @@ internal sealed record McpStartup(
     {
         Absent,
         Existing,
-    }
-
-    private sealed class OwnedDedicatedDaemon(
-        ServerConnectionOptions options,
-        string nonce) : IAsyncDisposable
-    {
-        private int _disposed;
-
-        public async ValueTask DisposeAsync()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) != 0)
-            {
-                return;
-            }
-
-            using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            try
-            {
-                _ = await Server.Open(options).ExecuteCommandAsync(
-                        [
-                            "if-shell",
-                            "-F",
-                            $"#{{==:#{{{OwnerOption}}},{nonce}}}",
-                            "kill-server",
-                        ],
-                        cleanup.Token)
-                    .ConfigureAwait(false);
-            }
-            catch (LibTmuxException)
-            {
-                // The owned daemon already exited, or was replaced after startup.
-            }
-            catch (OperationCanceledException)
-            {
-                // Process teardown remains bounded even if tmux stops responding.
-            }
-        }
     }
 }

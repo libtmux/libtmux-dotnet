@@ -83,8 +83,10 @@ a version from [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
   [native config swapper](https://github.com/libtmux/libtmux-dotnet/blob/master/eng/mcp-swap/README.md)
   does it for you.
 
-The server drives its own dedicated socket by default. To drive a named server,
-pin its socket in the environment:
+With no socket set, the server passes tmux none, and tmux picks the server: the
+one in `TMUX` when the client runs inside tmux, otherwise the default socket.
+
+To drive a server of its own, pin its socket in the environment:
 
 ```json
 {
@@ -149,9 +151,9 @@ stack trace, lay out a workspace and drive it.
 
 | Variable | Default | Does |
 |---|---|---|
-| `LIBTMUX_SOCKET` | `libtmux-mcp` | One socket name pinned at startup |
+| `LIBTMUX_SOCKET` | *(unset)* | One socket name pinned at startup |
 | `LIBTMUX_SOCKET_PATH` | *(unset)* | One absolute socket path, mutually exclusive with `LIBTMUX_SOCKET` |
-| `LIBTMUX_TMUX_CONFIG` | bundled minimal configuration | An explicit absolute tmux configuration path |
+| `LIBTMUX_TMUX_CONFIG` | bundled minimal configuration on a pinned socket, none otherwise | An explicit absolute tmux configuration path |
 | `LIBTMUX_TOOLSETS` | provenance-dependent | Unordered `inspect`, `manage`, `execute`, and `teardown` selection |
 | `LIBTMUX_TOOLS` | *(unset)* | Additional exact tool names |
 | `LIBTMUX_EXCLUDE_TOOLS` | *(unset)* | Exact tool names removed after inclusion |
@@ -177,19 +179,17 @@ stack trace, lay out a workspace and drive it.
 
 ### Choosing tools
 
-- A newly created dedicated socket gets all four toolsets. An existing or
-  user-configured socket omits `teardown` unless you select it.
+- Every default omits `teardown`. Select it by toolset or by exact tool name.
 - Exclusions always win over inclusions.
 - Startup stops on an unknown toolset or tool name, an empty item in a list,
-  both socket variables at once, an empty or relative `LIBTMUX_TMUX_CONFIG`, and
-  `LIBTMUX_SAFETY` in the environment.
+  both socket variables at once, `LIBTMUX_SOCKET_NAME` on its own, an empty or
+  relative `LIBTMUX_TMUX_CONFIG`, and `LIBTMUX_SAFETY` in the environment.
 - Toolsets and filters shape what the client sees and can call. Execute tools
   run with the tmux user's authority over files, processes, and the network.
 - [`tmux://capabilities`][api-mcp-capabilities] reports the pinned socket, the
   tool selection, and every effective tool. Each tool also carries its row under
   `_meta["com.git-pull.libtmux-mcp/capability"]`.
-- On shutdown the server removes only a dedicated daemon it launched. It leaves
-  existing or replaced daemons running.
+- On shutdown the server leaves every tmux server running.
 
 To offer a client only the tools that read tmux, select the `inspect` toolset:
 

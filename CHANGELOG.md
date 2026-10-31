@@ -38,6 +38,19 @@ changelog marks each break. Pin an exact version to avoid one. Releases before
   that may switch to or append to the current session passes the server in
   `TMUX` only when none of those chose one; it used to pass it ahead of the
   variables, and every other command used to pass it too. (#134)
+- **`libtmux-mcp` with no socket variable drives the server tmux picks, not a
+  `libtmux-mcp` socket of its own.** (#134)
+  - Previous behaviour: it started a daemon on the `libtmux-mcp` socket with the
+    bundled configuration, gave it all four toolsets, and stopped it on exit.
+  - New behaviour: it drives the server in `TMUX`, otherwise the default socket,
+    loads no configuration of its own, omits `teardown`, and leaves every server
+    running on exit. `tmux://capabilities` reports the selector `default` and
+    the provenance `tmux-default`. A pinned socket keeps the bundled
+    configuration.
+  - Reason: the Python `libtmux-mcp` passes no socket unless one is set.
+  - Recommended action: set `LIBTMUX_SOCKET` to keep the assistant on a server
+    of its own. `LIBTMUX_SOCKET_NAME` on its own stops startup and names
+    `LIBTMUX_SOCKET`.
 - `Window.SelectLayoutAsync` accepts a JSON layout from tmux 3.8, the first
   release that reads one, and the `layout-json` capability starts at 3.8. An
   older release is refused with `TmuxUnsupportedOnReleaseException` before
