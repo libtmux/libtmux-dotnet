@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import re
 import runpy
 import sys
 import typing as t
@@ -20,6 +21,8 @@ import yaml
 
 TARGET_FRAMEWORKS = {"net8.0", "net10.0"}
 FSHARP_PROGRAM_LOOP = "for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do"
+
+TMATE_ACTION = "mxschmitt/action-tmate"
 
 # The lanes that run beside the supported matrix, each with the plan output
 # that puts it in scope. The aggregate requires a planned lane to succeed and
@@ -283,7 +286,7 @@ def verify(root: pathlib.Path) -> list[str]:
         "dotnet-tmux.workflow_call must require the scope input",
     )
     dispatch_inputs = triggers.get("workflow_dispatch", {}).get("inputs", {})
-    for name in ("scope", "tmux-ref", "dotnet"):
+    for name in ("scope", "tmux-ref", "dotnet", "tmate"):
         require(
             name in dispatch_inputs,
             f"dotnet-tmux.workflow_dispatch must offer the {name} input",
@@ -314,7 +317,8 @@ def verify(root: pathlib.Path) -> list[str]:
         plan_env.get("EVENT") == "${{ github.event_name }}"
         and plan_env.get("SCOPE") == "${{ inputs.scope }}"
         and plan_env.get("TMUX_REF") == "${{ inputs.tmux-ref }}"
-        and plan_env.get("DOTNET") == "${{ inputs.dotnet }}",
+        and plan_env.get("DOTNET") == "${{ inputs.dotnet }}"
+        and plan_env.get("TMATE") == "${{ inputs.tmate }}",
         "dotnet-tmux.plan.plan must read the event and every input through env",
     )
     for output in ("matrix", "rejected", "exact_3_7", "advisory"):
@@ -325,6 +329,50 @@ def verify(root: pathlib.Path) -> list[str]:
         )
 
     matrix = needs("dotnet-tmux", "matrix", {"plan", "build"})
+    require(
+        "".join(str(matrix.get("timeout-minutes", "")).split())
+        == "${{matrix.tmate=='off'&&30||60}}",
+        "dotnet-tmux.matrix must cap the job and give the debugging leg 60 minutes",
+    )
+    debug_sessions = [
+        (workflow, job_name, step)
+        for workflow, document in documents.items()
+        for job_name, value in document["jobs"].items()
+        for step in value.get("steps", [])
+        if str(step.get("uses", "")).startswith(TMATE_ACTION + "@")
+    ]
+    for workflow, job_name, step in debug_sessions:
+        label = f"{workflow}.{job_name}"
+        require(
+            (workflow, job_name) == ("dotnet-tmux", "matrix"),
+            f"{label}: a debugging session belongs only in the tmux matrix",
+        )
+        require(
+            re.fullmatch(TMATE_ACTION + "@[0-9a-f]{40}", step["uses"]) is not None,
+            f"{label}: the debugging action must be pinned to a full commit SHA",
+        )
+        require(
+            step.get("with", {}).get("limit-access-to-actor") == "true",
+            f"{label}: a debugging session must be limited to the actor",
+        )
+        require(
+            bool(step.get("timeout-minutes")),
+            f"{label}: a debugging session needs its own time limit",
+        )
+        require(
+            "github.event_name=='workflow_dispatch'" in "".join(str(step.get("if", "")).split())
+            and "matrix.tmate==" in "".join(str(step.get("if", "")).split()),
+            f"{label}: a debugging session runs only on a dispatch, on the leg the plan chose",
+        )
+    for path in sorted((root / ".github/workflows").glob("*.yml")):
+        if path.name != "dotnet-tmux.yml" and TMATE_ACTION in path.read_text(encoding="utf-8"):
+            errors.append(
+                f"{path.name}: a debugging session belongs only in the tmux matrix"
+            )
+    require(
+        len(debug_sessions) == 2,
+        "dotnet-tmux.matrix must offer a debugging session before the tests and after a failure",
+    )
     strategy = matrix.get("strategy", {})
     require(
         "".join(str(strategy.get("matrix", "")).split())

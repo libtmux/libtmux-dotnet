@@ -35,6 +35,14 @@ on:
         description: Comma-separated target frameworks, such as net8.0,net10.0. Empty runs both.
         type: string
         default: ''
+      tmate:
+        description: >-
+          Open a tmate SSH session for the person who started the run, before
+          the tests or only after a failure. It needs scope custom with one
+          tmux-ref and one dotnet framework, so that exactly one leg gets it.
+        type: choice
+        options: [off, before-tests, on-failure]
+        default: off
 
 permissions:
   contents: read
@@ -75,6 +83,7 @@ jobs:
           SCOPE: ${{ inputs.scope }}
           TMUX_REF: ${{ inputs.tmux-ref }}
           DOTNET: ${{ inputs.dotnet }}
+          TMATE: ${{ inputs.tmate }}
         run: |
           python3 eng/tmux/plan.py \
             --event "${EVENT}" \
@@ -82,6 +91,7 @@ jobs:
             --scope "${SCOPE}" \
             --tmux-ref "${TMUX_REF}" \
             --dotnet "${DOTNET}" \
+            --tmate "${TMATE}" \
             --github-output "${GITHUB_OUTPUT}" \
             --summary "${GITHUB_STEP_SUMMARY}"
 
@@ -164,7 +174,8 @@ jobs:
     needs: [plan, build]
     name: tmux ${{ matrix.tmux }} on ${{ matrix.framework }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The leg that holds a debugging session gets the time to use it.
+    timeout-minutes: ${{ matrix.tmate == 'off' && 30 || 60 }}
     strategy:
       # One lane failing says something about that tmux version, which is only
       # readable when the other lanes still run.
@@ -244,6 +255,17 @@ jobs:
           uv venv --python 3.13 "${RUNNER_TEMP}/workspace-python"
           uv pip install --python "${RUNNER_TEMP}/workspace-python/bin/python" tmuxp==1.74.0
           echo "TMUX_WORKSPACE_PYTHON=${RUNNER_TEMP}/workspace-python/bin/python" >> "${GITHUB_ENV}"
+
+      # A debugging session is for a dispatch, and the plan gives it to exactly
+      # one leg. It is limited to the person who started the run, who needs an
+      # SSH key on their GitHub profile, and it is closed after the step's limit.
+      - name: Debug session before the tests
+        if: github.event_name == 'workflow_dispatch' && matrix.tmate == 'before-tests'
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
+        timeout-minutes: 30
+        continue-on-error: true
+        with:
+          limit-access-to-actor: true
 
       - name: Workspace CLI tests
         env:
@@ -354,6 +376,13 @@ jobs:
             program="$(basename "${source}" .cs)"
             dotnet "examples/LibTmux.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.Examples.dll"
           done
+
+      - name: Debug session after a failure
+        if: failure() && github.event_name == 'workflow_dispatch' && matrix.tmate == 'on-failure'
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
+        timeout-minutes: 30
+        with:
+          limit-access-to-actor: true
 
   # A daemon below the floor must be refused before it is touched. The client
   # is the supported 3.3a build, which can speak to both older protocols. The

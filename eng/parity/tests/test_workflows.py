@@ -284,6 +284,9 @@ def test_weakened_policy_fails(
         ("dotnet-tmux", ("jobs", "exact_3_7", "if"), "exact_3_7.if"),
         ("dotnet-tmux", ("jobs", "advisory", "if"), "advisory must run"),
         ("dotnet-tmux", ("jobs", "plan"), "missing required job"),
+        ("dotnet-tmux", ("on", "workflow_dispatch", "inputs", "tmate"), "offer the tmate"),
+        ("dotnet-tmux", ("jobs", "plan", "steps", 1, "env", "TMATE"), "through env"),
+        ("dotnet-tmux", ("jobs", "matrix", "timeout-minutes"), "cap the job"),
     ],
 )
 def test_removed_policy_fails(
@@ -301,6 +304,85 @@ def test_removed_policy_fails(
     del target[keys[-1]]
     path.write_text(yaml.safe_dump(document, sort_keys=True))
     assert any(diagnostic in error for error in verify(repository))
+
+
+def debug_steps(document: dict) -> list[dict]:
+    """Return the two debugging-session steps of the tmux matrix job."""
+    return [
+        step
+        for step in document["jobs"]["matrix"]["steps"]
+        if str(step.get("uses", "")).startswith("mxschmitt/action-tmate@")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("change", "diagnostic"),
+    [
+        (lambda step: step.update(uses="mxschmitt/action-tmate@v3.24"), "pinned to a full commit SHA"),
+        (lambda step: step.update(uses="mxschmitt/action-tmate@" + "g" * 40), "pinned to a full commit SHA"),
+        (lambda step: step["with"].update({"limit-access-to-actor": "false"}), "limited to the actor"),
+        (lambda step: step["with"].pop("limit-access-to-actor"), "limited to the actor"),
+        (lambda step: step.pop("timeout-minutes"), "own time limit"),
+        (
+            lambda step: step.update({"if": "matrix.tmate == 'before-tests'"}),
+            "runs only on a dispatch",
+        ),
+        (
+            lambda step: step.update({"if": "github.event_name == 'workflow_dispatch'"}),
+            "on the leg the plan chose",
+        ),
+    ],
+)
+def test_the_debugging_session_stays_pinned_limited_and_bounded(
+    repository: pathlib.Path, change, diagnostic: str
+) -> None:
+    """The session is a way in to the runner, so each safeguard is checked."""
+    path = repository / ".github/workflows/dotnet-tmux.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    change(debug_steps(document)[0])
+    path.write_text(yaml.safe_dump(document))
+
+    assert any(diagnostic in error for error in verify(repository))
+
+
+def test_a_debugging_session_cannot_be_dropped(repository: pathlib.Path) -> None:
+    path = repository / ".github/workflows/dotnet-tmux.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    document["jobs"]["matrix"]["steps"].remove(debug_steps(document)[1])
+    path.write_text(yaml.safe_dump(document))
+
+    assert any("before the tests and after a failure" in error for error in verify(repository))
+
+
+@pytest.mark.parametrize(
+    ("workflow", "job_name"),
+    [("release", "publish"), ("dotnet", "build"), ("dotnet-tmux", "rejected")],
+)
+def test_a_debugging_session_cannot_reach_another_job(
+    repository: pathlib.Path, workflow: str, job_name: str
+) -> None:
+    """Publishing, releasing and documenting never hold a session open."""
+    path = repository / f".github/workflows/{workflow}.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    session = {
+        "uses": "mxschmitt/action-tmate@" + "a" * 40,
+        "with": {"limit-access-to-actor": "true"},
+        "timeout-minutes": "30",
+        "if": "github.event_name == 'workflow_dispatch' && matrix.tmate == 'before-tests'",
+    }
+    document["jobs"][job_name]["steps"].append(session)
+    path.write_text(yaml.safe_dump(document))
+
+    assert any("belongs only in the tmux matrix" in error for error in verify(repository))
+
+
+def test_a_debugging_session_cannot_reach_a_workflow_the_policy_does_not_read(
+    repository: pathlib.Path,
+) -> None:
+    path = repository / ".github/workflows/docs.yml"
+    path.write_text(path.read_text() + "      - uses: mxschmitt/action-tmate@" + "a" * 40 + "\n")
+
+    assert any("docs.yml" in error and "belongs only" in error for error in verify(repository))
 
 
 def test_the_plan_and_the_workflow_agree_on_the_frameworks(
