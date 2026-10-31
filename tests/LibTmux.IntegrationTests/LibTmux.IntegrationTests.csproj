@@ -23,6 +23,8 @@
     <!-- Real tmux runs here, so this assembly claims a socket root of its own. -->
     <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"
              Link="WorkspaceSocketRoot.cs" />
+    <Compile Include="../../eng/dotnet/SandboxCanaryTests.cs"
+             Link="SandboxCanaryTests.cs" />
   </ItemGroup>
 
   <ItemGroup>

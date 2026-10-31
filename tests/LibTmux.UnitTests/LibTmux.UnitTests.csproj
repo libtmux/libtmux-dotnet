@@ -27,6 +27,8 @@
          socket root of its own and clears what would reach another server. -->
     <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"
              Link="WorkspaceSocketRoot.cs" />
+    <Compile Include="../../eng/dotnet/SandboxCanaryTests.cs"
+             Link="SandboxCanaryTests.cs" />
   </ItemGroup>
 
   <ItemGroup>

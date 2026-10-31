@@ -20,6 +20,14 @@
          test may already have started; claiming it here comes first. -->
     <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"
              Link="WorkspaceSocketRoot.cs" />
+    <Compile Include="../../eng/dotnet/SandboxCanaryTests.cs"
+             Link="SandboxCanaryTests.cs" />
+
+    <!-- The canary writes its stand-in tmux with the helper the other suites use. -->
+    <Compile Include="../LibTmux.IntegrationTests/Infrastructure/TestExecutable.cs"
+             Link="Infrastructure/TestExecutable.cs" />
+    <Compile Include="../LibTmux.IntegrationTests/Infrastructure/TestBudget.cs"
+             Link="Infrastructure/TestBudget.cs" />
   </ItemGroup>
 
   <ItemGroup>
