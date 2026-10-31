@@ -173,6 +173,17 @@ def verify(root: pathlib.Path) -> list[str]:
             "workflow_call" in names(documents[name].get("on")),
             f"{name} must expose workflow_call",
         )
+        concurrency = documents[name].get("concurrency", {})
+        require(
+            "".join(str(concurrency.get("group", "")).split())
+            == f"{name}-${{{{github.ref}}}}${{{{github.event_name=='workflow_dispatch'"
+            "&&format('-{0}',github.run_id)||''}}",
+            f"{name}.concurrency must add github.run_id to a dispatch run's group",
+        )
+        require(
+            concurrency.get("cancel-in-progress") == "true",
+            f"{name}.concurrency must still cancel a superseded push",
+        )
 
     aggregate("dotnet", "gate", {"build", "windows"})
     for name in ("build", "windows"):

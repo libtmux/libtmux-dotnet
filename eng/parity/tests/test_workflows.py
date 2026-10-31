@@ -385,6 +385,40 @@ def test_a_debugging_session_cannot_reach_a_workflow_the_policy_does_not_read(
     assert any("docs.yml" in error and "belongs only" in error for error in verify(repository))
 
 
+@pytest.mark.parametrize("workflow", ["dotnet", "dotnet-tmux"])
+@pytest.mark.parametrize(
+    ("group", "diagnostic"),
+    [
+        ("{name}-${{ github.ref }}", "add github.run_id"),
+        ("{name}-${{ github.ref }}-${{ github.run_id }}", "add github.run_id"),
+        (
+            "{name}-${{ github.ref }}${{ github.event_name == 'push' && format('-{{0}}', github.run_id) || '' }}",
+            "add github.run_id",
+        ),
+    ],
+)
+def test_a_dispatch_run_must_not_share_a_cancelling_group(
+    repository: pathlib.Path, workflow: str, group: str, diagnostic: str
+) -> None:
+    """Two dispatches, or a dispatch and a push, must not cancel one another."""
+    path = repository / f".github/workflows/{workflow}.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    document["concurrency"]["group"] = group.replace("{name}", workflow)
+    path.write_text(yaml.safe_dump(document))
+
+    assert any(f"{workflow}.concurrency" in error and diagnostic in error for error in verify(repository))
+
+
+@pytest.mark.parametrize("workflow", ["dotnet", "dotnet-tmux"])
+def test_a_superseded_push_is_still_cancelled(repository: pathlib.Path, workflow: str) -> None:
+    path = repository / f".github/workflows/{workflow}.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    document["concurrency"]["cancel-in-progress"] = "false"
+    path.write_text(yaml.safe_dump(document))
+
+    assert any("still cancel a superseded push" in error for error in verify(repository))
+
+
 def test_the_plan_and_the_workflow_agree_on_the_frameworks(
     repository: pathlib.Path,
 ) -> None:
