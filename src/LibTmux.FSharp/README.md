@@ -33,7 +33,7 @@ core objects.
 Add it to an F# project:
 
 ```console
-$ dotnet package add LibTmux.FSharp
+$ dotnet add package LibTmux.FSharp
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
@@ -117,7 +117,7 @@ with tmux on `PATH`:
 ```console
 $ dotnet new console --language F# --framework net8.0 --output tmux-demo && \
     cd tmux-demo && \
-    dotnet package add LibTmux.FSharp && \
+    dotnet add package LibTmux.FSharp && \
     dotnet run
 ```
 
@@ -188,8 +188,9 @@ to use under NativeAOT.
 It types the line, then waits for a later line to contain the text. The screen
 before it and the line's own echo do not count.
 
-It sleeps on the pane's output, and ends early if the program exits while it
-waits. This example finds a shell, types into it, and waits:
+From tmux 3.7 it sleeps on the pane's output; earlier releases poll. It ends
+early if the program exits while it waits. This example finds a shell, types
+into it, and waits:
 
 <!-- fsharp-contract: golden -->
 <!-- fsharp-snippet: SendWaitList run -->
@@ -381,7 +382,8 @@ gives the order. Code running inside a tmux pane can use
   each; filtering keeps their order and multiplicity.
 - **Implicit starts.** [`Server.connect`][api-fs-server-connect] never starts
   tmux; [`Server.createOwned`][api-fs-server-createowned] does, and stops it.
-- **Polling.** Waits sleep on the pane's output.
+- **Control-mode waits on older releases.** Waits use pane output from tmux
+  3.7; earlier releases poll.
 - **Other shells for [`Pane.run`][api-fs-pane-run].** It needs a POSIX shell
   prompt.
 - **Empty answers for missing data.** An uncaptured relationship raises
@@ -398,8 +400,8 @@ gives the order. Code running inside a tmux pane can use
 - **tmux.** A release runs the F# integration example against tmux 3.3a, 3.4,
   3.5, 3.6, 3.7a, 3.7b, 3.7c, and 3.8 on both target frameworks, and each push
   runs it against 3.3a and 3.8.
-- **Systems.** Linux, including WSL. CI also runs the F# example console on
-  macOS arm64. Native Windows is unsupported: the core marks its tmux calls
+- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
+  Native Windows is unsupported: the core marks its tmux calls
   `[UnsupportedOSPlatform("windows")]`.
 - **NativeAOT and trimming.** Portable filters bind fields without reflection. A
   Linux consumer publishes and runs snapshots, tmux queries, and portable

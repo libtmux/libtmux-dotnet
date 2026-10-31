@@ -17,8 +17,8 @@ day's date.
 
 ## Why a record rather than a number
 
-A tmux command is a process start, and a process start is not a stable
-quantity. The same machine, the same commit and the same tmux measured a
+The recorded process-transport runs start a process per command, and that cost
+is not a stable quantity. The same machine, commit and tmux measured a
 one-shot command at 3.3 ms and at 4.7 ms in two runs an hour apart, and at 19 ms
 while a build was running. Any single millisecond figure quoted without its
 conditions is quoting the conditions.
@@ -31,8 +31,8 @@ holds only at the mean is a claim about that afternoon.
 
 ## What is comparable and what is not
 
-**Comparable across machines:** the shape. The command-count record shows
-one-shot cost growing with each process, while a chain shares one process.
+**Comparable across machines:** the shape of the recorded workload. Its
+process-transport baseline grows with each process, while a chain shares one.
 The five-mode workload holds the command count fixed and checks the same
 results through each route.
 

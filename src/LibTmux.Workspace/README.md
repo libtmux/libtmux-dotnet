@@ -34,7 +34,7 @@ sessions in tmuxp YAML and want typed results.
 Add it to your project:
 
 ```console
-$ dotnet package add LibTmux.Workspace
+$ dotnet add package LibTmux.Workspace
 ```
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
@@ -352,8 +352,8 @@ Both build the same topology for the subset they share.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux), and
   [YamlDotNet](https://github.com/aaubry/YamlDotNet) for the files.
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
-- **Systems.** Linux, including WSL. CI also runs macOS arm64 and builds on
-  Windows x64.
+- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
+  CI builds on Windows x64.
 
 ## Documentation
 

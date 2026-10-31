@@ -160,7 +160,7 @@ stack trace, lay out a workspace and drive it.
 | `LIBTMUX_TMUX` | `tmux` | Which tmux binary to drive |
 | `LIBTMUX_MCP_WAIT_MAX_SECONDS` | `30` | Ceiling on any one wait |
 | `LIBTMUX_MCP_MAX_LINES` | `500` | Default line budget |
-| `LIBTMUX_MCP_MAX_BYTES` | `128000` | Byte budget per result |
+| `LIBTMUX_MCP_MAX_BYTES` | `128000` | Ordinary tool/resource byte budget; read batches use a separate fixed ceiling |
 | `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK` | `false` | Permit pane text waits to poll after control observation fails (tmux 3.7 and newer; older releases always poll) |
 
 ### Waiting
@@ -301,7 +301,8 @@ $ { printf '%s\n' \
   The message says to upgrade tmux and restart the tmux server, or to use
   LibTmux.Mcp 0.0.0-alpha.21, and that nothing was sent.
 - **.NET.** The tool targets .NET 8 and .NET 10.
-- **Systems.** Linux, including WSL, and macOS. CI also builds on Windows x64,
+- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
+  CI builds on Windows x64,
   where the tool exits with "tmux does not run on Windows."
 
 ## Reference

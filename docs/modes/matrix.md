@@ -1,8 +1,8 @@
 # Choosing a mode
 
 Three ways to reach tmux. Which one you are using is visible where the call
-starts, never in a flag buried in options, and all three are supported on every
-tmux this library supports.
+starts. One-shot calls and chains work on every supported tmux; explicit
+control mode needs tmux 3.7+.
 
 | Mode | Flip it on | Dispatch | Example output |
 |---|---|---|---|

@@ -39,6 +39,8 @@ Use Linux or macOS with Git, tmux 3.3a or newer, .NET SDK 10.0.303 and the
 consumer directory. This clone selects the current committed revision. An API
 page must supply an HTTPS clone and an exact checkout revision.
 
+Programs that open a control client or a mirror require tmux 3.7 or newer.
+
 ```console
 $ consumer=$(mktemp -d)
 $ git clone --no-hardlinks . "$consumer/libtmux-source"
