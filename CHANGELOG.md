@@ -54,6 +54,9 @@ changelog marks each break. Pin an exact version to avoid one. Releases before
 - `libtmux-mcp` lets `LIBTMUX_SOCKET_PATH` win when `LIBTMUX_SOCKET` is also
   set, as the Python `libtmux-mcp` does. Startup used to refuse both at once.
   (#134)
+- `libtmux-mcp` names `TMUX_TMPDIR` in the `attachCommand` of
+  `tmux://capabilities` when the server is not yet running and the socket is a
+  name or none, because that root decides where the socket is. (#134)
 - `Window.SelectLayoutAsync` accepts a JSON layout from tmux 3.8, the first
   release that reads one, and the `layout-json` capability starts at 3.8. An
   older release is refused with `TmuxUnsupportedOnReleaseException` before

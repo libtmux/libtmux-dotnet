@@ -894,6 +894,10 @@ public sealed class McpProtocolTests
             Assert.Equal(string.Empty, startup.Disclosure.ResolvedSocketPath);
             Assert.DoesNotContain(" -L ", startup.Disclosure.AttachCommand, StringComparison.Ordinal);
             Assert.DoesNotContain(" -S ", startup.Disclosure.AttachCommand, StringComparison.Ordinal);
+
+            // The server looks for its socket under this root, so the command does too.
+            Assert.StartsWith($"TMUX_TMPDIR='{root}' ", startup.Disclosure.AttachCommand, StringComparison.Ordinal);
+            Assert.EndsWith(" -N attach", startup.Disclosure.AttachCommand, StringComparison.Ordinal);
             Assert.DoesNotContain(Toolset.Teardown, startup.Selection.Toolsets);
 
             // The probe asked and nothing started: no server owns the socket.

@@ -157,6 +157,26 @@ public sealed class ServerPolicyTests
         Assert.Equal("'tmux' -N attach", runtime.AttachCommand);
     }
 
+    // Where a name or no socket leads depends on the root the server started
+    // with, so a command that leaves it out attaches somewhere else.
+    [Theory]
+    [InlineData(null, "TMUX_TMPDIR='/run/lt' 'tmux' -N attach")]
+    [InlineData("named", "TMUX_TMPDIR='/run/lt' 'tmux' -N -L 'named' attach")]
+    public void An_attach_command_without_a_resolved_path_names_the_root_it_started_with(
+        string? socketName,
+        string expected)
+    {
+        McpRuntimeDisclosure runtime = McpRuntimeDisclosure.Unknown(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = "tmux",
+                SocketName = socketName,
+                ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = "/run/lt" },
+            });
+
+        Assert.Equal(expected, runtime.AttachCommand);
+    }
+
     [UnixFact]
     public void Public_composition_pins_a_relative_tmux_executable_at_registration()
     {

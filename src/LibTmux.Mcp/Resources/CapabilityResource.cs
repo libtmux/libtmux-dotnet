@@ -44,11 +44,18 @@ internal sealed record McpRuntimeDisclosure(
             return $"{binary} -N -S {ShellQuote(resolvedSocketPath)} attach";
         }
 
-        // With no socket chosen the command carries none, so tmux picks the
-        // same server for the operator that it picked for this one.
+        // A socket name, or none, is a place under the root this server was
+        // started with, so the command names that root when there is one. With
+        // no socket chosen it carries none, and tmux picks the same server for
+        // the operator that it picked for this one.
+        string root = options.ChildEnvironment is not null
+            && options.ChildEnvironment.TryGetValue("TMUX_TMPDIR", out string? configured)
+            && !string.IsNullOrWhiteSpace(configured)
+                ? $"TMUX_TMPDIR={ShellQuote(configured)} "
+                : "";
         return options.SocketName is string name
-            ? $"{binary} -N -L {ShellQuote(name)} attach"
-            : $"{binary} -N attach";
+            ? $"{root}{binary} -N -L {ShellQuote(name)} attach"
+            : $"{root}{binary} -N attach";
     }
 
     private static string ShellQuote(string value) =>
