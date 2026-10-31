@@ -27,7 +27,7 @@ public sealed class ExecutionTests : IDisposable
         return File.Exists(marker) ? await File.ReadAllTextAsync(marker, token) : "";
     }
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "libtmux-dotnet-test", "cli-live-" + Guid.NewGuid().ToString("N"));
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "cli-live-" + Guid.NewGuid().ToString("N")[..8]);
 
     public ExecutionTests() => Directory.CreateDirectory(_root);
 

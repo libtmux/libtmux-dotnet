@@ -13,6 +13,11 @@
              Link="Infrastructure/TestExecutable.cs" />
     <Compile Include="../LibTmux.IntegrationTests/Infrastructure/TestBudget.cs"
              Link="Infrastructure/TestBudget.cs" />
+
+    <!-- Some of these tests start a real tmux, so this assembly claims a
+         socket root of its own and clears what would reach another server. -->
+    <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"
+             Link="WorkspaceSocketRoot.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="../Fixtures/layouts.json" LogicalName="LibTmux.Tests.Layouts.json" />

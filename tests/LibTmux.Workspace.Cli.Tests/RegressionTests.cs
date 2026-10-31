@@ -10,7 +10,7 @@ namespace LibTmux.Workspace.Cli.Tests;
 [UnsupportedOSPlatform("windows")]
 public sealed class RegressionTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "libtmux-dotnet-test", "cli-regression-" + Guid.NewGuid().ToString("N"));
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "cli-regression-" + Guid.NewGuid().ToString("N")[..8]);
     public RegressionTests() => Directory.CreateDirectory(_root);
 
     [Fact]

@@ -7,7 +7,7 @@ namespace LibTmux.Workspace.Cli.Tests;
 [UnsupportedOSPlatform("windows")]
 public sealed class LayoutTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "libtmux-dotnet-test", "cli-layout-" + Guid.NewGuid().ToString("N"));
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "cli-layout-" + Guid.NewGuid().ToString("N")[..8]);
 
     public LayoutTests() => Directory.CreateDirectory(_root);
 

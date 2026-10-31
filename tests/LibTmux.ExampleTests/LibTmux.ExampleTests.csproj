@@ -16,6 +16,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The examples claim the root when they load, which is after the first
+         test may already have started; claiming it here comes first. -->
+    <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"
+             Link="WorkspaceSocketRoot.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The examples are the subject, not a helper: this project runs what the
          documents publish, and reaches LibTmux only through them. -->
     <ProjectReference Include="../../examples/LibTmux.Examples/LibTmux.Examples.csproj" />
