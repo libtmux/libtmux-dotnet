@@ -615,34 +615,39 @@ public sealed class ServerGenerationTests
         }
     }
 
+    // With no socket chosen the library passes tmux neither -L nor -S, so tmux
+    // follows the TMUX it is handed to the pane's server and not to the default one.
     [UnixFact]
-    public async Task Implicit_default_endpoint_ignores_explicit_child_tmux()
+    public async Task Implicit_endpoint_follows_the_child_tmux()
     {
-        await using RawTmuxTestContext decoy = await RawTmuxTestContext.StartAsync(
+        await using RawTmuxTestContext inside = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         string nonce = Guid.NewGuid().ToString("N");
         string socketRoot = Path.Combine(Path.GetTempPath(), $"ltcs-default-{nonce}");
-        string expectedSession = $"expected-{nonce}";
+        string defaultSession = $"default-{nonce}";
         Directory.CreateDirectory(socketRoot);
-        var expectedTransport = CreateNamedTransport(decoy.TmuxBinaryPath, socketRoot, "default");
+        var defaultTransport = CreateNamedTransport(inside.TmuxBinaryPath, socketRoot, "default");
 
         try
         {
             Assert.Equal(
                 0,
-                (await expectedTransport.ExecuteAsync(
-                    ["new-session", "-d", "-s", expectedSession],
+                (await defaultTransport.ExecuteAsync(
+                    ["new-session", "-d", "-s", defaultSession],
                     TestContext.Current.CancellationToken)).ExitCode);
-            RawTmuxResult decoyPid = await decoy.ExecuteAsync(
+            RawTmuxResult insidePid = await inside.ExecuteAsync(
                 ["display-message", "-p", "#{pid}"],
                 TestContext.Current.CancellationToken);
-            Assert.Equal(0, decoyPid.ExitCode);
-            string explicitTmux = $"{decoy.SocketPath},{Assert.Single(decoyPid.StandardOutputLines)},0";
+            Assert.Equal(0, insidePid.ExitCode);
+            RawTmuxResult insideSession = await inside.ExecuteAsync(
+                ["display-message", "-p", "#{session_name}"],
+                TestContext.Current.CancellationToken);
+            string explicitTmux = $"{inside.SocketPath},{Assert.Single(insidePid.StandardOutputLines)},0";
 
             Server server = await Server.ConnectAsync(
                 new ServerConnectionOptions
                 {
-                    TmuxBinaryPath = decoy.TmuxBinaryPath,
+                    TmuxBinaryPath = inside.TmuxBinaryPath,
                     ConfigurationFile = "/dev/null",
                     ChildEnvironment = new Dictionary<string, string?>
                     {
@@ -655,11 +660,107 @@ public sealed class ServerGenerationTests
                 ["display-message", "-p", "#{session_name}"],
                 TestContext.Current.CancellationToken);
 
+            Assert.Equal(insideSession.StandardOutputLines, result.StandardOutputLines);
+            Assert.NotEqual([defaultSession], result.StandardOutputLines);
+        }
+        finally
+        {
+            await defaultTransport.ExecuteAsync(["kill-server"], CancellationToken.None);
+            Directory.Delete(socketRoot, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task Implicit_endpoint_without_a_child_tmux_reaches_the_default_socket()
+    {
+        string nonce = Guid.NewGuid().ToString("N");
+        string socketRoot = Path.Combine(Path.GetTempPath(), $"ltcs-default-{nonce}");
+        string expectedSession = $"expected-{nonce}";
+        Directory.CreateDirectory(socketRoot);
+        string tmux = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        var expectedTransport = CreateNamedTransport(tmux, socketRoot, "default");
+
+        try
+        {
+            Assert.Equal(
+                0,
+                (await expectedTransport.ExecuteAsync(
+                    ["new-session", "-d", "-s", expectedSession],
+                    TestContext.Current.CancellationToken)).ExitCode);
+
+            Server server = await Server.ConnectAsync(
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = tmux,
+                    ConfigurationFile = "/dev/null",
+                    ChildEnvironment = new Dictionary<string, string?>
+                    {
+                        ["TMUX"] = null,
+                        ["TMUX_TMPDIR"] = socketRoot,
+                        ["LIBTMUX_SOCKET"] = null,
+                        ["LIBTMUX_SOCKET_PATH"] = null,
+                    }
+                },
+                TestContext.Current.CancellationToken);
+            TmuxCommandResult result = await server.ExecuteCommandAsync(
+                ["display-message", "-p", "#{session_name}"],
+                TestContext.Current.CancellationToken);
+
             Assert.Equal([expectedSession], result.StandardOutputLines);
         }
         finally
         {
             await expectedTransport.ExecuteAsync(["kill-server"], CancellationToken.None);
+            Directory.Delete(socketRoot, recursive: true);
+        }
+    }
+
+    // The core read LIBTMUX_SOCKET_NAME before it read LIBTMUX_SOCKET. The
+    // variable names a socket under the root, and the old one selects nothing.
+    [UnixFact]
+    public async Task Environment_socket_name_selects_the_named_socket_and_the_retired_name_does_not()
+    {
+        string nonce = Guid.NewGuid().ToString("N")[..12];
+        string socketRoot = Path.Combine(Path.GetTempPath(), $"ltcs-env-{nonce}");
+        string socketName = $"env-{nonce}";
+        Directory.CreateDirectory(socketRoot);
+        string tmux = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        var namedTransport = CreateNamedTransport(tmux, socketRoot, socketName);
+
+        try
+        {
+            Assert.Equal(
+                0,
+                (await namedTransport.ExecuteAsync(
+                    ["new-session", "-d", "-s", socketName],
+                    TestContext.Current.CancellationToken)).ExitCode);
+            ServerConnectionOptions Options(string variable) => new()
+            {
+                TmuxBinaryPath = tmux,
+                ConfigurationFile = "/dev/null",
+                ChildEnvironment = new Dictionary<string, string?>
+                {
+                    ["TMUX"] = null,
+                    ["TMUX_TMPDIR"] = socketRoot,
+                    ["LIBTMUX_SOCKET"] = null,
+                    ["LIBTMUX_SOCKET_PATH"] = null,
+                    [variable] = socketName,
+                }
+            };
+
+            TmuxCommandResult named = await Server.Open(Options("LIBTMUX_SOCKET")).ExecuteCommandAsync(
+                ["display-message", "-p", "#{session_name}"],
+                TestContext.Current.CancellationToken);
+            TmuxCommandResult retired = await Server.Open(Options("LIBTMUX_SOCKET_NAME")).ExecuteCommandAsync(
+                ["display-message", "-p", "#{session_name}"],
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal([socketName], named.StandardOutputLines);
+            Assert.NotEqual(0, retired.ExitCode);
+        }
+        finally
+        {
+            await namedTransport.ExecuteAsync(["kill-server"], CancellationToken.None);
             Directory.Delete(socketRoot, recursive: true);
         }
     }

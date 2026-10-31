@@ -312,11 +312,13 @@ public sealed class ConnectionValueTests
     }
 
     [Fact]
-    public void No_endpoint_emits_the_explicit_default_socket_name()
+    public void No_socket_chosen_passes_neither_socket_flag()
     {
-        var connection = CreateFakeConnection(new ServerConnectionOptions());
+        var connection = CreateFakeConnection(
+            new ServerConnectionOptions { ChildEnvironment = Quiet() });
 
-        Assert.Equal(["-u", "-L", "default"], connection.PrefixArguments);
+        Assert.Equal(["-u"], connection.PrefixArguments);
+        Assert.Equal((null, null), connection.ResolvedSocket);
     }
 
     [Fact]
@@ -325,11 +327,24 @@ public sealed class ConnectionValueTests
         var connection = CreateFakeConnection(
             new ServerConnectionOptions
             {
-                ChildEnvironment = ChildEnvironment(
-                ("LIBTMUX_SOCKET_NAME", "libtmux-example-connect"))
+                ChildEnvironment = Quiet(("LIBTMUX_SOCKET", "libtmux-example-connect"))
             });
 
         Assert.Equal(["-u", "-L", "libtmux-example-connect"], connection.PrefixArguments);
+    }
+
+    // The core read LIBTMUX_SOCKET_NAME before it read LIBTMUX_SOCKET. A program
+    // that still sets the old name must not be sent to a socket by it.
+    [Fact]
+    public void The_retired_socket_name_variable_selects_nothing()
+    {
+        var connection = CreateFakeConnection(
+            new ServerConnectionOptions
+            {
+                ChildEnvironment = Quiet(("LIBTMUX_SOCKET_NAME", "retired"))
+            });
+
+        Assert.Equal(["-u"], connection.PrefixArguments);
     }
 
     [Fact]
@@ -339,9 +354,9 @@ public sealed class ConnectionValueTests
         var connection = CreateFakeConnection(
             new ServerConnectionOptions
             {
-                ChildEnvironment = ChildEnvironment(
-                ("LIBTMUX_SOCKET_PATH", path),
-                ("LIBTMUX_SOCKET_NAME", "ignored"))
+                ChildEnvironment = Quiet(
+                    ("LIBTMUX_SOCKET_PATH", path),
+                    ("LIBTMUX_SOCKET", "ignored"))
             });
 
         Assert.Equal(["-u", "-S", Path.GetFullPath(path)], connection.PrefixArguments);
@@ -353,7 +368,7 @@ public sealed class ConnectionValueTests
         var connection = CreateFakeConnection(new ServerConnectionOptions
         {
             SocketName = "named",
-            ChildEnvironment = ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored")),
+            ChildEnvironment = Quiet(("LIBTMUX_SOCKET", "ignored")),
         });
 
         Assert.Equal(["-u", "-L", "named"], connection.PrefixArguments);
@@ -365,7 +380,7 @@ public sealed class ConnectionValueTests
         var connection = CreateFakeConnection(new ServerConnectionOptions
         {
             SocketNameFactory = static () => "made",
-            ChildEnvironment = ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored")),
+            ChildEnvironment = Quiet(("LIBTMUX_SOCKET", "ignored")),
         });
 
         Assert.Equal(["-u", "-L", "made"], connection.PrefixArguments);
@@ -377,19 +392,33 @@ public sealed class ConnectionValueTests
         var connection = CreateFakeConnection(new ServerConnectionOptions
         {
             SocketName = "named",
-            ChildEnvironment = ChildEnvironment(
-                ("LIBTMUX_SOCKET_PATH", "/tmp/libtmux-ignored.sock"))
+            ChildEnvironment = Quiet(("LIBTMUX_SOCKET_PATH", "/tmp/libtmux-ignored.sock"))
         });
 
         Assert.Equal(["-u", "-L", "named"], connection.PrefixArguments);
     }
 
     [Fact]
+    public void An_explicit_socket_path_ignores_the_environment()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "libtmux-explicit.sock");
+        var connection = CreateFakeConnection(new ServerConnectionOptions
+        {
+            SocketPath = path,
+            ChildEnvironment = Quiet(
+                ("LIBTMUX_SOCKET_PATH", "/tmp/libtmux-ignored.sock"),
+                ("LIBTMUX_SOCKET", "ignored")),
+        });
+
+        Assert.Equal(["-u", "-S", Path.GetFullPath(path)], connection.PrefixArguments);
+    }
+
+    [Fact]
     public void This_process_answers_when_the_child_environment_says_nothing()
     {
         const string Name = "libtmux-process-scoped";
-        string? before = Environment.GetEnvironmentVariable("LIBTMUX_SOCKET_NAME");
-        Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_NAME", Name);
+        string? before = Environment.GetEnvironmentVariable("LIBTMUX_SOCKET");
+        Environment.SetEnvironmentVariable("LIBTMUX_SOCKET", Name);
         try
         {
             var connection = CreateFakeConnection(new ServerConnectionOptions());
@@ -398,8 +427,103 @@ public sealed class ConnectionValueTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_NAME", before);
+            Environment.SetEnvironmentVariable("LIBTMUX_SOCKET", before);
         }
+    }
+
+    // tmux follows TMUX only when it is handed neither -L nor -S, so a
+    // connection that chose nothing has to give TMUX to the process it starts.
+    [Fact]
+    public void A_connection_that_chose_nothing_hands_tmux_the_server_it_runs_in()
+    {
+        const string Inside = "/run/user/1000/tmux-1000/inside,4242,0";
+        ServerConnectionOptions options = new() { ChildEnvironment = Quiet(("TMUX", Inside)) };
+
+        ResolvedTmuxConnection resolved = TmuxConnectionEndpoint.Resolve(options);
+
+        Assert.Equal(["-u"], resolved.PrefixArguments);
+        Assert.Equal(Inside, resolved.ChildEnvironment!["TMUX"]);
+        Assert.Equal(
+            Server.Open(new ServerConnectionOptions { SocketPath = "/run/user/1000/tmux-1000/inside" }),
+            Server.Open(options));
+    }
+
+    [Fact]
+    public void A_connection_that_chose_nothing_reads_TMUX_from_the_process_once()
+    {
+        const string Inside = "/run/user/1000/tmux-1000/process,4242,0";
+        string? before = Environment.GetEnvironmentVariable("TMUX");
+        Environment.SetEnvironmentVariable("TMUX", Inside);
+        try
+        {
+            ResolvedTmuxConnection resolved = TmuxConnectionEndpoint.Resolve(
+                new ServerConnectionOptions
+                {
+                    ChildEnvironment = new Dictionary<string, string?>
+                    {
+                        ["LIBTMUX_SOCKET"] = null,
+                        ["LIBTMUX_SOCKET_PATH"] = null,
+                    },
+                });
+            Environment.SetEnvironmentVariable("TMUX", "/elsewhere,1,0");
+
+            Assert.Equal(Inside, resolved.ChildEnvironment!["TMUX"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("TMUX", before);
+        }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(",4242,0")]
+    public void A_TMUX_that_names_no_socket_leaves_tmux_its_default(string tmux)
+    {
+        ResolvedTmuxConnection resolved = TmuxConnectionEndpoint.Resolve(
+            new ServerConnectionOptions { ChildEnvironment = Quiet(("TMUX", tmux)) });
+
+        Assert.Null(resolved.ServerPath);
+        Assert.Equal(
+            Server.Open(new ServerConnectionOptions { SocketName = "default" }),
+            Server.Open(new ServerConnectionOptions { ChildEnvironment = Quiet(("TMUX", tmux)) }));
+    }
+
+    [Fact]
+    public void A_chosen_socket_is_not_handed_the_server_this_process_runs_in()
+    {
+        string? before = Environment.GetEnvironmentVariable("TMUX");
+        Environment.SetEnvironmentVariable("TMUX", "/run/user/1000/tmux-1000/process,4242,0");
+        try
+        {
+            ResolvedTmuxConnection resolved = TmuxConnectionEndpoint.Resolve(
+                new ServerConnectionOptions { SocketName = "named" });
+
+            Assert.False(resolved.ChildEnvironment!.ContainsKey("TMUX"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("TMUX", before);
+        }
+    }
+
+    // A dictionary that names every variable that could pick a socket, each
+    // unset unless a case sets it, so the process's own values are never read.
+    private static Dictionary<string, string?> Quiet(
+        params (string Name, string? Value)[] variables)
+    {
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        {
+            ["TMUX"] = null,
+            ["LIBTMUX_SOCKET"] = null,
+            ["LIBTMUX_SOCKET_PATH"] = null,
+        };
+        foreach ((string name, string? value) in variables)
+        {
+            environment[name] = value;
+        }
+
+        return environment;
     }
 
     private static Dictionary<string, string?> ChildEnvironment(

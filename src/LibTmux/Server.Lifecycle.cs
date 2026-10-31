@@ -238,11 +238,11 @@ public sealed partial class Server
     /// discover the live server on each call, and the objects they return
     /// carry the discovered handle.
     /// <para>
-    /// On the default socket, the one a caller gets by naming none, a server
-    /// already listening is refused rather than adopted: disposing the scope
-    /// stops the server, and on a developer's machine the default socket holds
-    /// the one they are using. A named socket or path stays the caller's to
-    /// adopt deliberately. The check and the start are two tmux calls, so two
+    /// On the socket tmux picks when a caller names none, the server in
+    /// <c>TMUX</c> or else the default socket, a server already listening is
+    /// refused rather than adopted: disposing the scope stops the server, and
+    /// on a developer's machine that socket holds the one they are using. A
+    /// named socket or path stays the caller's to adopt deliberately. The check and the start are two tmux calls, so two
     /// callers that own the default socket at the same moment can both pass
     /// it; give each owned server a socket of its own.
     /// </para>
@@ -261,7 +261,7 @@ public sealed partial class Server
         Server endpoint = Open(options ?? ServerConnectionOptions.Default);
         bool serving = await endpoint.IsServingAsync(cancellationToken).ConfigureAwait(false);
         if (serving && endpoint.Connection is
-            { ResolvedSocket: { SocketPath: null, SocketName: TmuxConnectionEndpoint.DefaultSocketName } })
+            { ResolvedSocket: { SocketPath: null, SocketName: null or TmuxConnectionEndpoint.DefaultSocketName } })
         {
             throw new InvalidOperationException(
                 "A tmux server is already listening on the default socket. Refusing to own it: "

@@ -30,7 +30,9 @@ public sealed partial class Server
     /// to <see cref="ServerConnectionOptions.TmuxBinaryPath" />, to invoke tmux
     /// as this process's own child rather than through this library's
     /// dispatch -- the shape an interactive attach needs, since attaching must
-    /// inherit the caller's own terminal.
+    /// inherit the caller's own terminal. When no socket was chosen there is
+    /// neither <c>-L</c> nor <c>-S</c>, and that process picks its server from
+    /// its own environment.
     /// </remarks>
     public IReadOnlyList<string> EndpointArguments => _connection?.PrefixArguments ?? [];
 

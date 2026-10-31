@@ -89,6 +89,15 @@ public sealed record ServerConnectionOptions
     }
 
     /// <summary>Gets the explicit socket name.</summary>
+    /// <remarks>
+    /// With no socket path, name or name factory, the connection reads
+    /// <c>LIBTMUX_SOCKET_PATH</c>, then <c>LIBTMUX_SOCKET</c>, from
+    /// <see cref="ChildEnvironment" /> and then from the process. When neither
+    /// is set it passes neither <c>-L</c> nor <c>-S</c>, and tmux picks the
+    /// server itself: the one named by <c>TMUX</c>, otherwise the socket named
+    /// <c>default</c> under <c>TMUX_TMPDIR</c>. <c>TMUX</c> is read once, when
+    /// the connection opens.
+    /// </remarks>
     /// <exception cref="ArgumentException">The name is empty or whitespace.</exception>
     public string? SocketName
     {

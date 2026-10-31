@@ -55,7 +55,7 @@ public sealed class ExampleNamespaceTests
             Assert.Equal(
                 ExampleNamespace.SocketRoot,
                 Environment.GetEnvironmentVariable("TMUX_TMPDIR"));
-            Assert.NotNull(Environment.GetEnvironmentVariable("LIBTMUX_SOCKET_NAME"));
+            Assert.NotNull(Environment.GetEnvironmentVariable("LIBTMUX_SOCKET"));
         }
 
         Assert.Equal(before, Read());
@@ -83,7 +83,7 @@ public sealed class ExampleNamespaceTests
     [
         "TMUX_TMPDIR",
         "TMPDIR",
-        "LIBTMUX_SOCKET_NAME",
+        "LIBTMUX_SOCKET",
         "LIBTMUX_SOCKET_PATH",
         "LIBTMUX_MCP_COMMAND",
         "TMUX",

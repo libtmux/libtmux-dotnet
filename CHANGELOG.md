@@ -17,6 +17,22 @@ changelog marks each break. Pin an exact version to avoid one. Releases before
 
 ### Changed
 
+- **A connection that chooses no socket passes tmux neither `-L` nor `-S`.**
+  (#134)
+  - Previous behaviour: `Server.Open()` and `ServerConnectionOptions.Default`
+    passed `-L default` and never gave tmux `TMUX`, so they reached the default
+    socket whatever pane the program ran in.
+  - New behaviour: tmux picks the server. Inside a pane that is the one `TMUX`
+    names, which is read once when the connection opens; otherwise it is the
+    socket named `default` under `TMUX_TMPDIR`. A socket from
+    `ServerConnectionOptions`, `LIBTMUX_SOCKET_PATH` or `LIBTMUX_SOCKET` still
+    comes first, in that order, and the path wins over the name.
+  - Reason: the Python `Server()` works this way, and a program that names no
+    socket should reach the tmux its user is sitting in.
+  - Recommended action: give a program a server of its own with `SocketName`,
+    `SocketPath`, or `LIBTMUX_SOCKET` and `LIBTMUX_SOCKET_PATH`.
+- **`LIBTMUX_SOCKET` names the socket; `LIBTMUX_SOCKET_NAME` selects nothing.**
+  A program that set the old name now reaches the server tmux picks. (#134)
 - `Window.SelectLayoutAsync` accepts a JSON layout from tmux 3.8, the first
   release that reads one, and the `layout-json` capability starts at 3.8. An
   older release is refused with `TmuxUnsupportedOnReleaseException` before
