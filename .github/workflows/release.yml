@@ -64,6 +64,9 @@ jobs:
     name: supported tmux matrix
     needs: validate
     uses: ./.github/workflows/dotnet-tmux.yml
+    with:
+      # A push runs the oldest and newest tmux. A release proves the table.
+      scope: full
 
   publish:
     name: publish to nuget.org

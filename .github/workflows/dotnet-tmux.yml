@@ -5,6 +5,11 @@ name: dotnet-tmux
 
 on:
   workflow_call:
+    inputs:
+      scope:
+        description: How much of the tmux table to cover. The release workflow passes full.
+        required: true
+        type: string
   push:
     branches: [master]
   pull_request:
@@ -12,6 +17,24 @@ on:
     # tmux master moves under the library rather than with it.
     - cron: '0 6 * * 1'
   workflow_dispatch:
+    inputs:
+      scope:
+        description: >-
+          edges runs the oldest and newest tmux, full runs the whole table
+          and the refusal lanes, custom runs the refs in tmux-ref.
+        type: choice
+        options: [edges, full, custom]
+        default: edges
+      tmux-ref:
+        description: >-
+          With scope custom, comma-separated tmux versions, tags, branches or
+          40-hex commit SHAs from github.com/tmux/tmux, such as 3.6b,master.
+        type: string
+        default: ''
+      dotnet:
+        description: Comma-separated target frameworks, such as net8.0,net10.0. Empty runs both.
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -26,6 +49,42 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
 
 jobs:
+  # What a run covers is decided here from eng/tmux/versions.json and the
+  # event, so no job below carries a version list of its own. A push and a pull
+  # request test the oldest and newest release; the whole table runs on the
+  # schedule, at a release, and when a dispatch asks for it.
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      rejected: ${{ steps.plan.outputs.rejected }}
+      exact_3_7: ${{ steps.plan.outputs.exact_3_7 }}
+      advisory: ${{ steps.plan.outputs.advisory }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: eng/tmux
+
+      - name: Plan the run
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SCOPE: ${{ inputs.scope }}
+          TMUX_REF: ${{ inputs.tmux-ref }}
+          DOTNET: ${{ inputs.dotnet }}
+        run: |
+          python3 eng/tmux/plan.py \
+            --event "${EVENT}" \
+            --ref "${REF}" \
+            --scope "${SCOPE}" \
+            --tmux-ref "${TMUX_REF}" \
+            --dotnet "${DOTNET}" \
+            --github-output "${GITHUB_OUTPUT}" \
+            --summary "${GITHUB_STEP_SUMMARY}"
+
   build:
     name: build integration assemblies
     runs-on: ubuntu-latest
@@ -102,7 +161,7 @@ jobs:
           retention-days: 7
 
   matrix:
-    needs: build
+    needs: [plan, build]
     name: tmux ${{ matrix.tmux }} on ${{ matrix.framework }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -110,9 +169,8 @@ jobs:
       # One lane failing says something about that tmux version, which is only
       # readable when the other lanes still run.
       fail-fast: false
-      matrix:
-        tmux: ['3.3a', '3.4', '3.5', '3.6', '3.7a', '3.7b', '3.7c', '3.8']
-        framework: ['net8.0', 'net10.0']
+      # The plan chooses the legs and never leaves this empty.
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -139,18 +197,35 @@ jobs:
             pkg-config \
             zsh
 
+      # A tag, branch or commit outside the table is built from source at the
+      # commit it names. The commit is resolved first so that the cache key
+      # holds it and never the branch name.
+      - name: Resolve the tmux ref
+        id: resolve
+        if: matrix.kind == 'ref'
+        env:
+          TMUX_REF: ${{ matrix.tmux }}
+        run: eng/tmux/build-version.sh --resolve "${TMUX_REF}" | tee -a "${GITHUB_OUTPUT}"
+
       - name: Restore the tmux build
         id: tmux-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: artifacts/tmux
-          key: tmux-${{ matrix.tmux }}-${{ runner.os }}-${{ hashFiles('eng/tmux/build-version.sh') }}
+          key: tmux-${{ matrix.kind == 'ref' && format('ref-{0}', steps.resolve.outputs.commit) || matrix.tmux }}-${{ runner.os }}-${{ hashFiles('eng/tmux/build-version.sh') }}
 
       - name: Build tmux ${{ matrix.tmux }}
         id: tmux
         env:
           TMUX_VERSION: ${{ matrix.tmux }}
-        run: eng/tmux/build-version.sh "${TMUX_VERSION}" | tee -a "${GITHUB_OUTPUT}"
+          TMUX_KIND: ${{ matrix.kind }}
+          TMUX_COMMIT: ${{ steps.resolve.outputs.commit }}
+        run: |
+          if [[ "${TMUX_KIND}" == ref ]]; then
+            eng/tmux/build-version.sh --ref "${TMUX_COMMIT}" | tee -a "${GITHUB_OUTPUT}"
+          else
+            eng/tmux/build-version.sh "${TMUX_VERSION}" | tee -a "${GITHUB_OUTPUT}"
+          fi
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -187,7 +262,8 @@ jobs:
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_TMUX_SOURCE_COMMIT: ${{ steps.tmux.outputs.commit }}
-          LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.tmux }}
+          # Empty for a ref, which is no release and has no version to match.
+          LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           # A lane whose integration tests silently skipped would pass while
           # proving nothing at all.
           LIBTMUX_INTEGRATION_REQUIRED: '1'
@@ -222,7 +298,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure() && steps.integration-tests.outcome == 'failure'
         with:
-          name: integration-hang-${{ matrix.tmux }}-${{ matrix.framework }}
+          name: integration-hang-${{ matrix.slug }}-${{ matrix.framework }}
           # Child processes get logs of their own, named for the process; a
           # tmux client's name has a colon, which artifacts cannot hold.
           path: ${{ runner.temp }}/integration-results/dotnet_*_hang.*
@@ -233,13 +309,17 @@ jobs:
         id: fsharp-examples
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
-          LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.tmux }}
+          LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
           # Leave room for the socket name within Unix socket path limits.
           TMUX_TMPDIR: /tmp/libtmux-dotnet-test
         run: |
           mkdir -p "${TMUX_TMPDIR}"
-          test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+          if [[ -n "${LIBTMUX_EXPECTED_TMUX_VERSION}" ]]; then
+            test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+          fi
+          # A ref names no release, so the programs' minimum is read from what was built.
+          built="${LIBTMUX_EXPECTED_TMUX_VERSION:-$("${LIBTMUX_TMUX}" -V | sed -e 's/^tmux //' -e 's/^next-//')}"
           PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
           export PATH
           dotnet "examples/LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
@@ -247,7 +327,7 @@ jobs:
             program="$(basename "${source}" .fs)"
             # The manifest names a release for each program that needs one.
             minimum="$(jq -r --arg id "fsharp-${program}" '.examples[] | select(.id == $id) | .requiresTmux // empty' examples/api/manifest.json)"
-            if [[ -n "${minimum}" && "$(printf '%s\n' "${minimum}" "${LIBTMUX_EXPECTED_TMUX_VERSION}" | sort -V | head -1)" != "${minimum}" ]]; then
+            if [[ -n "${minimum}" && "$(printf '%s\n' "${minimum}" "${built}" | sort -V | head -1)" != "${minimum}" ]]; then
               echo "skip ${program}: needs tmux ${minimum}"
               continue
             fi
@@ -260,12 +340,14 @@ jobs:
         id: csharp-examples
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
-          LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.tmux }}
+          LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
           TMUX_TMPDIR: /tmp/libtmux-dotnet-test
         run: |
           mkdir -p "${TMUX_TMPDIR}"
-          test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+          if [[ -n "${LIBTMUX_EXPECTED_TMUX_VERSION}" ]]; then
+            test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+          fi
           PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
           export PATH
           for source in examples/LibTmux.Examples/Programs/*.cs; do
@@ -274,16 +356,19 @@ jobs:
           done
 
   # A daemon below the floor must be refused before it is touched. The client
-  # is the supported 3.3a build, which can speak to both older protocols.
+  # is the supported 3.3a build, which can speak to both older protocols. The
+  # refusal does not depend on which tmux a push touches, so it runs where the
+  # plan asks for the whole table.
   rejected:
-    needs: build
+    needs: [plan, build]
+    if: needs.plan.outputs.rejected != '[]'
     name: tmux ${{ matrix.rejected-version }} is refused
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        rejected-version: ['3.0a', '3.1c', '3.2a', '3.3']
+        rejected-version: ${{ fromJSON(needs.plan.outputs.rejected) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -364,9 +449,12 @@ jobs:
   # Exactly tmux 3.7 is the one release that ends the server on an unnamed
   # break-pane and rejects a name with a colon or a period. The matrix runs 3.7a
   # to 3.7c, which do neither, so the tests that fire these commands at a real
-  # 3.7 daemon skip there. This lane runs them and fails if any is skipped.
+  # 3.7 daemon skip there. This lane runs them and fails if any is skipped. It
+  # needs that release and no other, so it runs where the plan asks for the
+  # whole table.
   exact_3_7:
-    needs: build
+    needs: [plan, build]
+    if: needs.plan.outputs.exact_3_7 == 'true'
     name: tmux 3.7 exactly
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -432,7 +520,7 @@ jobs:
             --minimum-expected-tests 3
 
   advisory:
-    needs: build
+    needs: [plan, build]
     name: tmux master (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -441,8 +529,8 @@ jobs:
     # moves under this library rather than with it. Running it weekly answers
     # that question and stops a lane that is expected to fail from putting a
     # red mark on every push, which costs a reader the time to check whether
-    # this one matters.
-    if: github.event_name != 'push' && github.event_name != 'pull_request'
+    # this one matters. The plan keeps it off a push and a pull request.
+    if: needs.plan.outputs.advisory == 'true'
     continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -496,14 +584,18 @@ jobs:
   # The matrix is what proves the compatibility range, so it needs one name to
   # require. The advisory lane is deliberately excluded: it tracks tmux master,
   # which can break for reasons that are not this library's problem.
+  #
+  # A lane the plan left out of scope must be skipped and a lane it planned
+  # must succeed. Accepting a skip for a planned lane would let a failure that
+  # skips its dependents pass.
   compatibility:
     name: compatibility
-    needs: [build, exact_3_7, matrix, rejected]
+    needs: [plan, build, exact_3_7, matrix, rejected]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Reject unsuccessful dependencies
         id: require-success
-        if: ${{ always() && (needs.build.result != 'success' || needs.exact_3_7.result != 'success' || needs.matrix.result != 'success' || needs.rejected.result != 'success') }}
+        if: ${{ always() && (needs.build.result != 'success' || needs.exact_3_7.result != (needs.plan.outputs.exact_3_7 == 'true' && 'success' || 'skipped') || needs.matrix.result != 'success' || needs.plan.result != 'success' || needs.rejected.result != (needs.plan.outputs.rejected != '[]' && 'success' || 'skipped')) }}
         run: exit 1

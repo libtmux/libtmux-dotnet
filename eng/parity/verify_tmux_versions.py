@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import runpy
 import sys
 import typing as t
 
@@ -46,6 +47,44 @@ def buildable(supported: list[str], transition: str) -> list[str]:
     return [*supported[:at], transition, *supported[at:]]
 
 
+def verify_plan(root: pathlib.Path, manifest: dict[str, t.Any]) -> list[str]:
+    """Check that the plan, not a list of its own, decides what CI covers.
+
+    A push covers the floor and the newest tested release, a full run covers
+    the whole table and every refusal lane, and both are read from the manifest.
+    """
+    relative = "eng/tmux/plan.py"
+    path = root / relative
+    if not path.is_file():
+        return [f"{relative}: missing, so what CI covers cannot be checked"]
+    plan = runpy.run_path(str(path))
+    found: list[str] = []
+
+    def covered(result: dict[str, t.Any]) -> list[str]:
+        include = result["matrix"]["include"]
+        return list(dict.fromkeys(each["tmux"] for each in include))
+
+    edges = plan["plan"](manifest, event="push", ref="refs/heads/master")
+    expected = list(dict.fromkeys([manifest["minimum"], manifest["maximumTested"]]))
+    if covered(edges) != expected:
+        found.append(
+            f"{relative}: a push covers {', '.join(covered(edges))}, "
+            f"not the floor and the newest tested release, {', '.join(expected)}"
+        )
+    full = plan["plan"](manifest, event="schedule", ref="refs/heads/master")
+    if covered(full) != manifest["supported"]:
+        found.append(
+            f"{relative}: the full scope covers {', '.join(covered(full))}, "
+            f"not the manifest's {', '.join(manifest['supported'])}"
+        )
+    if full["rejected"] != manifest["rejected"]:
+        found.append(
+            f"{relative}: the full scope refuses {', '.join(full['rejected'])}, "
+            f"not the manifest's {', '.join(manifest['rejected'])}"
+        )
+    return found
+
+
 def verify(root: pathlib.Path) -> list[str]:
     """Report every list that disagrees with the manifest."""
     manifest = load(root)
@@ -72,14 +111,14 @@ def verify(root: pathlib.Path) -> list[str]:
     # Lists written out in full. Each is a literal a person edits, so the check
     # is that the exact rendering the file uses is present and complete.
     renderings: tuple[tuple[str, str], ...] = (
-        (".github/workflows/dotnet-tmux.yml", "tmux: [{}]".format(
-            ", ".join(f"'{version}'" for version in supported))),
+        # The workflow lists no version. It takes its legs and its refusal
+        # lanes from the plan, which reads the manifest and is checked below.
+        (".github/workflows/dotnet-tmux.yml", "fromJSON(needs.plan.outputs.matrix)"),
+        (".github/workflows/dotnet-tmux.yml", "fromJSON(needs.plan.outputs.rejected)"),
         ("eng/tmux/run-matrix.sh", "REQUIRED_VERSIONS=({})".format(
             " ".join(supported))),
         ("eng/tmux/run-matrix.sh", 'tmuxVersions:[{}]'.format(
             ",".join(f'"{version}"' for version in supported))),
-        (".github/workflows/dotnet-tmux.yml", "rejected-version: [{}]".format(
-            ", ".join(f"'{version}'" for version in rejected))),
         ("eng/tmux/build-version.sh", "<{}|master>".format(
             "|".join([*rejected, *buildable(supported, manifest["transition"])]))),
     )
@@ -87,6 +126,8 @@ def verify(root: pathlib.Path) -> list[str]:
         text = read(relative)
         if text is not None and rendering not in text:
             violations.append(f"{relative}: does not carry {rendering}")
+
+    violations.extend(verify_plan(root, manifest))
 
     # The floor and the newest tested version are what the prose and the
     # runtime promise. A document naming a different one is a false claim.

@@ -17,9 +17,9 @@ ROOT = pathlib.Path(__file__).parents[3]
 def repository(tmp_path: pathlib.Path) -> pathlib.Path:
     """Copy only the inputs owned by the policy checker."""
     shutil.copytree(ROOT / ".github/workflows", tmp_path / ".github/workflows")
-    manifest = pathlib.Path("eng/tmux/versions.json")
-    (tmp_path / manifest).parent.mkdir(parents=True)
-    shutil.copyfile(ROOT / manifest, tmp_path / manifest)
+    (tmp_path / "eng/tmux").mkdir(parents=True)
+    for name in ("versions.json", "plan.py"):
+        shutil.copyfile(ROOT / "eng/tmux" / name, tmp_path / "eng/tmux" / name)
     return tmp_path
 
 
@@ -195,22 +195,58 @@ def test_commented_dependencies_do_not_gate_publication(
         ("dotnet", ("jobs", "gate", "needs"), ["build"], "gate.needs"),
         (
             "dotnet-tmux",
-            ("jobs", "matrix", "strategy", "matrix", "tmux"),
-            ["3.7c"],
-            "tmux matrix",
+            ("jobs", "matrix", "strategy", "matrix"),
+            {"tmux": ["3.7c"], "framework": ["net8.0", "net10.0"]},
+            "take its legs from the plan",
         ),
         (
             "dotnet-tmux",
-            ("jobs", "matrix", "strategy", "matrix", "framework"),
-            ["net10.0"],
-            "framework matrix",
+            ("jobs", "matrix", "strategy", "matrix"),
+            "${{ fromJSON(needs.build.outputs.matrix) }}",
+            "take its legs from the plan",
         ),
         (
             "dotnet-tmux",
-            ("jobs", "matrix", "strategy", "matrix", "exclude"),
-            [{"tmux": "3.7c"}],
-            "matrix exclusions",
+            ("jobs", "rejected", "strategy", "matrix", "rejected-version"),
+            ["3.2a"],
+            "rejected must take its versions from the plan",
         ),
+        ("dotnet-tmux", ("jobs", "rejected", "if"), "true", "rejected.if"),
+        ("dotnet-tmux", ("jobs", "exact_3_7", "if"), "true", "exact_3_7.if"),
+        ("dotnet-tmux", ("jobs", "advisory", "if"), "true", "advisory must run"),
+        ("dotnet-tmux", ("jobs", "plan", "if"), "false", "plan.if"),
+        (
+            "dotnet-tmux",
+            ("jobs", "plan", "steps", 1, "env", "SCOPE"),
+            "full",
+            "read the event and every input through env",
+        ),
+        (
+            "dotnet-tmux",
+            ("jobs", "plan", "outputs", "rejected"),
+            "[]",
+            "publish the rejected output",
+        ),
+        (
+            "dotnet-tmux",
+            ("on", "workflow_call", "inputs", "scope", "required"),
+            "false",
+            "require the scope input",
+        ),
+        (
+            "dotnet-tmux",
+            ("on", "workflow_dispatch", "inputs", "scope", "default"),
+            "full",
+            "default to edges",
+        ),
+        (
+            "dotnet-tmux",
+            ("on", "workflow_dispatch", "inputs", "scope", "options"),
+            ["edges", "full"],
+            "default to edges and offer every scope",
+        ),
+        ("release", ("jobs", "compatibility", "with", "scope"), "edges", "full scope"),
+        ("release", ("jobs", "compatibility", "with"), {"scope": "custom"}, "full scope"),
         (
             "dotnet-tmux",
             ("jobs", "matrix", "strategy", "fail-fast"),
@@ -234,6 +270,79 @@ def test_weakened_policy_fails(
     target[keys[-1]] = value
     path.write_text(yaml.safe_dump(document, sort_keys=True))
     assert any(diagnostic in error for error in verify(repository))
+
+
+@pytest.mark.parametrize(
+    ("workflow", "keys", "diagnostic"),
+    [
+        ("release", ("jobs", "compatibility", "with"), "full scope"),
+        ("dotnet-tmux", ("on", "workflow_call", "inputs"), "require the scope input"),
+        ("dotnet-tmux", ("on", "workflow_dispatch", "inputs", "tmux-ref"), "offer the tmux-ref"),
+        ("dotnet-tmux", ("on", "workflow_dispatch", "inputs", "dotnet"), "offer the dotnet"),
+        ("dotnet-tmux", ("on", "workflow_dispatch", "inputs", "scope"), "offer the scope"),
+        ("dotnet-tmux", ("jobs", "rejected", "if"), "rejected.if"),
+        ("dotnet-tmux", ("jobs", "exact_3_7", "if"), "exact_3_7.if"),
+        ("dotnet-tmux", ("jobs", "advisory", "if"), "advisory must run"),
+        ("dotnet-tmux", ("jobs", "plan"), "missing required job"),
+    ],
+)
+def test_removed_policy_fails(
+    repository: pathlib.Path,
+    workflow: str,
+    keys: tuple[str, ...],
+    diagnostic: str,
+) -> None:
+    """A lane, an input or a release argument that goes missing is a finding."""
+    path = repository / f".github/workflows/{workflow}.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    target = document
+    for key in keys[:-1]:
+        target = target[key]
+    del target[keys[-1]]
+    path.write_text(yaml.safe_dump(document, sort_keys=True))
+    assert any(diagnostic in error for error in verify(repository))
+
+
+def test_the_plan_and_the_workflow_agree_on_the_frameworks(
+    repository: pathlib.Path,
+) -> None:
+    """A framework the plan offers must be one the workflow's legs are built for."""
+    path = repository / "eng/tmux/plan.py"
+    source = path.read_text()
+    assert 'FRAMEWORKS = ("net8.0", "net10.0")' in source
+    path.write_text(source.replace('("net8.0", "net10.0")', '("net8.0", "net10.0", "net9.0")'))
+
+    assert any("framework matrix differs" in error for error in verify(repository))
+
+
+def test_an_input_in_a_run_step_is_refused(repository: pathlib.Path) -> None:
+    """An input reaches a shell only through env, never inside the script."""
+    path = repository / ".github/workflows/dotnet-tmux.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    document["jobs"]["plan"]["steps"][1]["run"] += '\necho "${{ inputs.tmux-ref }}"'
+    path.write_text(yaml.safe_dump(document))
+
+    assert any("through env" in error for error in verify(repository))
+
+
+def test_the_aggregate_cannot_pass_a_planned_lane_that_was_skipped(
+    repository: pathlib.Path,
+) -> None:
+    """A skipped lane that the plan asked for is a failure, not a pass."""
+    path = repository / ".github/workflows/dotnet-tmux.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    step = next(
+        step
+        for step in document["jobs"]["compatibility"]["steps"]
+        if step.get("id") == "require-success"
+    )
+    step["if"] = step["if"].replace(
+        "needs.exact_3_7.result != (needs.plan.outputs.exact_3_7 == 'true' && 'success' || 'skipped')",
+        "needs.exact_3_7.result == 'failure'",
+    )
+    path.write_text(yaml.safe_dump(document))
+
+    assert any("compatibility.require-success.if" in error for error in verify(repository))
 
 
 def test_reformatting_and_key_order_are_irrelevant(repository: pathlib.Path) -> None:
