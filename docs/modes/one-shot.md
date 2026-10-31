@@ -98,8 +98,8 @@ What follows from it:
 An owned scope cleans up the resource it created. A listed handle has no
 cleanup responsibility. Mutations return a fresh snapshot; keep the result
 when later calls need the changed state. Give an owned server a socket of its
-own: on the default socket, a server already running is refused rather than
-owned, since disposing the scope would stop it.
+own: on the socket tmux picks when you name none, a server already running is
+refused rather than owned, since disposing the scope would stop it.
 
 ```csharp
 using LibTmux;
