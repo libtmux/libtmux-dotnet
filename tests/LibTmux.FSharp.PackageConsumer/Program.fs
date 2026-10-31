@@ -71,6 +71,9 @@ let runScenario mode =
         let childEnvironment = Dictionary<string, string | null>()
         childEnvironment["TMUX"] <- null
         childEnvironment["TMUX_PANE"] <- null
+        childEnvironment["LIBTMUX_SOCKET"] <- null
+        childEnvironment["LIBTMUX_SOCKET_PATH"] <- null
+        childEnvironment["LIBTMUX_SOCKET_NAME"] <- null
         let mutable calls = 0
 
         let options =

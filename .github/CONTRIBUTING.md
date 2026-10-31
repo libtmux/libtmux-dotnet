@@ -119,11 +119,13 @@ has to trim a socket name, at 31 two MCP tests fail with "File name too long",
 and at 50 fifty-eight more tests do. A uid of more digits leaves less room.
 
 The claim covers the test projects. These entry points do not carry it, and each
-names its own socket: the F# `PackageConsumer`, `AotSmoke` and `Sdk8Consumer`
-programs, the F# `Quickstart` and `Examples` programs, the C# examples built one
-at a time with `ExampleProgram`, and `eng/docs/verify_api_examples.py`, which
-gives each program a fresh `TMUX_TMPDIR` and removes `TMUX` and `TMUX_PANE` from
-its environment.
+names its own socket: the F# `AotSmoke` and `Sdk8Consumer` programs, the F#
+`PackageConsumer`, which also removes `LIBTMUX_SOCKET*` from its tmux's
+environment, the F# `Quickstart` and `Examples` programs, the C# examples built
+one at a time with `ExampleProgram`, and `eng/docs/verify_api_examples.py`,
+which gives each program a fresh `TMUX_TMPDIR`, refuses a caller's that is too
+long for the longest socket name the programs use, and removes `TMUX`,
+`TMUX_PANE` and `LIBTMUX_SOCKET*` from their environment.
 
 Two things are never safe here, because the processes and directories belong
 to other workspaces:
