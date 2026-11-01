@@ -17,9 +17,10 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <None Remove="assets/logo.png;assets/logo.svg" />
+    <None Remove="assets/logo.png;assets/logo.svg;CHANGELOG.md" />
     <None Include="assets/logo.png" Pack="true" PackagePath="icon.png" />
     <None Include="assets/logo.svg" Pack="true" PackagePath="assets/logo.svg" />
+    <None Include="CHANGELOG.md" Pack="true" PackagePath="CHANGELOG.md" />
   </ItemGroup>
 
   <!-- nuget.org renders Markdown but shows HTML elements as text, so the
