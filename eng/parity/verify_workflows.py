@@ -24,6 +24,10 @@ FSHARP_PROGRAM_LOOP = "for source in examples/LibTmux.FSharp.Examples/Programs/*
 
 TMATE_ACTION = "mxschmitt/action-tmate"
 
+# apt or apt-get as a command: first on a line, after a shell separator, or
+# after sudo. A word like "the apt tmux" in an echo does not match.
+RAW_APT = re.compile(r"(?:^|[;&|(`]\s*|\bsudo\s+(?:-\S+\s+)*)apt(?:-get)?(?=\s|$)")
+
 # The lanes that run beside the supported matrix, each with the plan output
 # that puts it in scope. The aggregate requires a planned lane to succeed and
 # an unplanned one to be skipped.
@@ -73,6 +77,54 @@ def names(value: object) -> set[str]:
     if isinstance(value, (list, dict)):
         return set(value)
     return set()
+
+
+def raw_apt_calls(root: pathlib.Path) -> list[str]:
+    """Name each workflow or action step that runs apt-get or apt directly.
+
+    eng/apt-get.sh bounds apt-get with a timeout and rotates the mirror on a
+    hang (actions/runner-images#15040), which protects a job only while every
+    call goes through it.
+    """
+    errors: list[str] = []
+    github = root / ".github"
+    paths = [
+        path
+        for suffix in ("yml", "yaml")
+        for path in [
+            *sorted((github / "workflows").glob(f"*.{suffix}")),
+            *sorted((github / "actions").glob(f"*/action.{suffix}")),
+        ]
+    ]
+    for path in paths:
+        where = path.relative_to(root).as_posix()
+        try:
+            document = yaml.load(path.read_text(encoding="utf-8"), Loader=WorkflowLoader)
+        except (OSError, ValueError, yaml.YAMLError) as error:
+            errors.append(f"{where}: {error}")
+            continue
+        if not isinstance(document, dict):
+            continue
+        jobs, runs = document.get("jobs"), document.get("runs")
+        scopes = {
+            f"job {name}": value.get("steps")
+            for name, value in (jobs if isinstance(jobs, dict) else {}).items()
+            if isinstance(value, dict)
+        }
+        scopes["composite action"] = runs.get("steps") if isinstance(runs, dict) else None
+        for scope, steps in scopes.items():
+            for index, step in enumerate(steps if isinstance(steps, list) else [], 1):
+                if not isinstance(step, dict) or not isinstance(step.get("run"), str):
+                    continue
+                label = step.get("name") or step.get("id") or f"#{index}"
+                for line in step["run"].splitlines():
+                    command = line.strip()
+                    if not command.startswith("#") and RAW_APT.search(command):
+                        errors.append(
+                            f"{where}: {scope}, step {label!r}: calls `{command}` "
+                            "directly; run it through eng/apt-get.sh"
+                        )
+    return errors
 
 
 def verify(root: pathlib.Path) -> list[str]:
@@ -578,6 +630,7 @@ def verify(root: pathlib.Path) -> list[str]:
         },
         "release.publish.permissions must grant only publication and attestation access",
     )
+    errors.extend(raw_apt_calls(root))
     return errors
 
 
