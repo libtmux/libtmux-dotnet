@@ -446,6 +446,8 @@ gives the order. Code running inside a tmux pane can use
   matches.
 - [Read benchmark records](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/benchmarks/README.md):
   measured core execution modes and benchmark methods.
+- [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/CHANGELOG.md):
+  what each release of this package changed
 
 [api-fs-chain-run]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-chain-run/
 [api-fs-chain-start]: https://libtmux.org/en/fsharp/latest/reference/libtmux-fsharp-chain-start/

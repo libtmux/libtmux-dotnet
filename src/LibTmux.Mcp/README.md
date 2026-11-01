@@ -315,6 +315,8 @@ $ { printf '%s\n' \
   API
 - Source:
   [`src/LibTmux.Mcp`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Mcp)
+- [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Mcp/CHANGELOG.md):
+  what each release of this package changed
 
 Source, docs and issues:
 [libtmux/libtmux-dotnet](https://github.com/libtmux/libtmux-dotnet)

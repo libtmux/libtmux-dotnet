@@ -94,7 +94,7 @@ every C# block in the repository is verified.
 | API reference cannot drift | Rendered from the compiler's XML output |
 | Decisions are recorded with evidence | 5 ADRs quoting the commands that produced their conclusions |
 | Performance claims are recorded | [Benchmark runs](benchmarks/README.md) name tmux, host, runtime, commit and date, with min/median/mean/p90/p95/p99/max over 100 samples |
-| History is in one place | [CHANGELOG](../CHANGELOG.md), linked from the package release notes, because nuget.org shows notes per version |
+| Each package has its history | [CHANGELOG](../CHANGELOG.md) for what spans packages, and a `CHANGELOG.md` beside each package, linked from that package's release notes and shipped in its archive, because nuget.org shows notes per version |
 | The project files a stranger looks for | `README`, `LICENSE`, `SECURITY`, `CONTRIBUTING`, `CODE_OF_CONDUCT`, `CHANGELOG`, issue templates |
 | Contributor onboarding is specific | [CONTRIBUTING](../CONTRIBUTING.md) names the five edits a public API addition needs, and the socket rules |
 | Mistakes are documented | The warmup artefact that put an impossible benchmark number in the README is written down where the next person will look |

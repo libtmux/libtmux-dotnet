@@ -107,6 +107,8 @@ ordinary client work.
 - Source:
   [`src/LibTmux.Testing`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Testing);
   issues and history on [GitHub](https://github.com/libtmux/libtmux-dotnet)
+- [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Testing/CHANGELOG.md):
+  what each release of this package changed
 
 ## License
 

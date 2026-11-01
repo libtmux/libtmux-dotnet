@@ -144,6 +144,8 @@ is taken from it, so tmux commands are logged with everything else.
   issues and history on [GitHub](https://github.com/libtmux/libtmux-dotnet)
 - Package:
   [NuGet](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection)
+- [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Extensions.DependencyInjection/CHANGELOG.md):
+  what each release of this package changed
 
 ## License
 
