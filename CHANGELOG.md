@@ -1,13 +1,24 @@
 # Changelog
 
-nuget.org shows release notes per version, so somebody landing on the newest
-package never learns what an older one fixed. This is the whole history in one
-place.
+Notable changes to libtmux-dotnet that span more than one package:
+documentation, CI, tests and benchmarks, release tooling, and the notes that
+cover a whole release. A change to one package is in that package's changelog:
 
-Releases are numbered `0.1.N`, and each release increments `N`. The API is not
-settled: any release may change or remove exported identifiers, and this
-changelog marks each break. Pin an exact version to avoid one. Releases before
-0.1.0 were alphas numbered `0.0.0-alpha.N`.
+- [`LibTmux`](src/LibTmux/CHANGELOG.md)
+- [`LibTmux.FSharp`](src/LibTmux.FSharp/CHANGELOG.md)
+- [`LibTmux.Testing`](src/LibTmux.Testing/CHANGELOG.md)
+- [`LibTmux.Query.Json`](src/LibTmux.Query.Json/CHANGELOG.md)
+- [`LibTmux.Extensions.DependencyInjection`](src/LibTmux.Extensions.DependencyInjection/CHANGELOG.md)
+- [`LibTmux.Workspace`](src/LibTmux.Workspace/CHANGELOG.md)
+- [`LibTmux.Workspace.Cli`](src/LibTmux.Workspace.Cli/CHANGELOG.md)
+- [`LibTmux.Mcp`](src/LibTmux.Mcp/CHANGELOG.md)
+
+The packages share one version, so a release has a section in each changelog
+from the release that first shipped the package. Releases are numbered `0.1.N`,
+and each release increments `N`. The API is not settled: any release may change
+or remove exported identifiers, and these changelogs mark each break. Pin an
+exact version to avoid one. Releases before 0.1.0 were alphas numbered
+`0.0.0-alpha.N`.
 
 ## [Unreleased]
 
@@ -27,57 +38,6 @@ A program that chooses no socket now reaches the server tmux picks, and
 `libtmux-mcp` drives that server instead of one of its own. `LIBTMUX_SOCKET`
 names the socket, and `LIBTMUX_SOCKET_NAME` selects nothing. The bold entries
 under Changed carry the migration notes.
-
-### Changed
-
-- **A connection that chooses no socket passes tmux neither `-L` nor `-S`.**
-  (#134)
-  - Previous behaviour: `Server.Open()` and `ServerConnectionOptions.Default`
-    passed `-L default` and never gave tmux `TMUX`, so they reached the default
-    socket whatever pane the program ran in.
-  - New behaviour: tmux picks the server. Inside a pane that is the one `TMUX`
-    names, which is read once when the connection opens; otherwise it is the
-    socket named `default` under `TMUX_TMPDIR`. A socket from
-    `ServerConnectionOptions`, `LIBTMUX_SOCKET_PATH` or `LIBTMUX_SOCKET` still
-    comes first, in that order, and the path wins over the name.
-  - Reason: the Python `Server()` works this way, and a program that names no
-    socket should reach the tmux its user is sitting in.
-  - Recommended action: give a program a server of its own with `SocketName`,
-    `SocketPath`, or `LIBTMUX_SOCKET` and `LIBTMUX_SOCKET_PATH`.
-- **`LIBTMUX_SOCKET` names the socket; `LIBTMUX_SOCKET_NAME` selects nothing.**
-  A program that set the old name now reaches the server tmux picks. (#134)
-- `tmux-workspace` chooses its socket from `-S` and `-L`, then
-  `LIBTMUX_SOCKET_PATH` and `LIBTMUX_SOCKET`, then whatever tmux picks. A `load`
-  that may switch to or append to the current session passes the server in
-  `TMUX` only when none of those chose one; it used to pass it ahead of the
-  variables, and every other command used to pass it too. (#134)
-- **`libtmux-mcp` with no socket variable drives the server tmux picks, not a
-  `libtmux-mcp` socket of its own.** (#134)
-  - Previous behaviour: it started a daemon on the `libtmux-mcp` socket with the
-    bundled configuration, gave it all four toolsets, and stopped it on exit.
-  - New behaviour: it drives the server in `TMUX`, otherwise the default socket,
-    loads no configuration of its own, omits `teardown`, and leaves every server
-    running on exit. `tmux://capabilities` reports the selector `default` and
-    the provenance `tmux-default`. A pinned socket keeps the bundled
-    configuration.
-  - Reason: the Python `libtmux-mcp` passes no socket unless one is set.
-  - Recommended action: set `LIBTMUX_SOCKET` to keep the assistant on a server
-    of its own. `LIBTMUX_SOCKET_NAME` on its own stops startup and names
-    `LIBTMUX_SOCKET`.
-- `libtmux-mcp` lets `LIBTMUX_SOCKET_PATH` win when `LIBTMUX_SOCKET` is also
-  set, as the Python `libtmux-mcp` does. Startup used to refuse both at once.
-  (#134)
-- `libtmux-mcp` names `TMUX_TMPDIR` in the `attachCommand` of
-  `tmux://capabilities` when the server is not yet running and the socket is a
-  name or none, because that root decides where the socket is. (#134)
-- `Window.SelectLayoutAsync` accepts a JSON layout from tmux 3.8, the first
-  release that reads one, and the `layout-json` capability starts at 3.8. An
-  older release is refused with `TmuxUnsupportedOnReleaseException` before
-  anything is sent. Installed releases behave as before; upgrade to tmux 3.8
-  to apply a JSON layout.
-
-  The control transport runs `display-panes` without attaching a client from
-  tmux 3.8, the release that made it a mode. (#122)
 
 ### Development
 
@@ -102,10 +62,6 @@ under Changed carry the migration notes.
   is `0.1.0`, then `0.1.1` and so on, each incrementing `N`. The API is still
   not settled, so pin an exact version; the changelog marks each break.
 
-### Removed
-
-### Development
-
 ## [0.0.0-alpha.24] — 2026-10-25
 
 This release is breaking for code that caught `ArgumentException` or
@@ -115,31 +71,9 @@ under Changed.
 
 ### Changed
 
-- **Release refusals now raise `TmuxUnsupportedOnReleaseException` instead of
-  `ArgumentException` or `TmuxWindowException`.** (#110)
-  - Previous behaviour: a raw `select-layout` that crashes tmux below 3.4 and a
-    name with `:` or `.` on exactly 3.7 raised `ArgumentException`; a mirrored
-    or JSON layout on a release without it raised `TmuxWindowException` from
-    `Window.SelectLayoutAsync` and a batch, and `ArgumentException` from
-    `Server.ValidateLayoutsAsync`.
-  - New behaviour: all raise `TmuxUnsupportedOnReleaseException`, which has no
-    `WindowId`; a batched refusal names the window in its message. A layout
-    that is malformed or unknown, or an ambiguous preset prefix such as `main-h`
-    on tmux 3.5 and newer, still raises `TmuxWindowException` or
-    `ArgumentException`, and so do session names with `:` or `.` through the
-    typed calls.
-  - Reason: the same kind of refusal raised three types, and the manifest named
-    one that held for the typed call only.
-  - Recommended action: catch `TmuxUnsupportedOnReleaseException` where you
-    caught `ArgumentException` or `TmuxWindowException` for these cases. Code
-    that catches `TmuxVersionTooLowException` needs no change.
 - `capabilities.json` names the exception of each workaround, and the `apis`
   of `layout-without-checksum` and `name-separators-rejected` list only the
   calls that raise the entry's `error`. (#110)
-- `ActualVersion` is declared on `TmuxUnsupportedOnReleaseException` and
-  inherited by `TmuxVersionTooLowException`. The `new-pane` refusals, the
-  client-filter refusal and `TmuxVersion.EnsureAtLeast` now report
-  `Dispatch == NotDispatched`, and the first two set `Command`. (#110)
 - `tmux-workspace` reports the JSON `code` `tmux_unsupported` for any
   `TmuxUnsupportedOnReleaseException`, not only `TmuxVersionTooLowException`.
   The MCP failure advice for the base type says "Nothing was sent to tmux."
@@ -155,13 +89,6 @@ under Changed.
   (#109)
 - The README says that `tmux-workspace` and `libtmux-mcp` read `LIBTMUX_TMUX`
   and the `LibTmux` package does not. (#109)
-
-### Added
-
-- `TmuxUnsupportedOnReleaseException` is the one type for a command or feature
-  that is unsafe or unavailable on the running tmux release. It carries
-  `ActualVersion`, `SafeReleases`, `CapabilityId` and `Command`.
-  `TmuxVersionTooLowException` derives from it. (#110)
 
 ## [0.0.0-alpha.23] — 2026-10-24
 
@@ -182,8 +109,6 @@ the output read so far when the tmux server stops.
 
 ### Fixed
 
-- `Pane.BreakAsync` reads the new window from the pane when tmux prints no
-  identifier for a window's only pane. (#84)
 - `Pane.WaitForTextAsync` and the MCP `wait_for_text` now find text that
   crosses a wrapped row, below tmux 3.7 and from it, spaces a wrapped row
   held included. A wrapped line is one line; a real line break still ends one.
@@ -196,14 +121,6 @@ the output read so far when the tmux server stops.
   when the pane dies. It used to raise a transport error with no output. A
   live pane whose control stream is lost still raises `TmuxTransportException`.
   (#84)
-- `IControlModeSession.SendAsync` now refuses the commands that the one-shot
-  methods refuse, by throwing `TmuxVersionTooLowException`. An unnamed `break-pane` sent through a session held on
-  exactly tmux 3.7 ended the server. (#84)
-- A command word is now read the way tmux reads it, by alias, name or unique
-  prefix, and a `;` list one command at a time, so `ru`, `br` and a command
-  after a `;` can no longer slip past the checks below. An alias wins over a
-  prefix that other commands share, so `set` and `show` read as `set-option`
-  and `show-options`. (#84)
 
 ### Changed
 
@@ -237,84 +154,13 @@ tmux 3.7, and tmux 3.8 joins the tested range. The package READMEs open on a
 quick start, and CI no longer runs macOS or the psmux smoke; both stay
 supported at best effort.
 
-### Added
-
-- tmux 3.8 is supported and tested. A dead pane whose `pane_pid` is empty reads
-  as pid 0 and keeps its identity, the `display-panes` command runs without a
-  client, and the shared control client attaches with `new-layouts`. The JSON
-  layout form and `display-panes` without a client are recognised from
-  3.8-rc2, the first candidate that has them. (#83)
-- `tmux://capabilities` reports the minimum tmux as
-  `connection.minimumTmuxVersion`, and the MCP server instructions and
-  `get_server_info` name it. (#83)
-- `LibTmux.Workspace.Cli` reports a tmux below the minimum, or one that names
-  no release, with the `tmux_unsupported` code and exit status 1 from `load`,
-  `freeze` and `shell`. `shell` and extension loads refuse before the Python
-  bridge starts. The bridge runs `LIBTMUX_TMUX` when it is set, which it finds
-  as `tmux`, and otherwise the `tmux` on `PATH`. (#83)
-
-### Fixed
-
-- `Server.IsAliveAsync` now throws `TmuxVersionTooLowException` for a daemon
-  below the minimum instead of answering `false`. (#83)
-- A pane wait on a daemon older than tmux 3.7 polls without
-  `AllowPollingFallback`, because no control client is attached there. (#83)
-- A text wait whose deadline timer fires early reports `TimedOut` only once the
-  whole timeout has elapsed on the monotonic clock. (#83)
-- The attach that ends `LibTmux.Workspace.Cli load` passes `-N`, so it never
-  starts a server when the one it was given has gone. (#83)
-
 ### Changed
 
-- **The minimum tmux is now 3.3a, checked against the daemon.**
-  - Previous behaviour: tmux 3.2a was supported, and the executable's version
-    decided what was allowed.
-  - New behaviour: the library asks the connected daemon for its version with
-    `run-shell -C`, which fires no `after-*` or `command-error` hook, and
-    throws `TmuxVersionTooLowException` with `Dispatch` set to `NotDispatched`
-    for 3.3, 3.2a and older. A daemon older than tmux 3.2, which cannot run
-    that check, is refused the same way. Every command list opens with a fence,
-    so a daemon replaced by an older one is refused before any command runs.
-  - Reason: 3.2a and the unpatched 3.3 are the releases whose differences the
-    library worked around, and a client's version says nothing about the daemon.
-  - Recommended action: upgrade tmux and restart the tmux server, or stay on
-    0.0.0-alpha.21, the last release that supports tmux 3.2a. The exception
-    message says so.
-
-  (#83)
-- `LibTmuxInfo.MinimumTmuxVersion` is 3.3a, and `Server.Version` is the version
-  the handle was checked on. An absent endpoint takes its version from the
-  executable that would start it, `kill-server` on one does nothing, and the
-  explicit control client no longer starts a server. (#83)
-- A tmux version is read only as `X.Y`, `X.Ya`, `X.Y-rc[N]` or `next-X.Y`.
-  `3.4.1`, `3.4-dev`, `3.3a-openbsd` and `master` are refused with
-  `TmuxVersionTooLowException`, whose `ActualVersion` is not valid and whose
-  message names the minimum without calling the build too old. `Dispatch` is
-  `NotDispatched`, and a failed version check is reported the same way. (#83)
-- The library names its own control client `client-<pid>` from the process it
-  started and learns its session from the attach, so no `list-clients` or
-  `display-message` runs and no user `after-*` hook fires when a client attaches
-  or a pane is watched. (#83)
-- `TmuxVersion.DetectAsync` accepts the file name tmux 3.3a prints in place of
-  `tmux`. (#83)
-- A `TmuxVersionTooLowException` reaches an MCP caller with the version found,
-  the remedy and a note that nothing was sent, and stops the server at startup
-  with the same text. A read tool reports it instead of an empty list, and the
-  note points at `tmux://capabilities` for the minimum. (#83)
 - The package READMEs open on a quick start and answer one task per section,
   with each API as a linked subsection, a tested example, and a short note.
   The long contract paragraphs of `LibTmux`, `LibTmux.Workspace`, and
   `LibTmux.Query.Json` moved to a `docs/contracts.md` beside each README, and
   every README ends with what it leaves out and what it supports.
-
-### Removed
-
-- The 3.2a and 3.3 adaptations: `Server.ConfigureAccessAsync`, the prompt
-  history methods, the prompt `Type` and `ExpandFormat`, the display-message
-  target client and the popup appearance options no longer check the version
-  and no longer throw `TmuxVersionTooLowException` or drop a flag with a
-  warning, and an entity is read with one `display-message` on every release.
-  (#83)
 
 ### Development
 
@@ -357,41 +203,6 @@ One-shot commands travel over one shared control client per server from tmux
 3.7, so a pane run or workspace build no longer starts a tmux process per
 command. The macOS lane passes without raising any timeout.
 
-### Added
-
-### Fixed
-
-- A `ServerMirror` on tmux below 3.7 no longer stops answering after it
-  attaches: it sets `no-output` and `ignore-size` on `attach-session` instead
-  of with `refresh-client` afterwards, which left queued output undrained on
-  those versions. (#61, #59)
-- The MCP spawn tools say where a pane started when tmux could not use the
-  requested directory by tmux's own rule, instead of an early read of
-  `pane_current_path` that often came back empty and missed the fallback. On
-  tmux 3.3 and 3.3a, which never fall back to HOME, the note names the
-  server's working directory. (#59)
-- A pane wait or run whose server exits while its watcher attaches reports
-  the pane gone, not an attach failure. (#59)
-
-### Changed
-
-- One-shot commands now travel over one control client the library keeps on
-  each server, shared by every handle on the socket, instead of starting a tmux
-  process per command. A pane run starts 3 tmux processes where it started 16,
-  and a two-window, three-pane workspace build starts 2 where it started 32
-  (3 where it started 33 when the client attaches during the build).
-  `wait-for`, `new-session`, the `kill-*` commands and the commands that open
-  interface on a client still run on a process. The client is left out of
-  `GetClientsAsync`, `GetAttachedSessionsAsync`, `Session.Attached` and queries
-  over `session_attached`; a format of your own that reads `#{session_attached}`
-  counts it. A wrapper around `TmuxBinaryPath` sees the client's launch, not
-  each command. The client is used from tmux 3.7, judged by the running
-  server's version; on older servers every command runs on a process as before,
-  because before 3.7 attaching a control client can crash the server
-  ([tmux e5a2a25fa](https://github.com/tmux/tmux/commit/e5a2a25fafb8ee107c230d8acad694f6b635f8bb)). See [one-shot](docs/modes/one-shot.md#how-a-call-reaches-tmux). (#59)
-
-### Removed
-
 ### Development
 
 - The macOS lane runs on pull requests and gates them. A `macos-stress`
@@ -406,50 +217,11 @@ reviewed plans with action and cleanup journals. Pane runs and waits bound
 output and report partial effects. Query documents now require schema v2;
 workspace readiness and pane polling fallback must be chosen explicitly.
 
-### Added
-
-- Inspect source-query plans before execution and use LINQ over matching
-  entities with their captured snapshot. Discover supported fields and
-  operators through `QueryFieldCatalog`. (#34)
-- Validate workspaces, review immutable plans, and apply them with action and
-  owned-cleanup journals. Cancellation preserves the caller token and partial
-  state through `WorkspaceOperationCanceledException`. (#34)
-- Load inherited workspace settings, command lists, Enter overrides, window
-  indices, `global_options` and `options_after`. Resolve supplied variables,
-  opt into host scripts, and export captured session structure. (#34)
-- Inspect existing daemons without starting them through `Server.InspectAsync`
-  and bind resource creation to the observed daemon generation. (#34)
-
 ### Fixed
 
 - Pane runs retain their same-pane reservation until completion is verified.
   Cleanup failures preserve the original error or completed result, and MCP
   failures identify owned resources to inspect before retrying. (#34)
-- MCP waits forward progress notifications and cancel pending requests when
-  the client closes stdin. (#34)
-- Native tmux calls preserve Unicode and tab-delimited output under the C
-  locale and finish bounded client cleanup after cancellation. (#34)
-
-### Changed
-
-- **Query documents accept schema v2 exclusively.** Recreate v1 documents with
-  the current translator and replace `QueryJsonLimits.V1` with
-  `QueryJsonLimits.Default`. (#34)
-- **Workspace builds send input immediately by default.** Choose explicit
-  cooperative readiness when startup commands can signal completion;
-  inferred readiness and `PaneReadiness` settings are removed. (#34)
-- **Pane runs enforce command, timeout and output bounds.** Commands accept
-  at most 64 KiB of UTF-8 text, timeouts must be positive and at most one day,
-  and output defaults to the newest 1,000 lines within 64 KiB. (#34)
-- **Pane waits require control observation by default.** Enable polling
-  fallback explicitly; results disclose output loss and uncertain anchors.
-  Stop patterns take precedence at entry, and an already-exited program
-  returns `PaneExited`. Triggered waits exclude old text and typed echoes. (#34)
-- **Control notifications bound payload bytes as well as event count.** The
-  payload default is 4 MiB; adjust `ControlModeEventBufferMaxBytes` and refresh
-  state after reported loss. (#34)
-
-### Removed
 
 ### Development
 
@@ -475,78 +247,24 @@ reader at a time; see Changed.
   `Flags`, `BellAlert`, `ActivityAlert` and `SilenceAlert`, read pane and
   window state; queries filter on them, and on `Window.Layout`, through tmux.
   `LibTmux.FSharp` adds the matching `PaneFields` and `WindowFields`. (#53)
-- `LibTmux.FSharp.Pane.sendLine`, `Pane.sendText` and `Pane.pressKey` type a
-  line, type text, and press one key by its tmux name, without building a
-  `SendKeysRequest`. (#53)
 - `Session.GetActivePaneAsync` and `Window.GetActivePaneAsync` read the pane a
   session or window shows, and `LibTmux.FSharp.Session.activePane` and
   `Window.activePane` do the same from F#. (#53)
-- `LibTmux.FSharp.PaneRun.Exited`, `Ended`, `NotStarted` and `TimedOut` match
-  how a `Pane.run` ended, and `PaneWait.Found`, `Printed`, `Stopped`, `TimedOut`
-  and `Ended` how a wait did, so a match that leaves an ending out draws a
-  compiler warning. (#53)
 - `Pane.ReadOutputSinceAsync` and `LibTmux.FSharp.Pane.readSince` read what a
   pane printed since a position the last read returned, as the MCP server's
   `capture_since` does. (#53)
-- `LibTmux.FSharp.SessionSpec.running` describes a session whose one window
-  runs a command, for `Server.newSession`. (#53)
-- `LibTmux.FSharp.Session.rename`, `kill` and `newWindow`, `Window.rename`,
-  `select`, `kill`, `selectLayout`, `resize` and `move`, and `Pane.select`,
-  `kill`, `setTitle`, `resize`, `swap`, `respawn` and `clearHistory` act on a
-  handle at the end of a pipe, one for each session, window and pane
-  operation the MCP server offers, without naming the token as the core
-  methods' optional parameters require. (#53)
-- `LibTmux.FSharp.TmuxAsync.awaitTask` and `awaitUnitTask` await a call in an
-  `async` workflow and raise a tmux client cancelled after it may have acted as
-  itself, so `TmuxFailure.MayHaveRun` still matches it where `Async.AwaitTask`
-  raises a bare `TaskCanceledException`. (#53)
 - `Session.HoldWaitClientAsync` and `LibTmux.FSharp.Session.holdWaitClient`
   keep the control client a session's pane waits use attached, so a series of
   waits attaches it once. (#53)
-- `LibTmux.FSharp.PaneWatch.Output`, `Paused`, `Continued`, `Dropped`, `Gone`
-  and `Exited` match what `Control.watchPane` and `Control.watchPanes` yield,
-  so a match that leaves out a loss report draws a compiler warning. (#53)
-- `LibTmux.FSharp.Mirror.tryWaitUntil` returns `None` when no view matches in
-  time, where `Mirror.waitUntil` raises. (#53)
-- `LibTmux.FSharp.Retry.ifNotSentAfter` retries unsent work after each of a
-  list of delays, for a server still starting. (#53)
-- `LibTmux.FSharp.Server.createOwned` and `Server.connect` start and attach to
-  a server without qualifying the core `LibTmux.Server` type. (#53)
-- The MCP server's `list_panes`, `list_windows` and `snapshot_pane` advertise
-  `anthropic/alwaysLoad`, so a client that defers tool schemas keeps them
-  loaded. (#53)
-- Every optional parameter the MCP server advertises says what omitting it
-  does, such as acting on the pane the first session shows, or using the
-  server's line and wait limits. (#53)
 
 ### Fixed
 
-- **`Server.CreateOwnedAsync` refuses the default socket while a server is
-  listening there.** It took that server over and stopped it when the scope
-  was disposed. Give an owned server a socket of its own, or use
-  `ConnectAsync` to attach without owning it. When tmux cannot say whether a
-  server listens, such as on a socket it may not open, the call raises
-  `TmuxCommandException`. (#53)
-- `Server.CreateOwnedAsync` stops a server it started when it then fails or
-  is cancelled; it left the server running with nothing to stop it. (#53)
-- `OwnedServerScope.DisposeAsync` stops the server when called again after a
-  failed attempt, and a call made while another is stopping it waits for that
-  stop and its outcome; both returned at once. (#53)
-- `ServerMirror` publishes a view only when something changed: client activity
-  times and write counts, the saved cursor, window offsets and
-  synchronized-output toggles no longer count. (#53)
-- `ServerMirror` attaches a new control client when its client is killed
-  without `%exit`, and tries a failed attach again; it ended instead. (#53)
 - **`PaneObservation.WatchAsync`, `LibTmux.FSharp.Control.watchPane` and
   `Control.watchPanes` raise `ArgumentException` for a pane outside the
   control client's session, and `InvalidOperationException` when a watched
   pane's window moves to another session.** tmux sends that pane's output to
   no client of another session, so the watch waited until cancelled. Attach
   the control client to the pane's session. (#53)
-- An MCP tool called without `paneId` or `windowId` acts on the pane or
-  window the first session shows. It took the first window's active pane,
-  so in a session showing a later window, `send_keys` and
-  `run_shell_command` typed into a pane nobody was looking at. (#53)
 - A pane wait, and the MCP server's `wait_for_text`, over a pane that keeps
   changing, such as one redrawing a progress bar, reads it again until a read
   holds still or the time runs out; it failed at once, saying the pane
@@ -558,12 +276,6 @@ reader at a time; see Changed.
   command recorded one but its completion signal was lost. They waited out
   the timeout, then reported a timeout, or raised a `LibTmuxException`
   saying the pane was running a different process. (#53)
-- The `LibTmux.FSharp.TmuxFailure` patterns match a failure that
-  `Async.AwaitTask` or `Task.Wait` wrapped in an `AggregateException`. In an
-  `async` workflow they matched nothing, so a command that may have run fell
-  through to whatever caught the rest. (#53)
-- The MCP server detaches every control client it attached when it shuts
-  down. A client that had already failed stopped it detaching the rest. (#53)
 - A `TmuxOptionException` for an option command tmux refused, a value that
   does not parse as its key's type, or no value reported has
   `Dispatch = Dispatched`, so `LibTmux.FSharp.TmuxFailure.Ran` matches it. It
@@ -585,39 +297,8 @@ reader at a time; see Changed.
   which watched panes remain with one tmux command after a layout change,
   where they sent one per pane and could fall far enough behind to drop
   events. (#53)
-- A typed filter comparing with a number beyond plus or minus 2^53 is checked
-  locally only; tmux read it inexactly, so `Width < long.MaxValue` returned
-  no panes. (#53)
-- `ServerConnectionOptions.CommandTimeout` no longer ends a `WaitForAsync`
-  wait or lock, or an `OpenWaitChannel` wait. tmux kept the ended client's
-  place, so before tmux 3.7a a queued lock went to it for good. (#53)
-- `RunShellRequest.Delay` keeps its fraction of a second; half a second ran
-  at once. (#53)
-- A failed command with the text `has-session` among its arguments, such as
-  `send-keys -l has-session`, no longer reports tmux's error as its output.
-  (#53)
 - Package pages on nuget.org no longer open with the logo's HTML shown as
   text. (#53)
-
-### Changed
-
-- **A pane wait on a pane tmux no longer has raises
-  `TmuxObjectNotFoundException`, as `Pane.RunAsync` does.** It raised
-  `TmuxCommandException` from `capture-pane`, where `TmuxPaneException` was
-  documented. Catch `TmuxObjectNotFoundException` for a pane that is gone;
-  `TmuxPaneException` still means its program had already exited. (#53)
-- Pane waits read the pane through the control client they attach rather than
-  starting tmux processes, so a wait for output already printed takes about
-  half as long and allocates less than half as much. (#53)
-- **`LibTmux.FSharp.SplitSpec.Size` is a `SplitSize option`.** A string read
-  as cells, or with a percent sign as a share, became `SplitSize.Cells` and
-  `SplitSize.Percent`: write `Some(SplitSize.Percent 50)` for `Some "50%"`
-  and `Some(SplitSize.Cells 20)` for `Some "20"`. `Server.newSession` raises
-  `ArgumentOutOfRangeException` for fewer than one cell or a share outside 1
-  to 100 before it creates anything. (#53)
-- **Reading a control client's events while another reader is reading throws
-  `InvalidOperationException`.** Two readers each received part of the
-  stream. Open another control client to read independently. (#53)
 
 ### Development
 
@@ -647,48 +328,13 @@ few F# functions are replaced by queries and streams; see Removed.
 
 ### Added
 
-- `LibTmux.FSharp.Server` adds `tryFindSession`, `tryFindWindow`, and
-  `tryFindClient`. Lookups return `None` for absent objects and propagate
-  read errors and cancellation.
-- `LibTmux.FSharp` reads every level through one query shape.
-  `Server.sessions`, `Server.windows`, `Server.panes`, `Server.clients`,
-  `Session.windows`, `Session.panes` and `Window.panes` return a `Query<'T>`;
-  `Query.where`, `Query.showing` and `Query.whereUnsafe` narrow it, and
-  `Query.list`, `Query.exactlyOne`, `Query.tryExactlyOne` and
-  `Query.atMostOne` read it. Building a query reads nothing. (#51)
-- `Query.list` passes a typed filter to tmux's `-f` where tmux can evaluate
-  it, then rechecks every row, so a listing reads only rows that can match.
-  Client listings are narrowed from tmux 3.4. (#51)
-- `Query.atMostOne` returns `None` only when nothing matched and raises on
-  several, for finding an object or creating it. Under NativeAOT, read one
-  row with it or `Query.tryExactlyOne`: FSharp.Core formats the `Result`
-  from `Query.exactlyOne` through `printf`, which NativeAOT publication
-  rejects. (#51)
-- `LibTmux.FSharp.Filter` adds `ne`, `eqIgnoreCase`, `startsWithIgnoreCase`,
-  `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`,
-  `matches`, `matchesIgnoreCase`, `lt`, `le`, `gt`, `ge` and `notOneOf`.
-  (#51)
 - Queries filter on a pane's index, title, working directory, size, position
   and edges, a window's index and size, `SessionFields.windowCount` and
   `WindowFields.paneCount`, in C#, F# and the version 1 query schema. (#51)
-- `Query.showing` and `LibTmux.FSharp.Pane.findOnScreen` search a pane's
-  visible rows with tmux's own search, as `find-window -C` does. (#51)
-- `Server.SearchClientsAsync` lists the clients a raw tmux filter keeps. It
-  needs tmux 3.4. (#51)
 - `QueryExtensions.Translate` accepts `StartsWith`, `EndsWith`, `Contains`
   and `Equals` with `StringComparison.Ordinal` or `OrdinalIgnoreCase`, and
   query documents gain `startsWithOrdinalIgnoreCase`,
   `endsWithOrdinalIgnoreCase` and `containsOrdinalIgnoreCase`. (#51)
-- `Pane.WaitForTextAsync` and `Pane.WaitUntilAsync` wait for pane output, or
-  a condition over the visible rows, without polling. They end early when the
-  pane's program exits or a full-screen program starts. (#51)
-- `Pane.SendKeysAndWaitAsync` and `Pane.SendTextAndWaitAsync` send keys and
-  wait for what the pane prints next. The earlier screen and the typed line's
-  echo do not count. (#51)
-- `Pane.RunAsync` runs a command at a POSIX shell prompt and returns its exit
-  status and output. (#51)
-- `LibTmux.FSharp.Pane` adds `sendAndWait`, `sendAndWaitFor`, `waitForText`,
-  `waitFor`, `waitUntil` and `run`. (#51)
 - `ServerMirror` keeps a live copy of a server's sessions, windows, panes and
   clients, recaptured on each change tmux announces and optionally on an
   interval. `LibTmux.FSharp.Mirror` wraps it. (#51)
@@ -698,63 +344,9 @@ few F# functions are replaced by queries and streams; see Removed.
 - `Server.Within(TimeSpan)` returns a handle over the same connection whose
   commands, and those of every handle taken from it, carry that timeout.
   `LibTmux.FSharp.Server.within` wraps it. (#51)
-- `LibTmux.FSharp.Server.newSession` creates a session described by
-  `SessionSpec`, `WindowSpec` and `SplitSpec` records. (#51)
-- `LibTmux.FSharp.Chain` runs a pipeline of named steps, `newWindow`,
-  `splitLeftRight`, `splitTopBottom`, `sendLine` and `arrange`, in one tmux
-  call. (#51)
-- `LibTmux.FSharp.TmuxFailure` matches a failure as `NotSent`, `Ran` or
-  `MayHaveRun`, and `Retry.ifNotSent` repeats an operation only when nothing
-  it sent reached tmux. (#51)
 - `PaneObservation.WatchAsync` follows several panes through one control
   client. `LibTmux.FSharp.Control` adds `watchPanes`, `watchPane`, `events`,
   `enterSession` and `cleanupFailure`. (#51)
-- A control client keeps notifications through a flooding pane: a full buffer
-  drops that pane's oldest output first, `TmuxEventsDroppedEvent.OnlyOutput`
-  says no notification was lost, and tmux pauses the pane until the reader
-  catches up. (#51)
-
-### Fixed
-
-- `LibTmux.Testing` gives each default test scope its own tmux socket, so
-  parallel scopes cannot stop one another's servers. (#36)
-- Disposing an `OwnedServerScope` returns once the tmux server process has
-  exited, not when `kill-server` answers. (#51)
-- `LibTmux.FSharp` loads in a project built with the .NET 8 SDK, where it
-  failed with `FileNotFoundException`. It now requires FSharp.Core 8.0.100 or
-  later. (#51)
-- `LibTmux.FSharp` task functions no longer resume on the caller's
-  `SynchronizationContext`, so blocking on one from a UI thread cannot
-  deadlock. (#51)
-- The MCP server's `wait_for_text` reports `PaneDied` as soon as the pane's
-  program exits, and reads the pane once more before it reports a timeout.
-  (#51)
-- The MCP server's `run_shell_command` checks a command that outlived its
-  timeout every 5 seconds, not every 100 ms. (#51)
-
-### Changed
-
-- **`%pause` and `%continue` arrive as `TmuxPanePausedEvent` and
-  `TmuxPaneContinuedEvent`, not `TmuxNotificationEvent`.** Match the typed
-  events instead of the names `pause` and `continue`. (#51)
-- `PaneObservation.WatchAsync` passes through the watched pane's pause and
-  continue events, which bracket output it did not receive. (#51)
-- `Filter.oneOf`, `Filter.anyOf` and `Filter.allOf` accept an empty list:
-  `oneOf []` and `anyOf []` match nothing, and `allOf []` matches everything.
-  (#51)
-- `Query.matching` and `Filter.toPredicate` no longer require unreferenced
-  code, so trimmed and NativeAOT applications can call them. (#51)
-
-### Removed
-
-- **`LibTmux.FSharp.Server.listPanes` is removed.** Use
-  `server |> Server.panes |> Query.list ct`. (#51)
-- **`LibTmux.FSharp.Query.matchingWithCancellation` is removed.** Use
-  `Query.matching`, or `Filter.toPredicate` in a sequence the caller can stop.
-  (#51)
-- **`LibTmux.FSharp.Control.iterEvents` and `foldEventsWhile` are removed.**
-  Use `Control.events` with `Control.iter` or `Control.foldWhile`, which take
-  any `IAsyncEnumerable`. (#51)
 
 ### Development
 
@@ -784,52 +376,16 @@ and clearer errors when it cannot prompt.
 
 ### Added
 
-- `tmux-workspace --help` ends with examples for the command it describes,
-  and every command has them. `--generate reference` gives each command a
-  usage line, its arguments and options with their value names, and the same
-  examples; `--generate man` writes NAME, SYNOPSIS, and a section per command.
 - **A package downloaded from nuget.org can be verified.** nuget.org's
   repository signature changes a package's digest, so `gh attestation verify`
   found nothing for the file a restore downloads, including every
   `0.0.0-alpha.16` package. Releases now also attest each package as nuget.org
   serves it; SECURITY.md shows the command.
-- `LibTmux.FSharp` adds curried task helpers, typed portable filters,
-  option-valued lookups and cardinality results over existing `LibTmux`
-  handles and snapshots. It pins the matching `LibTmux` version;
-  `Selection.exactlyOne` is unsupported under NativeAOT. (#35)
 
 ### Fixed
 
-- **Control mode no longer ends the session when a pane prints bytes that are
-  not UTF-8.** tmux sends such bytes raw, and the reader threw
-  `TmuxProtocolException`, which ended the session and every pending command.
-  They now arrive as `\xNN`, as one-shot capture already reports them, and a
-  `TmuxOutputEvent` keeps that text.
-- `tmux-workspace` no longer wraps its human output at 80 columns when stdout
-  is not a terminal, which split a long path a pipeline was reading.
-- A `tmux-workspace` prompt that has no terminal to ask on names the option
-  that answers it — `--yes` or `--save-to` for a save, the session name for
-  `freeze` — in its `input_required` error.
 - `LibTmux.Extensions.DependencyInjection`'s README installed it without
   `--prerelease`, which finds no version while every release is an alpha.
-- `PaneObservation.WatchAsync` now ends for an already-gone pane or after a
-  dropped departure notice, delivering buffered output before the pane-gone
-  event. (#35)
-- `IControlModeSession.Events` leaves the next retained event for another
-  reader when a consumer stops after a dropped-events notification. (#35)
-
-### Changed
-
-- **`IControlModeSession.SendAsync` rejects direct foreground `run-shell`,
-  `run` and their command-name prefixes before dispatch.** Unframed shell
-  output can corrupt the control stream. Use `Server.RunShellAsync` for output
-  and exit status where tmux returns them; tmux 3.3a and 3.4 may write output
-  to pane view mode. Direct `run-shell -b` remains available. (#35)
-- `PaneObservation.WatchAsync` now throws `NotSupportedException` after
-  confirming pane departure on a custom control session without an event
-  watermark. Use a core control session to preserve output order. (#35)
-
-### Removed
 
 ### Development
 
@@ -849,134 +405,14 @@ each used to report success.
 
 ### Added
 
-- Ship `LibTmux.Workspace.Cli` as a .NET tool (`tmux-workspace`), the same
-  framework-dependent tool package as `LibTmux.Mcp`. It discovers, loads,
-  captures, converts and imports tmuxp workspaces, with `--json` and
-  `--ndjson` machine output, terminal load progress and generated shell
-  completion. `freeze` writes only where `--save-to` names it to, and
-  otherwise returns the document in machine output. (#26)
 - `LibTmux.Server` exposes `EndpointArguments`, `BuildGuardedCommandLine`,
   `IsValidLayoutCandidate` and `ValidateLayoutsAsync`, and `ServerGeneration`
   exposes `Parse` and `DisplayFormat` -- the pieces `tmux-workspace` assembles
   a guarded command line, checks a layout candidate and addresses one server
   generation with. (#26)
-- `load` resolves and authenticates its tmux context before building
-  anything: an attached load outside the invoking server, one aimed at a
-  `-L`/`-S` naming a different server, or an unparsable `TMUX` is refused
-  `usage`, exit 2, with nothing created. See "Commands and output" in the
-  CLI README for the exact refusal matrix. (#26)
-- With stdin a terminal, `load` asks before creating, switching to or
-  attaching a session, and `freeze`, `convert` and `import` ask before
-  overwriting a file; `--save-to` and `--force` skip the prompt. Where this
-  tool has no way to ask -- machine output, or no terminal at all --
-  `confirmation_required`, `input_required` and `input_closed` report
-  `usage`, exit 2, instead. (#26)
-- **A `load` that fails removes only the session it created.** Cancellation
-  (SIGINT/SIGTERM) is not a known failure and leaves the session standing,
-  so a cleanup path racing the same signal cannot destroy what a user can
-  see and remove. Reusing an existing session compares it against the
-  document and reports `session_mismatch` when a declared window is
-  missing; `results[]` carries one record per attempted input, each with a
-  `reused` boolean. (#26)
-- `load` creates a window's panes in configuration order -- including three
-  or more panes -- and honors `pane-base-index` for their starting index,
-  explicit window and pane focus, and tmuxp window options. It validates
-  every custom and named layout before running a script or changing tmux
-  topology, and resolves YAML merge keys and inert `x-` extension keys. See
-  "Commands and output" in the CLI README for where it deliberately differs
-  from tmuxp. (#26)
-- `load` skips the pane-readiness wait when `workspace_builder_options:
-  {pane_readiness: never}` is set, warns rather than refusing on an
-  unrecognized `workspace_builder_options` key, and warns when a
-  `start_directory` is not a directory, naming the path and tmux's `$HOME`
-  fallback. (#26)
-- `--append` honours a window's `window_index`, failing the load on a
-  collision (`tmux_failed`, exit 1, naming the windows it kept); a session
-  `load` creates is sized from the terminal it runs in
-  (`TMUXP_DEFAULT_COLUMNS`/`ROWS`, else `COLUMNS`/`ROWS`, else 80x24),
-  overridden by the real terminal size unless `TMUXP_DETECT_TERMINAL_SIZE`
-  disables detection. (#26)
-- `load`, `freeze`, `convert` and the importers share one machine-output
-  envelope under `--json`/`--ndjson`, carrying `schema_version` and
-  `status`; `freeze` answers under `workspace`, `convert` and `import`
-  under `document`. Every code is `lower_snake_case`, grouped under "Error
-  codes" in the CLI README; a refusal about how or where the command was
-  invoked is `usage`, exit 2, and an unhandled exception is
-  `internal_error`, exit 70. `--ndjson` additionally streams
-  `window-completed`/`pane-completed` events and brackets a
-  `before_script`'s output between `script-started` and `script-completed`.
-  (#26)
-- `freeze` marks the document it writes with `x-capture-lossy: true`,
-  writes window options under `options_after` (`load` accepts either
-  spelling), refuses a session name `load` would reject, and reports
-  `session_not_found` against a socket whose server has not started. It
-  reads the invoking pane from `TMUX_PANE` only when `TMUX` names the
-  selected endpoint -- pane identifiers are numbered per server -- and
-  otherwise captures that endpoint's only session or asks for one by name.
-  (#26)
-- `search` matches workspace names and configuration fields with .NET
-  regular expressions under a one-second timeout; a pattern that fails to
-  compile or spends the timeout is refused as `usage`, exit 2, naming the
-  pattern and, for a timeout, offering `--fixed-strings`. `--word-regexp`
-  bounds the whole pattern, so every branch of an alternation matches as a
-  word. (#26)
-- `shell` opens a Python REPL over the workspace API, selecting among
-  `best`, `pdb`, `code`, `ptipython`, `ptpython`, `ipython` and `bpython`
-  backends; it requires tmuxp **1.74.0**, selected through
-  `TMUX_WORKSPACE_PYTHON`, and caps retained child output at 64 Ki
-  characters per stream with truncation reported explicitly. (#26)
-- `ls` discovers workspaces by walking up from the working directory for a
-  local `.tmuxp.{yaml,yml,json}` and listing the global directory
-  (`TMUXP_CONFIGDIR`, XDG configuration, or the legacy `~/.tmuxp`),
-  excluding hidden files; a bare workspace name resolves the same way.
-  `--tree` groups results by directory and `--full` includes window, pane
-  and full configuration detail. (#26)
-- `convert` and `import` report `invalid_workspace` for a document that
-  exists but cannot be read, the same class of problem as one that cannot
-  be parsed. `convert` quotes every string scalar a YAML 1.1 (PyYAML/tmuxp)
-  or 1.2 resolver would otherwise read back as a boolean, null, integer or
-  float. `import tmuxinator` refuses ERB templates before printing or
-  saving a workspace, since Tmuxinator expands them through Ruby and no
-  native reader does; `import teamocil` keeps the same markup as ordinary
-  text, since Teamocil evaluates no templates. (#26)
-- `import teamocil` preserves command groups, window options and the first
-  requested window or pane focus. `import tmuxinator` keeps a window's
-  command array in one pane unless the source lists explicit panes. Both
-  preserve `pre_window` and window `pre` conditional command ordering and
-  the source's before/after command synchronization. (#26)
-- `edit` opens a workspace file in `$EDITOR` and reports its exit status,
-  captured output and truncation under the shared machine envelope;
-  `debug-info` reports the .NET runtime, platform, tmux version and the
-  workspace configuration directories searched, masking `$HOME` in every
-  reported path. (#26)
-- Attachment and progress have Linux and macOS implementations. `--log-file`
-  accepts Linux x64 and arm64. Progress and logging have been verified on
-  Linux x64; other implemented platforms still need verification. (#26)
-- `--generate reference` exports command metadata as Markdown, or as
-  structured JSON under `--json`; `--generate man|bash|zsh|fish` exports a
-  manual page or shell completion. Generated bash, zsh and fish completion
-  scope each flag to its own subcommand, including nested ones (`import
-  teamocil`/`import tmuxinator`); global flags (`--json`, `--ndjson`,
-  `--color`) complete everywhere. (#26)
-- Every command restores the application cursor-key and keypad mode
-  (DECCKM, DECKPAM) that `System.Console` initialization enables on Unix,
-  and `--color never` leaves a real terminal free of colour. (#26)
-- `-d` always builds a new detached session, even with `--append`, matching
-  tmuxp's precedence; pass `--append` alone to append. (#26)
-- `load` accepts `-2` for 256 colors; legacy `-8`/`--88-colors` requests are
-  refused (`unsupported-color-mode`, exit 2) before reading a workspace file
-  or running tmux or Python, since every supported tmux version rejects
-  88-color mode. (#26)
 
 ### Fixed
 
-- `WorkspaceBuilder` rebalances between splits, so a window of five or more
-  panes builds at 80x24 instead of failing with "no space for a new pane".
-  (#26)
-- `WorkspaceBuilder` applies a window's layout before sending any command
-  into its panes, rather than after. (#26)
-- `WorkspaceBuilder` waits for a pane's prompt under any session
-  `default-shell`, not only zsh, before sending its first command. (#26)
 - A malformed custom layout could reach tmux unchecked through
   `Server.Chain()`, `WorkspaceBuilder` or `Window.SelectLayoutAsync`, which
   only checked that a custom layout's checksum prefix was well-formed, not
@@ -987,31 +423,6 @@ each used to report success.
   dispatches. Layout checks infer release-candidate capabilities at their
   release boundary and keep `next-X.Y` below `X.Y`, without changing public
   version ordering or stable-only capability projections. (#26)
-- `Server.GetClientsAsync` no longer returns an empty list for a real
-  failure. It caught every `LibTmuxException` and answered `[]`, the same
-  result as the ordinary no-clients case, so a genuine tmux failure or an
-  undiscovered server generation read as an empty client list. It now
-  answers empty only when no clients are attached, and lets
-  `IncompleteSnapshotException`, `InvalidOperationException` and
-  `TmuxCommandException` propagate. (#26)
-- `Server.KillSessionAsync` ends only the session with exactly that name. It
-  sent the name as a bare target, which tmux matches as a prefix, so killing
-  `doom` when only `doomsday` existed ended `doomsday` and reported success --
-  taking the server down with it if that was its last session. A name no
-  session carries now throws. (#26)
-- `Server.AttachSessionAsync` attaches only to the session with exactly that
-  name, for the same reason: a bare name attached to any session that merely
-  started with it. A session id is still addressed as given. An explicit
-  name is now validated the same way `Server.CreateSessionAsync` validates
-  one -- previously passed to tmux unchecked. (#26)
-- `TmuxVersion.Parse` reads a release candidate reported without a number,
-  as tmux 3.8's `3.8-rc` is, where it threw. It ranks below any numbered
-  candidate and below the release. (#26)
-- `Server.CreateSessionAsync`, `Server.HasSessionAsync`,
-  `Server.KillSessionAsync`, `Server.AttachSessionAsync` and renaming a
-  session refuse a name holding a control character, as the workspace tool
-  already did: such a name cannot round-trip through a document a person
-  reads or types. (#26)
 
 ## [0.0.0-alpha.15] — 2026-09-20
 
@@ -1026,66 +437,12 @@ migrations below.
   sidebar already linked and which returned 403 until now. libtmux.org's own
   assembly builds the tree, reading this checkout for the sources its examples
   quote. (#21)
-
 - `docfx.json` at the repository root, which extracts `LibTmux`,
   `LibTmux.Query.Json`, and `LibTmux.Workspace` from their XML documentation
   comments for the API reference libtmux.org publishes at
   `/en/reference/dotnet/`. `LibTmux.Mcp` is excluded: it packs as a tool and
   ships no assembly to reference, so its documented surface is the MCP tool
   list in `docs/mcp/tools.md`. (#21)
-
-- `Server.SnapshotMetadata` exposes acquisition depth, server generation,
-  timestamps and elapsed time. (#33)
-
-- `SendKeysRequest.ToCommands(pane)` supports chaining text and Enter together.
-  `ExecuteAsync(pane, control)` sends both through a control session. (#33)
-
-- `Pane.CurrentCommand` and `Pane.CurrentPath` expose captured values without
-  tmux I/O. Uncaptured fields throw `IncompleteSnapshotException`. (#33)
-
-### Fixed
-
-- `Server.CaptureSnapshotAsync` preserves the captured root, parents and active
-  children, including repeated window links in one session. Linked sessions
-  appear once each. (#33)
-
-- `Server.CaptureSnapshotAsync` rejects contradictory placements and child
-  counts with `InconsistentSnapshotException`, without returning a partial
-  snapshot. (#33)
-
-- `CapturedRelation.OrEmpty()` prevents callers from modifying captured
-  children through a collection cast. (#33)
-
-- `Window.MoveAsync`, `LinkAsync` and `UnlinkAsync` reject a source index that
-  now belongs to another window. Typed move and link commands retain this
-  protection in chains and control sessions. (#33)
-
-- `Window.MoveAsync` returns the affected placement after moves and renumbering,
-  including repeated links and detached moves. Failed readback reports unknown
-  dispatch state; do not retry the move. (#33)
-
-- `SendKeysRequest.ExecuteAsync(pane)` sends the requested Enter after the
-  text. (#33)
-
-- Query `pane_command` binds to `Pane.CurrentCommand` on returned
-  entities. (#33)
-
-### Changed
-
-- `Server.CaptureSnapshotAsync(SnapshotDepth.Server)` verifies the live server
-  generation on every capture. All depths honor cancellation before returning
-  a snapshot. (#33)
-
-- **`SendKeysRequest.ToCommand(pane)` rejects text-plus-Enter requests.** Use
-  `ToCommands(pane)` for both commands, or set `Enter = false` for a single
-  command. (#33)
-
-- **`WindowEntityKey` requires a window index as its third constructor
-  argument.** Include the captured index when constructing or deconstructing
-  a key to distinguish repeated links in one session. (#33)
-
-- `Pane.SendTextAsync` and `SendKeysRequest` reject NUL text before sending any
-  command. (#33)
 
 ## [0.0.0-alpha.14] — 2026-09-20
 
@@ -1098,124 +455,14 @@ published. No other changes.
 its publish step, so `0.0.0-alpha.13` does not exist on nuget.org. Every change
 below ships in `0.0.0-alpha.14`; pin that instead.
 
-### Added
-
-- `LibTmux.Extensions.DependencyInjection` adds `services.AddLibTmux()` for
-  registering a lazy server handle and configuring its connection through .NET
-  options. (#28)
-
-- `ServerConnectionOptions.Interceptor` lets an application inspect, replace or
-  retry process-based tmux commands. (#28)
-
-- `TmuxDiagnostics` exposes command tracing and duration measurements for
-  OpenTelemetry subscribers. (#28)
-
-- `ServerConnectionOptions.CommandTimeout` bounds each tmux command, including
-  connection. It is unset by default. (#28)
-
-- `MaxCapturedBytesPerStream` and `ControlModeEventBufferCapacity` provide
-  opt-in limits for captured output and queued control events. (#28)
-
-- `Pane.Left`, `Pane.Top` and `Window.Layout` expose captured geometry. (#28)
-
-- `PaneObservation.WatchAsync` streams one pane's events and ends with
-  `TmuxPaneGoneEvent` when the pane disappears. (#28)
-
-- `ControlModeSubscriptions.SubscribeSessionAsync` subscribes to session format
-  changes, including on tmux 3.8 and later. (#28)
-
-- MCP `wait_for_text` reports `PresentAtEntry` when the wanted text was already
-  visible before waiting. (#28)
-
-- `PaneId`, `WindowId` and `SessionId` support .NET parsing interfaces and
-  span-based parsing. (#28)
-
-### Fixed
-
-- `Server.GetSessionAsync`, `GetWindowAsync` and `GetPaneAsync` return scalar
-  fields ready to read without a refresh. (#28)
-
-- `RawFormatFields` prevents mutation of captured state through a dictionary
-  cast. (#28)
-
-- **Live listings now throw on read failure, including an absent daemon.** Empty
-  results mean a successful read; command failures retain tmux's stderr. (#28)
-
-- **Unreadable tmux replies now throw `LibTmuxException` subclasses with
-  dispatch state.** Catch `TmuxProtocolException` for malformed replies. (#28)
-
-- Snapshots preserve each linked-window placement; live window reads target the
-  captured session and index. (#28)
-
-- `Server.CreateOwnedAsync` returns a handle whose listings and accessors
-  discover the server it started. (#28)
-
-- `Server.Version` and `TmuxCapabilities` recognise rolling `next-X.Y` tmux
-  builds. (#28)
-
-- `Window.SelectLayoutAsync` accepts unambiguous preset prefixes and, on tmux
-  3.8 and later, JSON layouts. (#28)
-
-- `EnterControlModeAsync` requests JSON layout notifications on tmux 3.8 and
-  later. (#28)
-
-- Targeted display messages, command prompts, server access and prompt history
-  operations accept tmux 3.3, where they became available. (#28)
-
-- MCP `wait_for_text` masks known input echoes without hiding unrelated output.
-  (#28)
-
-- MCP session queries exclude their observation client from attachment counts.
-  (#28)
-
-- MCP `get_server_info` returns a null version when its server has exited. (#28)
-
-- `Server.WaitForAsync` preserves progress for later lockers when a lock wait is
-  cancelled. (#28)
-
-- Caller text beginning with `-` is passed literally to tmux, including
-  environment names and their readback. (#28)
-
-- Command logs identify the socket used. (#28)
-
 ### Changed
-
-- **Request and connection options use object initializers for optional
-  values.** Keep required request arguments in constructors. (#28)
-
-- **Requests build commands through `ToCommand`.** Replace static
-  `TmuxChaining.ToCommand` calls with the request method. (#28)
-
-- **Active-child properties return `CapturedValue`.** Use `Value`, `TryGetValue`
-  or `OrNull` to distinguish captured children from unavailable state. (#28)
-
-- **Scoped `GetWindowAsync` and `GetPaneAsync` throw when no match exists.** Use
-  `FindWindowAsync` or `FindPaneAsync` for nullable results. (#28)
-
-- **`Server.ThrowIfDeadAsync` replaces `RaiseIfDeadAsync`.** Update calls to the
-  new name. (#28)
-
-- **Test scopes move to the `LibTmux.Testing` package.** Add that package to
-  projects using the testing helpers. (#28)
-
-- **`TmuxWait` moves to the `LibTmux` namespace.** Update the namespace import.
-  (#28)
 
 - **Query documents are created through `QueryExtensions.Translate`, with
   read-only metadata.** Use `Compile`, `Matching` or JSON interchange instead of
   constructing predicate nodes. (#28)
-
 - **Invalid query documents throw `UnsupportedQueryExpressionException`.** Catch
   that exception for schema and semantic errors; malformed JSON still throws
   `JsonException`. (#28)
-
-- **Buffer and key operations move to `Server.Buffers` and `Server.Keys`.**
-  Replace direct server-method calls with the corresponding table methods. (#28)
-
-- **MCP `TmuxServerInfo.SocketName` now contains only a socket name.** Read the
-  new `SocketPath` property for a path-selected server. (#28)
-
-### Removed
 
 ### Development
 
@@ -1226,64 +473,15 @@ below ships in `0.0.0-alpha.14`; pin that instead.
 
 ## [0.0.0-alpha.12] — 2026-09-12
 
-### Added
-
-- `Session.GetWindowAsync` accepts a `WindowId`. The string overload matches
-  `window_id` or `window_name`, and two windows in one session can share a
-  name; the typed overload matches the identifier alone. (#25)
-
-### Fixed
-
-- **`==` on `Server`, `Session`, `Window`, `Pane` and `Client` now compares
-  identity rather than reference.** Equality for these has always been the
-  server generation plus the typed ID, and `Equals` implemented it, but neither
-  operator existed — so two handles read for the same tmux object answered
-  `true` from `Equals` and `false` from `==`. All five now carry `==`, `!=` and
-  `IEquatable<T>`. (#25)
-
-- `SessionId`, `WindowId` and `PaneId` no longer throw when sorted. They are
-  record structs, which carry equality and no ordering, so `OrderBy` and
-  `Array.Sort` failed at run time with `InvalidOperationException` reporting
-  only that two elements could not be compared. All three implement
-  `IComparable<T>` and `<`, `<=`, `>`, `>=`, ordering by the number tmux
-  issued. (#25)
-
-### Changed
-
-- **`TmuxOutputEvent.PaneId` is a `PaneId`, not a `string`.**
-
-  - Previous behaviour: the property named `PaneId` was typed `string`, so
-    matching pane output to a handle meant parsing the text back.
-  - New behaviour: it is a `PaneId`. An `%output` line whose first word is not
-    a pane identifier arrives as a `TmuxNotificationEvent`, named but unparsed,
-    because a throwing parse in the pump faults the whole event stream rather
-    than one event.
-  - Reason: control mode is where output is correlated to a held handle, and it
-    was the one place the typed model stopped.
-  - Recommended action: drop any `PaneId.Parse` at the call site; compare with
-    `pane.Id` directly.
-
-  (#25)
-
-- `PaneActivityHub` keys pane wakeups by `PaneId`. The map was keyed by text, so
-  every `%output` event rendered the identifier back to a string to look one up
-  — an allocation per chunk a pane wrote. `CaptureSignal` now returns `null` for
-  text that is not a pane identifier, which sends the caller to the polling path
-  rather than to a wait nothing will end. (#25)
-
-### Removed
-
 ### Development
 
 - The listed-entity validator tests disposal rather than every interface. It
   read any interface on `Server`, `Session`, `Window`, `Pane` or `Client` as
   "listed entity is disposable", while the check after it already tested public
   `Dispose` and `DisposeAsync` members. (#25)
-
 - **Every CI job carries a timeout.** A job that stopped making progress ran to
   GitHub's six-hour ceiling; the advisory macOS lane reached fifty minutes
   against a median under two. Each job now fails in minutes instead. (#24)
-
 - **The advisory macOS lane runs after merge, not on every pull request.** It is
   `continue-on-error`, so it never gated a merge — it only spent macOS minutes
   at ten times the Linux rate. Pushes to master and manual dispatch still
@@ -1295,395 +493,35 @@ below ships in `0.0.0-alpha.14`; pin that instead.
 its publish step, so `0.0.0-alpha.11` does not exist on nuget.org. Every change
 below ships in `0.0.0-alpha.12`; pin that instead.
 
-### Added
-
-- `LibTmux.Mcp` advertises 45 tools, including 14 in the `manage` toolset, from
-  one immutable capability registry. Every tool carries conservative protocol
-  annotations. Its `_meta` capability object and the static
-  `tmux://capabilities` resource carry matching non-protocol metadata for
-  process reach, tmux effects, output classes, trust, and input literalization.
-
-- `LIBTMUX_TOOLSETS`, `LIBTMUX_TOOLS`, and `LIBTMUX_EXCLUDE_TOOLS` freeze the
-  effective surface at startup. All subsets of `inspect`, `manage`, `execute`,
-  and `teardown` are valid; exact-name exclusions apply last.
-
 ### Fixed
-
-- **`run_shell_command` reaches only the pane it names.** It sent its payload
-  with `send-keys`, which tmux fans out to the synchronized cohort, and
-  defended its singular exit status by refusing whenever the cohort was larger
-  — advice a caller could not follow, and still a check against a later send.
-  The payload now travels through a tmux buffer, which writes straight to the
-  named pane, so the outcome is singular by construction and the refusal is
-  gone. Under a process toggling `synchronize-panes` every 10-50ms, measured
-  across 40 runs: 6 leaks before, none after, and 40 calls completed rather
-  than 23.
 
 - The private MCP config swapper sets its lock file's mode after creating it.
   `openat` is variadic in C, and Apple's arm64 ABI passes a variadic argument
   on the stack rather than in a register, so the 0600 the lock was created with
   never reached the kernel there and every swap failed its own ownership check.
-
-- **A run reports what the command printed, not the prompt drawn after it.**
-  The output window was bounded on the left only, by the marker the run prints
-  before the command, so the shell's next prompt fell inside it. A prompt
-  narrower than the pane was absorbed by the since-baseline diff and hid this;
-  one carrying a deep path wraps into two rows and was reported as two lines of
-  output the command never printed. The run now prints an end marker once the
-  status is saved and reports only what lies between the two.
-
-- **An empty identifier is refused rather than read as the current object.**
-  Null still means the current pane, window or session; `""` used to mean the
-  same, so `kill_window(windowId: "")` destroyed the active window and
-  `send_keys(paneId: "")` typed into whatever pane was active anywhere on the
-  server.
-
-- **A direct call is held to the schema it published.** Every tool declares
-  `additionalProperties: false`, which only the batch path enforced: the SDK
-  dropped an undeclared argument, coerced `"5"` where an integer was declared,
-  and let a wrong type reach the caller as System.Text.Json prose. Declared
-  integers now carry their type's range, so a value beyond `Int32` is refused
-  by the schema rather than by the binder.
-
-- **Nesting cannot widen a selection.** `call_read_tools_batch` trimmed its
-  declared authority by `LIBTMUX_EXCLUDE_TOOLS` alone, so naming the batch in
-  `LIBTMUX_TOOLS` while the toolsets omitted `inspect` published a batch that
-  still reached all sixteen inspect tools. A batch left with no authority is
-  no longer published at all.
-
-- **The synchronized cohort holds only the panes tmux would reach.** tmux gates
-  delivery on more than `synchronize-panes`: a dead peer, a peer with input
-  disabled, and every hidden pane of a zoomed window are skipped. A source that
-  receives nothing is refused rather than reported as sent.
-
-- **`show_option` sees the options a server was configured with.** It asked for
-  values set at exactly the scope named, and `set -g` is where nearly all tmux
-  configuration lives, so a configured server read as unconfigured. Inherited
-  values are included and marked, and the scope in the result means where the
-  read asked rather than where the value was set.
-
-- **Refusals name what a caller can act on.** The three selection knobs are
-  distinguished rather than all reported as a disabled toolset; the pattern
-  subset is described as linear-time rather than as ".NET regular expressions"
-  it then refuses; and the mutation warning no longer follows a command tmux
-  said it refused, nor appears twice in one message.
-
-- `wait_for_channel` answers with `signalled`, `elapsedSeconds` and
-  `effectiveTimeoutSeconds`, so a timeout and a signal are told apart without
-  matching prose. A misconfigured environment exits with its message and status
-  1 instead of an abort and a stack trace. `swap_pane` refuses a pane and
-  itself, `maxLines` below one is refused rather than answered with nothing,
-  and `droppedBytes` documents that it counts pane text while the budget bounds
-  the serialized result.
-
-- **`show_environment` no longer returns values by default.** Omitting `name`
-  answers every variable's name, `hasValue`, and `isRemoved` and no values.
-  Naming one variable answers its value unless the name reads as a credential,
-  which reports `withheld` instead. The tmux server environment is server-wide
-  and outlives every session on the socket.
-
-- **`isCaller` and `callerPaneId` are verified against the socket the pane
-  belongs to.** tmux numbers panes per server, so `TMUX_PANE` alone marked an
-  unrelated pane on the pinned socket as the terminal the conversation runs
-  through, and left the real one unmarked. The "you are here" instruction
-  segment answers to the same check.
-
-- **`move_window` refuses `replaceExisting` unless `kill_window` is enabled.**
-  tmux `move-window -k` kills whatever holds the destination index, which the
-  default `manage` toolset could reach without the teardown gate. A move that
-  does replace now says what it killed.
-
-- **A running server holding no sessions answers instead of failing.** tmux
-  refuses `list-windows -a` and `list-panes -a` with "no current target" when
-  no session exists, which reached callers as raw command failures across
-  eleven read tools. `get_server_info` reports zero counts and keeps the tmux
-  version.
-
-- Failure advice reads a tool's declared effects rather than the deliberately
-  pessimistic `readOnlyHint`, so a failing read is no longer described as
-  possibly having changed tmux. A refusal this server wrote keeps its own
-  message instead of gaining the unexpected-failure backstop, and tmux's own
-  wording is ended before the mutation warning is appended to it.
-
-- The four spawning tools report where a pane actually started when tmux could
-  not use the requested `startDirectory`; tmux falls back to `HOME` and then
-  `/` without reporting an error.
-
-- `set_history_limit` takes a session rather than a window, because tmux keeps
-  `history-limit` at session scope; the previous window parameter silently
-  changed every window in the session.
-
-- The server instructions describe budget truncation and scrollback loss
-  separately, because `droppedLines` reads 0 when scrollback discarded output.
-
-- **MCP input refuses pane modes before mutation.** `send_keys` and each
-  `send_keys_batch` operation check the named source: effective
-  `pane_synchronized` `0` means source only, while `1` uses configured
-  effective-on membership from inherited window settings and pane overrides.
-  A modal cohort member refuses that operation. `paste_text` remains
-  target-only because buffer paste does not fan out.
-
-- **A failure reads the same whether it was called directly or inside
-  `call_read_tools_batch`.** The batch dispatches its inner operations itself
-  and never passed through the failure filter, so the same failure carried
-  advice one way and a raw message the other. Argument validation is treated
-  as the refusal it is, without the `(Parameter 'x')` suffix .NET appends.
-
-- **Tool descriptions carry the guidance that tells overlapping tools apart.**
-  Descriptions are built from the capability model, so the text written as
-  `[Description]` on `ReadTools` and `WriteTools` was never advertised — the
-  registered handlers are the `CapabilityTools` methods. `send_keys` reached
-  clients as "Send keys." Registered descriptions now route callers between
-  `send_keys` and `run_shell_command`, distinguish list tools from
-  `search_panes`, explain what `respawn_pane` reruns and what
-  `killExistingProcess` destroys, and state the modal-input boundary.
-
-- A null arriving for a declared input field is answered as bad input rather
-  than as an unexpected internal failure, and `wait_for_text` states that text
-  already on screen never matches.
-
-- Calling a tool whose toolset is not enabled says it was not selected instead
-  of "Unknown tool", and `select_layout` no longer warns that tmux may have
-  acted when it refused a layout name before sending anything.
-
-- **Capability rows say only what the protocol cannot.** They carried the
-  title, description, annotations and both schemas that a client already has
-  from `tools/list` and joins to by name. `tmux://capabilities` drops from
-  67,667 to 14,451 UTF-8 bytes of resource text with all four toolsets
-  selected, and the raw JSON-RPC `tools/list` response drops from 132,914 to
-  72,665 bytes. The duplicated output schema was also wrong:
-  `structuredContent` is an object, so a tool answering a list has its array
-  wrapped as `{"result": ...}`, and six rows described the bare array the
-  server never sends.
-
 - `SessionInfo` drops `width` and `height`; tmux removed the `session_width`
   and `session_height` formats in 2.9. A zero resize extent is refused
   alongside the negatives tmux already refused, an unknown layout is no longer
   reported as "tmux tmux <version>", and `wait_for_text` documents that text
   already on screen never matches.
 
-### Changed
-
-- **The MCP server now pins one socket and one configuration at startup.** Use
-  `LIBTMUX_SOCKET` for a socket name, `LIBTMUX_SOCKET_PATH` for an absolute
-  socket path, and `LIBTMUX_TMUX_CONFIG` for an explicit absolute tmux
-  configuration path. The default is the product-dedicated `libtmux-mcp`
-  socket with a minimal configuration. Replace the retired positional socket
-  argument with `LIBTMUX_SOCKET`.
-
-- **All MCP annotations are conservative.** Every advertised tool reports
-  read-only false, destructive true, idempotent false, and open-world true;
-  capability metadata carries the more precise process, effect, output, and
-  input-literalization model. Internal input-sink classifications remain CI
-  validation facts rather than public metadata.
-
-- **CM-7 trust limits are explicit.** Tool filtering shapes the interface, not
-  authorization; MCP annotations are consent metadata, not enforcement. A
-  selected socket scopes tmux objects, not an OS sandbox, and execute tools run
-  with the tmux user's authority.
-
-- `set_synchronize_panes` reports that it amplifies subsequent input, and
-  `send_keys` and `send_keys_batch` report preflight source or cohort
-  membership, not actual delivery.
-
-- Read batches retain every executed row while rolling back the newest nested
-  payloads needed to keep the complete response within 1,000,000 bytes.
-
-- Serialized MCP request IDs are capped at 524,288 bytes and rejected before
-  tool dispatch, keeping invalid-request replies bounded.
-
-- The default dedicated daemon is removed at MCP shutdown only when its
-  authenticated launch marker still belongs to that process.
-
-- Existing daemons report configuration provenance as unknown because tmux
-  does not reload a supplied configuration path into an already-running server.
-
-### Removed
-
-- **`LIBTMUX_SAFETY` and ordered MCP safety tiers are removed.** Remove the
-  variable and select unordered capabilities with `LIBTMUX_TOOLSETS`; merely
-  defining the retired variable now stops startup with a migration error.
-
-- **The MCP no longer advertises `enter_copy_mode` or `exit_copy_mode`.** Pane
-  modes belong to the attached human. Use `capture_pane`, `search_panes`,
-  `snapshot_pane`, and `capture_since` cursors to observe without entering,
-  driving, or cancelling a mode; wait for the human to leave before sending
-  input.
-
-- **The prior MCP jobs, prompts, dynamic hierarchy resources, subscriptions,
-  generic format expansion, server discovery, buffers, and server-wide kill
-  routes are removed.** Use the pinned 45-tool surface and the static
-  `tmux://capabilities` resource. The hierarchy, session, and pane URIs migrate
-  to typed list and capture tools; `tmux://self` migrates to `get_server_info`
-  and `list_panes`, while `tmux://servers` has no discovery replacement.
-
 ## [0.0.0-alpha.10] — 2026-08-30
 
-### Added
-
-- `TmuxChain.Then(IEnumerable<TmuxCommand>)` accepts a sequence without
-  requiring callers to unroll multi-command requests. (#18)
-
-- `Server.OpenWaitChannel` returns a `TmuxWaitChannel` whose open wait
-  survives repeated timed attempts and is withdrawn on disposal. `WaitAsync`
-  returning `false` means the attempt expired without observing attributable
-  completion; a racing signal may already have completed the wait. Concurrent
-  disposal joins the same cleanup. (#18)
-
-- `WorkspaceBuilder` accepts a readiness timeout and `PaneReadiness.Auto`,
-  `Always`, or `Never`, so callers choose whether pane commands wait for a
-  prompt-like state. (#18)
-
-- tmux 3.7c joins the supported matrix on both target frameworks. Stable
-  releases inside supported intervals no longer lose capabilities solely
-  because their exact patch version is absent from the catalog. (#18)
-
-### Changed
-
-- **`IControlModeSession.SendAsync` now takes a `TmuxCommand` instead of a
-  command-line string.** Construct or use a typed command; its arguments are
-  copied and NUL is rejected. tmux refusals now throw
-  `ControlModeCommandException` with the command, output, and error lines.
-  (#18)
-
-- **`LibTmux.Query.Json` now reads and writes the canonical `libtmux-query` v1
-  shape shipped in its schema.** Regenerate or migrate documents emitted by
-  earlier alpha builds before upgrading; unknown or duplicate members and
-  invalid fields or operators now fail at the boundary. (#18)
-
-- **The workspace model is immutable, and `WorkspacePane.ShellCommand` becomes
-  `ShellCommands`.** Construct `WorkspaceFile`, `WorkspaceWindow`, and
-  `WorkspacePane` instead of setting properties; supplied collections are
-  copied. `WorkspaceResult` freezes and compares collection contents. (#18)
-
-- **`WorkspaceBuildException.PartialResult` exposes the session, windows, and
-  panes created before workspace application failed.** Workspace builds are
-  nontransactional; inspect the partial result for targeted cleanup or retry.
-  (#18)
-
-- **`WorkspaceFile.Parse` now rejects unknown or duplicate keys, unsupported
-  tmuxp hooks and plugins, wrong value shapes, multiple documents, and
-  oversized input instead of ignoring them.** Use the documented closed subset
-  or run tmuxp for its Python features. (#18)
-
-- **`NewWindowRequest.ToCommand` now takes the owning `Session` instead of a
-  target string.** Pass the session so the command carries its server
-  generation. (#18)
-
-- **`JobStore` no longer implements `IDisposable`.** Dispose it with
-  `await using` or `DisposeAsync`; containers that own one must also dispose
-  asynchronously. (#18)
-
-- **`ServerSnapshot`, the non-generic `CapturedRelation` factories,
-  `SnapshotLookup`, `SnapshotCollectionExtensions`, `EnumConstant`,
-  `InstantConstant`, and `LibTmux.Internal.TmuxCommandContext` are no longer
-  public.** Use relations on materialized handles and LINQ `ToDictionary`; the
-  removed query constants and internal context had no supported evaluation or
-  construction path. (#18)
-
-- `Pane.RefreshAsync`, `Window.RefreshAsync`, `Session.RefreshAsync`,
-  environment resolution, and server identifier lookups read only the
-  requested entity instead of listing its whole hierarchy level. Linked
-  windows and panes remain scoped to the session that produced them. (#18)
-
-- **`tmux_wait_for_channel` moves from `readonly` to `mutating` and is marked
-  destructive.** A readonly MCP server no longer advertises it because
-  consuming a pending signal changes shared tmux state. (#18)
-
-- **`StaleServerGenerationException.Actual` is nullable.** Null-check it; a
-  replacement generation cannot always be observed safely. (#18)
-
-### Fixed
-
-- **`Client.IsControlClient` and the `client.isControlClient` query field use
-  tmux's `client_control_mode` value.** Control-mode clients are no longer
-  reported as ordinary clients. (#18)
-
-- Control-mode callers keep their own replies across concurrent commands,
-  aliases, hooks, cancellation, and disposal. Malformed or truncated streams
-  and pump failures now fault callers; request, output, pending-work, and
-  disposal bounds prevent unbounded retention. (#18)
-
-- Query evaluation preserves integer, null, typed-ID, relation-count, overload,
-  and invariant-regex semantics. Cancellable matching and fail-closed
-  structural limits apply before recursion, and trimmed or AOT consumers
-  retain required metadata. (#18)
-
-- Identifier and relation lookups return handles with their owning `Server`, so
-  their relations, options, and hooks work. A restarted endpoint is refused
-  rather than rebound to a reused object identifier. (#18)
-
-- Commands built from `Pane`, `Window`, `Session`, `TmuxOptions`, or
-  `TmuxHooks` retain their originating server generation and are refused after
-  a restart instead of acting on reused identifiers. (#18)
-
-- `tmux_wait_for_channel` and `tmux_run` withdraw timed-out registrations, so
-  retries no longer leave waiters that consume future signals. A signal racing
-  withdrawal remains pending and is reported as unattributable. Failures that
-  never registered preserve their original error without seeding a signal for
-  the next caller. (#18)
-
-- MCP shutdown asynchronously disposes factory-owned activity and job
-  resources, withdraws waits held by unfinished jobs, and leaves caller-owned
-  resources untouched. (#18)
-
-- MCP hierarchy subscriptions invalidate on active-window and client-session
-  changes, so existing subscribers receive the changed payload. (#18)
-
-- Workspace building preserves scalar and ordered pane commands, uses the first
-  pane's directory, lets the last focus flag win, reports rejected layouts,
-  and waits for readiness without injecting probe text into pane input. (#18)
-
-- `Pane.SendTextAsync` always sends literal text, so key-like words are not
-  interpreted as tmux key actions. (#18)
-
-- `Window.SelectLayoutAsync` rejects malformed custom layout prefixes before
-  dispatch instead of handing them to older tmux parsers. (#18)
+No entries that span packages.
 
 ## [0.0.0-alpha.9] — 2026-08-22
-
-### Added
-
-- **An experimental query-only psmux preview for native Windows and WSL
-  interop.** A separate analyzer-clean API reads one isolated session, its
-  windows and panes, and pane text without exposing tmux lifecycle, mutation,
-  chaining, control mode, or MCP behavior that psmux cannot preserve. The
-  accepted client is the `psmux.exe` published in the psmux `v3.3.8` release:
-  `PsmuxServer.SupportedBinarySha256` is that asset's SHA-256, and the commit
-  and clean banner are pinned beside it. The caller supplies the executable;
-  LibTmux never bundles, downloads, or searches `PATH` for one. The PowerShell
-  harness owns a fresh data directory and refuses ambiguous cleanup. Native
-  Windows and WSL runtime verification runs as a release gate. See [the exact
-  trust and compatibility boundary](docs/psmux.md).
-- **Explicit control-stream loss reporting.** A bounded event reader now gets a
-  `TmuxEventsDroppedEvent` with per-report and cumulative counts instead of
-  silently missing notifications when it falls behind.
 
 ### Changed
 
 - Generated API reference pages now contain only the public LibTmux surface,
   use each partial type's canonical summary, and are checked in CI alongside
   the public API, capability, snippet, and MCP catalogs.
-- MCP tail cursors are authenticated, bounded in size, and tied to the exact
-  endpoint, server generation, and pane. Search and every serialized tool
-  result now obey hard global line and UTF-8 byte ceilings.
-- MCP Tasks admit at most eight active executions, retain a bounded result set,
-  and apply only to waits and job collection.
 - **The `LibTmux` package README states tmux, framework and platform support
   in one table**, including what the Windows psmux preview reads and refuses.
 - **The `LibTmux.Mcp` package README is an onboarding path.** How the server
   behaves — what to wait on, what bounds a result, which tools a tier
   registers, what a subscription holds open — moved to
   [`docs/mcp/`](docs/mcp/README.md), beside the generated tool reference.
-- **`tmux_run` no longer answers as an MCP task.**
-
-  - Previous behaviour: a task-capable client received a task handle and
-    collected the result later.
-  - New behaviour: the call blocks until the command exits, for every client.
-  - Reason: an SDK task carries no durable tmux handle, so a client that
-    disconnected lost work it believed was parked.
-  - Recommended action: use `tmux_start_job` and `tmux_job`. tmux owns that
-    handle, so it survives a disconnect.
 
 ### Fixed
 
@@ -1691,9 +529,6 @@ below ships in `0.0.0-alpha.12`; pin that instead.
   primary error. MCP hierarchy and pane-activity streams keep independent
   subscribers, recover after a stream ends, and preserve nullable structured
   fields required by their advertised schemas.
-- MCP background jobs retain their originating endpoint and generation, cap
-  concurrent state, clean up failed starts, serialize collection, and drain
-  watcher tasks during disposal instead of leaking or cross-routing work.
 
 ## [0.0.0-alpha.8] — 2026-08-22
 
@@ -1744,52 +579,8 @@ IntelliSense text, and the page on nuget.org.
 
 ## [0.0.0-alpha.7] — 2026-08-16
 
-### Changed
-
-- **`LibTmux.Mcp` is a different server.** It offered five tools; it now offers
-  42, across three safety tiers, with four fixed `tmux://` resources, two
-  resource templates and four workflow prompts. Every shaped tool answers a
-  typed record with a JSON output schema; `tmux_display_message` returns the raw
-  expanded format text it was asked for. The tool names all changed —
-  `list_tmux` and friends are gone in favour of `tmux_hierarchy`, `tmux_run` and
-  the rest. [The reference](docs/mcp/tools.md) is generated from the server, so
-  it cannot describe a surface that is absent.
-
 ### Added
 
-- **Waiting instead of polling.** `tmux_run` composes a private tmux rendezvous
-  and a private pane option into the command, so "it finished" and "it exited
-  1" are facts rather than readings of a prompt. `tmux_wait_for_text` subscribes
-  to tmux's control-mode stream, so it sleeps until the pane prints rather than
-  asking every few milliseconds. `tmux_start_job` and `tmux_job` carry work that
-  outlives one call, which is what a build needs. `tmux_tail_pane` answers only
-  what is new since its cursor, so the tenth read of a busy pane costs what the
-  first did.
-- **A budget on every content-bearing result.** Captures keep the newest lines,
-  because a terminal's newest line is the one that says what happened, and
-  report the lines and bytes they dropped — a reader who cannot see that lines
-  are missing concludes the pane never printed them.
-- **Three safety tiers, chosen by `LIBTMUX_SAFETY`.** A tool above the active
-  tier is not registered, so it never reaches the model's list. An unrecognised
-  value falls to `readonly` rather than to the default, because a typo must
-  never widen what a server offers.
-- **Subscriptions on both protocol revisions.** A client is told when the
-  hierarchy changes, from tmux's own notifications rather than a timer. The
-  2026-07-28 revision replaced `resources/subscribe` with a long-lived
-  `subscriptions/listen` stream, and the SDK's built-in handling grants that
-  subscription without telling the application — a client would subscribe
-  successfully and then wait forever for events from a watcher nobody started.
-  This server owns the stream instead, which means owning its contract: one
-  acknowledgement before any event, every event tagged with the listen request
-  so a client sharing one channel can tell streams apart, and staying up until
-  the request is cancelled.
-- **The Tasks extension, offered and never required.** A client that speaks it
-  can start `tmux_run`, `tmux_wait_for_text`, `tmux_wait_for_channel` or
-  `tmux_job` as a task and collect the result later. A client that does not
-  keeps the blocking call it had. A listing stays a plain call: making it a
-  task would cost a round trip to collect an answer that was already there.
-- **Progress while a wait runs**, so a client showing a thirty second wait can
-  tell it from a hung one.
 - **`eng/mcp/mcp_swap.py`**, which points every installed agent CLI at a local
   build and reverts from the backup it took. It writes `DOTNET_ROOT` into each
   config: an agent spawns the server with its own environment, and a
@@ -1799,28 +590,12 @@ IntelliSense text, and the page on nuget.org.
 
 ### Fixed
 
-- **A failure says what to do next.** An unhandled error reached a client as
-  "An error occurred invoking 'tmux_run'", which is true and unusable: a model
-  cannot tell a bug from its own bad argument, so it retries the same call. Each
-  now names the cause and the next step, and a tmux server replaced underneath a
-  cached handle is retried once rather than reported.
-- **A socket with no tmux behind it is an answer, not an error.** That is the
-  ordinary state before the first session and the first thing an assistant asks
-  about.
-- **Resolving a pane no longer walks the hierarchy.** It was a tmux process per
-  session and per window to find something tmux answers in one call, paid on
-  every tool call.
 - **The protocol test harness no longer leaks a tmux server per test.** It
   started one and disposed only the MCP objects, so a suite run left dozens
   behind. They were idle but not free: at load 24 on 20 cores the first thing
   to fail was an unrelated library test waiting ten seconds for a shell to
   redraw a wide prompt, which is the sort of failure that gets called flaky and
   retried rather than read.
-- **A run leaves nothing of its own on screen.** The shell echoes the
-  rendezvous like anything typed, and it is wider than a pane, so tmux stores
-  the wrap as a line break and the marker arrives split across rows. Rows are
-  rejoined into the logical line they came from before matching, which is the
-  only form the marker is whole in.
 
 ## [0.0.0-alpha.6] — 2026-08-16
 
@@ -1843,13 +618,6 @@ is empty, so this package is the alpha.5 package.
 
 ### Added
 
-- **`LIBTMUX_SOCKET_NAME` and `LIBTMUX_SOCKET_PATH` point a connection that
-  named no socket.** A harness, sandbox or container can move every
-  unqualified connection at once without the call sites in between naming a
-  socket they should not have to know about. A caller who named one — by path,
-  by name, or by factory — is never redirected, and between the two variables
-  the path wins. Adds no public member: the existing resolution path reads them
-  where it already reads `TMUX_TMPDIR`.
 - **Every documented example is executed against live tmux in CI**, not only
   compiled. The examples are real methods that run as tests, and the blocks the
   documents publish are copied from that code by
@@ -1859,19 +627,6 @@ is empty, so this package is the alpha.5 package.
 
 ### Fixed
 
-- **A control-mode command that ends the client no longer shifts every later
-  reply by one.** The waiter is queued before the write, so the exit sweep
-  finds it; a write that then fails marks the slot abandoned rather than
-  leaving one for a command tmux never saw.
-- **Disposing a control session no longer kills the tmux server.** Only the
-  client is killed, so other clients — and other sessions on the same socket —
-  survive.
-- Control mode survives a consumer that stops reading its event stream.
-- A chain refuses a target read from a server that has since restarted, rather
-  than aiming a reused id at a different object.
-- A query document is treated as input rather than as instructions: an unknown
-  field name is refused against the closed catalog instead of resolving to any
-  public property.
 - macOS: a pane's path is compared resolved, since `/tmp` is a symlink there,
   and the suite no longer assumes `/bin/sh` reports as `sh`.
 
@@ -1884,13 +639,6 @@ is empty, so this package is the alpha.5 package.
 
 ### Added
 
-- **`TmuxDispatchState` on every failure**, so a caller can tell a safe retry
-  from one that repeats a side effect. `NotDispatched` is claimed only where the
-  library can see that no tmux process ran; `TmuxCommandException` is always
-  `Dispatched` because it exists because tmux answered; the default is `Unknown`,
-  since a client that died mid-command may have been obeyed first. Reads as an
-  exception filter:
-  `catch (LibTmuxException e) when (e.Dispatch == TmuxDispatchState.NotDispatched)`.
 - **Fuzz tests over the parsers** — 8,000 generated cases and a corpus of the
   shapes that break parsers, asserting a refusal rather than a crash or a hang.
 - **Recorded benchmarks** under [`docs/benchmarks`](docs/benchmarks/README.md),
@@ -1930,31 +678,12 @@ is empty, so this package is the alpha.5 package.
 
 ## [0.0.0-alpha.2] — 2026-08-15
 
-### Fixed
-
-- **A filter can be written over the objects the library hands back.**
-  `sessions.Matching(s => s.Name.StartsWith("build"))` now translates; before,
-  only a projection row whose properties were spelled like tmux fields did. The
-  field catalog now carries the CLR property for each of the twelve queryable
-  fields, in both directions.
-- **net8.0 consumers take an 8.0 logging abstraction** rather than a 10.0 one,
-  so the package no longer pulls a newer runtime into an 8.0 application.
-- `Server.GetSessionsAsync` no longer returns an empty list when the endpoint
-  reported no tmux version; that failure now surfaces instead of reading as
-  "no sessions".
-- The MCP server reports its real version rather than `0.0.0.0`.
+No entries that span packages.
 
 ## [0.0.0-alpha.1] — 2026-08-15
 
 First public release. `0.0.0-alpha.1` is the lowest version that still says what
 it is: a published version can never be deleted from nuget.org, only unlisted.
-
-- `LibTmux` — the client. Servers, sessions, windows, panes, clients, options,
-  hooks and buffers, typed and asynchronous, against tmux 3.2a through 3.7b on
-  net8.0 and net10.0. One dependency.
-- `LibTmux.Query.Json` — `System.Text.Json` for query documents.
-- `LibTmux.Workspace` — sessions from tmuxp workspace files.
-- `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
 [Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.1.1

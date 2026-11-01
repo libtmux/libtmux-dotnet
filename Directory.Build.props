@@ -37,11 +37,12 @@
          every 0.0.0-alpha.N, 0.0.1, 0.1.0 and 1.0.0 sorts above it. -->
     <VersionPrefix>0.1.1</VersionPrefix>
     <VersionSuffix></VersionSuffix>
-    <!-- One note for the suite, because one version covers it. Naming any
-         single package's changes here would put them on every other
-         package's page too, which is what this used to do. Why one version
-         covers the suite, and when that is revisited: ADR 0007. -->
-    <PackageReleaseNotes>LibTmux, LibTmux.FSharp, LibTmux.Testing, LibTmux.Query.Json, LibTmux.Extensions.DependencyInjection, LibTmux.Workspace, LibTmux.Workspace.Cli and LibTmux.Mcp share one version, so this release covers them together. What changed, per package and per release: https://github.com/libtmux/libtmux-dotnet/blob/master/CHANGELOG.md The public API is not settled and any release may change it; pin an exact version.</PackageReleaseNotes>
+    <!-- Each package's note links its own changelog, so a reader of one package
+         is not sent to the history of the other seven. The note still says the
+         suite shares one version, because that is why this release covers
+         every package. Why one version covers the suite, and when that is
+         revisited: ADR 0007. -->
+    <PackageReleaseNotes>LibTmux, LibTmux.FSharp, LibTmux.Testing, LibTmux.Query.Json, LibTmux.Extensions.DependencyInjection, LibTmux.Workspace, LibTmux.Workspace.Cli and LibTmux.Mcp share one version, so this release covers them together. What changed in $(MSBuildProjectName), per release: https://github.com/libtmux/libtmux-dotnet/blob/master/src/$(MSBuildProjectName)/CHANGELOG.md Changes that span packages: https://github.com/libtmux/libtmux-dotnet/blob/master/CHANGELOG.md The public API is not settled and any release may change it; pin an exact version.</PackageReleaseNotes>
     <Authors>Tony Narlock</Authors>
     <Copyright>Copyright (c) 2026 Tony Narlock &lt;tony@git-pull.com&gt;</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

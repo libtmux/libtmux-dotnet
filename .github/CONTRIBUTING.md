@@ -282,7 +282,9 @@ The inspector evaluates package IDs, frameworks and dependency versions with
 MSBuild. It reads NuGet archives and compares public XML content. A package
 README is its source without the centered logo block, because nuget.org shows
 HTML elements as text; the inspector compares those bytes and refuses an HTML
-line or a link nuget.org cannot resolve. It also checks portable PDB identity
+line or a link nuget.org cannot resolve. Each package ships its own
+`CHANGELOG.md` byte for byte, and its release notes link it; the inspector
+refuses a package that does not. It also checks portable PDB identity
 and SourceLink against `HEAD`. The compiler inventory travels with the packages
 so the publisher repeats this inspection without rebuilding the libraries.
 
@@ -698,6 +700,12 @@ protection on top of that; [`examples/README.md`](../examples/README.md) says
 how. Add examples to the READMEs or `docs/modes/`, not to the decision records
 — those quote what was run at the time and are not edited to keep compiling.
 
+**A change a caller can observe has a changelog entry.** It goes under
+`## [Unreleased]` in the `CHANGELOG.md` of the package it changes, or in the
+root file when it spans packages; [WRITING.md](WRITING.md#changelog) says which.
+`eng/parity/verify_changelogs.py` fails when a published package loses its
+changelog or its `## [Unreleased]` section, not when an entry is missing.
+
 **A performance claim needs a recorded run.** See
 [`docs/benchmarks`](../docs/benchmarks/README.md). Absolute milliseconds move
 by a factor of five on one host, so a claim is stated as a marginal cost or a
@@ -750,8 +758,11 @@ one.
 First, `chore(release[version]): Bump to 0.1.N` edits
 [`Directory.Build.props`](../Directory.Build.props) — `VersionPrefix`, an empty
 `VersionSuffix` and `PackageReleaseNotes` — and renames `## [Unreleased]` in
-`CHANGELOG.md` to the dated version heading. Versioning is manual, and one
-version covers every shipped package.
+the root `CHANGELOG.md` and in each package's `CHANGELOG.md` to the dated
+version heading, gives the new heading its reference-link definition and opens
+a fresh `## [Unreleased]` above it. A package with nothing under the new heading
+says ``No entries for `<package>`.`` Versioning is manual, and one version
+covers every shipped package.
 
 Second, a `Tag v0.1.N` commit, then the tag itself.
 

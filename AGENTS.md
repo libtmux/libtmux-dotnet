@@ -24,8 +24,9 @@ This file routes; it does not restate. Read the one that governs the change
 being made:
 
 - For changes to documentation or user-facing prose — `README.md`,
-  `CHANGELOG.md`, release notes, commit messages, CLI and help text, error
-  messages, XML documentation, or source comments — follow
+  `CHANGELOG.md` (the root file and the one beside each package), release
+  notes, commit messages, CLI and help text, error messages, XML documentation,
+  or source comments — follow
   [`.github/WRITING.md`](.github/WRITING.md).
 - For building, testing, the gates, pull requests, and releases, follow
   [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).

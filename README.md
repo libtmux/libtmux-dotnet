@@ -34,7 +34,8 @@ $ dotnet add package LibTmux
 
 > **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
 > The API is not settled: any release may change or remove exported identifiers,
-> and the changelog marks each break. Pin an exact version to avoid one.
+> and each package's changelog marks its breaks. Pin an exact version to avoid
+> one.
 
 **Contents** — [Quick start](#quick-start) · [Is this for you?](#is-this-for-you) ·
 [Packages](#packages) · [Find things](#find-sessions-windows-and-panes) ·
@@ -583,7 +584,8 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 
 - **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
   The API is not settled: any release may change or remove exported identifiers,
-  and the changelog marks each break. Pin an exact version to avoid one.
+  and each package's changelog marks its breaks. Pin an exact version to avoid
+  one.
 - **tmux.** Stable 3.3a and newer. A release is built and tested against 3.3a,
   3.4, 3.5, 3.6, 3.7a, 3.7b, 3.7c, and 3.8; each push runs 3.3a and 3.8.
   Development builds have unknown capability state, and `next-*` builds use
@@ -625,6 +627,8 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
   catalog are shaped this way
 - [Examples](examples/README.md) — every example here is a test, and the C# in
   this README is quoted from one
+- [Changelog](CHANGELOG.md) — changes that span packages, with a link to the
+  changelog of each package
 - [AGENTS.md](AGENTS.md) — how to work in this repository
 
 ## Attribution

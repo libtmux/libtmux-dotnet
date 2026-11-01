@@ -95,6 +95,19 @@ cutting a release, so nothing here predicts one. A released heading is
 reference-link definition at the bottom of the file — a bracket with no
 definition renders as literal text.
 
+Each published package keeps its own `CHANGELOG.md` beside its project file,
+and an entry goes in the file of the package it changes:
+`src/LibTmux.Mcp/CHANGELOG.md` for `LibTmux.Mcp`, `src/LibTmux/CHANGELOG.md` for
+`LibTmux`, and likewise for the other six. The root `CHANGELOG.md` holds what
+belongs to no single package: a change that spans packages, and documentation,
+CI, tests, benchmarks and release tooling, whichever package they concern. An
+entry lives in exactly one file. The packages share one version, so a release
+heading appears in each package's file from the release that first shipped the
+package, and a release with nothing for it says
+``No entries for `LibTmux.Mcp`.`` under that heading. A link into the repository
+is relative to the file that holds it, so one in a package's changelog starts
+with `../../`.
+
 Do not sell a fix. "No longer truncates panes wider than 500 columns", not
 "improves capture reliability". Do not describe effort. Give the old behaviour
 only where it explains a break.

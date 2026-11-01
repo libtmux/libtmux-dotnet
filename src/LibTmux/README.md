@@ -717,7 +717,7 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 - [API reference][api-reference] and [guides][api-guide-getting-started] on
   libtmux.org
 - [Source, docs and issues](https://github.com/libtmux/libtmux-dotnet) and the
-  [CHANGELOG](https://github.com/libtmux/libtmux-dotnet/blob/master/CHANGELOG.md)
+  [changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/CHANGELOG.md)
 
 ## License
 

@@ -346,7 +346,8 @@ implemented and where it differs.
   — build sessions from C# instead
 - [Source](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace.Cli)
   — the package directory on GitHub
-- [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/CHANGELOG.md)
+- [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Workspace.Cli/CHANGELOG.md)
+  — what each release of this package changed
 
 ## License
 

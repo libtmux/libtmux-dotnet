@@ -365,6 +365,8 @@ Both build the same topology for the subset they share.
 - Source:
   [`src/LibTmux.Workspace`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace);
   issues and history on [GitHub](https://github.com/libtmux/libtmux-dotnet)
+- [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Workspace/CHANGELOG.md):
+  what each release of this package changed
 
 ## License
 
