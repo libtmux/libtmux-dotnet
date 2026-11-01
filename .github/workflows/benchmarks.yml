@@ -61,8 +61,8 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
+          ./eng/apt-get.sh update
+          ./eng/apt-get.sh install --yes \
             autoconf \
             automake \
             bison \

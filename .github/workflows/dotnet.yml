@@ -61,8 +61,8 @@ jobs:
         # The examples, the ahead-of-time smoke test and the package consumer
         # all drive a real server rather than a stub.
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes tmux
+          ./eng/apt-get.sh update
+          ./eng/apt-get.sh install --yes tmux
           tmux -V
 
       - name: Restore
@@ -285,7 +285,7 @@ jobs:
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
         run: |
-          sudo apt-get install --yes clang zlib1g-dev
+          ./eng/apt-get.sh install --yes clang zlib1g-dev
           dotnet restore tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
             --runtime linux-x64 \
             --configfile tests/NuGet.config

@@ -200,8 +200,8 @@ jobs:
         # the wait it guards once ran only for that shell, so the test still
         # exercises a real one to prove the generalized wait did not regress it.
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
+          ./eng/apt-get.sh update
+          ./eng/apt-get.sh install --yes \
             autoconf \
             automake \
             bison \
@@ -413,8 +413,8 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
+          ./eng/apt-get.sh update
+          ./eng/apt-get.sh install --yes \
             autoconf \
             automake \
             bison \
@@ -502,8 +502,8 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
+          ./eng/apt-get.sh update
+          ./eng/apt-get.sh install --yes \
             autoconf \
             automake \
             bison \
@@ -576,8 +576,8 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
+          ./eng/apt-get.sh update
+          ./eng/apt-get.sh install --yes \
             autoconf \
             automake \
             bison \
