@@ -581,3 +581,70 @@ def test_the_windows_lane_cannot_skip_pull_requests_or_forgive_failures(
     document["jobs"]["windows"][key] = value
     path.write_text(yaml.safe_dump(document))
     assert any(f"dotnet.windows.{key}" in error for error in verify(repository))
+
+
+RAW_APT_FIX = "run it through eng/apt-get.sh"
+
+
+def add_run_step(repository: pathlib.Path, run: str, *, action: bool = False) -> str:
+    """Write a workflow, or a composite action, whose one step runs ``run``."""
+    indent = " " * (8 if action else 10)
+    body = "".join(f"{indent}{line}\n" for line in run.splitlines())
+    if action:
+        path = repository / ".github/actions/setup/action.yml"
+        path.parent.mkdir(parents=True)
+        path.write_text(
+            "name: setup\nruns:\n  using: composite\n  steps:\n"
+            f"    - name: Install tmux\n      shell: bash\n      run: |\n{body}"
+        )
+    else:
+        path = repository / ".github/workflows/extra.yml"
+        path.write_text(
+            "name: extra\non: push\njobs:\n  build:\n    runs-on: ubuntu-24.04\n"
+            f"    steps:\n      - name: Install tmux\n        run: |\n{body}"
+        )
+    return path.relative_to(repository).as_posix()
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        "sudo apt-get update",
+        "sudo apt-get install --yes tmux",
+        "sudo -E apt install tmux",
+        "apt-get update",
+        "set -e\nsudo apt-get update",
+        "echo start && sudo apt-get update",
+    ],
+)
+@pytest.mark.parametrize("action", [False, True])
+def test_a_raw_apt_call_is_refused(
+    repository: pathlib.Path, run: str, action: bool
+) -> None:
+    """The wrapper bounds a hung mirror only while every call goes through it."""
+    where = add_run_step(repository, run, action=action)
+
+    errors = [error for error in verify(repository) if RAW_APT_FIX in error]
+
+    assert len(errors) == 1
+    assert errors[0].startswith(f"{where}: ")
+    assert "'Install tmux'" in errors[0]
+    assert run.splitlines()[-1].strip() in errors[0]
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        "./eng/apt-get.sh update",
+        "./eng/apt-get.sh install --yes tmux",
+        "# sudo apt-get update is wrapped by eng/apt-get.sh",
+        'echo "the runner\'s apt tmux can be older"',
+    ],
+)
+@pytest.mark.parametrize("action", [False, True])
+def test_the_wrapper_and_prose_about_apt_pass(
+    repository: pathlib.Path, run: str, action: bool
+) -> None:
+    add_run_step(repository, run, action=action)
+
+    assert verify(repository) == []
