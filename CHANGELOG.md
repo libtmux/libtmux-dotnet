@@ -17,6 +17,19 @@ changelog marks each break. Pin an exact version to avoid one. Releases before
 
 ### Changed
 
+### Removed
+
+### Development
+
+## [0.1.1] — 2026-11-01
+
+A program that chooses no socket now reaches the server tmux picks, and
+`libtmux-mcp` drives that server instead of one of its own. `LIBTMUX_SOCKET`
+names the socket, and `LIBTMUX_SOCKET_NAME` selects nothing. The bold entries
+under Changed carry the migration notes.
+
+### Changed
+
 - **A connection that chooses no socket passes tmux neither `-L` nor `-S`.**
   (#134)
   - Previous behaviour: `Server.Open()` and `ServerConnectionOptions.Default`
@@ -65,8 +78,6 @@ changelog marks each break. Pin an exact version to avoid one. Releases before
 
   The control transport runs `display-panes` without attaching a client from
   tmux 3.8, the release that made it a mode. (#122)
-
-### Removed
 
 ### Development
 
@@ -1945,7 +1956,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.1.1
 [0.1.0]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.1.0
 [0.0.0-alpha.24]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.24
 [0.0.0-alpha.23]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.23
