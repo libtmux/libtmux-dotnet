@@ -79,6 +79,7 @@ internal static class PackageInspection
             CheckReadmeLinks(package);
             CheckReadmeHtml(package);
             CheckPackedReadme(package, Path.Join(project.DirectoryPath, "README.md"));
+            CheckChangelog(package, project, root);
             CheckSourceFile(package, "icon.png", Path.Combine(project.DirectoryPath, "assets", "logo.png"));
             CheckSourceFile(package, "assets/logo.svg", Path.Combine(project.DirectoryPath, "assets", "logo.svg"));
             var frameworks = project.GetPropertyValue("TargetFrameworks").Split(';');
@@ -174,6 +175,17 @@ internal static class PackageInspection
             RegexOptions.Singleline);
         var packed = ReadContents(package, "README.md");
         Require(packed.Length > 0 && packed.AsSpan().SequenceEqual(new System.Text.UTF8Encoding(false).GetBytes(expected)), $"{package.NuspecReader.GetId()}: packaged README.md differs from its source without the logo block.");
+    }
+
+    // Every package ships the history of its own releases, and its release notes
+    // point a reader at it. The packed file is its source, so a package cannot
+    // go out without a changelog or with an older copy of one.
+    private static void CheckChangelog(PackageArchiveReader package, Project project, string root)
+    {
+        var id = project.GetPropertyValue("PackageId");
+        CheckSourceFile(package, "CHANGELOG.md", Path.Join(project.DirectoryPath, "CHANGELOG.md"));
+        var link = $"{Repository}/blob/master/{Path.GetRelativePath(root, project.DirectoryPath).Replace('\\', '/')}/CHANGELOG.md";
+        Require(package.NuspecReader.GetReleaseNotes()?.Contains(link, StringComparison.Ordinal) == true, $"{id}: release notes do not link {link}.");
     }
 
     private static void CheckReadmeHtml(PackageArchiveReader package)

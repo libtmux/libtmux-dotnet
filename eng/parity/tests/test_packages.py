@@ -201,6 +201,9 @@ def test_matching_source_and_archive_cannot_expand_allowed_dependencies(
         ("sourcelink-wildcard", "SourceLink mapping"),
         ("sourcelink-path", "SourceLink mapping"),
         ("extra", "Package set"),
+        ("changelog-missing", "missing packaged CHANGELOG.md"),
+        ("changelog-changed", "packaged CHANGELOG.md differs from source"),
+        ("changelog-release-notes", "release notes do not link"),
     ],
 )
 def test_corrupt_packages_fail(
@@ -217,7 +220,7 @@ def test_corrupt_packages_fail(
     core = next(tmp_path.glob("LibTmux.[0-9]*.nupkg"))
     if mutation in {"symbols", "sourcelink", "sourcelink-wildcard", "sourcelink-path"}:
         target = core.with_suffix(".snupkg")
-    elif mutation == "bundled-assembly":
+    elif mutation == "bundled-assembly" or mutation.startswith("changelog-"):
         target = next(tmp_path.glob("LibTmux.Mcp.*.nupkg"))
     else:
         target = core
@@ -234,6 +237,15 @@ def test_corrupt_packages_fail(
             entries["README.md"] = b""
         elif mutation == "readme-missing":
             del entries["README.md"]
+        elif mutation == "changelog-missing":
+            del entries["CHANGELOG.md"]
+        elif mutation == "changelog-changed":
+            entries["CHANGELOG.md"] += b"\n## [9.9.9] - an entry the source does not have\n"
+        elif mutation == "changelog-release-notes":
+            name = next(name for name in entries if name.endswith(".nuspec"))
+            link = b"/src/LibTmux.Mcp/CHANGELOG.md"
+            assert link in entries[name]
+            entries[name] = entries[name].replace(link, b"/CHANGELOG.md")
         elif mutation == "readme-relative-link":
             entries["README.md"] += b"\nSee [the guide](docs/guide.md).\n"
         elif mutation == "readme-relative-reference":
