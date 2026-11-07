@@ -209,6 +209,7 @@ jobs:
             jq \
             libevent-dev \
             libncurses-dev \
+            libutempter-dev \
             pkg-config \
             zsh
 
@@ -222,25 +223,35 @@ jobs:
           TMUX_REF: ${{ matrix.tmux }}
         run: eng/tmux/build-version.sh --resolve "${TMUX_REF}" | tee -a "${GITHUB_OUTPUT}"
 
-      - name: Restore the tmux build
-        id: tmux-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: artifacts/tmux
-          key: tmux-${{ matrix.kind == 'ref' && format('ref-{0}', steps.resolve.outputs.commit) || matrix.tmux }}-${{ runner.os }}-${{ hashFiles('eng/tmux/build-version.sh') }}
-
-      - name: Build tmux ${{ matrix.tmux }}
-        id: tmux
+      - name: Identify tmux ${{ matrix.tmux }}
+        id: tmux-build
+        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
         env:
-          TMUX_VERSION: ${{ matrix.tmux }}
-          TMUX_KIND: ${{ matrix.kind }}
-          TMUX_COMMIT: ${{ steps.resolve.outputs.commit }}
+          TMUX_VERSION: ${{ matrix.kind == 'ref' && steps.resolve.outputs.commit || matrix.tmux }}
+
+      - name: Restore tmux ${{ matrix.tmux }}
+        id: tmux-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.tmux-build.outputs.prefix }}
+          key: ${{ steps.tmux-build.outputs.key }}
+
+      - name: Validate or rebuild tmux ${{ matrix.tmux }}
+        id: tmux
         run: |
-          if [[ "${TMUX_KIND}" == ref ]]; then
-            eng/tmux/build-version.sh --ref "${TMUX_COMMIT}" | tee -a "${GITHUB_OUTPUT}"
-          else
-            eng/tmux/build-version.sh "${TMUX_VERSION}" | tee -a "${GITHUB_OUTPUT}"
-          fi
+          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
+          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
+        env:
+          TMUX_VERSION: ${{ matrix.kind == 'ref' && steps.resolve.outputs.commit || matrix.tmux }}
+          TMUX_PREFIX: ${{ steps.tmux-build.outputs.prefix }}
+          CACHE_HIT: ${{ steps.tmux-cache.outputs.cache-hit }}
+
+      - name: Save validated tmux ${{ matrix.tmux }}
+        if: steps.tmux-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.tmux-build.outputs.prefix }}
+          key: ${{ steps.tmux-build.outputs.key }}
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -287,7 +298,6 @@ jobs:
         id: integration-tests
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
-          LIBTMUX_TMUX_SOURCE_COMMIT: ${{ steps.tmux.outputs.commit }}
           # Empty for a ref, which is no release and has no version to match.
           LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           # A lane whose integration tests silently skipped would pass while
@@ -422,22 +432,68 @@ jobs:
             jq \
             libevent-dev \
             libncurses-dev \
+            libutempter-dev \
             pkg-config
 
-      - name: Restore the tmux builds
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: artifacts/tmux
-          key: tmux-unsupported-${{ matrix.rejected-version }}-${{ runner.os }}-${{ hashFiles('eng/tmux/build-version.sh') }}
-
-      - name: Build the supported and the rejected tmux
-        id: tmux
+      - name: Identify tmux 3.3a
+        id: floor-build
+        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
         env:
-          REJECTED_VERSION: ${{ matrix.rejected-version }}
+          TMUX_VERSION: 3.3a
+
+      - name: Restore tmux 3.3a
+        id: floor-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.floor-build.outputs.prefix }}
+          key: ${{ steps.floor-build.outputs.key }}
+
+      - name: Validate or rebuild tmux 3.3a
+        id: floor
         run: |
-          floor="$(eng/tmux/build-version.sh 3.3a | sed -n 's/^binary=//p')"
-          rejected="$(eng/tmux/build-version.sh "${REJECTED_VERSION}" | sed -n 's/^binary=//p')"
-          printf 'floor=%s\nrejected=%s\n' "${floor}" "${rejected}" | tee -a "${GITHUB_OUTPUT}"
+          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
+          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
+        env:
+          TMUX_VERSION: 3.3a
+          TMUX_PREFIX: ${{ steps.floor-build.outputs.prefix }}
+          CACHE_HIT: ${{ steps.floor-cache.outputs.cache-hit }}
+
+      - name: Save validated tmux 3.3a
+        if: steps.floor-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.floor-build.outputs.prefix }}
+          key: ${{ steps.floor-build.outputs.key }}
+
+      - name: Identify tmux ${{ matrix.rejected-version }}
+        id: rejected-build
+        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
+        env:
+          TMUX_VERSION: ${{ matrix.rejected-version }}
+
+      - name: Restore tmux ${{ matrix.rejected-version }}
+        id: rejected-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.rejected-build.outputs.prefix }}
+          key: ${{ steps.rejected-build.outputs.key }}
+
+      - name: Validate or rebuild tmux ${{ matrix.rejected-version }}
+        id: rejected
+        run: |
+          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
+          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
+        env:
+          TMUX_VERSION: ${{ matrix.rejected-version }}
+          TMUX_PREFIX: ${{ steps.rejected-build.outputs.prefix }}
+          CACHE_HIT: ${{ steps.rejected-cache.outputs.cache-hit }}
+
+      - name: Save validated tmux ${{ matrix.rejected-version }}
+        if: steps.rejected-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.rejected-build.outputs.prefix }}
+          key: ${{ steps.rejected-build.outputs.key }}
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -451,9 +507,9 @@ jobs:
 
       - name: Refuse the unsupported daemon before any effect
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.floor }}
-          LIBTMUX_FLOOR_TMUX: ${{ steps.tmux.outputs.floor }}
-          LIBTMUX_REJECTED_TMUX: ${{ steps.tmux.outputs.rejected }}
+          LIBTMUX_TMUX: ${{ steps.floor.outputs.binary }}
+          LIBTMUX_FLOOR_TMUX: ${{ steps.floor.outputs.binary }}
+          LIBTMUX_REJECTED_TMUX: ${{ steps.rejected.outputs.binary }}
           LIBTMUX_REJECTED_REQUIRED: '1'
           REJECTED_VERSION: ${{ matrix.rejected-version }}
           TMUX_TMPDIR: /tmp/libtmux-dotnet-test
@@ -510,17 +566,38 @@ jobs:
             build-essential \
             libevent-dev \
             libncurses-dev \
+            libutempter-dev \
             pkg-config
 
-      - name: Restore the tmux build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: artifacts/tmux
-          key: tmux-3.7-${{ runner.os }}-${{ hashFiles('eng/tmux/build-version.sh') }}
+      - name: Identify tmux 3.7
+        id: tmux-build
+        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
+        env:
+          TMUX_VERSION: 3.7
 
-      - name: Build tmux 3.7
+      - name: Restore tmux 3.7
+        id: tmux-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.tmux-build.outputs.prefix }}
+          key: ${{ steps.tmux-build.outputs.key }}
+
+      - name: Validate or rebuild tmux 3.7
         id: tmux
-        run: eng/tmux/build-version.sh 3.7 | tee -a "${GITHUB_OUTPUT}"
+        run: |
+          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
+          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
+        env:
+          TMUX_VERSION: 3.7
+          TMUX_PREFIX: ${{ steps.tmux-build.outputs.prefix }}
+          CACHE_HIT: ${{ steps.tmux-cache.outputs.cache-hit }}
+
+      - name: Save validated tmux 3.7
+        if: steps.tmux-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.tmux-build.outputs.prefix }}
+          key: ${{ steps.tmux-build.outputs.key }}
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -585,11 +662,38 @@ jobs:
             jq \
             libevent-dev \
             libncurses-dev \
+            libutempter-dev \
             pkg-config
 
-      - name: Build tmux master
+      - name: Identify tmux master
+        id: tmux-build
+        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
+        env:
+          TMUX_VERSION: master
+
+      - name: Restore tmux master
+        id: tmux-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.tmux-build.outputs.prefix }}
+          key: ${{ steps.tmux-build.outputs.key }}
+
+      - name: Validate or rebuild tmux master
         id: tmux
-        run: eng/tmux/build-version.sh master | tee -a "${GITHUB_OUTPUT}"
+        run: |
+          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
+          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
+        env:
+          TMUX_VERSION: master
+          TMUX_PREFIX: ${{ steps.tmux-build.outputs.prefix }}
+          CACHE_HIT: ${{ steps.tmux-cache.outputs.cache-hit }}
+
+      - name: Save validated tmux master
+        if: steps.tmux-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.tmux-build.outputs.prefix }}
+          key: ${{ steps.tmux-build.outputs.key }}
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -604,7 +708,6 @@ jobs:
       - name: Integration tests
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
-          LIBTMUX_TMUX_SOURCE_COMMIT: ${{ steps.tmux.outputs.commit }}
           LIBTMUX_INTEGRATION_REQUIRED: '1'
         run: |
           PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"

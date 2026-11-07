@@ -63,6 +63,39 @@ makes those two different binaries, and a client cannot talk to a server of
 another version. What you see is `run_shell_command` timing out with no exit
 status, which reads as a library bug rather than as two tmuxes.
 
+## Native tmux in CI
+
+The `dotnet-tmux` and benchmark workflows build the tmux versions their plan
+names. Stable versions use the official release archives and the SHA256 pins in
+`.github/tmux-releases.toml`. The selected release's checksum is part of its
+cache identity. `master` and a ref a dispatch asks for resolve once to a commit
+and fetch that exact commit. The build follows tmux's
+[release and source-checkout instructions](https://github.com/tmux/tmux/blob/3.8/README#L23-L37).
+Only the installed prefix is cached. Each build uses a fresh source tree and up
+to four available processors. Adding a version to `eng/tmux/versions.json`
+needs its pin in the same change.
+
+Cache keys include the actual runner image and image version, architecture,
+compiler and dependency versions, source identity, and build script.
+Dependencies are installed before validation on hits and misses. Every restored
+executable must match its recorded hash and version, start a private daemon, and
+report the same connected version. A failed check discards that job's prefix and
+rebuilds it.
+
+The workflow saves a validated installation before any test runs. GitHub caches
+are immutable: repairing an invalid exact hit fixes the current job, but cannot
+overwrite that entry. A build-script change invalidates its key for later jobs.
+Never add a broad restore-key fallback for native binaries.
+
+`eng/tmux/build-version.sh` stays the local builder behind
+`eng/tmux/run-matrix.sh`; CI does not call it. The CI scripts need Python 3.11
+or newer for the standard-library TOML reader. Run the cache regressions
+against an installed tmux:
+
+```console
+$ python3 -m pytest .github/scripts/test_tmux_build.py
+```
+
 ## Own your tmux socket root
 
 Give this repository a socket root of its own before running anything:
