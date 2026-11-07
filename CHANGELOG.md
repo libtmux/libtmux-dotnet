@@ -53,6 +53,9 @@ under Changed carry the migration notes.
 - `SandboxCanaryTests` starts a bare `tmux` and shows that it lands in the run's
   directory, and hands a recording stand-in a decoy for each variable to show
   that the check can fail. (#133)
+- CI rebuilds incompatible cached tmux installations before running tests.
+  Release downloads use checksum pins in `.github/tmux-releases.toml`.
+  (#153)
 
 ## [0.1.0] — 2026-10-25
 
