@@ -32,6 +32,10 @@ exact version to avoid one. Releases before 0.1.0 were alphas numbered
 
 ### Development
 
+- The ahead-of-time smoke projects name the patched NativeAOT packs (8.0.33 and
+  10.0.14) that GHSA-p3jp-9v83-76w9 requires, so restore no longer fails with
+  NU1903. (#151)
+
 ## [0.1.1] — 2026-11-01
 
 A program that chooses no socket now reaches the server tmux picks, and
