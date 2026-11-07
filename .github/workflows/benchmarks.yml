@@ -69,17 +69,38 @@ jobs:
             build-essential \
             libevent-dev \
             libncurses-dev \
+            libutempter-dev \
             pkg-config
 
-      - name: Restore the tmux build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: artifacts/tmux
-          key: tmux-${{ env.TMUX_VERSION }}-${{ runner.os }}-${{ hashFiles('eng/tmux/build-version.sh') }}
+      - name: Identify tmux ${{ env.TMUX_VERSION }}
+        id: tmux-build
+        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
+        env:
+          TMUX_VERSION: ${{ env.TMUX_VERSION }}
 
-      - name: Build tmux
+      - name: Restore tmux ${{ env.TMUX_VERSION }}
+        id: tmux-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.tmux-build.outputs.prefix }}
+          key: ${{ steps.tmux-build.outputs.key }}
+
+      - name: Validate or rebuild tmux ${{ env.TMUX_VERSION }}
         id: tmux
-        run: eng/tmux/build-version.sh "${TMUX_VERSION}" | tee -a "${GITHUB_OUTPUT}"
+        run: |
+          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
+          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
+        env:
+          TMUX_VERSION: ${{ env.TMUX_VERSION }}
+          TMUX_PREFIX: ${{ steps.tmux-build.outputs.prefix }}
+          CACHE_HIT: ${{ steps.tmux-cache.outputs.cache-hit }}
+
+      - name: Save validated tmux ${{ env.TMUX_VERSION }}
+        if: steps.tmux-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.tmux-build.outputs.prefix }}
+          key: ${{ steps.tmux-build.outputs.key }}
 
       - name: Run the F# benchmarks
         env:
