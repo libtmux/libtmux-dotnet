@@ -32,4 +32,7 @@
     <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"
              Link="WorkspaceSocketRoot.cs" />
   </ItemGroup>
+
+  <!-- The SDK's own NativeAOT packs are on an advisory's vulnerable list. -->
+  <Import Project="../../eng/dotnet/AotToolchain.props" />
 </Project>

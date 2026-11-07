@@ -21,4 +21,7 @@
     <PackageReference Include="LibTmux.Testing" Version="$(LibTmuxPackageVersion)" />
     <PackageReference Include="FSharp.Core" Version="10.1.303" />
   </ItemGroup>
+
+  <!-- The SDK's own NativeAOT packs are on an advisory's vulnerable list. -->
+  <Import Project="../../eng/dotnet/AotToolchain.props" />
 </Project>

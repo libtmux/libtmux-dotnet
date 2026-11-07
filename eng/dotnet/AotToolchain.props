@@ -1,0 +1,26 @@
+<Project>
+  <!-- The SDK names the NativeAOT compiler and runtime packs it was built
+       with. SDK 10.0.303 names 8.0.30 and 10.0.11, which GHSA-p3jp-9v83-76w9
+       lists as vulnerable, and NuGet audit fails restore on them. Name the
+       patched releases of the same lines until global.json moves to an SDK
+       that carries them. -->
+  <PropertyGroup>
+    <AotCompilerPackVersion Condition="'$(TargetFramework)' == 'net8.0'">8.0.33</AotCompilerPackVersion>
+    <AotCompilerPackVersion Condition="'$(TargetFramework)' == 'net10.0'">10.0.14</AotCompilerPackVersion>
+  </PropertyGroup>
+
+  <!-- Run before frameworks resolve: the SDK adds these items after the
+       project body is read, so an Update here would find nothing. -->
+  <Target Name="UsePatchedAotPacks"
+          BeforeTargets="ProcessFrameworkReferences"
+          Condition="'$(AotCompilerPackVersion)' != ''">
+    <ItemGroup>
+      <KnownILCompilerPack Update="@(KnownILCompilerPack)"
+                           Condition="'%(TargetFramework)' == '$(TargetFramework)'"
+                           ILCompilerPackVersion="$(AotCompilerPackVersion)" />
+      <KnownRuntimePack Update="@(KnownRuntimePack)"
+                        Condition="'%(TargetFramework)' == '$(TargetFramework)' and '%(RuntimeFrameworkName)' == 'Microsoft.NETCore.App'"
+                        LatestRuntimeFrameworkVersion="$(AotCompilerPackVersion)" />
+    </ItemGroup>
+  </Target>
+</Project>
