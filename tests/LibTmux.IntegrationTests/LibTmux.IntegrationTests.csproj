@@ -28,6 +28,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- tmuxp's example catalog, which WorkspaceFileTests loads file by file. -->
+    <Content Include="../Fixtures/tmuxp/*.yaml" Link="Fixtures/tmuxp/%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/LibTmux/LibTmux.csproj" />
     <ProjectReference Include="../../src/LibTmux.Extensions.DependencyInjection/LibTmux.Extensions.DependencyInjection.csproj" />
     <ProjectReference Include="../../src/LibTmux.Testing\LibTmux.Testing.csproj" />
