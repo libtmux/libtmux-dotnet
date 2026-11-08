@@ -4,6 +4,47 @@ namespace LibTmux.IntegrationTests;
 
 public sealed class WorkspaceFileTests
 {
+    /// <summary>Every tmuxp example, by file name without the extension.</summary>
+    public static TheoryData<string> TmuxpExamples() =>
+        new(Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Fixtures", "tmuxp"), "*.yaml")
+            .Select(path => Path.GetFileNameWithoutExtension(path))
+            .Order(StringComparer.Ordinal));
+
+    /// <summary>
+    /// The tmuxp examples <see cref="WorkspaceFile.Parse(string)"/> refuses, with the message it gives.
+    /// Each is a gap in the loader, not a fixture to drop: the test fails when the message changes
+    /// or the file starts to parse.
+    /// </summary>
+    private static readonly Dictionary<string, string> TmuxpExamplesThisLoaderRefuses = new(StringComparer.Ordinal)
+    {
+        ["plugin-system"] = "Workspace path '$' contains unsupported key 'plugins'. At line 2, column 1.",
+        ["pane-shell"] = "Workspace path 'windows[0]' contains unsupported key 'window_shell'. At line 4, column 5.",
+        ["sleep"] = "Workspace path 'windows[0].panes[0].shell_command[1]' contains unsupported key 'sleep_before'. At line 9, column 13.",
+        ["sleep-pane-level"] = "Workspace path 'windows[0].panes[0]' contains unsupported key 'sleep_before'. At line 5, column 9.",
+        ["sleep-virtualenv"] = "Workspace path 'shell_command_before[0]' contains unsupported key 'sleep_before'. At line 6, column 5.",
+        ["suppress-history"] = "Workspace path '$' contains unsupported key 'suppress_history'. At line 2, column 1.",
+    };
+
+    [Fact]
+    public void The_tmuxp_catalog_is_present() =>
+        Assert.True(TmuxpExamples().Count >= 20, "tmuxp's example catalog has at least 20 files");
+
+    [Theory]
+    [MemberData(nameof(TmuxpExamples))]
+    public void Every_tmuxp_example_parses(string example)
+    {
+        string yaml = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "tmuxp", example + ".yaml"));
+
+        if (TmuxpExamplesThisLoaderRefuses.TryGetValue(example, out string? known))
+        {
+            WorkspaceFormatException refusal = Assert.Throws<WorkspaceFormatException>(() => WorkspaceFile.Parse(yaml));
+            Assert.Equal(known, refusal.Message);
+            return;
+        }
+
+        Assert.NotEmpty(WorkspaceFile.Parse(yaml).Windows);
+    }
+
     [Theory]
     [InlineData("global_options: {'@global': value}\nwindows: [{}]\n", true)]
     [InlineData("{\"global_options\":{\"@global\":\"value\"},\"windows\":[{}]}", true)]

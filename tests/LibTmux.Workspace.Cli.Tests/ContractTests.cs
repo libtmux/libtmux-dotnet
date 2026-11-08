@@ -434,6 +434,37 @@ public sealed class ContractTests : IDisposable
         throw new InvalidOperationException("The repository root was not found above the test assembly.");
     }
 
+    /// <summary>Every tmuxp example, by file name without the extension.</summary>
+    public static TheoryData<string> TmuxpExamples() =>
+        new(Directory.GetFiles(Path.Combine(RepositoryRoot(), "tests", "Fixtures", "tmuxp"), "*.yaml")
+            .Select(path => Path.GetFileNameWithoutExtension(path))
+            .Order(StringComparer.Ordinal));
+
+    /// <summary>
+    /// The tmuxp examples the command's own loader refuses, with the message it gives.
+    /// Each is a gap in the loader, not a fixture to drop: the test fails when the
+    /// message changes or the file starts to load.
+    /// </summary>
+    private static readonly Dictionary<string, string> TmuxpExamplesThisLoaderRefuses = new(StringComparer.Ordinal);
+
+    [Theory]
+    [MemberData(nameof(TmuxpExamples))]
+    public void Every_tmuxp_example_loads_through_the_commands_own_loader(string example)
+    {
+        string path = Path.Combine(RepositoryRoot(), "tests", "Fixtures", "tmuxp", example + ".yaml");
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal) { ["HOME"] = _root, ["TMUXP_CONFIGDIR"] = _root, ["PATH"] = "/no-executables" };
+        DocumentStore store = new(new CliContext(TextWriter.Null, TextWriter.Null, _root, environment, TestContext.Current.CancellationToken));
+
+        if (TmuxpExamplesThisLoaderRefuses.TryGetValue(example, out string? known))
+        {
+            CliException refusal = Assert.Throws<CliException>(() => WorkspacePlan.Parse(DocumentStore.Read(path), path, store));
+            Assert.Equal(known, refusal.Message);
+            return;
+        }
+
+        Assert.NotEmpty(WorkspacePlan.Parse(DocumentStore.Read(path), path, store).Windows);
+    }
+
     private async Task<(int Code, string Output, string Error)> Run(params string[] args)
     {
         using StringWriter output = new();
