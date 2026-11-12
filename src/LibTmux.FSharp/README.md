@@ -337,7 +337,6 @@ PowerShell, and a REPL.
 | Live server state | `Mirror.start ct session` | `ServerMirror` |
 | Events as they happen | `Control.withSession ct work server` | cold `IAsyncEnumerable` streams |
 | One pane's output as it prints | `Control.watchPane pane client`; [`Control.watchPanes`][api-fs-control-watchpanes] for several | events; match `PaneWatch` |
-| An assistant on the same tmux | the `LibTmux.Mcp` server | [MCP guide](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) |
 
 ### Recover
 
@@ -441,9 +440,6 @@ gives the order. Code running inside a tmux pane can use
 - [Call the core from F#](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/interop.md)
   and
   [browse signatures](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/api.md).
-- [Share tmux with an assistant](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md):
-  the `LibTmux.Mcp` server, a shared socket, and which F# function each tool
-  matches.
 - [Read benchmark records](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/benchmarks/README.md):
   measured core execution modes and benchmark methods.
 - [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/CHANGELOG.md):
