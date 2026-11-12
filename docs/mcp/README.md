@@ -17,8 +17,6 @@ startup capability selection registers, and what the static disclosure says.
 - [The package README](../../src/LibTmux.Mcp/README.md) covers installing the
   server, pointing a client at it, and the environment variables that configure
   it.
-- [The F# guide](../fsharp/mcp.md) pairs each tool with the `LibTmux.FSharp`
-  call that does the same from a program.
 - On libtmux.org, the [MCP guide](https://libtmux.org/en/csharp/latest/mcp/)
   installs the tool and each
   [tool page](https://libtmux.org/en/csharp/latest/mcp/tools/) documents its

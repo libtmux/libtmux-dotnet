@@ -271,7 +271,7 @@ $ { printf '%s\n' \
 | Package | Adds |
 |---|---|
 | [LibTmux](https://www.nuget.org/packages/LibTmux) | The client this is built on |
-| [LibTmux.FSharp](https://www.nuget.org/packages/LibTmux.FSharp) | The same waits, runs and reads from F#; [its MCP guide](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) pairs each tool with a call |
+| [LibTmux.FSharp](https://www.nuget.org/packages/LibTmux.FSharp) | The same waits, runs and reads from F# |
 | [LibTmux.Query.Json](https://www.nuget.org/packages/LibTmux.Query.Json) | JSON for query documents |
 | [LibTmux.Workspace](https://www.nuget.org/packages/LibTmux.Workspace) | Sessions from tmuxp YAML |
 
