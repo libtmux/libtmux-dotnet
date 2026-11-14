@@ -24,10 +24,6 @@ built on [LibTmux](https://www.nuget.org/packages/LibTmux).
 </div>
 <!-- /libtmux-logo -->
 
-> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-> The API is not settled: any release may change or remove exported identifiers,
-> and the changelog marks each break. Pin an exact version to avoid one.
-
 ## Quick start
 
 Install the .NET tool, then register it with Claude Code. The client starts the
@@ -289,21 +285,18 @@ $ { printf '%s\n' \
 
 ## Support and status
 
-- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-  The API is not settled: any release may change or remove exported identifiers,
-  and the changelog marks each break. Pin an exact version to avoid one.
-- **tmux.** Whatever `tmux` resolves to on the path, or the binary
-  `LIBTMUX_TMUX` names. The supported range is 3.3a to 3.8, proven from source
-  before each release.
+- **Pre-1.0.** Any release may change or remove an exported identifier. The
+  changelog marks each break, so pin an exact version.
+- **tmux.** Whatever `tmux` resolves to on `PATH`, or the binary `LIBTMUX_TMUX`
+  names: 3.3a or newer, tested through 3.8.
 - **The floor.** `tmux://capabilities` reports it as
   `connection.minimumTmuxVersion`. A tmux below it stops the server at startup.
 - **An older daemon.** A daemon replaced by an older one fails the tool call.
-  The message says to upgrade tmux and restart the tmux server, or to use
-  LibTmux.Mcp 0.0.0-alpha.21, and that nothing was sent.
+  The message says to upgrade tmux and restart the tmux server, and that
+  nothing was sent.
 - **.NET.** The tool targets .NET 8 and .NET 10.
-- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
-  CI builds on Windows x64,
-  where the tool exits with "tmux does not run on Windows."
+- **Systems.** Linux, including WSL. macOS is best effort. On Windows the tool
+  exits with "tmux does not run on Windows."
 
 ## Reference
 

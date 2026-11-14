@@ -37,10 +37,6 @@ Add it to your project:
 $ dotnet add package LibTmux.Workspace
 ```
 
-> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-> The API is not settled: any release may change or remove exported identifiers,
-> and the changelog marks each break. Pin an exact version to avoid one.
-
 **Contents** — [Quick start](#quick-start) ·
 [Plan and apply](#plan-and-apply-a-workspace) ·
 [Read a file](#read-a-workspace-file) ·
@@ -52,12 +48,17 @@ $ dotnet add package LibTmux.Workspace
 
 ## Quick start
 
-Build a two-window session from a YAML declaration. The block uses your
-configured LibTmux [`Server`][api-server] and cancellation token; the
-[LibTmux quick start](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#quick-start)
-covers choosing a socket:
+Start a [`Server`][api-server] of your own and build a two-window session from
+a YAML declaration:
 
 ```csharp run
+using LibTmux;
+using LibTmux.Workspace;
+
+await using OwnedServerScope owned = await Server.CreateOwnedAsync(
+    new ServerConnectionOptions { SocketName = "workspace" });
+Server server = owned.Value;
+
 WorkspaceFile workspace = WorkspaceFile.Parse("""
     session_name: api
     windows:
@@ -76,11 +77,11 @@ if (result.Session.Name != "api" || result.Windows.Count != 2)
 }
 ```
 
-It runs against a tmux server of its own and prints nothing. The session `api`
-has windows `editor` and `server`, and the block throws otherwise.
+It prints nothing, and throws unless the session `api` has two windows. The
+server stops when the scope is disposed.
 
-Every `csharp run` block on this page runs the same way, with `server`,
-`session`, and `ct` already in hand.
+The `csharp run` blocks below use `server`, `session`, and `ct` from a tmux
+server of their own.
 
 ## Plan and apply a workspace
 
@@ -92,6 +93,8 @@ A plan lists what will happen.
 locally before any tmux endpoint is chosen:
 
 ```csharp run
+using LibTmux.Workspace;
+
 WorkspaceFile workspace = WorkspaceFile.Parse("""
     session_name: api
     start_directory: /tmp
@@ -144,6 +147,8 @@ the property path, line, and column.
 Resolve directories relative to the file when reading from disk:
 
 ```csharp
+using LibTmux.Workspace;
+
 string source = Path.GetFullPath("session.yaml");
 WorkspaceFile fromDisk = WorkspaceFile.Parse(File.ReadAllText(source))
     .Resolve(Path.GetDirectoryName(source)!);
@@ -258,6 +263,9 @@ windows:
 This receiver signals before it starts `/bin/cat`, which accepts queued input:
 
 ```csharp run
+using LibTmux;
+using LibTmux.Workspace;
+
 string tmux = "'" + server.ConnectionOptions.TmuxBinaryPath
     .Replace("'", "'\"'\"'", StringComparison.Ordinal) + "'";
 WorkspaceFile receiver = new("receiver",
@@ -346,14 +354,12 @@ Both build the same topology for the subset they share.
 
 ## Support and status
 
-- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-  The API is not settled: any release may change or remove exported identifiers,
-  and the changelog marks each break. Pin an exact version to avoid one.
+- **Pre-1.0.** Any release may change or remove an exported identifier. The
+  changelog marks each break, so pin an exact version.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux), and
   [YamlDotNet](https://github.com/aaubry/YamlDotNet) for the files.
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
-- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
-  CI builds on Windows x64.
+- **Systems.** Linux, including WSL. macOS is best effort.
 
 ## Documentation
 

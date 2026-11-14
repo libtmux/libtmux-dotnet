@@ -36,10 +36,6 @@ Add it to an F# project:
 $ dotnet add package LibTmux.FSharp
 ```
 
-> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-> The API is not settled: any release may change or remove exported identifiers,
-> and the changelog marks each break. Pin an exact version to avoid one.
-
 **Contents** — [Quick start](#quick-start) ·
 [Find](#find-sessions-windows-and-panes) ·
 [Type and wait](#type-into-a-pane-and-wait) ·
@@ -144,10 +140,6 @@ The program is
 [published from a checkout](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.FSharp.Quickstart/Program.fs):
 `dotnet run --project examples/LibTmux.FSharp.Quickstart` runs it against the
 source.
-
-CI restores `LibTmux.FSharp` from freshly packed artifacts, runs it against real
-tmux on both target frameworks, and compares what it prints with the block
-above.
 
 ## Find sessions, windows, and panes
 
@@ -390,17 +382,14 @@ gives the order. Code running inside a tmux pane can use
 
 ## Support and status
 
-- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-  The API is not settled: any release may change or remove exported identifiers,
-  and the changelog marks each break. Pin an exact version to avoid one.
+- **Pre-1.0.** Any release may change or remove an exported identifier. The
+  changelog marks each break, so pin an exact version.
 - **.NET.** .NET 8 and .NET 10, using the matching `LibTmux` package version.
 - **F#.** FSharp.Core 8.0.100 or newer, so an application keeps its SDK's
-  FSharp.Core. CI builds and runs a consumer with the .NET 8 SDK's F# compiler.
-- **tmux.** A release runs the F# integration example against tmux 3.3a, 3.4,
-  3.5, 3.6, 3.7a, 3.7b, 3.7c, and 3.8 on both target frameworks, and each push
-  runs it against 3.3a and 3.8.
-- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
-  Native Windows is unsupported: the core marks its tmux calls
+  FSharp.Core.
+- **tmux.** 3.3a or newer, tested through 3.8.
+- **Systems.** Linux, including WSL. macOS is best effort. Native Windows is
+  unsupported: the core marks its tmux calls
   `[UnsupportedOSPlatform("windows")]`.
 - **NativeAOT and trimming.** Portable filters bind fields without reflection. A
   Linux consumer publishes and runs snapshots, tmux queries, and portable

@@ -19,8 +19,8 @@
 A typed, async-first [tmux](https://github.com/tmux/tmux) client for .NET:
 [servers][api-server], [sessions][api-session], [windows][api-window],
 [panes][api-pane], [clients][api-client], [options][api-tmuxoptions],
-[hooks][api-tmuxhooks] and buffers, against every tmux from **3.3a to 3.8**, on
-**net8.0** and **net10.0**.
+[hooks][api-tmuxhooks] and buffers, for tmux **3.3a and newer** on **net8.0** and
+**net10.0**.
 
 <!-- libtmux-logo -->
 </div>
@@ -40,10 +40,6 @@ Add it to your project:
 ```console
 $ dotnet add package LibTmux
 ```
-
-> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-> The API is not settled: any release may change or remove exported identifiers,
-> and the changelog marks each break. Pin an exact version to avoid one.
 
 **Contents** — [Quick start](#quick-start) ·
 [Find things](#find-sessions-windows-and-panes) ·
@@ -110,6 +106,8 @@ reads a window's panes, and
 They return `IReadOnlyList<T>` and never run tmux while you enumerate them:
 
 ```csharp run
+using LibTmux;
+
 foreach (Window each in await session.GetWindowsAsync(ct))
 {
     foreach (Pane every in await each.GetPanesAsync(ct))
@@ -197,6 +195,8 @@ It runs a POSIX shell command in a pane and returns
 output. A command that exits nonzero returns normally with that status:
 
 ```csharp run tmux-3.4
+using LibTmux;
+
 PaneRunResult run = await pane.RunAsync(
     "printf 'hello-from-libtmux\\n'",
     TimeSpan.FromSeconds(10),
@@ -262,6 +262,8 @@ A handle says what it read, and that stays true. An operation that changes what
 an object is hands back a replacement:
 
 ```csharp run
+using LibTmux;
+
 Window renamed = await window.RenameAsync("integration", ct);
 ```
 
@@ -314,6 +316,8 @@ TmuxHook hook = await server.Hooks.SetAsync(
 Ordinary filtering is LINQ over what you already read:
 
 ```csharp run
+using LibTmux;
+
 IReadOnlyList<Window> windows = await session.GetWindowsAsync(ct);
 IEnumerable<Window> building = windows.Where(
     each => each.Name.StartsWith("build", StringComparison.Ordinal));
@@ -325,6 +329,9 @@ It turns an expression into a portable document, or throws; it never quietly
 falls back to filtering in memory:
 
 ```csharp run
+using LibTmux;
+using LibTmux.Query;
+
 IReadOnlyList<Session> sessions = await server.GetSessionsAsync(ct);
 IReadOnlyList<Session> building = sessions.Matching<Session>(
     session => session.Name.StartsWith("build", StringComparison.Ordinal)
@@ -442,14 +449,16 @@ chains work on every supported tmux; explicit control mode needs tmux 3.7+.
 | Control | [`server.EnterControlModeAsync(ct)`][api-server-entercontrolmodeasync] | one client, streamed | another round trip — **~0.2 ms** |
 | Chained | [`server.Chain()…ExecuteAsync(ct)`][api-server-chain] | N batched, one invocation | more bytes on one command line — **~0.02 ms** |
 
-Each figure is the marginal cost of one more command, as medians of 100 samples
-against tmux 3.7b; absolute timings move with the machine. The
+Each figure is the marginal cost of one more command. Timings move with the
+machine: the
 [recorded runs](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/benchmarks/README.md)
-give the distribution, the tmux, the host, and the date.
+have the distribution and the host.
 
 ### [`Session.CreateWindowAsync`][api-session-createwindowasync]: one command, a typed object back
 
 ```csharp run
+using LibTmux;
+
 // One command, a typed object back.
 Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
 ```
@@ -464,8 +473,6 @@ IReadOnlyList<string> reply = await control.SendAsync(
     ct);
 ```
 
-The recorded process-transport baseline makes control mode an order of
-magnitude cheaper per command. One-shot calls can already share a client.
 [`IControlModeSession.SendAsync`][api-icontrolmodesession-sendasync] is safe to
 call concurrently.
 
@@ -489,6 +496,8 @@ Retrying is sound only when the command never reached tmux, and every failure
 says which it was, so the decision is an exception filter:
 
 ```csharp run
+using LibTmux;
+
 try
 {
     await server.CreateSessionAsync(new NewSessionRequest { Name = "build" }, ct);
@@ -520,6 +529,8 @@ process is recorded once, at `Debug`, and failures at `Error`; commands sent
 through a control-mode client are not:
 
 ```csharp
+using LibTmux;
+
 Server logged = await Server.ConnectAsync(new ServerConnectionOptions { Logger = logger });
 ```
 
@@ -581,6 +592,9 @@ Scope disposal attempts to stop the owned server even when the test body throws.
 out the scopes:
 
 ```csharp run
+using LibTmux;
+using LibTmux.Testing;
+
 TmuxTestFactory factory = new();
 await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(cancellationToken: ct);
 
@@ -696,17 +710,15 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 
 ## Support and status
 
-- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-  The API is not settled: any release may change or remove exported identifiers,
-  and the changelog marks each break. Pin an exact version to avoid one.
-- **tmux.** 3.3a to 3.8, proven against every supported version before each
-  release and against 3.3a and 3.8 on each commit.
+- **Pre-1.0.** Any release may change or remove an exported identifier. The
+  changelog marks each break, so pin an exact version.
+- **tmux.** 3.3a or newer, tested through 3.8.
 - **.NET.** net8.0 and net10.0, with one dependency:
   `Microsoft.Extensions.Logging.Abstractions`.
-- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
-  CI builds on Windows x64, where [`Server`][api-server], [`Session`][api-session],
-  [`Window`][api-window], and [`Pane`][api-pane] are annotated unsupported.
-- **Trimming and NativeAOT.** Core APIs are analyzer-gated.
+- **Systems.** Linux, including WSL. macOS is best effort. Native Windows is
+  unsupported: [`Server`][api-server], [`Session`][api-session],
+  [`Window`][api-window], and [`Pane`][api-pane] are annotated for it.
+- **Trimming and NativeAOT.** The core is analyzed for both.
   [`Compile`][api-query-queryextensions-compile] and
   [`Matching`][api-query-queryextensions-matching] resolve properties by name,
   so they warn trimmed callers to preserve the filtered types' public

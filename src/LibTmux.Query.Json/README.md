@@ -37,10 +37,6 @@ Add it to your project:
 $ dotnet add package LibTmux.Query.Json
 ```
 
-> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-> The API is not settled: any release may change or remove exported identifiers,
-> and the changelog marks each break. Pin an exact version to avoid one.
-
 **Contents** — [Quick start](#quick-start) ·
 [Send a filter](#send-a-filter-to-another-process) ·
 [Limits](#limit-what-a-received-document-costs) ·
@@ -53,6 +49,10 @@ Write a filter over the objects LibTmux returns, send it as text, and read it
 back. The block needs no tmux server:
 
 ```csharp run
+using LibTmux;
+using LibTmux.Query;
+using LibTmux.Query.Json;
+
 QueryDocument document = QueryExtensions.Translate<Session>(
     session => session.Name.StartsWith("build", StringComparison.Ordinal)
         && session.Attached);
@@ -64,8 +64,7 @@ QueryDocument parsed = QueryJson.Deserialize(wire);
 Console.WriteLine(parsed == document);
 ```
 
-It prints `True`: the document that came back means what the one that left
-meant.
+It prints `True`.
 
 ## Send a filter to another process
 
@@ -110,6 +109,10 @@ a reader can reject one it does not know:
 The same document filters what you already hold, wherever it was written:
 
 ```csharp run
+using LibTmux;
+using LibTmux.Query;
+using LibTmux.Query.Json;
+
 // However this arrived — an argument, a request body, a stored filter.
 string received = QueryJson.Serialize(QueryExtensions.Translate<Session>(
     session => session.Name.StartsWith("build", StringComparison.Ordinal)));
@@ -135,6 +138,8 @@ deadline, as the block does.
 ### [`QueryJsonLimits.Default`][api-query-json-queryjsonlimits-default]: ceilings on what a reader accepts
 
 ```csharp run
+using LibTmux.Query.Json;
+
 Console.WriteLine($"depth {QueryJsonLimits.Default.MaximumDepth}, nodes {QueryJsonLimits.Default.MaximumNodes}");
 ```
 
@@ -161,6 +166,10 @@ such as [`Session.Name`][api-session-name],
 [`Pane.CurrentCommand`][api-pane-currentcommand]:
 
 ```csharp run
+using LibTmux;
+using LibTmux.Query;
+using LibTmux.Query.Json;
+
 QueryDocument paths = QueryExtensions.Translate<Pane>(
     pane => pane.CurrentPath == "/srv/api");
 QueryDocument restoredPaths = QueryJson.Deserialize(QueryJson.Serialize(paths));
@@ -257,14 +266,12 @@ without fetching data.
 
 ## Support and status
 
-- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-  The API is not settled: any release may change or remove exported identifiers,
-  and the changelog marks each break. Pin an exact version to avoid one.
+- **Pre-1.0.** Any release may change or remove an exported identifier. The
+  changelog marks each break, so pin an exact version.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux) and
   `System.Text.Json`.
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
-- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
-  CI builds on Windows x64.
+- **Systems.** Linux, including WSL. macOS is best effort.
 
 ## Documentation
 

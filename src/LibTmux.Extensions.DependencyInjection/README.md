@@ -30,10 +30,6 @@ Add it to your project:
 $ dotnet add package LibTmux.Extensions.DependencyInjection
 ```
 
-> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-> The API is not settled: any release may change or remove exported identifiers,
-> and the changelog marks each break. Pin an exact version to avoid one.
-
 ## Quick start
 
 Register the server, then take it as a constructor parameter:
@@ -65,6 +61,9 @@ uses `server` and `ct` from a tmux server of its own, and it throws if the
 resolved handle reaches no sessions:
 
 ```csharp run
+using LibTmux;
+using Microsoft.Extensions.DependencyInjection;
+
 ServiceCollection services = new();
 services.AddLibTmux(options => options with { SocketName = server.ConnectionOptions.SocketName });
 
@@ -127,14 +126,12 @@ is taken from it, so tmux commands are logged with everything else.
 
 ## Support and status
 
-- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-  The API is not settled: any release may change or remove exported identifiers,
-  and the changelog marks each break. Pin an exact version to avoid one.
+- **Pre-1.0.** Any release may change or remove an exported identifier. The
+  changelog marks each break, so pin an exact version.
 - **Dependencies.** [LibTmux](https://www.nuget.org/packages/LibTmux) and the
   `Microsoft.Extensions.DependencyInjection` abstractions.
 - **tmux and .NET.** The tmux versions LibTmux supports, on net8.0 and net10.0.
-- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
-  CI builds on Windows x64.
+- **Systems.** Linux, including WSL. macOS is best effort.
 
 ## Documentation
 

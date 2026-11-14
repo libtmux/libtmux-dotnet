@@ -27,10 +27,6 @@ sessions back into them, and answers in JSON when a script asks.
 </div>
 <!-- /libtmux-logo -->
 
-> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-> The API is not settled: any release may change or remove exported identifiers,
-> and the changelog marks each break. Pin an exact version to avoid one.
-
 ## Quick start
 
 Install the tool, then save a workspace as `~/.tmuxp/myproject.yaml`:
@@ -323,13 +319,11 @@ implemented and where it differs.
 
 ## Support and status
 
-- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-  The API is not settled: any release may change or remove exported identifiers,
-  and the changelog marks each break. Pin an exact version to avoid one.
+- **Pre-1.0.** Any release may change or remove an exported identifier. The
+  changelog marks each break, so pin an exact version.
 - **tmux.** 3.3a and newer.
 - **.NET.** A .NET 8 or .NET 10 runtime.
-- **Systems.** Linux, including WSL. macOS is best effort, without CI coverage.
-  CI builds on Windows x64.
+- **Systems.** Linux, including WSL. macOS is best effort.
 - **Workspace files.** tmuxp's format, in YAML or JSON.
 - **Python bridge.** It runs the tmux the CLI uses: `LIBTMUX_TMUX` when set,
   otherwise the `tmux` on `PATH`.
