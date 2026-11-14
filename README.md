@@ -35,9 +35,9 @@ $ dotnet add package LibTmux
 **Contents** — [Quick start](#quick-start) · [Is this for you?](#is-this-for-you) ·
 [Packages](#packages) · [Find things](#find-sessions-windows-and-panes) ·
 [Run a command](#run-a-command-and-read-what-it-printed) ·
-[Filter](#filter-what-you-read) · [Options](#change-options-and-hooks) ·
-[Versions](#check-the-tmux-version) · [Choose a path](#choose-how-to-reach-tmux)
-· [Testing](#testing-your-own-code) ·
+[Panes](#split-resize-and-close-panes) · [Filter](#filter-what-you-read) ·
+[Options](#change-options-and-hooks) · [Versions](#check-the-tmux-version) ·
+[Choose a path](#choose-how-to-reach-tmux) · [Testing](#testing-your-own-code) ·
 [Workspaces](#workspaces-from-the-command-line) ·
 [Assistants](#an-assistant-on-your-terminal) · [Leaves out](#what-it-leaves-out)
 · [Support](#support-and-status)
@@ -214,6 +214,37 @@ string output = await TmuxWait.UntilAsync(
 ```
 
 It returns once the pane shows the line.
+
+## Split, resize, and close panes
+
+### [`Pane.SplitAsync`][api-pane-splitasync]: a new pane beside this one
+
+[`Window.ResizeAsync`][api-window-resizeasync] and
+[`Pane.ResizeAsync`][api-pane-resizeasync] set a size. Type into the new pane
+with [`Pane.SendTextAsync`][api-pane-sendtextasync] and read it with
+[`Pane.CaptureAsync`][api-pane-captureasync]:
+
+```csharp run
+using LibTmux;
+
+Window wide = await window.ResizeAsync(new ResizeWindowRequest { Width = 120, Height = 30 }, ct);
+Pane right = await pane.SplitAsync(new SplitPaneRequest { Direction = PaneDirection.Right }, ct);
+Pane narrow = await right.ResizeAsync(new ResizePaneRequest { Width = "30" }, ct);
+
+await narrow.SendTextAsync("echo $((6*7))", cancellationToken: ct);
+await narrow.WaitForTextAsync("42", TimeSpan.FromSeconds(10), ct);
+string screen = string.Join('\n', await narrow.CaptureAsync(cancellationToken: ct));
+
+Console.WriteLine($"{wide.Width}x{wide.Height} {narrow.Width} {screen.Contains("42")}");
+await narrow.KillAsync(cancellationToken: ct);
+```
+
+It prints the window size, the pane's width, and whether the capture holds 42.
+
+- [`Pane.KillAsync`][api-pane-killasync] removes a pane.
+  [`Window.KillAsync`][api-window-killasync],
+  [`Session.KillAsync`][api-session-killasync], and
+  [`Server.KillAsync`][api-server-killasync] remove the rest.
 
 ## Filter what you read
 
@@ -702,8 +733,13 @@ discourse:
 [api-mcp-guide]: https://libtmux.org/en/csharp/latest/mcp/
 [api-mcp-tools]: https://libtmux.org/en/csharp/latest/mcp/tools/
 [api-pane]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane/
+[api-pane-captureasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-captureasync/
+[api-pane-killasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-killasync/
 [api-pane-refreshasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-refreshasync/
+[api-pane-resizeasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-resizeasync/
 [api-pane-runasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-runasync/
+[api-pane-sendtextasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-sendtextasync/
+[api-pane-splitasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane-splitasync/
 [api-psmuxserver]: https://libtmux.org/en/csharp/latest/reference/libtmux-psmuxserver/
 [api-query-json-queryjson]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjson/
 [api-query-queryextensions-compile]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryextensions-compile/
@@ -720,10 +756,12 @@ discourse:
 [api-server-createownedasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-createownedasync/
 [api-server-entercontrolmodeasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-entercontrolmodeasync/
 [api-server-inspectasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-inspectasync/
+[api-server-killasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-killasync/
 [api-serverconnectionoptions]: https://libtmux.org/en/csharp/latest/reference/libtmux-serverconnectionoptions/
 [api-session]: https://libtmux.org/en/csharp/latest/reference/libtmux-session/
 [api-session-createwindowasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-session-createwindowasync/
 [api-session-getwindowsasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-session-getwindowsasync/
+[api-session-killasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-session-killasync/
 [api-session-name]: https://libtmux.org/en/csharp/latest/reference/libtmux-session-name/
 [api-testing-tmuxtestfactory]: https://libtmux.org/en/csharp/latest/reference/libtmux-testing-tmuxtestfactory/
 [api-tmuxhooks]: https://libtmux.org/en/csharp/latest/reference/libtmux-tmuxhooks/
@@ -734,7 +772,9 @@ discourse:
 [api-unsafetmuxfilter]: https://libtmux.org/en/csharp/latest/reference/libtmux-unsafetmuxfilter/
 [api-window]: https://libtmux.org/en/csharp/latest/reference/libtmux-window/
 [api-window-getpanesasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-window-getpanesasync/
+[api-window-killasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-window-killasync/
 [api-window-renameasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-window-renameasync/
+[api-window-resizeasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-window-resizeasync/
 [api-workspace-cli]: https://libtmux.org/en/csharp/latest/workspace/cli/
 [api-ws-reference]: https://libtmux.org/en/csharp/latest/workspace/reference/
 [api-ws-workspace-workspacebuilder]: https://libtmux.org/en/csharp/latest/workspace/reference/libtmux-workspace-workspacebuilder/
