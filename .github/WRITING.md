@@ -76,6 +76,51 @@ Put exact symbols in prose. "Set `SendKeysRequest.Literal` to `true`" beats
 Prefer boring, predictable headings. "Compatibility" and "Documentation"
 retrieve well; "When things get weird" does not.
 
+## README shape
+
+Every package README follows one shape, so a reader who has scanned one can
+scan the rest. The root README is the model.
+
+- **Header.** The shared logo block, the title, a badge row in a fixed order
+  (CI, NuGet version, libtmux.org, license), and a one-sentence pitch. The
+  title and badges stay Markdown: nuget.org shows other HTML as text, and the
+  pack step removes only the marked logo block. A badge or link for a page
+  that does not return 200 stays out.
+- **Sections are tasks.** Each `##` heading is a task in the reader's words:
+  "Find sessions, windows, and panes".
+- **Headings are the API.** Each `###` heading is the API name in code font,
+  linked to its reference page on libtmux.org, then a colon and its job in
+  plain words.
+- **Under a heading.** A line or two that links the sibling APIs, the example,
+  what it prints, at most one short note, and a `More:` link to the guide.
+- **No walls of text.** No paragraph runs past three lines. A list of facts is
+  a bullet list.
+- **No feature inventory.** Sections and examples show what exists. A list that
+  opens "Implemented:" does not belong.
+- **Floors, not build logs.** State what a reader can act on: "tmux 3.3a or
+  newer", "net8.0 and net10.0". Leave out toolchain patch versions, CI matrix
+  narration and kernel detail, and link the page that holds them.
+- **Cut the assumed.** Do not say that examples are tested, how the docs are
+  built, or what the checks cover. A reader assumes it.
+- **Packages.** Keep the table. Under it, one heading per package that links
+  its directory on `master`, a one-line description, and a link line: API
+  reference, NuGet, changelog.
+- **Closing sections.** "What it leaves out" and "Support and status" are short
+  bullets that open in bold.
+- **Examples start with their imports.** The first example of each section
+  opens with its `using` lines, so a reader can paste it into a file and run
+  it. The example harness removes them before compiling.
+- **Examples own their tmux server.** An example starts its server through the
+  library, with `Server.CreateOwnedAsync` on a socket of its own, and stops it
+  by disposing the scope. It needs no shell `tmux new-session` before it and
+  no `kill-server` after it.
+- **Every displayed example is a test.** It comes from a file CI compiles and
+  runs: a `csharp run` block or an anchored snippet, as
+  [C# blocks are tests](#c-blocks-are-tests) describes.
+- **Show the headline features.** The root README has a section, with a linked
+  heading and an example, for each of these the API has: filtering and
+  queries, the query plan, chains, and control mode.
+
 ## Changelog
 
 `CHANGELOG.md` is a consumer-facing compatibility ledger, not `git log`. Every
