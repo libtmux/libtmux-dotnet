@@ -49,27 +49,28 @@ $ dotnet add package LibTmux
 
 ## Quick start
 
-Connect to the tmux server that is running, make a session, a window, and a
-pane, and type a command into the pane. This is the whole program:
+Start a tmux server of your own, make a session, a window, and a pane, and type
+into the pane:
 
 <!-- snippet: ConnectAndBuild usings: LibTmux -->
 ```csharp
 using LibTmux;
 
-// Requires a tmux server already listening on this socket:
-// ConnectAsync() discovers one, it never starts one. With nothing
-// running yet, call Server.CreateOwnedAsync() instead.
-Server server = await Server.ConnectAsync();
+// A tmux server of its own on the socket "quickstart". Disposing the
+// scope stops it, so nothing is left running.
+await using OwnedServerScope owned = await Server.CreateOwnedAsync(
+    new ServerConnectionOptions { SocketName = "quickstart" });
+Server server = owned.Value;
 Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
 Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
 Pane pane = (await window.GetPanesAsync())[0];
 
 await pane.SendTextAsync("dotnet test");
+Console.WriteLine($"{session.Name}:{window.Name}");
 ```
 <!-- endsnippet -->
 
-To run it, make a console project and paste the program into `Program.cs`, with
-tmux 3.3a or newer on `PATH` and a server running:
+Make a console project, then paste the program into `Program.cs`:
 
 ```console
 $ dotnet new console --output demo && \
@@ -77,13 +78,19 @@ $ dotnet new console --output demo && \
     dotnet add package LibTmux
 ```
 
-It prints nothing. The new session `build` has a window `tests`, and its pane
-has received `dotnet test`. With no server running, call
-[`Server.CreateOwnedAsync`][api-server-createownedasync]; it starts one and
-stops it when disposed.
+Run it with tmux 3.3a or newer on `PATH`:
 
-Every `csharp run` block below runs against a tmux server of its own, with
-`server`, `session`, `window`, `pane`, and `ct` already in hand.
+```console
+$ dotnet run
+```
+
+It prints `build:tests`. [`Server.CreateOwnedAsync`][api-server-createownedasync]
+starts the server on its own socket and stops it when the scope is disposed;
+[`Server.ConnectAsync`][api-server-connectasync] attaches to one that is already
+running.
+
+The `csharp run` blocks below continue from this program: `server`, `session`,
+`window`, and `pane` are its variables, and `ct` is a `CancellationToken`.
 
 ## Is this for you?
 
@@ -674,6 +681,7 @@ discourse:
 [api-query-queryextensions-translate]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryextensions-translate/
 [api-server]: https://libtmux.org/en/csharp/latest/reference/libtmux-server/
 [api-server-chain]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-chain/
+[api-server-connectasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-connectasync/
 [api-server-createownedasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-createownedasync/
 [api-server-entercontrolmodeasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-entercontrolmodeasync/
 [api-serverconnectionoptions]: https://libtmux.org/en/csharp/latest/reference/libtmux-serverconnectionoptions/

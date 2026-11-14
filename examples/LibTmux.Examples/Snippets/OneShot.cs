@@ -6,20 +6,22 @@ namespace LibTmux.Examples.Snippets;
 [UnsupportedOSPlatform("windows")]
 public static class OneShot
 {
-    /// <summary>Connects, builds a hierarchy, and types into the pane it made.</summary>
-    [Example("Connect, build a session and window, and type into a pane")]
+    /// <summary>Starts a server, builds a hierarchy, and types into the pane it made.</summary>
+    [Example("Start a server, build a session and window, and type into a pane")]
     public static async Task ConnectAndBuild()
     {
         #region ConnectAndBuild
-        // Requires a tmux server already listening on this socket:
-        // ConnectAsync() discovers one, it never starts one. With nothing
-        // running yet, call Server.CreateOwnedAsync() instead.
-        Server server = await Server.ConnectAsync();
+        // A tmux server of its own on the socket "quickstart". Disposing the
+        // scope stops it, so nothing is left running.
+        await using OwnedServerScope owned = await Server.CreateOwnedAsync(
+            new ServerConnectionOptions { SocketName = "quickstart" });
+        Server server = owned.Value;
         Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
         Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
         Pane pane = (await window.GetPanesAsync())[0];
 
         await pane.SendTextAsync("dotnet test");
+        Console.WriteLine($"{session.Name}:{window.Name}");
         #endregion
     }
 

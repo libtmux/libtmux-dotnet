@@ -39,25 +39,24 @@ becomes a `TmuxOutputEvent` whose `Data` holds the real control bytes.
 ## Wait for rendered text
 
 `Pane.WaitForTextAsync` waits for text in a pane's rendered grid. Its shared
-control client wakes the wait and is released when the call ends. The example creates an owned session so its
-cleanup leaves the connected daemon running. Its `printf` command constructs
-the marker at execution time; the command's own echo cannot satisfy the wait.
+control client wakes the wait and is released when the call ends. The example
+starts a server of its own and stops it on disposal. Its `printf` command
+constructs the marker at execution time; the command's own echo cannot satisfy
+the wait.
 
 <!-- snippet: WaitForPaneText usings: LibTmux -->
 ```csharp
 using LibTmux;
 
-Server server = await Server.ConnectAsync(new ServerConnectionOptions
-{
-    TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-});
-await using OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
-    new NewSessionRequest
+await using OwnedServerScope owned = await Server.CreateOwnedAsync(
+    new ServerConnectionOptions
     {
-        Name = $"text-wait-{Guid.NewGuid():N}",
-        Command = "exec /bin/sh",
+        SocketName = "text-wait",
+        TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
     });
-Window window = (await owned.Value.GetWindowsAsync()).Single();
+Session session = await owned.Value.CreateSessionAsync(
+    new NewSessionRequest { Name = "text-wait", Command = "exec /bin/sh" });
+Window window = (await session.GetWindowsAsync()).Single();
 Pane pane = (await window.GetPanesAsync()).Single();
 
 Task<PaneWaitResult> waiting = pane.WaitForTextAsync(
