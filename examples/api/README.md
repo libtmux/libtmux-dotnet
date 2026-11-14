@@ -34,8 +34,8 @@ run, mirror, option and snapshot helpers.
 
 ## Run a complete F# program
 
-Use Linux or macOS with Git, tmux 3.3a or newer, .NET SDK 10.0.303 and the
-.NET 8 and 10 runtimes. From a checkout containing these files, make a separate
+Use Linux or macOS with Git, tmux 3.3a or newer, the .NET 10 SDK and the .NET 8
+runtime. From a checkout containing these files, make a separate
 consumer directory. This clone selects the current committed revision. An API
 page must supply an HTTPS clone and an exact checkout revision.
 
@@ -150,26 +150,19 @@ explicitly captured hierarchy. Portable query evaluation uses reflection and
 is not presented as a trimmed or Native AOT example; the repository's separate
 AOT programs cover that deployment mode.
 
-## Attachment and execution checks
+## Check the programs
 
-[manifest.json](manifest.json) binds each complete program to exact public C# and F#
-compiler IDs. The verifier rejects unknown targets, repeated targets within
-one example, omitted programs, paths outside the repository, hidden project
-imports and changed package mappings. Descriptions and expected output belong
-to this source manifest, alongside the files they describe.
-
-After the ordinary build, compiler inventory and package gates, validate it:
+[manifest.json](manifest.json) binds each complete program to its public C# and
+F# compiler IDs, with its description and expected output. Validate it after the
+ordinary build:
 
 ```console
 $ python3 eng/docs/verify_api_examples.py
 ```
 
-The packed-example workflow uses the same verifier to copy every displayed
-file to an external consumer directory, restore the native packages, compile
-both target frameworks, and compare exact stdout. It also checks that each
-program leaves no live owned server. A failed program still produces a
-receipt; emergency cleanup addresses only its newly allocated socket root.
-The existing tmux version matrix compiles and runs every complete program too.
+Run every displayed file as an external consumer, from the packed packages, on
+both target frameworks, comparing exact stdout. Each program must leave no owned
+server running:
 
 ```console
 $ python3 eng/docs/verify_api_examples.py \
@@ -177,8 +170,5 @@ $ python3 eng/docs/verify_api_examples.py \
     --output /tmp/libtmux-dotnet-api-consumers
 ```
 
-Choose an output directory that does not exist. `receipt.json` records source
-revision and dirty state, whole-file hashes, package hashes, commands, output
-and cleanup. The consumer gate uses already packed artifacts; it does not
-claim to test a public clone. Public revision checks run the displayed clone
-and source-pack setup separately before the API site pins that revision.
+Choose an output directory that does not exist. `receipt.json` records the
+source revision, file and package hashes, commands, output and cleanup.

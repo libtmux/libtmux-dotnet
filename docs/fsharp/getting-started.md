@@ -4,14 +4,9 @@ Start with the package [quickstart](../../src/LibTmux.FSharp/README.md#quick-sta
 for installation and a complete `Program.fs` that runs against an owned tmux
 server. This guide continues from that path.
 
-`LibTmux.FSharp` is built on [LibTmux](https://github.com/libtmux/libtmux-dotnet/).
-Both packages are maintained in the `libtmux` organization by the same primary
-author.
-
-It keeps the core handles and task-based I/O. This example creates a server on
-a unique socket, creates one session, lists its pane, splits it, types a line
-into the new pane, and reads the resulting pane IDs. Both owned scopes dispose at the end of
-the task.
+This example creates a server on a unique socket, creates one session, lists
+its pane, splits it, types a line into the new pane, and reads the resulting
+pane IDs. Both owned scopes dispose at the end of the task.
 
 <!-- fsharp-snippet: OwnedWorkflow run -->
 ```fsharp run

@@ -52,7 +52,8 @@ Both take the thing the request acts on. A request says *what* to do and not
 *to whom*, and the arguments tmux receives depend on what the running server
 knows: which tmux version is answering, which target the object resolves to,
 whether a flag exists on that build at all. Handing over the pane or session is
-what lets the same record produce the right command line on 3.3a and on 3.7b.
+what lets the same record produce the right command line on every supported
+tmux.
 
 What a request acts on is part of its type: a `SendKeysRequest` is an
 `ITmuxRequest<Pane>`, a `NewWindowRequest` an `ITmuxRequest<Session>`. Code

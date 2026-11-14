@@ -46,9 +46,7 @@ $ mise exec -- dotnet run \
     --configuration Release
 ```
 
-CI runs the ordinary suite through `ExampleSuite`. The console entry point
-runs one discovered example with `--smoke` to check selection and reporting;
-its default still runs the complete suite for local use.
+The console entry point runs the whole suite; `--smoke` runs one example.
 
 ## Quoting an example in a document
 
@@ -90,8 +88,6 @@ difference, so a hand-edited block is reported as drift rather than kept:
 ```console
 $ uv run python eng/docs/sync_snippets.py --check
 ```
-
-That is what CI runs.
 
 ### Both failure modes
 

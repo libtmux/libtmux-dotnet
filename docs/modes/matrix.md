@@ -10,8 +10,8 @@ control mode needs tmux 3.7+.
 | [Control](control-mode.md) | `server.EnterControlModeAsync(ct)` | 1 client, streamed | `%window-add @1` |
 | [Chained](chaining.md) | `server.Chain()...ExecuteAsync(ct)` | N batched, 1 invocation | `@1` |
 
-Example output is captured from a live tmux and refreshed per release. It shows
-the shape of what comes back, not a byte-exact string to assert against.
+Example output shows the shape of what comes back, not a string to assert
+against.
 
 ## The same task, three ways
 
@@ -139,9 +139,8 @@ check nothing. Aliases that redefine the commands the library uses are outside
 this contract.
 
 A refusal says what to do: upgrade tmux and restart the tmux server, since a
-running daemon keeps its version until it exits, or use LibTmux 0.0.0-alpha.21,
-the last release that supports tmux 3.2a. A daemon older than tmux 3.2 cannot
-run the probe at all, because `run-shell -C` arrived in 3.2: a 3.1 daemon
+running daemon keeps its version until it exits. A daemon older than tmux 3.2
+cannot run the probe at all, because `run-shell -C` arrived in 3.2: a 3.1 daemon
 answers with the usage line of `run-shell`, and a 3.0 or older daemon makes the
 client print `server version is too old for client`. Both are refused as below
 the minimum, as is a client executable older than 3.2, which does not know the
@@ -257,16 +256,5 @@ The same list is published as [`capabilities.json`](../../capabilities.json) at
 the repository root: each optional feature with the release it starts at, how
 the library handles it, and the error it raises.
 
-Support is stated per feature and release as one of:
-
-- **Non-operative**: the behavior is absent, rejected or wrong.
-- **Timing-sensitive**: a known interleaving or workload can fail.
-- **Operative with synchronization**: it works when the caller waits on a
-  marker, a state or a signal the contract names.
-- **Qualified**: the named checks passed for that scope.
-- **Unverified**: the evidence is missing or skipped.
-
-An operation in the table is non-operative below its release. Control clients
-are qualified from 3.7 on the lanes the integration suite runs; a skipped test
-qualifies nothing. A test that only skips below its release is not evidence
-that the operation works above it.
+Below its release, an operation in the table is refused or behaves wrongly.
+Control clients are supported from 3.7.
