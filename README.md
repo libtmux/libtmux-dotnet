@@ -544,6 +544,7 @@ dependency: the logging abstractions.
 
 Reference: [libtmux.org](https://libtmux.org/en/csharp/latest/reference/) and
 [NuGet](https://www.nuget.org/packages/LibTmux).
+Changelog: [`CHANGELOG.md`](src/LibTmux/CHANGELOG.md).
 
 ### [`LibTmux.FSharp`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.FSharp): F# helpers over the core
 
@@ -554,6 +555,7 @@ the core handles. Start with its
 Reference: [libtmux.org](https://libtmux.org/en/fsharp/latest/reference/),
 [guides](https://libtmux.org/en/fsharp/latest/guides/), and
 [NuGet](https://www.nuget.org/packages/LibTmux.FSharp).
+Changelog: [`CHANGELOG.md`](src/LibTmux.FSharp/CHANGELOG.md).
 
 ### [`LibTmux.Query.Json`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Query.Json): query documents as JSON
 
@@ -562,6 +564,7 @@ reference `System.Text.Json`.
 
 Reference: [`QueryJson`][api-query-json-queryjson] and
 [NuGet](https://www.nuget.org/packages/LibTmux.Query.Json).
+Changelog: [`CHANGELOG.md`](src/LibTmux.Query.Json/CHANGELOG.md).
 
 ### [`LibTmux.Testing`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Testing): a tmux server for each test
 
@@ -570,6 +573,7 @@ Scoped servers, sessions, and windows that clean up after themselves.
 Reference: [`TmuxTestFactory`][api-testing-tmuxtestfactory], the
 [testing guide][api-guide-testing], and
 [NuGet](https://www.nuget.org/packages/LibTmux.Testing).
+Changelog: [`CHANGELOG.md`](src/LibTmux.Testing/CHANGELOG.md).
 
 ### [`LibTmux.Extensions.DependencyInjection`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Extensions.DependencyInjection): a Server for dependency injection
 
@@ -580,6 +584,7 @@ Reference: [`Server`][api-server], the
 [package README](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Extensions.DependencyInjection#registering),
 and
 [NuGet](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection).
+Changelog: [`CHANGELOG.md`](src/LibTmux.Extensions.DependencyInjection/CHANGELOG.md).
 
 ### [`LibTmux.Workspace`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace): sessions from tmuxp files
 
@@ -589,6 +594,7 @@ sessions, in one call or from a plan you review first.
 Reference: [`WorkspaceBuilder`][api-ws-workspace-workspacebuilder], the
 [reference index][api-ws-reference], and
 [NuGet](https://www.nuget.org/packages/LibTmux.Workspace).
+Changelog: [`CHANGELOG.md`](src/LibTmux.Workspace/CHANGELOG.md).
 
 ### [`LibTmux.Workspace.Cli`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Workspace.Cli): the `tmux-workspace` command
 
@@ -596,6 +602,7 @@ Loads, captures, and converts tmuxp workspace files from a shell.
 
 Reference: the [command reference][api-workspace-cli] and
 [NuGet](https://www.nuget.org/packages/LibTmux.Workspace.Cli).
+Changelog: [`CHANGELOG.md`](src/LibTmux.Workspace.Cli/CHANGELOG.md).
 
 ### [`LibTmux.Mcp`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.Mcp): a tmux server for assistants
 
@@ -605,6 +612,7 @@ server that gives an assistant hands on tmux; it installs as a .NET tool.
 
 Reference: the [MCP guide][api-mcp-guide], the [tool reference][api-mcp-tools],
 and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
+Changelog: [`CHANGELOG.md`](src/LibTmux.Mcp/CHANGELOG.md).
 
 ## What it leaves out
 
