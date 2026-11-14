@@ -313,7 +313,7 @@ TmuxHook hook = await server.Hooks.SetAsync(
 
 ### Plain LINQ
 
-Ordinary filtering is LINQ over what you already read:
+To filter what you already read, use LINQ:
 
 ```csharp run
 using LibTmux;
@@ -633,7 +633,7 @@ Changelog: [`CHANGELOG.md`](https://github.com/libtmux/libtmux-dotnet/blob/maste
 
 ### [`LibTmux.FSharp`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.FSharp): F# helpers over the core
 
-Curried task helpers, ordinary `seq` queries, and typed portable filters over
+Curried task helpers, `seq` queries, and typed portable filters over
 the core handles.
 
 Reference: [libtmux.org](https://libtmux.org/en/fsharp/latest/reference/),

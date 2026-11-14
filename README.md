@@ -107,7 +107,7 @@ lacks.
 | Package | | Add it when |
 |---|---|---|
 | **[LibTmux](src/LibTmux/README.md)** | [![LibTmux](https://img.shields.io/nuget/v/LibTmux?label=LibTmux)](https://www.nuget.org/packages/LibTmux) | Always. The client. One dependency: logging abstractions. |
-| **[LibTmux.FSharp](src/LibTmux.FSharp/README.md)** | [![LibTmux.FSharp](https://img.shields.io/nuget/v/LibTmux.FSharp?label=LibTmux.FSharp)](https://www.nuget.org/packages/LibTmux.FSharp) | You write F# and want curried task helpers, ordinary `seq` queries, and typed portable filters over the core values. |
+| **[LibTmux.FSharp](src/LibTmux.FSharp/README.md)** | [![LibTmux.FSharp](https://img.shields.io/nuget/v/LibTmux.FSharp?label=LibTmux.FSharp)](https://www.nuget.org/packages/LibTmux.FSharp) | You write F# and want curried task helpers, `seq` queries, and typed portable filters over the core values. |
 | **[LibTmux.Query.Json](src/LibTmux.Query.Json/README.md)** | [![LibTmux.Query.Json](https://img.shields.io/nuget/v/LibTmux.Query.Json?label=LibTmux.Query.Json)](https://www.nuget.org/packages/LibTmux.Query.Json) | You send queries between processes and want them as JSON. |
 | **[LibTmux.Testing](src/LibTmux.Testing/README.md)** | [![LibTmux.Testing](https://img.shields.io/nuget/v/LibTmux.Testing?label=LibTmux.Testing)](https://www.nuget.org/packages/LibTmux.Testing) | You test code that drives tmux and want scopes that clean up after themselves. |
 | **[LibTmux.Extensions.DependencyInjection](src/LibTmux.Extensions.DependencyInjection/README.md)** | [![LibTmux.Extensions.DependencyInjection](https://img.shields.io/nuget/v/LibTmux.Extensions.DependencyInjection?label=LibTmux.Extensions.DependencyInjection)](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection) | Your application composes services and wants a tmux handle injected. |
@@ -219,7 +219,7 @@ It returns once the pane shows the line.
 
 ### Plain LINQ
 
-Ordinary filtering is LINQ over what you already read:
+To filter what you already read, use LINQ:
 
 ```csharp run
 using LibTmux;
@@ -548,7 +548,7 @@ Changelog: [`CHANGELOG.md`](src/LibTmux/CHANGELOG.md).
 
 ### [`LibTmux.FSharp`](https://github.com/libtmux/libtmux-dotnet/tree/master/src/LibTmux.FSharp): F# helpers over the core
 
-Curried task helpers, ordinary `seq` queries, and typed portable filters over
+Curried task helpers, `seq` queries, and typed portable filters over
 the core handles. Start with its
 [quickstart](src/LibTmux.FSharp/README.md#quick-start).
 

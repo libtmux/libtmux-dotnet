@@ -77,7 +77,7 @@ hands out names no live session is using.
 
 It polls a state until a condition holds or a timeout passes, and it replaces a
 sleep. It ships in `LibTmux`, because reading back what a command produced is
-ordinary client work.
+client work.
 
 ## What it leaves out
 
