@@ -32,11 +32,6 @@ Add it to your project:
 $ dotnet add package LibTmux
 ```
 
-> **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-> The API is not settled: any release may change or remove exported identifiers,
-> and each package's changelog marks its breaks. Pin an exact version to avoid
-> one.
-
 **Contents** — [Quick start](#quick-start) · [Is this for you?](#is-this-for-you) ·
 [Packages](#packages) · [Find things](#find-sessions-windows-and-panes) ·
 [Run a command](#run-a-command-and-read-what-it-printed) ·
@@ -104,8 +99,8 @@ there. Native Windows has a bounded query-only
 [`Psmux*` preview](docs/psmux.md).
 
 **What you get over a shell wrapper:** typed entities with real IDs, one
-dispatch model per workload, a version model that names the flag a tmux lacks,
-and examples that run against live tmux in CI.
+dispatch model per workload, and a version model that names the flag a tmux
+lacks.
 
 ## Packages
 
@@ -124,19 +119,13 @@ and examples that run against live tmux in CI.
 $ dotnet add package LibTmux
 ```
 
-The core takes exactly one dependency. Anything that would add another ships as
-its own package, so a caller who does not want YAML never sees YamlDotNet.
-
-They all carry one version, so any `LibTmux.Workspace` goes with the `LibTmux`
-of the same version, without a table to consult.
-
-`LibTmux.FSharp` is the F# companion built on
-[LibTmux](https://github.com/libtmux/libtmux-dotnet/). Both packages are
-maintained in the `libtmux` organization by the same primary author.
-
-It keeps the core handles and task I/O, then adds F#-native composition for
-snapshots and portable filters. Start with its
-[runnable F# quickstart](src/LibTmux.FSharp/README.md#quick-start).
+- **One dependency.** The core takes the logging abstractions. YAML, JSON and
+  MCP ship as their own packages.
+- **One version.** Every package carries it, so a `LibTmux.Workspace` goes with
+  the `LibTmux` of the same version.
+- **F#.** `LibTmux.FSharp` keeps the core handles and adds curried task
+  helpers, `seq` queries and portable filters. Start with its
+  [quick start](src/LibTmux.FSharp/README.md#quick-start).
 
 ## Find sessions, windows, and panes
 
@@ -147,6 +136,8 @@ One call reads a session's windows, and
 return `IReadOnlyList<T>` and run no tmux command while you enumerate them:
 
 ```csharp run
+using LibTmux;
+
 foreach (Window each in await session.GetWindowsAsync(ct))
 {
     foreach (Pane every in await each.GetPanesAsync(ct))
@@ -171,9 +162,8 @@ Console.WriteLine($"{window.Name} -> {renamed.Name}");
 
 It prints the old name and the new one.
 
-A replacement is still the same window. Identity is the server generation plus
-the typed ID, so two handles that read different names name one window, and a
-handle read from a restarted server does not, even where tmux reused the number:
+A replacement is still the same window: identity is the server generation plus
+the typed ID, not the name.
 
 ```csharp run
 Window sameWindow = await window.RenameAsync("integration", ct);
@@ -194,6 +184,8 @@ It runs a shell command in a pane and returns its real exit status and the lines
 it printed. A command that exits nonzero returns normally with that status:
 
 ```csharp run tmux-3.4
+using LibTmux;
+
 PaneRunResult result = await pane.RunAsync("echo hello; exit 3", TimeSpan.FromSeconds(10), ct);
 if (result.ExitStatus != 3 || !result.Output.Contains("hello"))
 {
@@ -230,6 +222,8 @@ It returns once the pane shows the line.
 Ordinary filtering is LINQ over what you already read:
 
 ```csharp run
+using LibTmux;
+
 IReadOnlyList<Window> windows = await session.GetWindowsAsync(ct);
 IEnumerable<Window> building = windows.Where(
     each => each.Name.StartsWith("build", StringComparison.Ordinal));
@@ -241,6 +235,9 @@ It turns an expression into a portable document, or throws; it never quietly
 falls back to filtering in memory:
 
 ```csharp run
+using LibTmux;
+using LibTmux.Query;
+
 IReadOnlyList<Session> sessions = await server.GetSessionsAsync(ct);
 IReadOnlyList<Session> building = sessions.Matching<Session>(
     session => session.Name.StartsWith("build", StringComparison.Ordinal));
@@ -267,6 +264,36 @@ It prints the document's target, [`Session`][api-session].
 - A field outside the catalog throws. [`UnsafeTmuxFilter`][api-unsafetmuxfilter]
   is the separate opt-in for native tmux `-f` filters.
 
+### [`QueryPlan<T>`][api-query-queryplan]: what runs in tmux, what runs here
+
+[`QueryExtensions.Plan`][api-query-queryextensions-plan] splits a filter against
+the tmux version [`Server.InspectAsync`][api-server-inspectasync] reports: an
+exact leading part runs inside tmux and the rest runs locally. The plan says
+which, and it runs when you ask:
+
+```csharp run
+Server inspected = await server.InspectAsync(ct)
+    ?? throw new InvalidOperationException("The tmux daemon is absent.");
+QueryDocument predicate = QueryExtensions.Translate<Window>(
+    candidate => candidate.IsActive && candidate.Name.StartsWith("build", StringComparison.Ordinal));
+QueryPlan<Window> plan = predicate.Plan<Window>(inspected.DaemonVersion!.Value);
+QueryResult<Window> result = await plan.ExecuteAsync(inspected, ct);
+
+Console.WriteLine($"{result.Count} matches from {result.Snapshot.Windows.Count} placements");
+foreach (string reason in plan.FallbackReasons)
+{
+    Console.WriteLine(reason);
+}
+```
+
+It prints the match count and why anything stayed local.
+
+- [`QueryPushdown.Auto`][api-query-querypushdown-auto] splits the filter,
+  [`Never`][api-query-querypushdown-never] keeps all of it local, and
+  [`Require`][api-query-querypushdown-require] rejects one that cannot run
+  entirely in tmux.
+- More: [query planning](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/docs/contracts.md#filtering).
+
 ## Change options and hooks
 
 ### [`TmuxOptions`][api-tmuxoptions] and [`TmuxHooks`][api-tmuxhooks]: settings and callbacks
@@ -275,6 +302,8 @@ Every object reaches the option table tmux keeps for it. tmux has no types, so
 a value carries the text it reported alongside the readings that text supports:
 
 ```csharp run
+using LibTmux;
+
 await window.Options.SetAsync(new SetOptionRequest("automatic-rename", "off"), ct);
 TmuxOption option = (await window.Options.GetAsync(
     new GetOptionRequest("automatic-rename"), ct))[0];
@@ -297,11 +326,12 @@ Console.WriteLine(hook.Values[0].Command);
 
 ### [`TmuxVersionTooLowException`][api-tmuxversiontoolowexception]: a command the running tmux lacks
 
-Where a flag is missing, the request goes out without it and a warning names
-what was left off. Where a whole command is missing, nothing is sent and this
-exception names the version that would be needed:
+A flag a tmux lacks is left off and a warning names it. A command it lacks
+sends nothing, and this exception names the version that would be needed:
 
 ```csharp run
+using LibTmux;
+
 // A handle says what it read: the version is what tmux reported when this
 // server was reached, and null when it reported something unparsable.
 TmuxVersion? version = server.Version;
@@ -310,24 +340,18 @@ Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVer
 
 It prints the version tmux reported and whether it is 3.4 or newer.
 
-A tmux below 3.3a is refused the same way.
-
-A command that a release mishandles or rejects raises
-[`TmuxUnsupportedOnReleaseException`][api-tmuxunsupportedonreleaseexception].
-`TmuxVersionTooLowException` derives from it, so catch the base type to cover
-every release refusal.
-
-It carries `ActualVersion`, `SafeReleases`, the `CapabilityId` from
-[`capabilities.json`](capabilities.json) and the refused `Command`.
-
-Upgrade tmux and restart the tmux server, or use LibTmux 0.0.0-alpha.21, the
-last release that supports tmux 3.2a. Every measured difference between 3.3a and
-3.8 is [recorded with the test that proves it](docs/parity/version-deltas.json).
-
-The library starts the `tmux` found on `PATH`. To use another binary, set
-[`ServerConnectionOptions.TmuxBinaryPath`][api-serverconnectionoptions]. The
-`LibTmux` package never reads `LIBTMUX_TMUX`; within the shipped packages, only
-`tmux-workspace` and `libtmux-mcp` do.
+- A tmux below 3.3a is refused the same way. Upgrade tmux and restart its
+  server.
+- [`TmuxUnsupportedOnReleaseException`][api-tmuxunsupportedonreleaseexception]
+  covers a command a release mishandles or rejects, and
+  `TmuxVersionTooLowException` derives from it. Both carry `ActualVersion`,
+  `SafeReleases`, the `CapabilityId` from [`capabilities.json`](capabilities.json)
+  and the refused `Command`.
+- Every difference between 3.3a and 3.8 is
+  [recorded with the test that proves it](docs/parity/version-deltas.json).
+- The library starts the `tmux` on `PATH`;
+  [`ServerConnectionOptions.TmuxBinaryPath`][api-serverconnectionoptions] picks
+  another binary.
 
 ## Choose how to reach tmux
 
@@ -340,17 +364,15 @@ chains work on every supported tmux; explicit control mode needs tmux 3.7+.
 | **[Control](docs/modes/control-mode.md)** | [`server.EnterControlModeAsync(ct)`][api-server-entercontrolmodeasync] | one client, streamed | another round trip — **~0.2 ms** |
 | **[Chained](docs/modes/chaining.md)** | [`server.Chain()…ExecuteAsync(ct)`][api-server-chain] | N batched, one invocation | more bytes on one command line — **~0.02 ms** |
 
-Each figure is the marginal cost of one more command, as medians of 100 samples
-against tmux 3.7b.
-
-Absolute timings move with the machine, so the
-[recorded run](docs/benchmarks/README.md) gives the distribution, the tmux, the
-host, and the date. [Choosing a mode](docs/modes/matrix.md) has allocations and
-how to rerun the table.
+Each figure is the marginal cost of one more command. Timings move with the
+machine: the [recorded run](docs/benchmarks/README.md) has the distribution and
+the host, and [Choosing a mode](docs/modes/matrix.md) has allocations.
 
 ### [`Session.CreateWindowAsync`][api-session-createwindowasync]: one command, a typed object back
 
 ```csharp run
+using LibTmux;
+
 // One-shot: a command, a typed object back.
 Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
 Console.WriteLine(built.Name);
@@ -366,6 +388,33 @@ IReadOnlyList<string> reply = await control.SendAsync(
     ct);
 ```
 
+### [`IControlModeSession.Events`][api-icontrolmodesession-events]: what tmux says unasked
+
+Send a command, then read the notification it causes. The same stream reports
+pane output and the end of the session. More:
+[Control mode](docs/modes/control-mode.md).
+
+<!-- snippet: WatchForWindowAdd usings: LibTmux -->
+```csharp
+using LibTmux;
+
+await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
+
+await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
+
+await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
+{
+    if (observed is TmuxNotificationEvent { Name: "window-add" } added)
+    {
+        Console.WriteLine($"window-add {added.Arguments[0]}");
+        break;
+    }
+}
+```
+<!-- endsnippet -->
+
+It prints `window-add` and the new window's ID.
+
 ### [`Server.Chain`][api-server-chain]: many commands, one invocation
 
 ```csharp run
@@ -375,10 +424,6 @@ await server.Chain()
     .Then("new-window", "-d", "-n", "test")
     .ExecuteAsync(ct);
 ```
-
-The recorded process-transport baseline makes control mode an order of
-magnitude cheaper per command. One-shot calls can already share a client;
-an explicit control session also exposes its notification stream.
 
 ## Testing your own code
 
@@ -427,7 +472,7 @@ $ tmux-workspace ls
 
 [LibTmux.Mcp](src/LibTmux.Mcp/README.md) is a
 [Model Context Protocol](https://modelcontextprotocol.io/specification/2025-06-18)
-server. It is a separate package that installs as a .NET tool:
+server, installed as a .NET tool:
 
 ```console
 $ dotnet tool install --global LibTmux.Mcp
@@ -437,39 +482,28 @@ $ dotnet tool install --global LibTmux.Mcp
 { "mcpServers": { "tmux": { "command": "libtmux-mcp" } } }
 ```
 
-- It exposes its tools in `inspect`, `manage`, `execute`, and `teardown` sets,
-  plus the static `tmux://capabilities` resource.
-- Teardown is omitted by default.
-- [The full reference](docs/mcp/tools.md) is generated from the server itself.
-- Pin one socket for the process with `LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH`.
-  With neither set, tmux picks the server: the one in `TMUX`, otherwise its
-  default socket.
-
-Tools expose status, bounded output, and wait behavior:
-
+- Tools come in `inspect`, `manage`, `execute`, and `teardown` sets, and
+  teardown is off by default.
 - [`run_shell_command`](https://libtmux.org/en/csharp/latest/mcp/tools/run_shell_command/)
   returns the shell's real exit status.
 - [`wait_for_text`](https://libtmux.org/en/csharp/latest/mcp/tools/wait_for_text/)
   wakes from tmux's control-mode stream on tmux 3.7 and newer, and polls on
-  older releases. If that stream cannot start, the wait ends unless you set
-  `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true`.
-- Nothing returns unbounded output.
-  [`capture_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_pane/)
-  reads visible text and scrollback, while
+  older releases.
+- [`capture_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_pane/)
+  reads visible text and scrollback;
   [`snapshot_pane`](https://libtmux.org/en/csharp/latest/mcp/tools/snapshot_pane/),
   [`search_panes`](https://libtmux.org/en/csharp/latest/mcp/tools/search_panes/),
   and
   [`capture_since`](https://libtmux.org/en/csharp/latest/mcp/tools/capture_since/)
-  give structured and incremental reads.
-- Pane modes belong to attached humans. The server never enters, drives, or
-  exits one, and input refuses a pane that is in one. Wait for the person to
-  leave the mode; do not cancel it.
-- Toolset and tool selection is frozen at startup and reported through
-  `tmux://capabilities`.
+  give structured and incremental reads. No tool returns unbounded output.
+- Pane modes belong to attached humans: the server never enters one, and input
+  refuses a pane that is in one.
+- With no socket pinned, tmux picks the server: the one in `TMUX`, otherwise its
+  default socket. `LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH` pins one.
+- More: [every tool](docs/mcp/tools.md), generated from the server itself, and
+  the [full instructions](src/LibTmux.Mcp/README.md).
 
-[Full instructions](src/LibTmux.Mcp/README.md).
-
-An MCP client starts the server itself and speaks to it over standard input and
+A client starts the server itself and speaks to it over standard input and
 output. Register it with Claude Code:
 
 ```console
@@ -589,31 +623,19 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
 
 ## Support and status
 
-- **Releases.** Releases are numbered `0.1.N`, and each release increments `N`.
-  The API is not settled: any release may change or remove exported identifiers,
-  and each package's changelog marks its breaks. Pin an exact version to avoid
-  one.
-- **tmux.** Stable 3.3a and newer. A release is built and tested against 3.3a,
-  3.4, 3.5, 3.6, 3.7a, 3.7b, 3.7c, and 3.8; each push runs 3.3a and 3.8.
-  Development builds have unknown capability state, and `next-*` builds use
-  the release intervals.
-- **tmux release candidates.** Not supported; see
+- **Pre-1.0.** Any release may change or remove an exported identifier. Each
+  package's changelog marks its breaks, so pin an exact version.
+- **tmux.** 3.3a or newer, tested through 3.8. A release candidate is not
+  supported: see
   [Release candidates](https://libtmux.org/en/tmux/guides/tmux-support/#release-candidates).
-  `TmuxVersion` parses a candidate such as `X.Y-rcN` and orders it below `X.Y`;
-  beyond that ordering, the library promises nothing about how a check treats
-  one.
+  `TmuxVersion` orders `X.Y-rcN` below `X.Y` and promises nothing more.
 - **.NET.** net8.0 and net10.0.
-- **Systems.** Linux, including WSL. macOS is best effort, without CI
-  coverage. CI builds on Windows x64, where the types that need a real tmux
-  are annotated unsupported.
-- **Windows preview.** The [`Psmux*` preview](docs/psmux.md) reads a Windows
-  psmux session natively or from WSL. It is best effort, with no CI
-  coverage; its smoke harness runs by hand.
-- **Trimming and NativeAOT.** The `LibTmux` core is analyzer-gated, and its
-  smoke app is published and run for `linux-x64` on net8.0 and net10.0.
-- **Trimmed callers.** [`Compile`][api-query-queryextensions-compile] and
-  [`Matching`][api-query-queryextensions-matching] resolve properties by name
-  and warn callers to preserve the filtered types' public properties.
+- **Systems.** Linux, including WSL. macOS is best effort. Native Windows has
+  only the read-only [`Psmux*` preview](docs/psmux.md), also best effort.
+- **Trimming and NativeAOT.** The `LibTmux` core is analyzed for both.
+  [`Compile`][api-query-queryextensions-compile] and
+  [`Matching`][api-query-queryextensions-matching] resolve properties by name, so
+  they warn trimmed callers to preserve the filtered types' public properties.
 
 ## Documentation
 
@@ -632,8 +654,7 @@ and [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
   with the test that proves it
 - [Decisions](docs/decisions/) — why the transport, object model and query
   catalog are shaped this way
-- [Examples](examples/README.md) — every example here is a test, and the C# in
-  this README is quoted from one
+- [Examples](examples/README.md) — the programs these snippets come from
 - [Changelog](CHANGELOG.md) — changes that span packages, with a link to the
   changelog of each package
 - [AGENTS.md](AGENTS.md) — how to work in this repository
@@ -669,6 +690,7 @@ discourse:
 [api-client]: https://libtmux.org/en/csharp/latest/reference/libtmux-client/
 [api-client-iscontrolclient]: https://libtmux.org/en/csharp/latest/reference/libtmux-client-iscontrolclient/
 [api-guide-testing]: https://libtmux.org/en/csharp/latest/guides/testing-with-libtmux/
+[api-icontrolmodesession-events]: https://libtmux.org/en/csharp/latest/reference/libtmux-icontrolmodesession-events/
 [api-mcp-guide]: https://libtmux.org/en/csharp/latest/mcp/
 [api-mcp-tools]: https://libtmux.org/en/csharp/latest/mcp/tools/
 [api-pane]: https://libtmux.org/en/csharp/latest/reference/libtmux-pane/
@@ -678,12 +700,18 @@ discourse:
 [api-query-json-queryjson]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-json-queryjson/
 [api-query-queryextensions-compile]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryextensions-compile/
 [api-query-queryextensions-matching]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryextensions-matching/
+[api-query-queryextensions-plan]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryextensions-plan/
 [api-query-queryextensions-translate]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryextensions-translate/
+[api-query-queryplan]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-queryplan/
+[api-query-querypushdown-auto]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-querypushdown-auto/
+[api-query-querypushdown-never]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-querypushdown-never/
+[api-query-querypushdown-require]: https://libtmux.org/en/csharp/latest/reference/libtmux-query-querypushdown-require/
 [api-server]: https://libtmux.org/en/csharp/latest/reference/libtmux-server/
 [api-server-chain]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-chain/
 [api-server-connectasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-connectasync/
 [api-server-createownedasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-createownedasync/
 [api-server-entercontrolmodeasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-entercontrolmodeasync/
+[api-server-inspectasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-server-inspectasync/
 [api-serverconnectionoptions]: https://libtmux.org/en/csharp/latest/reference/libtmux-serverconnectionoptions/
 [api-session]: https://libtmux.org/en/csharp/latest/reference/libtmux-session/
 [api-session-createwindowasync]: https://libtmux.org/en/csharp/latest/reference/libtmux-session-createwindowasync/
