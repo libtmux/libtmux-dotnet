@@ -41,11 +41,6 @@ on the command line, which resolves whatever released that morning:
 $ uv run --locked --script eng/run_tests.py
 ```
 
-Parity tests read a pinned revision of the Python library. Point
-`LIBTMUX_PYTHON_REPOSITORY` at a checkout of
-[tmux-python/libtmux](https://github.com/tmux-python/libtmux) that contains it,
-or they fail saying which revision they wanted.
-
 You also need a real `tmux`, version 3.3a or newer. The suite drives one
 rather than mocking it, because this library's job is being right about tmux
 and only tmux can say whether it is.
@@ -264,7 +259,7 @@ Aggregate jobs reject failed, cancelled, or skipped prerequisites.
 | F# public signatures and argument groups | Compiled F# inventory and `LibTmux.FSharp/PublicAPI.json` |
 | F# formatting | Pinned Fantomas local tool |
 | Public XML comments and documentation identities | Roslyn and F# compiler inventories |
-| Ownership, parity destinations, platform and I/O policies | `verify_public_api.py` over compiler metadata |
+| Ownership, platform and I/O policies | `verify_public_api.py` over compiler metadata |
 | Current package asset compatibility | SDK Package Validation; no historical baseline |
 | Workflow syntax and repository policy | Pinned actionlint and `verify_workflows.py` |
 | Package contents, dependency versions and source identity | Native `packages` command |
@@ -720,7 +715,6 @@ that makes it not a capability.
 packable library's `PublicAPI.Unshipped.txt`; RS0016, RS0017 and RS0036 enforce
 new, stale and incorrectly annotated declarations. Add policy metadata only
 when the API introduces ownership, I/O, platform or package-placement rules.
-If it maps a Python symbol, use its exact compiler ID in the parity ledger.
 Regenerate compiler inventory and API Markdown after changing source comments
 or declarations.
 
@@ -743,16 +737,6 @@ changelog or its `## [Unreleased]` section, not when an entry is missing.
 [`docs/benchmarks`](../docs/benchmarks/README.md). Absolute milliseconds move
 by a factor of five on one host, so a claim is stated as a marginal cost or a
 ratio, with the tmux, host and date that produced it.
-
-## The Python original is a separate checkout
-
-This repository was imported out of a monorepo that also held Python libtmux,
-so anything grounded in that source needs to be told where it went:
-
-```console
-$ LIBTMUX_PYTHON_REPOSITORY=~/work/python/libtmux \
-    uv run python eng/parity/verify_ledger.py
-```
 
 ## Flaky, or broken?
 
@@ -823,7 +807,7 @@ outside the evidence directory. Any commit changes it, so a verified row is
 true at one commit and stale at the next.
 
 That is why recording belongs at a release boundary rather than in the gate,
-and why `reconcile_versions.py` and `verify_ledger.py` are not in
+and why `reconcile_versions.py` is not in
 `dotnet.yml`. Between releases every row is `pending`, which is the honest
 state: nobody has run the matrix against this tree.
 

@@ -13,6 +13,7 @@ import pytest
 
 from eng.evidence.assemble_bundle import source_state, source_tree_fingerprint
 
+VERSION_DELTAS = pathlib.Path(__file__).parents[3] / "docs/parity/version-deltas.json"
 VERSION_PARITY_TEST = (
     "tests/LibTmux.IntegrationTests/Versioning/VersionParityTests.cs::"
 )
@@ -40,19 +41,13 @@ def load_reconciler() -> dict[str, t.Any]:
     )
 
 
-def load_generator() -> dict[str, t.Any]:
-    """Load the parity generator as an import-free test namespace."""
-    return runpy.run_path(
-        str(pathlib.Path(__file__).parents[1] / "generate_inventory.py")
-    )
-
-
 def seed_document() -> dict[str, t.Any]:
-    """Build a pending seed without previously admitted publication evidence."""
-    return t.cast(
-        dict[str, t.Any],
-        load_generator()["version_deltas"](),
-    )
+    """Build a pending seed from the checked-in rows, without published evidence."""
+    document = json.loads(VERSION_DELTAS.read_text(encoding="utf-8"))
+    for row in document["capabilities"]:
+        row["evidenceStatus"] = "pending"
+        row.pop("evidence", None)
+    return t.cast(dict[str, t.Any], document)
 
 
 def matrix_rows(commit: str = "c" * 40) -> list[dict[str, t.Any]]:
@@ -1233,32 +1228,6 @@ def test_later_cohort_preserves_prior_commit_tree_evidence(
     )
 
     assert later == first
-
-
-def test_generator_preserves_valid_reconciliation(tmp_path: pathlib.Path) -> None:
-    """Keep evidence-owned fields across generation and currentness checks."""
-    reconciler = load_reconciler()
-    results, mapping, _commit = write_fixture(tmp_path, matrix_rows())
-    reconciled = reconciler["reconcile"](
-        copy.deepcopy(seed_document()),
-        results,
-        repository=tmp_path,
-        capability_tests=mapping,
-    )
-    generator = load_generator()
-    document_root = tmp_path / "generated"
-    document_root.mkdir()
-    version_path = document_root / "version-deltas.json"
-    version_path.write_text(
-        json.dumps(reconciled, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    generator["write_documents"].__globals__["DOCUMENT_ROOT"] = document_root
-
-    generator["write_documents"]()
-
-    assert json.loads(version_path.read_text(encoding="utf-8")) == reconciled
-    assert generator["documents_are_current"]() is True
 
 
 def test_seed_document_starts_without_published_evidence() -> None:

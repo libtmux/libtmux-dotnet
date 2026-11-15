@@ -49,13 +49,11 @@ version:
 
 Records of the library's surface and behavior, each with a validator.
 
-- [API policy](public-api.md) — ownership, parity destinations, and process
-  policy checked against compiler symbols. Analyzer baselines define the
+- [API policy](public-api.md) — ownership and process policy checked against
+  compiler symbols. Analyzer baselines define the
   declarations for every packable library.
 - [Version deltas](parity/version-deltas.json) — every tmux behavior
   difference the library gates on, each naming the test that proves it
-- [Parity ledger](parity/parity-ledger.json) — where each Python libtmux
-  symbol went
 - [Decisions](decisions/) — why the transport, object model, query
   catalog, and public API are shaped the way they are
 - [Quality-bar snapshot](quality-bar.md) — an archived scored tree and the

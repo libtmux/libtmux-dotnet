@@ -1,7 +1,6 @@
 {
   "schema": "libtmux-api-policy",
   "version": 2,
-  "sourceRevision": "c4a980b",
   "packages": [
     {
       "id": "LibTmux",

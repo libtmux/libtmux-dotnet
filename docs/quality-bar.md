@@ -39,7 +39,7 @@ Both are absences, not defects.
 | Criterion | Evidence |
 |---|---|
 | Warnings are errors | `TreatWarningsAsErrors`, `AnalysisLevel 10-recommended`, `EnforceCodeStyleInBuild`, `Nullable enable` |
-| Public API cannot drift silently | Roslyn `PublicAPI.{Shipped,Unshipped}.txt`; compiler symbols supply documentation identities and parity destinations |
+| Public API cannot drift silently | Roslyn `PublicAPI.{Shipped,Unshipped}.txt`; compiler symbols supply documentation identities |
 | Trimming and AOT | `IsTrimmable`, `IsAotCompatible`, both analyzers on, and a [publish smoke test](../tests/LibTmux.AotSmoke) that runs the AOT binary |
 | Reproducible restore | Central Package Management, lock files, `RestoreLockedMode` in CI, `Deterministic`, `ContinuousIntegrationBuild` |
 | Multi-targeting is real | net8.0 and net10.0 both tested; net8.0 consumers resolve an 8.0 logging abstraction, [verified from the live feed](benchmarks/README.md) |
@@ -63,7 +63,6 @@ target, but it is a constraint worth naming.
 | All three transports | One-shot, control mode, and chaining, each measured and each working on every supported tmux |
 | The macOS claim is measured | A `macos arm64` lane builds, unit-tests and runs the integration suite against real tmux on Apple silicon. **846 of 849 pass; 2 remain.** Advisory until those are diagnosed |
 | Does not disturb other tmux users | Socket root of its own; the rules are in [AGENTS.md](../AGENTS.md) and enforced by a module initializer |
-| Parity with the Python original is tracked | [Parity ledger](parity/parity-ledger.json) maps every Python symbol to where it went |
 
 **The 0.5 is now a known deficit rather than an unknown one.** macOS was listed
 as supported and had never been run; the first lane found 15 failing integration

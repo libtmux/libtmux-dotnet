@@ -1,4 +1,4 @@
-"""Check parity destinations and explicit API policy against compiler symbols."""
+"""Check explicit API policy against compiler symbols."""
 
 from __future__ import annotations
 
@@ -8,13 +8,8 @@ import sys
 
 ROOT = pathlib.Path(__file__).parents[2]
 API_PATH = ROOT / "docs/public-api.json"
-LEDGER_PATH = ROOT / "docs/parity/parity-ledger.json"
 INVENTORY_PATH = ROOT / "artifacts/api-inventory.json"
 FSHARP_BASELINE_PATH = ROOT / "src/LibTmux.FSharp/PublicAPI.json"
-TMUX_MAX_VERSION_ADAPTATION = (
-    "Semantic adaptation: map Python TMUX_MAX_VERSION 3.7 to "
-    "MaximumTestedTmuxVersion 3.8, the highest required tested version"
-)
 
 
 def load_document(path: pathlib.Path) -> dict:
@@ -52,13 +47,11 @@ def validate_fsharp(inventory: dict, baseline: dict) -> list[str]:
     ]
 
 
-def validate(policy: dict, ledger: dict, inventory: dict) -> list[str]:
+def validate(policy: dict, inventory: dict) -> list[str]:
     violations = []
     if policy.get("schema") != "libtmux-api-policy" or policy.get("version") != 2:
         violations.append("invalid API policy schema")
     symbols = {member["id"]: member for member in inventory["members"]}
-    if policy.get("sourceRevision") != ledger.get("sourceRevision"):
-        violations.append("policy and ledger source revisions differ")
     for identifier, package in policy.get("packageAssignments", {}).items():
         if symbols.get(identifier, {}).get("package") != package:
             violations.append(f"incorrect package ownership: {identifier}")
@@ -73,30 +66,6 @@ def validate(policy: dict, ledger: dict, inventory: dict) -> list[str]:
                     for text in [symbol["signature"], *symbol["exposedTypes"]]
                 ):
                     violations.append(f"forbidden public API token: {token}")
-    rows = ledger.get("rows", [])
-    if {row.get("componentId") for row in rows} != set(range(1, 19)):
-        violations.append("ledger component IDs are incomplete")
-    if len({row.get("pythonSymbolId") for row in rows}) != len(rows):
-        violations.append("duplicate parity ledger row IDs")
-    for row in rows:
-        source = row.get("pythonSymbolId")
-        status = row.get("destinationStatus")
-        destination = row.get("csharpDestination")
-        symbol = symbols.get(destination)
-        if status in {"approved", "internalized"}:
-            if symbol is None:
-                violations.append(f"unknown {status} destination: {source}: {destination}")
-            elif symbol["visibility"] != ("public" if status == "approved" else "internal"):
-                violations.append(f"destination visibility disagrees: {source}: {destination}")
-        elif status == "excluded":
-            if destination is not None or not row.get("exclusionReason") or not row.get("replacement"):
-                violations.append(f"invalid exclusion: {source}")
-            replacement = row.get("replacement", "")
-            if replacement.startswith(("T:", "M:", "P:", "F:", "E:")) and replacement not in symbols:
-                violations.append(f"unknown replacement: {source}: {replacement}")
-        else:
-            violations.append(f"unexpected parity disposition: {source}")
-
     for identifier, ownership in policy.get("ownership", {}).items():
         symbol = symbols.get(identifier)
         if symbol is None:
@@ -154,7 +123,7 @@ def validate(policy: dict, ledger: dict, inventory: dict) -> list[str]:
 
 def main() -> int:
     inventory = load_document(INVENTORY_PATH)
-    violations = validate(load_document(API_PATH), load_document(LEDGER_PATH), inventory)
+    violations = validate(load_document(API_PATH), inventory)
     violations.extend(validate_fsharp(inventory, load_document(FSHARP_BASELINE_PATH)))
     for violation in violations:
         print(violation, file=sys.stderr)

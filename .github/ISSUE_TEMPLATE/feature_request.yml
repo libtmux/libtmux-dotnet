@@ -18,4 +18,4 @@ body:
     id: python-parity
     attributes:
       label: Does Python libtmux do this?
-      description: If so, name the symbol — parity is tracked and that shortens the discussion.
+      description: If so, name the symbol; it shortens the discussion.

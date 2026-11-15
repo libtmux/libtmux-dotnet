@@ -413,15 +413,7 @@ jobs:
         id: fsharp-fsdocs
         run: python3 eng/docs/sync_fsdocs_reference.py --check
 
-      - name: Check out the pinned Python libtmux
-        # The parity records quote one revision of the Python library. It is
-        # cloned beside the workspace rather than into it, so nothing here
-        # counts as part of this repository's tree.
-        run: git clone --filter=blob:none --no-checkout https://github.com/tmux-python/libtmux "${RUNNER_TEMP}/python-libtmux"
-
       - name: Engineering tests
-        env:
-          LIBTMUX_PYTHON_REPOSITORY: ${{ runner.temp }}/python-libtmux
         # Naming pytest and tomlkit on the command line resolved whatever
         # released that morning, so an unrelated release could turn this red.
         # The runner declares them in its own PEP 723 header and pins them in

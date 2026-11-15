@@ -14,14 +14,14 @@ VALIDATE = runpy.run_path(str(ROOT / "eng/parity/verify_public_api.py"))["valida
 def test_compiled_fsharp_surface_matches_reviewed_baseline(documents):
     validator = runpy.run_path(str(ROOT / "eng/parity/verify_public_api.py"))
     baseline = json.loads((ROOT / "src/LibTmux.FSharp/PublicAPI.json").read_text())
-    assert validator["validate_fsharp"](documents[2], baseline) == []
+    assert validator["validate_fsharp"](documents[1], baseline) == []
 
 
 @pytest.mark.parametrize("mutation", ["missing", "added", "groups", "constraint", "case"])
 def test_fsharp_baseline_rejects_changed_contract(documents, mutation):
     validator = runpy.run_path(str(ROOT / "eng/parity/verify_public_api.py"))
     baseline = json.loads((ROOT / "src/LibTmux.FSharp/PublicAPI.json").read_text())
-    inventory = copy.deepcopy(documents[2])
+    inventory = copy.deepcopy(documents[1])
     members = [m for m in inventory["members"] if m["package"] == "LibTmux.FSharp"]
     capture = next(m for m in members if m["id"].startswith("M:LibTmux.FSharp.Server.capture("))
     if mutation == "missing":
@@ -42,7 +42,7 @@ def test_fsharp_baseline_rejects_changed_contract(documents, mutation):
 @pytest.fixture(scope="module")
 def documents():
     return tuple(json.loads((ROOT / path).read_text()) for path in (
-        "docs/public-api.json", "docs/parity/parity-ledger.json", "artifacts/api-inventory.json"
+        "docs/public-api.json", "artifacts/api-inventory.json"
     ))
 
 
@@ -51,22 +51,14 @@ def test_compiler_symbols_satisfy_policy(documents):
 
 
 @pytest.mark.parametrize("mutation,expected", [
-    ("unknown", "unknown approved destination"),
-    ("visibility", "destination visibility disagrees"),
     ("ownership", "borrowed type is disposable"),
     ("cancellation", "invalid cancellation parameter"),
     ("platform", "missing Windows annotation"),
 ])
 def test_compiler_policy_rejects_broken_contract(documents, mutation, expected):
-    policy, ledger, inventory = copy.deepcopy(documents)
+    policy, inventory = copy.deepcopy(documents)
     symbols = {m["id"]: m for m in inventory["members"]}
-    if mutation in {"unknown", "visibility"}:
-        row = next(r for r in ledger["rows"] if r["destinationStatus"] == "approved")
-        if mutation == "unknown":
-            row["csharpDestination"] = "M:LibTmux.Missing"
-        else:
-            symbols[row["csharpDestination"]]["visibility"] = "internal"
-    elif mutation == "ownership":
+    if mutation == "ownership":
         symbols["T:LibTmux.Server"]["interfaces"].append("System.IAsyncDisposable")
     elif mutation == "cancellation":
         rule = next(r for r in policy["members"] if r.get("performsIO"))
@@ -76,7 +68,7 @@ def test_compiler_policy_rejects_broken_contract(documents, mutation, expected):
         member = symbols[rule["id"]]
         member["attributes"] = []
         symbols[member["declaringType"]]["attributes"] = []
-    assert any(expected in violation for violation in VALIDATE(policy, ledger, inventory))
+    assert any(expected in violation for violation in VALIDATE(policy, inventory))
 
 
 @pytest.mark.parametrize("identifier,name", [
@@ -85,29 +77,29 @@ def test_compiler_policy_rejects_broken_contract(documents, mutation, expected):
     ("F:LibTmux.Server.QuerySessions", "QuerySessions"),
 ])
 def test_forbidden_exposed_type_is_rejected(documents, identifier, name):
-    policy, ledger, inventory = copy.deepcopy(documents)
+    policy, inventory = copy.deepcopy(documents)
     inventory["members"].append({
         "id": identifier, "name": name, "declaringType": "T:LibTmux.Server",
         "visibility": "public", "signature": "LibTmux.Server.QuerySessions",
         "exposedTypes": ["System.Linq.IQueryable<LibTmux.Session>"],
     })
-    assert any("forbidden public API token: IQueryable" in error for error in VALIDATE(policy, ledger, inventory))
+    assert any("forbidden public API token: IQueryable" in error for error in VALIDATE(policy, inventory))
 
 
 @pytest.mark.parametrize("name", ["Dispose", "DisposeAsync"])
 def test_borrowed_public_disposal_method_is_rejected(documents, name):
-    policy, ledger, inventory = copy.deepcopy(documents)
+    policy, inventory = copy.deepcopy(documents)
     inventory["members"].append({
         "id": f"M:LibTmux.Server.{name}", "name": name,
         "declaringType": "T:LibTmux.Server", "visibility": "public",
         "signature": f"LibTmux.Server.{name}()", "exposedTypes": [],
     })
-    assert any("borrowed type exposes disposal" in error for error in VALIDATE(policy, ledger, inventory))
+    assert any("borrowed type exposes disposal" in error for error in VALIDATE(policy, inventory))
 
 
 @pytest.mark.parametrize("target", ["member", "type"])
 def test_portable_platform_restriction_is_rejected(documents, target):
-    policy, ledger, inventory = copy.deepcopy(documents)
+    policy, inventory = copy.deepcopy(documents)
     symbols = {m["id"]: m for m in inventory["members"]}
     rule = next(r for r in policy["members"] if r.get("portable"))
     symbol = symbols[rule["id"]]
@@ -117,4 +109,4 @@ def test_portable_platform_restriction_is_rejected(documents, target):
         "type": "System.Runtime.Versioning.UnsupportedOSPlatformAttribute",
         "arguments": ["windows"],
     })
-    assert any("portable member has platform annotation" in error for error in VALIDATE(policy, ledger, inventory))
+    assert any("portable member has platform annotation" in error for error in VALIDATE(policy, inventory))
