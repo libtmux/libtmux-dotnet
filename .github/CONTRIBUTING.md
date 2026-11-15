@@ -799,7 +799,7 @@ trusted-publishing policy registered on nuget.org, so change the policy first.
 
 The psmux preview is supported at best effort, and CI coverage for it is highly
 limited: CI does not run psmux, and `release.yml` does not wait for it. To
-check the preview, run `eng/psmux/Invoke-PsmuxSmoke.ps1` by hand on a Windows
+check the preview, run `scripts/psmux-smoke/psmux_smoke.py` by hand on a Windows
 x64 machine with WSL, as
 [`docs/psmux.md`](../docs/psmux.md#native-windows-and-wsl-smoke) describes.
 

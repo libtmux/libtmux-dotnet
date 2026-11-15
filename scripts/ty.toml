@@ -10,4 +10,5 @@ extra-paths = [
     "package-review",
     "wrapped-captures",
     "quality",
+    "psmux-smoke",
 ]

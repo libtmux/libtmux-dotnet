@@ -196,31 +196,31 @@ $ package_cache="$(mktemp -d /tmp/libtmux-dotnet-psmux-nuget.XXXXXX)" && \
         --warnaserror
 ```
 
-Then run the checked-in harness from native Windows PowerShell. Replace the
+Then run the checked-in harness through `uv` from native Windows PowerShell. Replace the
 example paths with paths on the test machine, but retain the exact SHA shown
-below: the harness rejects every other artifact. `DataDirectory` must be a
+below: the harness rejects every other artifact. the data directory must be a
 fresh, nonexistent, high-entropy directory for each run; the harness refuses an
 existing directory rather than overwriting anything in it. It disables psmux's
 warm helper, removes only the exact session identity it created, and deletes the
 owned directory only after the server process and every live registry entry are
-gone. The optional WSL arguments make the same native PowerShell process keep
+gone. The optional WSL arguments make the same native process keep
 the server alive while both native .NET and WSL .NET query it:
 
 ```console
-$ & '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\eng\psmux\Invoke-PsmuxSmoke.ps1' `
-    -PsmuxPath 'C:\Tools\psmux-v3.3.8\psmux.exe' `
-    -ExpectedSha256 '54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d' `
-    -DataDirectory 'C:\Users\me\AppData\Local\Temp\libtmux-psmux-smoke-01a00fd3' `
-    -NamespaceName 'libtmux_smoke_01a00fd3' `
-    -DotnetPath 'C:\Program Files\dotnet\dotnet.exe' `
-    -TestAssembly '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\tests\LibTmux.UnitTests\bin\Release\net10.0\LibTmux.UnitTests.dll' `
-    -ExampleAssembly '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\examples\LibTmux.Examples\bin\Release\net10.0\LibTmux.Examples.dll' `
-    -PackageConsumerAssembly '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\tests\LibTmux.PackageConsumer\bin\Release\net10.0\LibTmux.PackageConsumer.dll' `
-    -TargetFramework 'net10.0' `
-    -RunWslSmoke `
-    -WslDistribution '<distribution>' `
-    -WslRepository '/home/<user>/libtmux-dotnet' `
-    -WslDotnetPath '/home/<user>/.config/mise/dotnet-root/dotnet'
+$ uv run '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\scripts\psmux-smoke\psmux_smoke.py' `
+    --psmux-path 'C:\Tools\psmux-v3.3.8\psmux.exe' `
+    --expected-sha256 '54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d' `
+    --data-directory 'C:\Users\me\AppData\Local\Temp\libtmux-psmux-smoke-01a00fd3' `
+    --namespace-name 'libtmux_smoke_01a00fd3' `
+    --dotnet-path 'C:\Program Files\dotnet\dotnet.exe' `
+    --test-assembly '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\tests\LibTmux.UnitTests\bin\Release\net10.0\LibTmux.UnitTests.dll' `
+    --example-assembly '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\examples\LibTmux.Examples\bin\Release\net10.0\LibTmux.Examples.dll' `
+    --package-consumer-assembly '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\tests\LibTmux.PackageConsumer\bin\Release\net10.0\LibTmux.PackageConsumer.dll' `
+    --target-framework 'net10.0' `
+    --run-wsl-smoke `
+    --wsl-distribution '<distribution>' `
+    --wsl-repository '/home/<user>/libtmux-dotnet' `
+    --wsl-dotnet-path '/home/<user>/.config/mise/dotnet-root/dotnet'
 ```
 
 Before its first psmux launch, the harness verifies the SHA and embedded audited
@@ -242,8 +242,8 @@ Windows-absolute `PSMUX_DATA_DIR`. LibTmux owns and canonicalizes `WSLENV`,
 removes inherited tmux routing and every `PSMUX_*` entry case-insensitively,
 and forwards only `PSMUX_DATA_DIR/w` without path translation. WSL is a client
 in this workflow; native PowerShell owns the psmux server lifecycle. A bounded
-translation accepts either a Linux or Windows-absolute `WslRepository`, and a
-bounded preflight canonicalizes `WslDotnetPath` inside the selected
+translation accepts either a Linux or Windows-absolute `--wsl-repository`, and a
+bounded preflight canonicalizes `--wsl-dotnet-path` inside the selected
 distribution, requires the result to be an executable regular file, and
 confirms that it supplies the `Microsoft.NETCore.App` runtime matching the
 selected target framework. Every WSL leg then invokes that exact path; none

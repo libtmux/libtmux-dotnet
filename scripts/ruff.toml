@@ -10,6 +10,7 @@ src = [
     "package-review",
     "wrapped-captures",
     "quality",
+    "psmux-smoke",
 ]
 
 [lint]

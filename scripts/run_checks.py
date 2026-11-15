@@ -6,6 +6,7 @@
 #     "pytest-asyncio>=1.0",
 #     "tomlkit>=0.13",
 #     "PyYAML>=6,<7",
+#     "psutil>=6",
 #     "ruff==0.17.5",
 #     "ty==0.0.104",
 # ]
