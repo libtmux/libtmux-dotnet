@@ -25,7 +25,7 @@ run, mirror, option and snapshot helpers.
 | [SelectionResults.fs](../LibTmux.FSharp.Examples/Programs/SelectionResults.fs) | Match all `Selection.exactlyOne` results |
 | [LookupFailures.fs](../LibTmux.FSharp.Examples/Programs/LookupFailures.fs) | Keep cancellation, invalid input and failed reads distinct from absence |
 | [CreateWindowPane.fs](../LibTmux.FSharp.Examples/Programs/CreateWindowPane.fs) | Own a session and window, then split a pane |
-| [InputCapture.fs](../LibTmux.FSharp.Examples/Programs/InputCapture.fs) | Type literal text, press Enter by name, then capture signalled output |
+| [InputCapture.fs](../LibTmux.FSharp.Examples/Programs/InputCapture.fs) | Type literal text, press Enter by name, then capture printed output |
 | [Queries.fs](../LibTmux.FSharp.Examples/Programs/Queries.fs) | Query every level and let tmux narrow the listing |
 | [SendWaitRead.fs](../LibTmux.FSharp.Examples/Programs/SendWaitRead.fs) | Send a command, wait for its output and run to an exit status |
 | [LiveState.fs](../LibTmux.FSharp.Examples/Programs/LiveState.fs) | Follow live server state |
@@ -60,9 +60,6 @@ $ dotnet pack libtmux-source/src/LibTmux.FSharp/LibTmux.FSharp.fsproj \
     --output "$consumer/libtmux-source/artifacts/api-example-packages"
 $ dotnet restore Example.fsproj --configfile NuGet.config
 $ dotnet build Example.fsproj --configuration Release --no-restore --warnaserror
-$ export TMUX_TMPDIR=/tmp/libtmux-dotnet-dev
-$ mkdir -p "$TMUX_TMPDIR"
-$ unset TMUX TMUX_PANE
 $ dotnet bin/Release/net8.0/Example.dll
 api capture ready
 $ dotnet bin/Release/net10.0/Example.dll
@@ -75,16 +72,18 @@ it receives the core `LibTmux` package transitively. The NuGet configuration
 maps library packages to the local source build so an unrelated published
 package with the same version cannot satisfy the restore.
 
-The programs create private socket names. `use!` disposes their ownership
-scopes in reverse order, including after cancellation or an exception. Scope
-cleanup uses its own bounded token. Cancellation stops waiting for an
+The programs place their socket in a temporary directory of their own with
+`ServerConnectionOptions.SocketPath`, so nothing needs to be exported or
+created before they run, and they delete that directory last. `use!` disposes
+their ownership scopes in reverse order, including after cancellation or an
+exception. Scope cleanup uses its own bounded token. Cancellation stops waiting for an
 operation; it does not undo input or mutations already sent to tmux. An
 unhandled error exits the program unsuccessfully after cleanup.
 
-`InputCapture.fs` waits for a private signal sent by the pane's shell after
-printing. It looks for a whole captured line after removing terminal padding,
-so the echoed command cannot match it. The wait channel is also
-disposed. `SnapshotAccess.fs` turns off `exit-empty` on its own server to show
+`InputCapture.fs` waits with `Pane.waitFor` for the line the pane's shell
+prints. A pattern that anchors the whole line cannot match the echoed command,
+and the capture looks for the same whole line after removing terminal padding.
+`SnapshotAccess.fs` turns off `exit-empty` on its own server to show
 an empty captured relation after disposing the last session; the outer server
 scope still stops that daemon.
 
@@ -102,7 +101,7 @@ point. Each file rejects Windows before calling the Unix tmux APIs.
 | [ServerQueries.cs](../LibTmux.Examples/Programs/ServerQueries.cs) | Compare LINQ, portable predicates and captured hierarchy queries |
 | [EntityLookups.cs](../LibTmux.Examples/Programs/EntityLookups.cs) | Distinguish nullable absence, required lookup, cancellation and failed reads |
 | [SnapshotAccess.cs](../LibTmux.Examples/Programs/SnapshotAccess.cs) | Distinguish uncaptured, captured and empty state |
-| [InputCapture.cs](../LibTmux.Examples/Programs/InputCapture.cs) | Send literal text and Enter, then capture signalled output |
+| [InputCapture.cs](../LibTmux.Examples/Programs/InputCapture.cs) | Send literal text and Enter, then capture printed output |
 
 From a checkout containing these files, create an external consumer:
 
@@ -122,10 +121,6 @@ $ dotnet pack libtmux-source/src/LibTmux/LibTmux.csproj \
     --output "$consumer/libtmux-source/artifacts/api-example-packages"
 $ dotnet restore Example.csproj --configfile NuGet.config
 $ dotnet build Example.csproj --configuration Release --no-restore --warnaserror
-$ export LIBTMUX_TMUX="$(command -v tmux)"
-$ export TMUX_TMPDIR=/tmp/libtmux-dotnet-dev
-$ mkdir -p "$TMUX_TMPDIR"
-$ unset TMUX TMUX_PANE
 $ dotnet bin/Release/net8.0/Example.dll
 api capture ready
 $ dotnet bin/Release/net10.0/Example.dll
@@ -140,9 +135,9 @@ an HTTPS clone and exact checkout revision in place of the local clone above.
 `await using` disposes ownership scopes after success, cancellation or an
 exception. The directly created entities in `CreateWindowPane.cs` belong to
 its outer private server scope; disposing it stops the daemon and those
-entities. The wait channel in `InputCapture.cs` is also asynchronously
-disposed. Its whole-line assertion and signal use the same semantics as the
-F# capture program.
+entities. `InputCapture.cs` waits for the printed line with
+`Pane.WaitForTextAsync`, and its whole-line assertion uses the same semantics
+as the F# capture program.
 
 `ServerQueries.cs` runs predicates on already read rows. Translating an
 expression does no tmux I/O. Predicates that traverse children need an

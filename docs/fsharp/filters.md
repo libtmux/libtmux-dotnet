@@ -57,6 +57,7 @@ $ dotnet run \
 <!-- fsharp-snippet: ServerFilters -->
 ```fsharp
 open System
+open System.IO
 open System.Threading
 open LibTmux
 open LibTmux.FSharp
@@ -66,9 +67,16 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
+        let socketRoot = Directory.CreateTempSubdirectory "libtmux-example-"
+
+        use _cleanup =
+            { new IDisposable with
+                member _.Dispose() = socketRoot.Delete true
+            }
+
         let options =
             ServerConnectionOptions(
-                SocketName = "fsharp-filters-" + Guid.NewGuid().ToString("N"),
+                SocketPath = Path.Combine(socketRoot.FullName, "tmux.sock"),
                 ConfigurationFile = "/dev/null"
             )
 

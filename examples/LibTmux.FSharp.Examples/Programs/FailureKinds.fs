@@ -1,5 +1,6 @@
 // fsharp-snippet: FailureKinds
 open System
+open System.IO
 open System.Threading
 open System.Threading.Tasks
 open LibTmux
@@ -22,10 +23,17 @@ let runAsync () =
     task {
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 20.)
         let token = deadline.Token
-        let socket = "fsharp-failure-kinds-" + Guid.NewGuid().ToString("N")
+        let socketRoot = Directory.CreateTempSubdirectory "libtmux-example-"
+
+        use _cleanup =
+            { new IDisposable with
+                member _.Dispose() = socketRoot.Delete true
+            }
+
+        let socket = Path.Combine(socketRoot.FullName, "tmux.sock")
 
         let options =
-            ServerConnectionOptions(SocketName = socket, ConfigurationFile = "/dev/null")
+            ServerConnectionOptions(SocketPath = socket, ConfigurationFile = "/dev/null")
 
         use! owned = options |> Server.createOwned token
 
@@ -44,7 +52,7 @@ let runAsync () =
 
         // No server listens on this socket, so no command reached one.
         let missing =
-            ServerConnectionOptions(SocketName = socket + "-none", ConfigurationFile = "/dev/null")
+            ServerConnectionOptions(SocketPath = socket + "-none", ConfigurationFile = "/dev/null")
 
         let! notSent = kind (fun () -> missing |> Server.connect token :> Task)
         printfn "A server that is not running: %s" notSent

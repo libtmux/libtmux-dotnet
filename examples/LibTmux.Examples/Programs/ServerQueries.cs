@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -15,33 +16,36 @@ if (OperatingSystem.IsWindows())
 using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(10));
 CancellationToken token = deadline.Token;
 string binary = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
-string socketName = "csharp-serverqueries-" + Guid.NewGuid().ToString("N");
+using TemporaryDirectory socketRoot = new();
 ServerConnectionOptions options = new()
 {
-    SocketName = socketName,
+    SocketPath = Path.Combine(socketRoot.FullName, "tmux.sock"),
     ConfigurationFile = "/dev/null",
     TmuxBinaryPath = binary,
 };
 
 await using OwnedServerScope owned = await Server.CreateOwnedAsync(options, token);
-// tmux reports the shell that starts a pane until the shell has become cat. The shell signals once
-// echo is off, so the first line cat prints back is the proof that cat is reading.
-string channel = "queries-" + Guid.NewGuid().ToString("N");
-string command = "stty -echo; "
-    + $"{QuoteShell(binary)} -L {QuoteShell(socketName)} wait-for -S {QuoteShell(channel)}; exec /bin/cat";
+// tmux reports the shell that starts a pane until the shell has become cat. Echo goes off before the
+// pane prints ready, so the first line cat prints back is the proof that cat is reading.
+const string command = "stty -echo; printf 'ready\\n'; exec /bin/cat";
 await using OwnedSessionScope demo = await owned.Value.CreateOwnedSessionAsync(
     new NewSessionRequest { Name = "demo", WindowName = "shell", Command = command }, token);
 await using OwnedSessionScope worker = await owned.Value.CreateOwnedSessionAsync(
     new NewSessionRequest { Name = "worker", WindowName = "jobs", Command = "/bin/cat" }, token);
 Server server = await Server.ConnectAsync(options, token);
-await using TmuxWaitChannel ready = server.OpenWaitChannel(channel);
-if (!await ready.WaitAsync(TimeSpan.FromSeconds(5), token))
-{
-    throw new InvalidOperationException("The demo pane did not signal that it was ready.");
-}
 
 Window demoWindow = (await demo.Value.GetWindowsAsync(token)).Single();
 Pane demoPane = (await demoWindow.GetPanesAsync(token)).Single();
+PaneWaitResult ready = await demoPane.WaitForTextAsync(
+    PaneWaitRequest.FromTextPatterns(["ready"], simpleMatch: true)
+        with
+    { Timeout = TimeSpan.FromSeconds(5) },
+    token);
+if (ready.Outcome is not (PaneWaitOutcome.Matched or PaneWaitOutcome.PresentAtEntry))
+{
+    throw new InvalidOperationException($"The demo pane never signalled that it was ready: {ready.Outcome}.");
+}
+
 await demoPane.SendTextAsync("started", cancellationToken: token);
 PaneWaitResult started = await demoPane.WaitForTextAsync(
     new PaneWaitRequest
@@ -92,4 +96,11 @@ catch (OperationCanceledException)
 }
 Console.WriteLine($"LINQ, expression and document filters: {native.Name}; captured parent: {parent.Name}");
 
-static string QuoteShell(string value) => "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
+internal sealed class TemporaryDirectory : IDisposable
+{
+    private readonly DirectoryInfo _directory = Directory.CreateTempSubdirectory("libtmux-example-");
+
+    public string FullName => _directory.FullName;
+
+    public void Dispose() => _directory.Delete(recursive: true);
+}

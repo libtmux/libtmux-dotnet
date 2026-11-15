@@ -52,6 +52,7 @@ program:
 <!-- fsharp-snippet: Quickstart run -->
 ```fsharp run
 open System
+open System.IO
 open System.Threading
 open LibTmux
 open LibTmux.FSharp
@@ -62,9 +63,16 @@ let runAsync () =
         let token = deadline.Token
 
         // A server of its own on a private socket, without user configuration.
+        let socketRoot = Directory.CreateTempSubdirectory "libtmux-example-"
+
+        use _cleanup =
+            { new IDisposable with
+                member _.Dispose() = socketRoot.Delete true
+            }
+
         let options =
             ServerConnectionOptions(
-                SocketName = "fsharp-" + Guid.NewGuid().ToString("N"),
+                SocketPath = Path.Combine(socketRoot.FullName, "tmux.sock"),
                 ConfigurationFile = "/dev/null"
             )
 

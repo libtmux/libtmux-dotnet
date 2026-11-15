@@ -76,6 +76,7 @@ is gone. This complete program follows two panes, then their ends:
 <!-- fsharp-snippet: WatchPanes run -->
 ```fsharp run
 open System
+open System.IO
 open System.Threading
 open LibTmux
 open LibTmux.FSharp
@@ -85,9 +86,16 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 20.)
         let token = deadline.Token
 
+        let socketRoot = Directory.CreateTempSubdirectory "libtmux-example-"
+
+        use _cleanup =
+            { new IDisposable with
+                member _.Dispose() = socketRoot.Delete true
+            }
+
         let options =
             ServerConnectionOptions(
-                SocketName = "fsharp-watch-panes-" + Guid.NewGuid().ToString("N"),
+                SocketPath = Path.Combine(socketRoot.FullName, "tmux.sock"),
                 ConfigurationFile = "/dev/null"
             )
 
@@ -195,6 +203,7 @@ mirror has been quiet for an interval:
 <!-- fsharp-snippet: LiveState run -->
 ```fsharp run
 open System
+open System.IO
 open System.Threading
 open LibTmux
 open LibTmux.FSharp
@@ -204,9 +213,16 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 20.)
         let token = deadline.Token
 
+        let socketRoot = Directory.CreateTempSubdirectory "libtmux-example-"
+
+        use _cleanup =
+            { new IDisposable with
+                member _.Dispose() = socketRoot.Delete true
+            }
+
         let options =
             ServerConnectionOptions(
-                SocketName = "fsharp-live-" + Guid.NewGuid().ToString("N"),
+                SocketPath = Path.Combine(socketRoot.FullName, "tmux.sock"),
                 ConfigurationFile = "/dev/null"
             )
 

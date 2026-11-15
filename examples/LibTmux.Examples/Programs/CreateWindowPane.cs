@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using LibTmux;
@@ -12,10 +13,10 @@ if (OperatingSystem.IsWindows())
 using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(10));
 CancellationToken token = deadline.Token;
 string binary = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
-string socketName = "csharp-createwindowpane-" + Guid.NewGuid().ToString("N");
+using TemporaryDirectory socketRoot = new();
 ServerConnectionOptions options = new()
 {
-    SocketName = socketName,
+    SocketPath = Path.Combine(socketRoot.FullName, "tmux.sock"),
     ConfigurationFile = "/dev/null",
     TmuxBinaryPath = binary,
 };
@@ -39,3 +40,12 @@ if (windows.Count != 2 || panes.Count != 3 || added.Id == original.Id)
 
 Console.WriteLine($"Created session {session.Name} and window {window.Name}.");
 Console.WriteLine($"Windows: {windows.Count}; panes: {panes.Count}");
+
+internal sealed class TemporaryDirectory : IDisposable
+{
+    private readonly DirectoryInfo _directory = Directory.CreateTempSubdirectory("libtmux-example-");
+
+    public string FullName => _directory.FullName;
+
+    public void Dispose() => _directory.Delete(recursive: true);
+}

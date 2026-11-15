@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using LibTmux;
@@ -11,10 +12,10 @@ if (OperatingSystem.IsWindows())
 using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(10));
 CancellationToken token = deadline.Token;
 string binary = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
-string socketName = "csharp-entitylookups-" + Guid.NewGuid().ToString("N");
+using TemporaryDirectory socketRoot = new();
 ServerConnectionOptions options = new()
 {
-    SocketName = socketName,
+    SocketPath = Path.Combine(socketRoot.FullName, "tmux.sock"),
     ConfigurationFile = "/dev/null",
     TmuxBinaryPath = binary,
 };
@@ -83,4 +84,13 @@ try
 catch (LibTmuxException)
 {
     Console.WriteLine("A stopped server remains a LibTmuxException.");
+}
+
+internal sealed class TemporaryDirectory : IDisposable
+{
+    private readonly DirectoryInfo _directory = Directory.CreateTempSubdirectory("libtmux-example-");
+
+    public string FullName => _directory.FullName;
+
+    public void Dispose() => _directory.Delete(recursive: true);
 }

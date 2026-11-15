@@ -1,5 +1,6 @@
 // fsharp-snippet: BuildSession
 open System
+open System.IO
 open System.Threading
 open LibTmux
 open LibTmux.FSharp
@@ -9,9 +10,16 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 20.)
         let token = deadline.Token
 
+        let socketRoot = Directory.CreateTempSubdirectory "libtmux-example-"
+
+        use _cleanup =
+            { new IDisposable with
+                member _.Dispose() = socketRoot.Delete true
+            }
+
         let options =
             ServerConnectionOptions(
-                SocketName = "fsharp-build-session-" + Guid.NewGuid().ToString("N"),
+                SocketPath = Path.Combine(socketRoot.FullName, "tmux.sock"),
                 ConfigurationFile = "/dev/null"
             )
 

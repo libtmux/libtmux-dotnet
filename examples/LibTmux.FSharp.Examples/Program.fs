@@ -158,9 +158,23 @@ let private verifyBoundedCleanupAsync (cancellationToken: CancellationToken) =
             held.TrySetCanceled(token) |> ignore
     }
 
+// The guides name sockets and leave the root to tmux. Moving the root here
+// keeps those servers away from the default socket, and clearing TMUX keeps a
+// run started inside tmux from reaching the server the developer is using.
+let private enterSocketRoot () =
+    let root = Directory.CreateTempSubdirectory "lt-"
+    Environment.SetEnvironmentVariable("TMUX_TMPDIR", root.FullName)
+    Environment.SetEnvironmentVariable("TMUX", null)
+    Environment.SetEnvironmentVariable("TMUX_PANE", null)
+
+    { new IDisposable with
+        member _.Dispose() = root.Delete true
+    }
+
 let private runAsync () =
     task {
         verifyPackedAssembly ()
+        use _socketRoot = enterSocketRoot ()
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let cancellationToken = deadline.Token
 

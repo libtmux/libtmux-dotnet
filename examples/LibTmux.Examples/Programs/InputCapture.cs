@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using LibTmux;
 
@@ -12,10 +14,10 @@ if (OperatingSystem.IsWindows())
 using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(10));
 CancellationToken token = deadline.Token;
 string binary = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
-string socketName = "csharp-inputcapture-" + Guid.NewGuid().ToString("N");
+using TemporaryDirectory socketRoot = new();
 ServerConnectionOptions options = new()
 {
-    SocketName = socketName,
+    SocketPath = Path.Combine(socketRoot.FullName, "tmux.sock"),
     ConfigurationFile = "/dev/null",
     TmuxBinaryPath = binary,
 };
@@ -42,18 +44,23 @@ if (prompt.Outcome is not (PaneWaitOutcome.Matched or PaneWaitOutcome.PresentAtE
     throw new InvalidOperationException($"The shell never showed its prompt: {prompt.Outcome}.");
 }
 
-string channel = "capture-" + Guid.NewGuid().ToString("N");
-await using TmuxWaitChannel wait = server.OpenWaitChannel(channel);
 const string marker = "api capture ready";
-string command = $"printf '%s\\n' {QuoteShell(marker)}; "
-    + $"{QuoteShell(binary)} -L {QuoteShell(socketName)} wait-for -S {QuoteShell(channel)}";
-
-await pane.SendKeysAsync(new SendKeysRequest { Text = command, Literal = true, Enter = false }, token);
+await pane.SendKeysAsync(
+    new SendKeysRequest { Text = $"printf '%s\\n' '{marker}'", Literal = true, Enter = false }, token);
 await pane.SendKeysAsync(new SendKeysRequest { Text = "Enter", Enter = false }, token);
-if (!await wait.WaitAsync(TimeSpan.FromSeconds(5), token))
+// The echoed command contains the marker, so only a whole line counts as the output.
+PaneWaitResult printed = await pane.WaitForTextAsync(
+    new PaneWaitRequest
+    {
+        Patterns = [new Regex($"^{Regex.Escape(marker)}$", RegexOptions.CultureInvariant)],
+        Timeout = TimeSpan.FromSeconds(5),
+    },
+    token);
+if (printed.Outcome is not (PaneWaitOutcome.Matched or PaneWaitOutcome.PresentAtEntry))
 {
-    throw new InvalidOperationException("The pane did not signal that its output was ready.");
+    throw new InvalidOperationException($"The pane never printed the marker: {printed.Outcome}.");
 }
+
 IReadOnlyList<string> lines = await pane.CaptureAsync(
     new CapturePaneRequest { JoinWrappedLines = true }, token);
 // Joining wrapped lines preserves terminal padding after the output.
@@ -63,4 +70,11 @@ if (!lines.Any(line => string.Equals(line.TrimEnd(), marker, StringComparison.Or
 }
 Console.WriteLine(marker);
 
-static string QuoteShell(string value) => "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
+internal sealed class TemporaryDirectory : IDisposable
+{
+    private readonly DirectoryInfo _directory = Directory.CreateTempSubdirectory("libtmux-example-");
+
+    public string FullName => _directory.FullName;
+
+    public void Dispose() => _directory.Delete(recursive: true);
+}

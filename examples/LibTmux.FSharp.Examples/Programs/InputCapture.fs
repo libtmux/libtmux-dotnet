@@ -1,19 +1,27 @@
 open System
+open System.IO
+open System.Text.RegularExpressions
 open System.Threading
 open LibTmux
 open LibTmux.FSharp
-
-let quoteShell (value: string) = "'" + value.Replace("'", "'\\''") + "'"
 
 let runAsync () =
     task {
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
-        let socketName = "fsharp-capture-" + Guid.NewGuid().ToString("N")
+        let socketRoot = Directory.CreateTempSubdirectory "libtmux-example-"
+
+        use _cleanup =
+            { new IDisposable with
+                member _.Dispose() = socketRoot.Delete true
+            }
 
         let options =
-            ServerConnectionOptions(SocketName = socketName, ConfigurationFile = "/dev/null")
+            ServerConnectionOptions(
+                SocketPath = Path.Combine(socketRoot.FullName, "tmux.sock"),
+                ConfigurationFile = "/dev/null"
+            )
 
         use! owned = options |> Server.createOwned token
 
@@ -23,27 +31,25 @@ let runAsync () =
         let server = owned.Value
         let! panes = server |> Server.panes |> Query.list token
         let pane = panes |> Seq.exactlyOne
-        let channel = "capture-" + Guid.NewGuid().ToString("N")
-        use wait = server.OpenWaitChannel(channel)
         let marker = "api capture ready"
 
-        let command =
-            sprintf
-                "printf '%%s\\n' %s; tmux -L %s wait-for -S %s"
-                (quoteShell marker)
-                (quoteShell socketName)
-                (quoteShell channel)
-
-        do! pane |> Pane.sendText token command
+        do! pane |> Pane.sendText token (sprintf "printf '%%s\\n' '%s'" marker)
 
         do! pane |> Pane.pressKey token "Enter"
-        let! ready = wait.WaitAsync(TimeSpan.FromSeconds 5., token)
-        printfn "The shell signalled: %b" ready
+
+        // The echoed command contains the marker, so only a whole line counts as the output.
+        let request =
+            PaneWaitRequest(
+                Patterns = [ Regex($"^{Regex.Escape marker}$", RegexOptions.CultureInvariant) ],
+                Timeout = TimeSpan.FromSeconds 5.
+            )
+
+        let! printed = pane |> Pane.waitFor token request
+        printfn "The pane printed the marker: %b" printed.Found
 
         let! lines = pane |> Pane.capture token (CapturePaneRequest(JoinWrappedLines = true))
 
-        // Joining wrapped lines keeps the terminal's padding after the output,
-        // and only a whole line counts, so the echoed command cannot match.
+        // Joining wrapped lines keeps the terminal's padding after the output.
         match lines |> Seq.map (fun line -> line.TrimEnd()) |> Seq.tryFind ((=) marker) with
         | Some line -> printfn "Captured line: %s" line
         | None -> printfn "Captured line: none"

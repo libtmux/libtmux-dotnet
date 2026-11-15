@@ -139,13 +139,14 @@
       "id": "fsharp-InputCapture",
       "profile": "fsharp",
       "title": "Send literal input and capture completed output",
-      "description": "Type a shell command literally, press the named Enter key, and wait for its private completion signal before capturing output. Timeout and command failures escape the program after scoped cleanup; cancellation does not undo dispatched input.",
+      "description": "Type a shell command literally, press the named Enter key, and wait for the line it prints before capturing output. Timeout and command failures escape the program after scoped cleanup; cancellation does not undo dispatched input.",
       "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/InputCapture.fs",
       "targets": [
         "M:LibTmux.FSharp.Pane.pressKey(System.Threading.CancellationToken,System.String,LibTmux.Pane)",
+        "M:LibTmux.FSharp.Pane.waitFor(System.Threading.CancellationToken,LibTmux.PaneWaitRequest,LibTmux.Pane)",
         "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)"
       ],
-      "output": "The shell signalled: true\nCaptured line: api capture ready\n"
+      "output": "The pane printed the marker: true\nCaptured line: api capture ready\n"
     },
     {
       "id": "fsharp-Queries",
@@ -318,14 +319,13 @@
     {
       "id": "csharp-InputCapture",
       "profile": "csharp",
-      "title": "Send input and capture signalled output",
-      "description": "Send literal text and a named Enter key, wait for a private completion signal, then require a whole captured output line. All scopes are disposed after errors or cancellation.",
+      "title": "Send input and capture printed output",
+      "description": "Send literal text and a named Enter key, wait for the line the command prints, then require it in the captured pane. All scopes are disposed after errors or cancellation.",
       "sourceFile": "examples/LibTmux.Examples/Programs/InputCapture.cs",
       "targets": [
         "M:LibTmux.Pane.SendKeysAsync(LibTmux.SendKeysRequest,System.Threading.CancellationToken)",
-        "M:LibTmux.Pane.CaptureAsync(LibTmux.CapturePaneRequest,System.Threading.CancellationToken)",
-        "M:LibTmux.Server.OpenWaitChannel(System.String)",
-        "M:LibTmux.TmuxWaitChannel.WaitAsync(System.TimeSpan,System.Threading.CancellationToken)"
+        "M:LibTmux.Pane.WaitForTextAsync(LibTmux.PaneWaitRequest,System.Threading.CancellationToken)",
+        "M:LibTmux.Pane.CaptureAsync(LibTmux.CapturePaneRequest,System.Threading.CancellationToken)"
       ],
       "output": "api capture ready\n"
     }
