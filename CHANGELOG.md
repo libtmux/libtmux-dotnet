@@ -28,10 +28,41 @@ exact version to avoid one. Releases before 0.1.0 were alphas numbered
 
 ### Changed
 
+- The complete C# and F# programs under `examples/` put their tmux socket in a
+  temporary directory of their own with `ServerConnectionOptions.SocketPath` and
+  delete it after their server stops, so running one no longer needs
+  `TMUX_TMPDIR`, `mkdir -p` or `unset TMUX TMUX_PANE`. (#170)
+- The C# and F# `InputCapture` programs and `ServerQueries.cs` wait for the
+  line a pane prints with `Pane.WaitForTextAsync` and `Pane.waitFor`, instead
+  of typing a `tmux wait-for -S` command into the pane. (#170)
+
 ### Removed
+
+- The Python parity ledger and its tooling: `docs/parity/parity-ledger.json`,
+  `python-public-api.json`, `error-policies.json`, and the inventory generator,
+  ledger checker and `require_red.py` under `eng/parity`. No build, release or
+  CI step read them. (#172)
+- `eng/mcp/build.py`, `spec.py` and `xdg.py`, the Python MCP config swapper that
+  `eng/mcp-swap` replaced. (#172)
 
 ### Development
 
+- Support scripts live under `scripts/<name>/`, each with a README and tests.
+  `scripts/run_checks.py` runs `ruff format`, `ruff check`, `ty check` and
+  `pytest`, with doctests, over them in `dotnet.yml`. (#172)
+- CI installs packages and builds tmux through the shared `apt-get` and
+  `build-tmux` actions of `libtmux/.github`, pinned to a commit.
+  `eng/apt-get.sh`, `.github/scripts/tmux_build.py` and
+  `.github/tmux-releases.toml` are gone, and `verify_workflows.py` refuses an
+  unpinned shared action or a raw `apt-get`. (#172)
+- `scripts/matrix-evidence/run_matrix.py` replaces `run-matrix.sh` and
+  `build-version.sh`. It takes tmux builds from `--tmux-root`, reads the tmux
+  versions from `eng/tmux/versions.json` and the SDK from `global.json`, and
+  recorded matrices accept the pinned SDK. `psmux_smoke.py` replaces
+  `Invoke-PsmuxSmoke.ps1` and `quality/measure.py` replaces `measure.sh`. (#172)
+- `verify_api_examples.py` runs each complete program with `TMUX`, `TMUX_PANE`,
+  `TMUX_TMPDIR` and `LIBTMUX_SOCKET*` pointing at nothing and fails a program
+  that does not own its server or leaves a process or file behind. (#170)
 - The ahead-of-time smoke projects name the patched NativeAOT packs (8.0.33 and
   10.0.14) that GHSA-p3jp-9v83-76w9 requires, so restore no longer fails with
   NU1903. (#151)
