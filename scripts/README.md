@@ -14,6 +14,7 @@ of its own with a README and tests.
 | [`benchmarks/`](benchmarks/README.md) | Turn BenchmarkDotNet output into a record |
 | [`mcp-tools/`](mcp-tools/README.md) | Write the MCP tool reference from a running server |
 | [`package-review/`](package-review/README.md) | Pack and inspect a prerelease for a downstream review |
+| [`quality/`](quality/README.md) | Print the raw measures the quality bar cites |
 | [`wrapped-captures/`](wrapped-captures/README.md) | Regenerate the wrapped-capture test fixture from real tmux |
 
 ## Running the checks

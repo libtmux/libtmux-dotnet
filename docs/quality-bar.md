@@ -106,7 +106,7 @@ published, versioned doc site.
 ## How to measure a current tree
 
 ```console
-$ bash eng/quality/measure.sh
+$ uv run python scripts/quality/measure.py
 ```
 
 The script prints current raw measures; it does not refresh this archived prose.

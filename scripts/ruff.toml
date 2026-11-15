@@ -9,6 +9,7 @@ src = [
     "mcp-tools",
     "package-review",
     "wrapped-captures",
+    "quality",
 ]
 
 [lint]

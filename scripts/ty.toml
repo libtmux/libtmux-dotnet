@@ -9,4 +9,5 @@ extra-paths = [
     "mcp-tools",
     "package-review",
     "wrapped-captures",
+    "quality",
 ]
