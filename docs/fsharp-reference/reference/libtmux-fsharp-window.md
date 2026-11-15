@@ -6,6 +6,41 @@ Assembly: LibTmux.FSharp.dll
 
 Identifies window placements and starts queries confined to one window.
 
+<p class='fsdocs-para'>
+ Each function takes the window it acts on last. One that runs a tmux command
+ also takes the cancellation token first and returns a <code>Task</code>. The
+ window is the core <code>LibTmux.Window</code> handle, which is immutable and safe
+ to share, and a function that changes it returns a handle carrying the state
+ afterwards.
+ </p><p class='fsdocs-para'><b>What is on here</b></p><p class='fsdocs-para'>
+ A tmux window has a good many members, but this module covers the part an F#
+ caller reaches first. The rest lives on the core handle. The members fall
+ into a few groups:
+ </p><p class='fsdocs-para'><b>Looking inside.</b> Start a query over the window&#39;s panes, which throws
+ IncompleteSnapshotException when the window was not
+ read through a server. Or ask tmux now for the window&#39;s active pane, which
+ throws TmuxObjectNotFoundException when tmux reports
+ none. A linked window is one placement per session, and the placement key
+ names the session and index a handle was captured at.
+ </p><p class='fsdocs-para'><a href="../reference/libtmux-fsharp-window.md#panes">Window.panes</a>,
+ <a href="../reference/libtmux-fsharp-window.md#activePane">Window.activePane</a>,
+ <a href="../reference/libtmux-fsharp-window.md#placementKey">Window.placementKey</a></p><p class='fsdocs-para'><b>Arranging.</b> A layout is applied by name, and a name tmux may not
+ recognise is refused with TmuxWindowException before
+ anything is sent. Resizing and moving take the core request.
+ </p><p class='fsdocs-para'><a href="../reference/libtmux-fsharp-window.md#selectLayout">Window.selectLayout</a>,
+ <a href="../reference/libtmux-fsharp-window.md#resize">Window.resize</a>,
+ <a href="../reference/libtmux-fsharp-window.md#move">Window.move</a></p><p class='fsdocs-para'><b>Changing the window.</b> Renaming returns a handle carrying the new name,
+ and tmux expands the name as a format, so a <code>#</code> in it does not survive
+ verbatim. Selecting makes the window its session&#39;s current one. Killing the
+ window takes its panes with it, and leaves off the core&#39;s other kill options.
+ </p><p class='fsdocs-para'><a href="../reference/libtmux-fsharp-window.md#rename">Window.rename</a>,
+ <a href="../reference/libtmux-fsharp-window.md#select">Window.select</a>,
+ <a href="../reference/libtmux-fsharp-window.md#kill">Window.kill</a></p><p class='fsdocs-para'>
+ The rest of a window is on the core <code>LibTmux.Window</code>, which F# calls like
+ any .NET type: creating panes, linking and unlinking, rotating, its options
+ and hooks, and the raw command through <code>ExecuteCommandAsync</code>.
+ </p>
+
 ### Functions and values
 
 <a name="activePane"></a>
