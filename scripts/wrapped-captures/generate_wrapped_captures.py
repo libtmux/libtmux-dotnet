@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
 """Regenerate wrapped-captures.json from real tmux.
 
 Each screen is printed into a 20-column pane, then captured twice: as rows
@@ -9,6 +13,8 @@ they need no tmux at test time.
 usage: generate_wrapped_captures.py OUT.json TMUX_3_3A TMUX_3_8
 """
 
+from __future__ import annotations
+
 import json
 import os
 import random
@@ -16,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import typing as t
 
 WIDTH = 20
 HEIGHT = 18
@@ -72,7 +79,7 @@ SHAPES = {
 WORDS = ["ab", "xyz", "NEEDLE", "q", "hello", "0123456789", "W", "你好"]
 
 
-def patterns_of(lines):
+def patterns_of(lines: list[str]) -> list[str]:
     found = []
     for line in lines:
         for word in line.split(" "):
@@ -84,7 +91,7 @@ def patterns_of(lines):
     return sorted(set(found))
 
 
-def random_line(rnd):
+def random_line(rnd: random.Random) -> str:
     parts = []
     for _ in range(rnd.randint(1, 8)):
         kind = rnd.randrange(4)
@@ -100,7 +107,7 @@ def random_line(rnd):
     return line
 
 
-def random_screen(rnd):
+def random_screen(rnd: random.Random) -> list[str]:
     lines = []
     rows = 0
     for _ in range(rnd.randint(1, 5)):
@@ -114,7 +121,7 @@ def random_screen(rnd):
     return lines
 
 
-def capture(tmux, sock, *args):
+def capture(tmux: str, sock: str, *args: str) -> list[str]:
     out = subprocess.run(
         [tmux, "-S", sock, "-f", "/dev/null", *args], capture_output=True, text=True, check=True
     ).stdout
@@ -124,7 +131,9 @@ def capture(tmux, sock, *args):
     return rows
 
 
-def record(tmux, sock, name, lines, scratch):
+def record(
+    tmux: str, sock: str, name: str, lines: list[str], scratch: str
+) -> dict[str, t.Any] | None:
     path = os.path.join(scratch, "screen.txt")
     with open(path, "w", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
@@ -161,9 +170,13 @@ def record(tmux, sock, name, lines, scratch):
     }
 
 
-def main():
-    out, *builds = sys.argv[1:]
-    screens = []
+def generate(
+    builds: list[str],
+    random_count: int = 60,
+    shapes: dict[str, list[str]] | None = None,
+) -> list[dict[str, t.Any]]:
+    """Capture every named and random screen once per tmux build."""
+    screens: list[dict[str, t.Any]] = []
     for tmux in builds:
         version = subprocess.run(
             [tmux, "-V"], capture_output=True, text=True, check=True
@@ -191,19 +204,27 @@ def main():
             )
             try:
                 rnd = random.Random(20261024)
-                named = list(SHAPES.items())
-                randoms = [(f"random {i}", random_screen(rnd)) for i in range(60)]
+                named = list((SHAPES if shapes is None else shapes).items())
+                randoms = [(f"random {i}", random_screen(rnd)) for i in range(random_count)]
                 for name, lines in named + randoms:
                     screen = record(tmux, sock, name, lines, scratch)
                     if screen is not None:
                         screen["tmux"] = version
                         screens.append(screen)
             finally:
-                subprocess.run([tmux, "-S", sock, "kill-server"], capture_output=True)
+                subprocess.run([tmux, "-S", sock, "kill-server"], capture_output=True, check=False)
+    return screens
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Write the fixture for the tmux builds named on the command line."""
+    out, *builds = sys.argv[1:] if argv is None else argv
+    screens = generate(builds)
     with open(out, "w", encoding="utf-8") as handle:
         json.dump({"width": WIDTH, "screens": screens}, handle, ensure_ascii=False, indent=1)
         handle.write("\n")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
