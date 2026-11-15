@@ -212,9 +212,16 @@ REQUIRED_TMUX_VERSIONS = (
 )
 LEGACY_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-1]
 OLDER_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-2]
-# Recorded evidence keeps the SDK it ran under; run-matrix.sh stamps new
-# runs with the pinned SDK, the newest of these.
-KNOWN_SDK_VERSIONS = {"10.0.302", "10.0.303"}
+
+
+def _pinned_sdk_version() -> str:
+    document = json.loads((pathlib.Path(__file__).parents[2] / "global.json").read_text("utf-8"))
+    return str(document["sdk"]["version"])
+
+
+# Recorded evidence keeps the SDK it ran under; run_matrix.py stamps new runs
+# with the SDK global.json pins.
+KNOWN_SDK_VERSIONS = {"10.0.302", "10.0.303", _pinned_sdk_version()}
 
 KNOWN_REQUIRED_TMUX_VERSION_SETS = {
     OLDER_REQUIRED_TMUX_VERSIONS,

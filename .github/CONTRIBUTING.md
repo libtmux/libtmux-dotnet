@@ -812,20 +812,28 @@ outside the evidence directory. Any commit changes it, so a verified row is
 true at one commit and stale at the next.
 
 That is why recording belongs at a release boundary rather than in the gate,
-and why `reconcile_versions.py` is not in
-`dotnet.yml`. Between releases every row is `pending`, which is the honest
-state: nobody has run the matrix against this tree.
+and why `reconcile_versions.py` is not in `dotnet.yml`. Between releases every
+row is `pending`, which is the honest state: nobody has run the matrix against
+this tree.
 
 The `workspace` cohort combines the protocol proofs from `0001`, the public
 wrapper policy proofs from `closure`, and native layout validation. Its matrix
 runs every stable version on both frameworks and the source-bound 3.7/3.7a
 transition proof. The older cohort memberships remain fixed.
 
+`run_matrix.py` runs one lane per supported version and framework, and needs a
+tmux build for each version at `<root>/<version>/bin/tmux`, plus 3.7 for the
+transition proof. `--tmux-root` names that directory, and each lane's commit is
+the one its release tag names. Build each version with the shared
+[build-tmux action](https://github.com/libtmux/.github/tree/main/actions/build-tmux)'s
+`build_tmux.py` and `--prefix`, or with any build that reports its own version.
+
 To record against a clean committed source tree, select a new evidence
 directory -- the next unused number under `docs/parity/evidence/`:
 
 ```console
-$ scripts/matrix-evidence/run-matrix.sh \
+$ uv run scripts/matrix-evidence/run_matrix.py \
+    --tmux-root artifacts/tmux \
     --evidence-dir docs/parity/evidence/0014 \
     --capability-cohort workspace \
     tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
@@ -838,9 +846,8 @@ $ uv run python scripts/matrix-evidence/reconcile_versions.py \
 ```
 
 Commit the bundle and the rewritten `version-deltas.json` together, because the
-fingerprint is of the tree that commit produces. A tmux build takes about forty
-seconds here and the matrix runs the suite sixteen times, so budget half an
-hour.
+fingerprint is of the tree that commit produces. The matrix runs the suite
+sixteen times, so budget half an hour.
 
 ## Compatibility
 

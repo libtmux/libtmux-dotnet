@@ -40,10 +40,6 @@ def write(root: pathlib.Path, supported: list[str]) -> pathlib.Path:
     files = {
         "eng/tmux/versions.json": json.dumps(manifest),
         ".github/workflows/dotnet-tmux.yml": WORKFLOW,
-        "scripts/matrix-evidence/run-matrix.sh": "REQUIRED_VERSIONS=({})\ntmuxVersions:[{}]".format(
-            " ".join(supported),
-            ",".join(f'"{version}"' for version in supported),
-        ),
     }
     both = f"{supported[0]} {supported[-1]}"
     for named in (
@@ -75,20 +71,23 @@ def test_the_repository_agrees_with_its_manifest() -> None:
     assert verify(pathlib.Path(__file__).parents[3]) == []
 
 
-def test_a_version_no_consumer_carries_is_reported(tmp_path: pathlib.Path) -> None:
-    """Adding a version to the manifest alone is exactly what this catches."""
-    root = write(tmp_path, [*VERSIONS, "3.8"])
-    (root / "scripts" / "matrix-evidence" / "run-matrix.sh").write_text(
-        "REQUIRED_VERSIONS=({})".format(" ".join(VERSIONS)), encoding="utf-8"
-    )
+def test_a_document_that_stopped_naming_the_newest_version_is_reported(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Raising the manifest's newest version alone is exactly what this catches."""
+    root = write(tmp_path, VERSIONS)
+    manifest = json.loads((root / "eng" / "tmux" / "versions.json").read_text(encoding="utf-8"))
+    manifest["supported"] = [*VERSIONS, "3.9"]
+    manifest["maximumTested"] = "3.9"
+    (root / "eng" / "tmux" / "versions.json").write_text(json.dumps(manifest), encoding="utf-8")
 
-    assert [line for line in verify(root) if "run-matrix.sh" in line] == [
-        "scripts/matrix-evidence/run-matrix.sh: does not carry REQUIRED_VERSIONS=({})".format(
-            " ".join([*VERSIONS, "3.8"])
-        ),
-        "scripts/matrix-evidence/run-matrix.sh: does not carry tmuxVersions:[{}]".format(
-            ",".join(f'"{version}"' for version in [*VERSIONS, "3.8"])
-        ),
+    assert [line for line in verify(root) if line.endswith("does not name tmux 3.9")] == [
+        "src/LibTmux/Constants/TmuxConstants.cs: does not name tmux 3.9",
+        "README.md: does not name tmux 3.9",
+        "src/LibTmux/README.md: does not name tmux 3.9",
+        "src/LibTmux.Mcp/README.md: does not name tmux 3.9",
+        "docs/README.md: does not name tmux 3.9",
+        ".github/ISSUE_TEMPLATE/bug_report.yml: does not name tmux 3.9",
     ]
 
 
