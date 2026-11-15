@@ -21,9 +21,7 @@ from assemble_bundle import (
 
 REPOSITORY_ROOT = pathlib.Path(__file__).parents[2]
 
-DOCUMENT_PATH = (
-    pathlib.Path(__file__).parents[2] / "docs" / "parity" / "version-deltas.json"
-)
+DOCUMENT_PATH = pathlib.Path(__file__).parents[2] / "docs" / "parity" / "version-deltas.json"
 PROTOCOL_CAPABILITIES = {
     "attachment_accounting",
     "byte_length_framing",
@@ -65,9 +63,7 @@ COMMAND_GATE_CAPABILITIES = {
 }
 LAYOUT_CAPABILITIES = {"layout_mirrors"}
 REQUIRED_CAPABILITIES = PROTOCOL_CAPABILITIES | COMMAND_GATE_CAPABILITIES | LAYOUT_CAPABILITIES
-VERSION_PARITY_TEST = (
-    "tests/LibTmux.IntegrationTests/Versioning/VersionParityTests.cs::"
-)
+VERSION_PARITY_TEST = "tests/LibTmux.IntegrationTests/Versioning/VersionParityTests.cs::"
 VERSION_PARITY_METHODS = {
     "attachment_accounting": "AttachmentAccounting",
     "break_pane_3_7_workaround": "BreakPane37Workaround",
@@ -112,8 +108,7 @@ PRODUCTION_CAPABILITY_TESTS = {
 }
 EVIDENCE_COHORT_TESTS: dict[str, dict[str, tuple[str, ...]]] = {
     "0001": {
-        capability: PRODUCTION_CAPABILITY_TESTS[capability]
-        for capability in PROTOCOL_CAPABILITIES
+        capability: PRODUCTION_CAPABILITY_TESTS[capability] for capability in PROTOCOL_CAPABILITIES
     }
 }
 CAPABILITY_COHORT = "0001"
@@ -151,9 +146,7 @@ POLICY_OWNER_COMPONENTS = {
     "split_window_empty": (12,),
 }
 POLICY_TEST_FILES_BY_COMPONENT = {
-    10: (
-        "tests/LibTmux.IntegrationTests/Hierarchy/ServerSessionLifecycleTests.cs"
-    ),
+    10: ("tests/LibTmux.IntegrationTests/Hierarchy/ServerSessionLifecycleTests.cs"),
     11: ("tests/LibTmux.IntegrationTests/Hierarchy/WindowTopologyTests.cs"),
     12: ("tests/LibTmux.IntegrationTests/Hierarchy/PaneOperationsTests.cs"),
     13: ("tests/LibTmux.IntegrationTests/Clients/ClientAdministrationTests.cs"),
@@ -387,9 +380,7 @@ def is_real_server_test(value: object) -> bool:
     >>> is_real_server_test("VersionParityTests")
     False
     """
-    return (
-        isinstance(value, str) and REAL_SERVER_TEST_PATTERN.fullmatch(value) is not None
-    )
+    return isinstance(value, str) and REAL_SERVER_TEST_PATTERN.fullmatch(value) is not None
 
 
 def _is_relative_path(value: object) -> bool:
@@ -472,9 +463,7 @@ def source_content_fingerprint(
 
     digest = hashlib.sha256()
     for relative_path in paths:
-        if any(
-            root == relative_path or root in relative_path.parents for root in excluded
-        ):
+        if any(root == relative_path or root in relative_path.parents for root in excluded):
             continue
         if relative_path.is_absolute() or ".." in relative_path.parts:
             _fail("source content path escapes the repository")
@@ -559,8 +548,7 @@ def _validate_reconciled_evidence(
         and isinstance(commits, dict)
         and set(commits) == set(required_versions)
         and all(
-            isinstance(source_commit, str)
-            and COMMIT_PATTERN.fullmatch(source_commit) is not None
+            isinstance(source_commit, str) and COMMIT_PATTERN.fullmatch(source_commit) is not None
             for source_commit in commits.values()
         )
     )
@@ -603,11 +591,7 @@ def validate(document: dict[str, t.Any]) -> list[str]:
                     else COMMAND_GATE_KEYS
                 )
             )
-            | (
-                {"proofTmuxVersions"}
-                if capability == "break_pane_3_7_workaround"
-                else set()
-            )
+            | ({"proofTmuxVersions"} if capability == "break_pane_3_7_workaround" else set())
             if capability in COMMAND_GATE_CAPABILITIES
             else BASE_ROW_KEYS
         )
@@ -619,15 +603,13 @@ def validate(document: dict[str, t.Any]) -> list[str]:
         ):
             violations.append(f"invalid evidence schema: {capability}")
         endpoints = row.get("tmuxSourceEndpoints")
-        if not isinstance(endpoints, dict) or set(endpoints) != set(
-            TMUX_SOURCE_ENDPOINTS
-        ):
+        if not isinstance(endpoints, dict) or set(endpoints) != set(TMUX_SOURCE_ENDPOINTS):
             violations.append(f"missing source endpoints: {capability}")
         elif endpoints != TMUX_SOURCE_ENDPOINTS:
             violations.append(f"invalid source endpoints: {capability}")
-        if not is_tmux_version_bound(
-            row.get("introducedIn")
-        ) or not is_tmux_version_bound(row.get("removedIn")):
+        if not is_tmux_version_bound(row.get("introducedIn")) or not is_tmux_version_bound(
+            row.get("removedIn")
+        ):
             violations.append(f"invalid version bounds: {capability}")
         if capability in COMMAND_GATE_CAPABILITIES:
             command = row.get("tmuxCommand")
@@ -646,9 +628,7 @@ def validate(document: dict[str, t.Any]) -> list[str]:
             )
             if capability == "break_pane_3_7_workaround":
                 expected_transition_sources: object = {
-                    version: (
-                        f"https://github.com/tmux/tmux/blob/{version}/cmd-break-pane.c"
-                    )
+                    version: (f"https://github.com/tmux/tmux/blob/{version}/cmd-break-pane.c")
                     for version in sorted(expected_transition_versions)
                 }
             elif capability == "refresh_client_clipboard_query":
@@ -678,16 +658,11 @@ def validate(document: dict[str, t.Any]) -> list[str]:
                 and isinstance(command, str)
                 and bool(command)
                 and isinstance(flags, list)
-                and all(
-                    isinstance(flag, str) and flag.startswith("-") for flag in flags
-                )
+                and all(isinstance(flag, str) and flag.startswith("-") for flag in flags)
                 and len(flags) == len(set(flags))
                 and isinstance(source_ids, list)
                 and bool(source_ids)
-                and all(
-                    isinstance(source_id, str) and ":" in source_id
-                    for source_id in source_ids
-                )
+                and all(isinstance(source_id, str) and ":" in source_id for source_id in source_ids)
                 and len(source_ids) == len(set(source_ids))
                 and policy_owners == list(POLICY_OWNER_COMPONENTS.get(capability, ()))
                 and policy_tests == list(POLICY_WRAPPER_TESTS[capability])
@@ -715,15 +690,9 @@ def validate(document: dict[str, t.Any]) -> list[str]:
                         }
                         and flags
                     )
-                    or (
-                        feature_kind in {"command", "positional_arguments"}
-                        and not flags
-                    )
+                    or (feature_kind in {"command", "positional_arguments"} and not flags)
                 )
-                and (
-                    feature_kind in {"workaround", "removed_flag"}
-                    or removed == "unknown"
-                )
+                and (feature_kind in {"workaround", "removed_flag"} or removed == "unknown")
                 # tmux mostly gains flags, so a row that records one going away
                 # states both that it is gone and from when.
                 and (
@@ -742,14 +711,8 @@ def validate(document: dict[str, t.Any]) -> list[str]:
                         and unsupported == "apply_only_in_affected_version"
                     )
                 )
-                and (
-                    feature_kind != "command"
-                    or unsupported == "throw_unsupported_version"
-                )
-                and (
-                    feature_kind != "positional_arguments"
-                    or unsupported == "warn_and_ignore"
-                )
+                and (feature_kind != "command" or unsupported == "throw_unsupported_version")
+                and (feature_kind != "positional_arguments" or unsupported == "warn_and_ignore")
                 and (
                     capability not in HOOK_SCOPE_CAPABILITIES
                     or (
@@ -790,8 +753,7 @@ def validate(document: dict[str, t.Any]) -> list[str]:
         if status == "verified":
             evidence = row.get("evidence")
             workspace_cohort = (
-                isinstance(evidence, dict)
-                and evidence.get("capabilityCohort") == WORKSPACE_COHORT
+                isinstance(evidence, dict) and evidence.get("capabilityCohort") == WORKSPACE_COHORT
             ) or capability in LAYOUT_CAPABILITIES
             expected_cohort = (
                 WORKSPACE_COHORT
@@ -957,9 +919,7 @@ def _inspect_break_pane_transition(
             match["outcome"],
         )
     required = {
-        (framework, version)
-        for framework in REQUIRED_FRAMEWORKS
-        for version in ("3.7", "3.7a")
+        (framework, version) for framework in REQUIRED_FRAMEWORKS for version in ("3.7", "3.7a")
     }
     if set(observed) != required:
         _fail("break-pane transition transcript lane coverage is invalid")
@@ -1054,9 +1014,7 @@ def _inspect_matrix(path: pathlib.Path) -> dict[str, t.Any]:
             _fail("master matrix observation is invalid")
         observed[pair] = row
     required = {
-        (version, framework)
-        for version in required_versions
-        for framework in REQUIRED_FRAMEWORKS
+        (version, framework) for version in required_versions for framework in REQUIRED_FRAMEWORKS
     }
     if not required.issubset(observed):
         _fail("required matrix row is missing")
@@ -1074,9 +1032,7 @@ def _inspect_matrix(path: pathlib.Path) -> dict[str, t.Any]:
         if len(version_commits) != 1:
             _fail("required framework rows have different source commits")
         source_commits[version] = version_commits.pop()
-    master = [
-        row for (version, _framework), row in observed.items() if version == "master"
-    ]
+    master = [row for (version, _framework), row in observed.items() if version == "master"]
     if master and (
         len(master) != len(REQUIRED_FRAMEWORKS)
         or len({row["tmuxSourceCommit"] for row in master}) != 1

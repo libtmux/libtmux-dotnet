@@ -14,9 +14,7 @@ import pytest
 from assemble_bundle import source_state, source_tree_fingerprint
 
 VERSION_DELTAS = pathlib.Path(__file__).parents[3] / "docs/parity/version-deltas.json"
-VERSION_PARITY_TEST = (
-    "tests/LibTmux.IntegrationTests/Versioning/VersionParityTests.cs::"
-)
+VERSION_PARITY_TEST = "tests/LibTmux.IntegrationTests/Versioning/VersionParityTests.cs::"
 TRANSITION_TMUX_SOURCE_COMMIT = "a" * 40
 EVALUATED_COMMIT_TREE = "e" * 40
 CAPABILITY_COHORT = "0001"
@@ -36,9 +34,7 @@ REQUIRED_TMUX_VERSIONS = [
 
 def load_reconciler() -> dict[str, t.Any]:
     """Load the reconciliation script as an import-free test namespace."""
-    return runpy.run_path(
-        str(pathlib.Path(__file__).parents[1] / "reconcile_versions.py")
-    )
+    return runpy.run_path(str(pathlib.Path(__file__).parents[1] / "reconcile_versions.py"))
 
 
 def seed_document() -> dict[str, t.Any]:
@@ -168,8 +164,7 @@ def write_environment(
         "redactionProof": True,
         "schemaVersion": 1,
         "sdkVersion": "10.0.302",
-        "sourceState": state
-        or source_state(repository, excluded_roots=[results.parent]),
+        "sourceState": state or source_state(repository, excluded_roots=[results.parent]),
         "sourceTreeFingerprint": fingerprint
         or source_tree_fingerprint(repository, excluded_roots=[results.parent]),
         "transitionTmuxSourceCommits": {
@@ -181,12 +176,8 @@ def write_environment(
         json.dumps(environment, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    rows = [
-        json.loads(line) for line in results.read_text(encoding="utf-8").splitlines()
-    ]
-    release_commit = next(
-        row["tmuxSourceCommit"] for row in rows if row["tmuxVersion"] == "3.7a"
-    )
+    rows = [json.loads(line) for line in results.read_text(encoding="utf-8").splitlines()]
+    release_commit = next(row["tmuxSourceCommit"] for row in rows if row["tmuxVersion"] == "3.7a")
     transcript = results.parent / "protocol-transcripts" / "break-pane-transition.txt"
     transcript.parent.mkdir(parents=True, exist_ok=True)
     transcript.write_text(
@@ -242,8 +233,7 @@ def write_policy_test_source(
         test_path.write_text(
             "public sealed class PolicyTests {\n"
             + "".join(
-                f"    [Fact]\n    public void {method}() {{ }}\n"
-                for method in sorted(methods)
+                f"    [Fact]\n    public void {method}() {{ }}\n" for method in sorted(methods)
             )
             + "}\n",
             encoding="utf-8",
@@ -372,11 +362,9 @@ def test_cohort_maps_only_protocol_observations_to_frozen_production_tests(
         for capability, method in protocol_methods.items()
     }
     assert {
-        row["capability"]: row["namedRealServerTest"]
-        for row in seed_document()["capabilities"]
+        row["capability"]: row["namedRealServerTest"] for row in seed_document()["capabilities"]
     } == {
-        capability: VERSION_PARITY_TEST + method
-        for capability, method in expected_methods.items()
+        capability: VERSION_PARITY_TEST + method for capability, method in expected_methods.items()
     }
 
 
@@ -391,9 +379,7 @@ def test_cohorts_map_to_current_native_test_methods() -> None:
         for test in methods
     }
 
-    namespace["_verify_capability_tests"](
-        repository, "c" * 40, sorted(tests), "uncommitted"
-    )
+    namespace["_verify_capability_tests"](repository, "c" * 40, sorted(tests), "uncommitted")
 
 
 @pytest.mark.parametrize(
@@ -428,9 +414,7 @@ def test_mapped_test_attributes_can_span_lines(
     if valid:
         namespace["_verify_capability_tests"](*arguments)
     else:
-        with pytest.raises(
-            namespace["VersionReconciliationError"], match="mapped capability test"
-        ):
+        with pytest.raises(namespace["VersionReconciliationError"], match="mapped capability test"):
             namespace["_verify_capability_tests"](*arguments)
 
 
@@ -441,11 +425,7 @@ def test_uncommitted_evidence_uses_fingerprinted_worktree_test(
     namespace = load_reconciler()
     results, _mapping, commit = write_fixture(tmp_path, matrix_rows())
     test_path = (
-        tmp_path
-        / "tests"
-        / "LibTmux.IntegrationTests"
-        / "Versioning"
-        / "VersionParityTests.cs"
+        tmp_path / "tests" / "LibTmux.IntegrationTests" / "Versioning" / "VersionParityTests.cs"
     )
     test_path.parent.mkdir(parents=True)
     test_path.write_text(
@@ -466,9 +446,7 @@ def test_uncommitted_evidence_uses_fingerprinted_worktree_test(
     )
 
     row = next(
-        item
-        for item in reconciled["capabilities"]
-        if item["capability"] == "attachment_accounting"
+        item for item in reconciled["capabilities"] if item["capability"] == "attachment_accounting"
     )
     assert row["evidence"]["evaluatedCommit"] == commit
     assert row["evidence"]["sourceState"] == "uncommitted"
@@ -519,9 +497,7 @@ def test_command_gate_validation_handles_unhashable_fields() -> None:
     row["tmuxFlags"] = [{}]
     row["pythonSourceSymbolIds"] = [{}]
 
-    assert namespace["validate"](document) == [
-        f"invalid command gate: {row['capability']}"
-    ]
+    assert namespace["validate"](document) == [f"invalid command gate: {row['capability']}"]
 
 
 def test_reconciliation_records_only_checked_complete_matrix_evidence(
@@ -557,9 +533,7 @@ def test_reconciliation_records_only_checked_complete_matrix_evidence(
         assert row["evidence"]["evaluatedCommit"] == commit
         assert row["evidence"]["capabilityCohort"] == CAPABILITY_COHORT
         assert row["evidence"]["frameworks"] == ["net10.0", "net8.0"]
-        assert row["evidence"]["results"] == (
-            "docs/decisions/evidence/0001/results.ndjson"
-        )
+        assert row["evidence"]["results"] == ("docs/decisions/evidence/0001/results.ndjson")
         assert row["evidence"]["sourceState"] == "clean"
         assert row["evidence"]["sourceTreeFingerprint"] == source_tree_fingerprint(
             tmp_path,
@@ -598,8 +572,7 @@ def test_reconciliation_retains_raw_break_transition_without_policy_evidence(
         "3.7": TRANSITION_TMUX_SOURCE_COMMIT,
     }
     assert transition["transitionTranscript"] == (
-        "docs/decisions/evidence/0001/"
-        "protocol-transcripts/break-pane-transition.txt"
+        "docs/decisions/evidence/0001/protocol-transcripts/break-pane-transition.txt"
     )
 
 
@@ -619,9 +592,7 @@ def test_component_three_cohort_rejects_command_policy_promotion(
             results,
             repository=tmp_path,
             capability_tests={
-                "break_pane_3_7_workaround": (
-                    "spikes/EvidenceTests.cs::BreakPane37Workaround",
-                )
+                "break_pane_3_7_workaround": ("spikes/EvidenceTests.cs::BreakPane37Workaround",)
             },
         )
 
@@ -643,16 +614,12 @@ def test_closure_cohort_uses_only_exact_wrapper_policy_proofs(
         results,
         repository=tmp_path,
     )
-    policies = [
-        row for row in reconciled["capabilities"] if row.get("kind") == "command_gate"
-    ]
+    policies = [row for row in reconciled["capabilities"] if row.get("kind") == "command_gate"]
 
     assert len(policies) == 29
     assert {row["evidenceStatus"] for row in policies} == {"verified"}
     assert {row["evidence"]["capabilityCohort"] for row in policies} == {CLOSURE_COHORT}
-    assert {
-        row["capability"]: tuple(row["evidence"]["tests"]) for row in policies
-    } == mapping
+    assert {row["capability"]: tuple(row["evidence"]["tests"]) for row in policies} == mapping
 
 
 def test_workspace_cohort_reconciles_exact_complete_native_proofs(
@@ -679,9 +646,7 @@ def test_workspace_cohort_reconciles_exact_complete_native_proofs(
     environment["capabilityCohort"] = "workspace"
     environment_path.write_text(json.dumps(environment) + "\n", encoding="utf-8")
     document_path = tmp_path / "version-deltas.json"
-    incomplete = {
-        key: value for key, value in mapping.items() if key != "layout_mirrors"
-    }
+    incomplete = {key: value for key, value in mapping.items() if key != "layout_mirrors"}
     raw_policy = {
         **mapping,
         "break_pane_3_7_workaround": (VERSION_PARITY_TEST + "BreakPane37Workaround",),
@@ -707,8 +672,7 @@ def test_workspace_cohort_reconciles_exact_complete_native_proofs(
     assert len(reconciled["capabilities"]) == 36
     assert {row["evidenceStatus"] for row in reconciled["capabilities"]} == {"verified"}
     assert {
-        row["capability"]: tuple(row["evidence"]["tests"])
-        for row in reconciled["capabilities"]
+        row["capability"]: tuple(row["evidence"]["tests"]) for row in reconciled["capabilities"]
     } == mapping
     document_path.write_text(json.dumps(reconciled) + "\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
@@ -723,9 +687,7 @@ def test_workspace_cohort_reconciles_exact_complete_native_proofs(
         == []
     )
     tampered = copy.deepcopy(reconciled)
-    layout = next(
-        row for row in tampered["capabilities"] if row["capability"] == "layout_mirrors"
-    )
+    layout = next(row for row in tampered["capabilities"] if row["capability"] == "layout_mirrors")
     layout["evidence"]["tests"] = [VERSION_PARITY_TEST + "AttachmentAccounting"]
     assert namespace["validate"](tampered)
     assert namespace["validate_persisted_evidence"](
@@ -755,9 +717,7 @@ def test_closure_cohort_rejects_raw_version_parity_policy_tests(
             results,
             repository=tmp_path,
             capability_tests={
-                "break_pane_3_7_workaround": (
-                    VERSION_PARITY_TEST + "BreakPane37Workaround",
-                )
+                "break_pane_3_7_workaround": (VERSION_PARITY_TEST + "BreakPane37Workaround",)
             },
         )
 
@@ -776,22 +736,16 @@ def test_closure_policy_contract_covers_each_behavior_family() -> None:
     for capability, row in rows.items():
         contract = contracts[capability]
         assert row["policyProofContract"] == contract
-        assert row["wrapperPolicyTests"] == list(
-            namespace["POLICY_WRAPPER_TESTS"][capability]
-        )
+        assert row["wrapperPolicyTests"] == list(namespace["POLICY_WRAPPER_TESTS"][capability])
         assert contract["supportedBoundary"] == "exact_argv_single_dispatch"
         if row["unsupportedBehavior"] == "warn_and_ignore":
             assert contract["unsupportedBoundary"] == "warn_omit_single_dispatch"
         elif row["unsupportedBehavior"] == "throw_unsupported_version":
-            assert contract["unsupportedBoundary"] == (
-                "typed_version_exception_zero_dispatch"
-            )
+            assert contract["unsupportedBoundary"] == ("typed_version_exception_zero_dispatch")
         elif row["unsupportedBehavior"] == "apply_only_in_affected_version":
             assert contract["unsupportedBoundary"] == "exact_3_7_and_3_7a_transition"
         else:
-            assert row["unsupportedBehavior"] == (
-                "not_applicable_below_supported_floor"
-            )
+            assert row["unsupportedBehavior"] == ("not_applicable_below_supported_floor")
             assert contract["unsupportedBoundary"] == "not_applicable"
 
 
@@ -806,11 +760,7 @@ def test_reconciliation_rejects_break_pane_transition_source_drift(
         transcript.read_text(encoding="utf-8").replace("6" * 40, "f" * 40),
         encoding="utf-8",
     )
-    mapping = {
-        "break_pane_3_7_workaround": (
-            "spikes/EvidenceTests.cs::BreakPane37Workaround",
-        )
-    }
+    mapping = {"break_pane_3_7_workaround": ("spikes/EvidenceTests.cs::BreakPane37Workaround",)}
 
     with pytest.raises(
         namespace["VersionReconciliationError"],
@@ -1005,9 +955,7 @@ def test_mapping_must_name_a_discoverable_xunit_test(
     results, mapping, _commit = write_fixture(tmp_path, matrix_rows())
     test_path = tmp_path / "spikes" / "EvidenceTests.cs"
     test_path.write_text(
-        "public sealed class EvidenceTests {\n"
-        "    public void Capability_is_exercised() { }\n"
-        "}\n",
+        "public sealed class EvidenceTests {\n    public void Capability_is_exercised() { }\n}\n",
         encoding="utf-8",
     )
     subprocess.run(
@@ -1147,9 +1095,7 @@ def test_same_cohort_rerun_refreshes_verified_evidence(
         capability_tests=mapping,
     )
 
-    verified = [
-        row for row in second["capabilities"] if row["evidenceStatus"] == "verified"
-    ]
+    verified = [row for row in second["capabilities"] if row["evidenceStatus"] == "verified"]
     assert first_commit != second_commit
     assert {row["evidence"]["evaluatedCommit"] for row in verified} == {second_commit}
 
@@ -1167,9 +1113,7 @@ def test_same_cohort_rebuilds_tampered_prior_metadata(
         capability_tests=mapping,
     )
     tampered = copy.deepcopy(expected)
-    verified = next(
-        row for row in tampered["capabilities"] if row["evidenceStatus"] == "verified"
-    )
+    verified = next(row for row in tampered["capabilities"] if row["evidenceStatus"] == "verified")
     verified["evidence"]["evaluatedCommit"] = "0" * 40
     verified["evidence"]["tests"] = ["missing.cs::Not_a_test"]
 
@@ -1296,9 +1240,7 @@ def test_command_flag_capabilities_freeze_version_and_fallback_behavior() -> Non
     }
     hook_unsupported = "not_applicable_below_supported_floor"
 
-    assert "command_flags" not in {
-        row["capability"] for row in seed_document()["capabilities"]
-    }
+    assert "command_flags" not in {row["capability"] for row in seed_document()["capabilities"]}
     assert actual == {
         "break_pane_3_7_workaround": (
             "workaround",
@@ -1679,25 +1621,17 @@ def test_hook_flags_are_baseline_supported_without_a_below_floor_policy() -> Non
     assert namespace["validate"](document) == []
 
     rows["hook_scope_pane_window_set"]["unsupportedBehavior"] = "warn_and_ignore"
-    assert namespace["validate"](document) == [
-        "invalid command gate: hook_scope_pane_window_set"
-    ]
+    assert namespace["validate"](document) == ["invalid command gate: hook_scope_pane_window_set"]
 
 
 def test_transition_sources_cover_every_version_boundary() -> None:
     """Pin the exact tmux manual at each introduction and removal boundary."""
-    rows = [
-        row
-        for row in seed_document()["capabilities"]
-        if row.get("kind") == "command_gate"
-    ]
+    rows = [row for row in seed_document()["capabilities"] if row.get("kind") == "command_gate"]
 
     for row in rows:
         if row["capability"] == "break_pane_3_7_workaround":
             assert row["tmuxTransitionSources"] == {
-                version: (
-                    f"https://github.com/tmux/tmux/blob/{version}/cmd-break-pane.c"
-                )
+                version: (f"https://github.com/tmux/tmux/blob/{version}/cmd-break-pane.c")
                 for version in ["3.7", "3.7a"]
             }
             continue

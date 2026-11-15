@@ -80,7 +80,9 @@ def render(name: str, options: str, regions: dict[str, str]) -> str:
     body = regions[name]
     using = USINGS.search(options)
     if using:
-        namespaces = [part.strip() for part in re.split(r"[ ,]+", using.group("names")) if part.strip()]
+        namespaces = [
+            part.strip() for part in re.split(r"[ ,]+", using.group("names")) if part.strip()
+        ]
         prologue = "".join(f"using {namespace};\n" for namespace in namespaces)
         body = f"{prologue}\n{body}"
     return f"```csharp\n{body}\n```\n"

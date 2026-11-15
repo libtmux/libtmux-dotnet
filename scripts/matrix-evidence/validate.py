@@ -1,7 +1,6 @@
 """Validate sanitized, complete bakeoff evidence by lifecycle phase."""
 
 # Precise validation errors are intentionally raised at each failed gate.
-# ruff: noqa: EM101, EM102, TRY003
 
 from __future__ import annotations
 
@@ -135,12 +134,8 @@ CREDENTIAL_ENVIRONMENT_KEY_PATTERN = re.compile(
     r"SECRET|TOKEN)(?:_|$)",
     re.IGNORECASE,
 )
-PLACEHOLDER_PATTERN = re.compile(
-    r"\b(?:pending|placeholder|tbd|todo|unresolved)\b", re.IGNORECASE
-)
-DELETION_CLAIM_PATTERN = re.compile(
-    r"\b(?:deletion[- ]complete|deleted)\b", re.IGNORECASE
-)
+PLACEHOLDER_PATTERN = re.compile(r"\b(?:pending|placeholder|tbd|todo|unresolved)\b", re.IGNORECASE)
+DELETION_CLAIM_PATTERN = re.compile(r"\b(?:deletion[- ]complete|deleted)\b", re.IGNORECASE)
 TRANSCRIPT_PATTERN = re.compile(
     r"^event=(?:client-attachment|client-hook|client-observability|"
     r"break-pane-transition|"
@@ -204,9 +199,7 @@ def load_json(path: pathlib.Path) -> dict[str, t.Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exception:
-        raise EvidenceValidationError(
-            f"invalid JSON evidence: {path.name}"
-        ) from exception
+        raise EvidenceValidationError(f"invalid JSON evidence: {path.name}") from exception
     if not isinstance(value, dict):
         raise EvidenceValidationError(f"JSON evidence must be an object: {path.name}")
     return t.cast("dict[str, t.Any]", value)
@@ -227,21 +220,15 @@ def load_ndjson(path: pathlib.Path) -> list[dict[str, t.Any]]:
     """
     rows: list[dict[str, t.Any]] = []
     try:
-        for line_number, line in enumerate(
-            path.read_text(encoding="utf-8").splitlines(), start=1
-        ):
+        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             if not line.strip():
                 continue
             value = json.loads(line)
             if not isinstance(value, dict):
-                raise EvidenceValidationError(
-                    f"NDJSON row {line_number} is not an object"
-                )
+                raise EvidenceValidationError(f"NDJSON row {line_number} is not an object")
             rows.append(t.cast("dict[str, t.Any]", value))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exception:
-        raise EvidenceValidationError(
-            f"invalid NDJSON evidence: {path.name}"
-        ) from exception
+        raise EvidenceValidationError(f"invalid NDJSON evidence: {path.name}") from exception
     if not rows:
         raise EvidenceValidationError(f"NDJSON evidence is empty: {path.name}")
     return rows
@@ -272,9 +259,7 @@ def sensitive_needles() -> tuple[bytes, ...]:
         os.path.realpath(sys.executable),
     }
     values.update(
-        value
-        for key, value in os.environ.items()
-        if CREDENTIAL_ENVIRONMENT_KEY_PATTERN.search(key)
+        value for key, value in os.environ.items() if CREDENTIAL_ENVIRONMENT_KEY_PATTERN.search(key)
     )
     return tuple(sorted(value.encode() for value in values if _meaningful(value)))
 
@@ -288,9 +273,7 @@ def reject_sensitive_content(root: pathlib.Path) -> None:
         Candidate evidence tree.
     """
     needles = sensitive_needles()
-    for path in sorted(
-        candidate for candidate in root.rglob("*") if candidate.is_file()
-    ):
+    for path in sorted(candidate for candidate in root.rglob("*") if candidate.is_file()):
         if path == root / "SHA256SUMS":
             continue
         content = path.read_bytes()
@@ -299,9 +282,7 @@ def reject_sensitive_content(root: pathlib.Path) -> None:
             EMAIL_PATTERN.search(content)
             or ABSOLUTE_PATH_PATTERN.search(content)
             or TOKEN_PATTERN.search(content)
-            or re.search(
-                rb"(?<![A-Za-z0-9])(?:/dev/)?(?:pts/\d+|tty[a-z]*\d+)\b", lowered
-            )
+            or re.search(rb"(?<![A-Za-z0-9])(?:/dev/)?(?:pts/\d+|tty[a-z]*\d+)\b", lowered)
             or re.search(rb"\blt-(?:socket-)?[a-z0-9]{8,}\b", lowered)
             or any(needle in content for needle in needles)
         ):
@@ -340,17 +321,11 @@ def verify_hashes(root: pathlib.Path) -> None:
         if len(parts) != 2 or not re.fullmatch(r"[0-9a-f]{64}", parts[0]):
             raise EvidenceValidationError("SHA256SUMS contains an invalid row")
         relative_path = pathlib.PurePosixPath(parts[1])
-        if (
-            relative_path.is_absolute()
-            or ".." in relative_path.parts
-            or parts[1] in expected
-        ):
+        if relative_path.is_absolute() or ".." in relative_path.parts or parts[1] in expected:
             raise EvidenceValidationError("SHA256SUMS contains an unsafe path")
         expected[parts[1]] = parts[0]
     actual_paths = sorted(
-        path.relative_to(root).as_posix()
-        for path in _regular_files(root)
-        if path != manifest_path
+        path.relative_to(root).as_posix() for path in _regular_files(root) if path != manifest_path
     )
     if sorted(expected) != actual_paths:
         raise EvidenceValidationError("SHA256SUMS is incomplete")
@@ -367,9 +342,7 @@ def _validate_transcripts(root: pathlib.Path) -> None:
         raise EvidenceValidationError("protocol transcripts are required")
     paths = sorted(transcript_root.glob("*.txt"))
     if not required.issubset(path.name for path in paths):
-        raise EvidenceValidationError(
-            "control and PTY protocol transcripts are required"
-        )
+        raise EvidenceValidationError("control and PTY protocol transcripts are required")
     events: set[str] = set()
     for path in paths:
         content = path.read_text(encoding="utf-8")
@@ -382,12 +355,8 @@ def _validate_transcripts(root: pathlib.Path) -> None:
             or not all(TRANSCRIPT_PATTERN.fullmatch(line) for line in lines)
         ):
             raise EvidenceValidationError("protocol transcript structure is invalid")
-        events.update(
-            line.split(" ", maxsplit=1)[0].removeprefix("event=") for line in lines
-        )
-    if not {"control-send", "control-receive", "pty-attach", "pty-detach"}.issubset(
-        events
-    ):
+        events.update(line.split(" ", maxsplit=1)[0].removeprefix("event=") for line in lines)
+    if not {"control-send", "control-receive", "pty-attach", "pty-detach"}.issubset(events):
         raise EvidenceValidationError("protocol transcript events are incomplete")
 
 
@@ -401,9 +370,7 @@ def _validate_decision_transcripts(root: pathlib.Path) -> None:
     transcript_root = root / "protocol-transcripts"
     present = {path.name for path in transcript_root.glob("*.txt")}
     if not set(TRANSPORT_SEMANTIC_TRANSCRIPTS).issubset(present):
-        raise EvidenceValidationError(
-            "transport semantic transcript files are incomplete"
-        )
+        raise EvidenceValidationError("transport semantic transcript files are incomplete")
     required_lanes = [
         (row["framework"], row["tmuxVersion"])
         for row in load_ndjson(root / "results.ndjson")
@@ -445,8 +412,7 @@ def _validate_environment(
         else ()
     )
     if capability_cohort is not None and (
-        not isinstance(evaluated_tree, str)
-        or COMMIT_PATTERN.fullmatch(evaluated_tree) is None
+        not isinstance(evaluated_tree, str) or COMMIT_PATTERN.fullmatch(evaluated_tree) is None
     ):
         raise EvidenceValidationError("environment evaluated tree is invalid")
     if (
@@ -454,10 +420,7 @@ def _validate_environment(
         or environment["frameworks"] != list(REQUIRED_FRAMEWORKS)
         or not isinstance(environment["includeMasterAdvisory"], bool)
         or required_versions not in KNOWN_REQUIRED_TMUX_VERSION_SETS
-        or (
-            capability_cohort == WORKSPACE_COHORT
-            and required_versions != REQUIRED_TMUX_VERSIONS
-        )
+        or (capability_cohort == WORKSPACE_COHORT and required_versions != REQUIRED_TMUX_VERSIONS)
         or environment["platform"] not in {"linux", "macos"}
         or environment["redactionProof"] is not True
         or environment["sdkVersion"] not in KNOWN_SDK_VERSIONS
@@ -482,10 +445,7 @@ def _validate_environment(
         WORKSPACE_COHORT,
     }:
         raise EvidenceValidationError("capability cohort observations are invalid")
-    if (
-        capability_cohort is not None
-        and environment["includeMasterAdvisory"] is not False
-    ):
+    if capability_cohort is not None and environment["includeMasterAdvisory"] is not False:
         raise EvidenceValidationError("capability cohort observations are invalid")
     requires_transition = capability_cohort in {
         COMPONENT_THREE_COHORT,
@@ -520,10 +480,7 @@ def _validate_matrix_rows(
         framework = row["framework"]
         if not isinstance(version, str) or not isinstance(framework, str):
             raise EvidenceValidationError("matrix row identity is invalid")
-        if (
-            version not in {*required_versions, "master"}
-            or framework not in REQUIRED_FRAMEWORKS
-        ):
+        if version not in {*required_versions, "master"} or framework not in REQUIRED_FRAMEWORKS:
             raise EvidenceValidationError("matrix contains an unknown row")
         pair = (version, framework)
         if pair in observed:
@@ -560,9 +517,7 @@ def _validate_matrix_rows(
         ):
             raise EvidenceValidationError("master matrix row observation is invalid")
     required = {
-        (version, framework)
-        for version in required_versions
-        for framework in REQUIRED_FRAMEWORKS
+        (version, framework) for version in required_versions for framework in REQUIRED_FRAMEWORKS
     }
     if not required.issubset(observed):
         raise EvidenceValidationError("a required matrix row is missing")
@@ -576,27 +531,16 @@ def _validate_matrix_rows(
     source_commits: dict[str, str] = {}
     for version in required_versions:
         commits = {
-            observed[(version, framework)]["tmuxSourceCommit"]
-            for framework in REQUIRED_FRAMEWORKS
+            observed[(version, framework)]["tmuxSourceCommit"] for framework in REQUIRED_FRAMEWORKS
         }
         if len(commits) != 1:
-            raise EvidenceValidationError(
-                "required framework rows have different source commits"
-            )
+            raise EvidenceValidationError("required framework rows have different source commits")
         source_commits[version] = t.cast(str, commits.pop())
-    master = [
-        row for (version, _framework), row in observed.items() if version == "master"
-    ]
-    if (include_master_advisory and len(master) != 2) or (
-        not include_master_advisory and master
-    ):
-        raise EvidenceValidationError(
-            "master matrix rows do not match the environment declaration"
-        )
+    master = [row for (version, _framework), row in observed.items() if version == "master"]
+    if (include_master_advisory and len(master) != 2) or (not include_master_advisory and master):
+        raise EvidenceValidationError("master matrix rows do not match the environment declaration")
     if master and len({row["tmuxSourceCommit"] for row in master}) != 1:
-        raise EvidenceValidationError(
-            "master matrix rows are incomplete or inconsistent"
-        )
+        raise EvidenceValidationError("master matrix rows are incomplete or inconsistent")
     return source_commits
 
 
@@ -619,9 +563,7 @@ def _validate_break_pane_transition(
     for line in lines:
         match = BREAK_PANE_TRANSCRIPT_PATTERN.fullmatch(line)
         if match is None:
-            raise EvidenceValidationError(
-                "break-pane transition transcript structure is invalid"
-            )
+            raise EvidenceValidationError("break-pane transition transcript structure is invalid")
         framework = match["framework"]
         version = match["version"]
         pair = (framework, version)
@@ -635,14 +577,10 @@ def _validate_break_pane_transition(
             match["outcome"],
         )
     required = {
-        (framework, version)
-        for framework in REQUIRED_FRAMEWORKS
-        for version in ("3.7", "3.7a")
+        (framework, version) for framework in REQUIRED_FRAMEWORKS for version in ("3.7", "3.7a")
     }
     if set(observed) != required:
-        raise EvidenceValidationError(
-            "break-pane transition transcript lane coverage is invalid"
-        )
+        raise EvidenceValidationError("break-pane transition transcript lane coverage is invalid")
     for framework in REQUIRED_FRAMEWORKS:
         transition = observed[(framework, "3.7")]
         release = observed[(framework, "3.7a")]
@@ -736,14 +674,10 @@ def _validate_critics(root: pathlib.Path, commit: str) -> None:
     ):
         raise EvidenceValidationError("critic review schema or commit is invalid")
     if PLACEHOLDER_PATTERN.search(json.dumps(value, sort_keys=True)):
-        raise EvidenceValidationError(
-            "critic reviews contain pending or unresolved text"
-        )
+        raise EvidenceValidationError("critic reviews contain pending or unresolved text")
     reviews = value["reviews"]
     if not isinstance(reviews, list) or len(reviews) != 3:
-        raise EvidenceValidationError(
-            "critic reviews must contain exactly three critics"
-        )
+        raise EvidenceValidationError("critic reviews must contain exactly three critics")
     seen: set[str] = set()
     for row in reviews:
         if not isinstance(row, dict) or set(row) != CRITIC_ROW_KEYS:
@@ -761,10 +695,7 @@ def _validate_critics(root: pathlib.Path, commit: str) -> None:
         for finding in findings:
             if not isinstance(finding, dict) or set(finding) != FINDING_KEYS:
                 raise EvidenceValidationError("critic finding schema is invalid")
-            if (
-                not isinstance(finding["evidence"], str)
-                or not finding["evidence"].strip()
-            ):
+            if not isinstance(finding["evidence"], str) or not finding["evidence"].strip():
                 raise EvidenceValidationError("critic finding evidence is required")
             if finding["finding"] == "no findings":
                 if (
@@ -772,19 +703,14 @@ def _validate_critics(root: pathlib.Path, commit: str) -> None:
                     or finding["disposition"] != "no-findings"
                     or finding["resolution"] != "not-applicable"
                 ):
-                    raise EvidenceValidationError(
-                        "critic no-findings sentinel is invalid"
-                    )
+                    raise EvidenceValidationError("critic no-findings sentinel is invalid")
             elif (
                 not isinstance(finding["finding"], str)
                 or not finding["finding"].strip()
                 or finding["severity"] not in {"high", "medium", "low"}
                 or finding["disposition"] not in {"accepted", "rejected"}
                 or finding["resolution"] not in {"resolved", "not-applicable"}
-                or (
-                    finding["disposition"] == "accepted"
-                    and finding["resolution"] != "resolved"
-                )
+                or (finding["disposition"] == "accepted" and finding["resolution"] != "resolved")
             ):
                 raise EvidenceValidationError("critic finding disposition is invalid")
     if seen != CRITICS:
@@ -800,19 +726,13 @@ def _string_list(value: t.Any, *, nonempty: bool = True) -> bool:
     )
 
 
-def _validate_decision(
-    repository: pathlib.Path, root: pathlib.Path, commit: str
-) -> None:
+def _validate_decision(repository: pathlib.Path, root: pathlib.Path, commit: str) -> None:
     decision_id = root.name
     if decision_id not in {"0001", "0002", "0003"}:
         raise EvidenceValidationError("decision evidence directory name is invalid")
-    paths = list(
-        (repository / "csharp" / "docs" / "decisions").glob(f"{decision_id}-*.md")
-    )
+    paths = list((repository / "csharp" / "docs" / "decisions").glob(f"{decision_id}-*.md"))
     if len(paths) != 1:
-        raise EvidenceValidationError(
-            "decision requires exactly one sibling Markdown file"
-        )
+        raise EvidenceValidationError("decision requires exactly one sibling Markdown file")
     value = _load_fenced_json(paths[0], "decision inputs")
     serialized = json.dumps(value, sort_keys=True)
     if set(value) != DECISION_KEYS or value["schemaVersion"] != 1:
@@ -865,9 +785,7 @@ def _run_git(repository: pathlib.Path, *arguments: str) -> str:
             text=True,
         ).stdout.strip()
     except (OSError, subprocess.CalledProcessError) as exception:
-        raise EvidenceValidationError(
-            "deletion repository cannot be inspected"
-        ) from exception
+        raise EvidenceValidationError("deletion repository cannot be inspected") from exception
 
 
 def _require_ancestor(repository: pathlib.Path, commit: str) -> None:
@@ -901,9 +819,7 @@ def _relative(value: t.Any, label: str) -> pathlib.Path:
     return path
 
 
-def _validate_deletion(
-    repository: pathlib.Path, proof: dict[str, t.Any], commit: str
-) -> None:
+def _validate_deletion(repository: pathlib.Path, proof: dict[str, t.Any], commit: str) -> None:
     if (
         set(proof) != DELETION_KEYS
         or proof["passed"] is not True
@@ -1003,9 +919,7 @@ def parse_args(argv: t.Sequence[str] | None = None) -> argparse.Namespace:
         Parsed arguments.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--phase", choices=("matrix", "pre-deletion", "final"), default="final"
-    )
+    parser.add_argument("--phase", choices=("matrix", "pre-deletion", "final"), default="final")
     parser.add_argument("--repository", type=pathlib.Path)
     parser.add_argument("root", type=pathlib.Path)
     return parser.parse_args(argv)

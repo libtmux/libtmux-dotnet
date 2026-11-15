@@ -68,10 +68,7 @@ def misread_as_booleans(source: str) -> list[str]:
     return [
         name
         for name, spec in inputs.items()
-        if any(
-            isinstance(value, bool)
-            for value in [spec.get("default"), *spec.get("options", [])]
-        )
+        if any(isinstance(value, bool) for value in [spec.get("default"), *spec.get("options", [])])
     ]
 
 
@@ -167,13 +164,9 @@ def verify(root: pathlib.Path) -> list[str]:
     sources: dict[str, str] = {}
     for name in ("dotnet", "dotnet-tmux", "release"):
         try:
-            source = (root / f".github/workflows/{name}.yml").read_text(
-                encoding="utf-8"
-            )
+            source = (root / f".github/workflows/{name}.yml").read_text(encoding="utf-8")
             document = yaml.load(source, Loader=WorkflowLoader)
-            if not isinstance(document, dict) or not isinstance(
-                document.get("jobs"), dict
-            ):
+            if not isinstance(document, dict) or not isinstance(document.get("jobs"), dict):
                 raise TypeError("expected a workflow with jobs")
             documents[name] = document
             sources[name] = source
@@ -212,8 +205,7 @@ def verify(root: pathlib.Path) -> list[str]:
         condition: str | None = None,
     ) -> dict[str, t.Any]:
         steps = [
-            step for step in job(workflow, name).get("steps", [])
-            if step.get("id") == identifier
+            step for step in job(workflow, name).get("steps", []) if step.get("id") == identifier
         ]
         label = f"{workflow}.{name}.{identifier}"
         require(len(steps) == 1, f"{label}: missing required step")
@@ -229,8 +221,7 @@ def verify(root: pathlib.Path) -> list[str]:
             require("if" not in step, f"{label}.if may not skip required execution")
         else:
             require(
-                "".join(str(step.get("if", "")).split())
-                == "".join(condition.split()),
+                "".join(str(step.get("if", "")).split()) == "".join(condition.split()),
                 f"{label}.if must reject every unsuccessful dependency",
             )
         return step
@@ -269,8 +260,7 @@ def verify(root: pathlib.Path) -> list[str]:
             if name == "release" and job_name == "publish":
                 continue
             require(
-                "permissions" not in value
-                or value["permissions"] == {"contents": "read"},
+                "permissions" not in value or value["permissions"] == {"contents": "read"},
                 f"{name}.{job_name}.permissions may not elevate the workflow default",
             )
 
@@ -296,10 +286,16 @@ def verify(root: pathlib.Path) -> list[str]:
         required = job("dotnet", name)
         require("if" not in required, f"dotnet.{name}.if may not skip a required build")
     for identifier in (
-        "fsharp-format", "fsharp-unit-net8", "fsharp-unit-net10",
-        "fsharp-package-consumer", "fsharp-sdk8-consumer", "fsharp-readme-quickstart",
-        "fsharp-aot-smoke", "fsharp-examples",
-        "fsharp-packed-examples", "fsharp-trimmed-smoke",
+        "fsharp-format",
+        "fsharp-unit-net8",
+        "fsharp-unit-net10",
+        "fsharp-package-consumer",
+        "fsharp-sdk8-consumer",
+        "fsharp-readme-quickstart",
+        "fsharp-aot-smoke",
+        "fsharp-examples",
+        "fsharp-packed-examples",
+        "fsharp-trimmed-smoke",
         "fsharp-fsdocs",
     ):
         required_step("dotnet", "build", identifier)
@@ -350,7 +346,7 @@ def verify(root: pathlib.Path) -> list[str]:
         and f"dotnet publish {trimmed_project}" in trimmed_run
         and "--configfile tests/NuGet.config" in trimmed_run
         and "for framework in net8.0 net10.0; do" in trimmed_run
-        and "--framework \"${framework}\"" in trimmed_run
+        and '--framework "${framework}"' in trimmed_run
         and trimmed_run.count("--runtime linux-x64") >= 2
         and "--no-restore" in trimmed_run
         and f'--output "{trimmed_output}"' in trimmed_run
@@ -363,8 +359,7 @@ def verify(root: pathlib.Path) -> list[str]:
 
     fsdocs = required_step("dotnet", "build", "fsharp-fsdocs")
     require(
-        "python3 scripts/docs/sync_fsdocs_reference.py --check"
-        in fsdocs.get("run", ""),
+        "python3 scripts/docs/sync_fsdocs_reference.py --check" in fsdocs.get("run", ""),
         "dotnet.build.fsharp-fsdocs must check the generated member reference",
     )
 
@@ -374,8 +369,7 @@ def verify(root: pathlib.Path) -> list[str]:
         "dotnet.build.fsharp-format must check F# examples",
     )
     document_steps = [
-        step for step in job("dotnet", "build").get("steps", [])
-        if step.get("name") == "Documents"
+        step for step in job("dotnet", "build").get("steps", []) if step.get("name") == "Documents"
     ]
     require(len(document_steps) == 1, "dotnet.build: missing Documents step")
     if len(document_steps) == 1:
@@ -415,8 +409,7 @@ def verify(root: pathlib.Path) -> list[str]:
         )
     require(
         dispatch_inputs.get("scope", {}).get("default") == "edges"
-        and names(dispatch_inputs.get("scope", {}).get("options"))
-        == set(plan_script["SCOPES"]),
+        and names(dispatch_inputs.get("scope", {}).get("options")) == set(plan_script["SCOPES"]),
         "dotnet-tmux.workflow_dispatch scope must default to edges and offer every scope",
     )
     for job_name, value in tmux_workflow["jobs"].items():
@@ -445,8 +438,7 @@ def verify(root: pathlib.Path) -> list[str]:
     )
     for output in ("matrix", "rejected", "exact_3_7", "advisory"):
         require(
-            planner.get("outputs", {}).get(output)
-            == "${{ steps.plan.outputs." + output + " }}",
+            planner.get("outputs", {}).get(output) == "${{ steps.plan.outputs." + output + " }}",
             f"dotnet-tmux.plan must publish the {output} output",
         )
 
@@ -488,9 +480,7 @@ def verify(root: pathlib.Path) -> list[str]:
         )
     for path in sorted((root / ".github/workflows").glob("*.yml")):
         if path.name != "dotnet-tmux.yml" and TMATE_ACTION in path.read_text(encoding="utf-8"):
-            errors.append(
-                f"{path.name}: a debugging session belongs only in the tmux matrix"
-            )
+            errors.append(f"{path.name}: a debugging session belongs only in the tmux matrix")
     require(
         len(debug_sessions) == 2,
         "dotnet-tmux.matrix must offer a debugging session before the tests and after a failure",
@@ -501,9 +491,7 @@ def verify(root: pathlib.Path) -> list[str]:
         == "${{fromJSON(needs.plan.outputs.matrix)}}",
         "dotnet-tmux.matrix must take its legs from the plan",
     )
-    require(
-        strategy.get("fail-fast") == "false", "supported matrix fail-fast must be false"
-    )
+    require(strategy.get("fail-fast") == "false", "supported matrix fail-fast must be false")
     require("if" not in matrix, "dotnet-tmux.matrix.if may not skip compatibility")
     for lane, condition in PLANNED_LANES.items():
         planned_lane = needs("dotnet-tmux", lane, {"plan", "build"})
@@ -537,7 +525,8 @@ def verify(root: pathlib.Path) -> list[str]:
         "dotnet-tmux.build must compile every F# query program",
     )
     archives = [
-        step for step in producer.get("steps", [])
+        step
+        for step in producer.get("steps", [])
         if step.get("name") == "Archive runnable assemblies"
     ]
     require(len(archives) == 1, "dotnet-tmux.build must archive runnable assemblies")
@@ -549,15 +538,13 @@ def verify(root: pathlib.Path) -> list[str]:
         )
         for framework in sorted(TARGET_FRAMEWORKS):
             require(
-                f"examples/LibTmux.FSharp.Examples/bin/Release/{framework}"
-                in archive_command,
+                f"examples/LibTmux.FSharp.Examples/bin/Release/{framework}" in archive_command,
                 f"dotnet-tmux.build must archive the F# example for {framework}",
             )
     integration = required_step("dotnet-tmux", "matrix", "integration-tests")
     require(
-        {**matrix.get("env", {}), **integration.get("env", {})}.get(
-            "LIBTMUX_INTEGRATION_REQUIRED"
-        ) == "1",
+        {**matrix.get("env", {}), **integration.get("env", {})}.get("LIBTMUX_INTEGRATION_REQUIRED")
+        == "1",
         "supported matrix must require integration execution",
     )
     fsharp_example = required_step("dotnet-tmux", "matrix", "fsharp-examples")

@@ -14,9 +14,7 @@ PACKAGES = ("LibTmux", "LibTmux.Mcp")
 
 def load_checker() -> dict[str, t.Any]:
     """Load the changelog check as an import-free test namespace."""
-    return runpy.run_path(
-        str(pathlib.Path(__file__).parents[1] / "verify_changelogs.py")
-    )
+    return runpy.run_path(str(pathlib.Path(__file__).parents[1] / "verify_changelogs.py"))
 
 
 def changelog(name: str) -> str:
@@ -27,9 +25,7 @@ def changelog(name: str) -> str:
 @pytest.fixture
 def tree(tmp_path: pathlib.Path) -> pathlib.Path:
     """Return a small repository whose changelogs all meet the policy."""
-    (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## [Unreleased]\n", encoding="utf-8"
-    )
+    (tmp_path / "CHANGELOG.md").write_text("# Changelog\n\n## [Unreleased]\n", encoding="utf-8")
     for name in PACKAGES:
         directory = tmp_path / "src" / name
         directory.mkdir(parents=True)

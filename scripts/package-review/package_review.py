@@ -5,24 +5,34 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True, help="A new, unpublished prerelease identity.")
     parser.add_argument("--revision", required=True, help="The full committed source SHA to build.")
-    parser.add_argument("--output", required=True, type=Path,
-                        help="A new directory, or the preceding phase's output.")
-    parser.add_argument("--phase", choices=("restore", "build", "pack"),
-                        help="Run one phase; omit to run the complete recipe.")
+    parser.add_argument(
+        "--output",
+        required=True,
+        type=Path,
+        help="A new directory, or the preceding phase's output.",
+    )
+    parser.add_argument(
+        "--phase",
+        choices=("restore", "build", "pack"),
+        help="Run one phase; omit to run the complete recipe.",
+    )
     args = parser.parse_args()
-    version = re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)", args.version)
+    version = re.fullmatch(
+        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)",
+        args.version,
+    )
     if version is None:
         parser.error("--version must be a prerelease such as 0.0.0-review.1.")
     if not re.fullmatch(r"[0-9a-f]{40}", args.revision):
@@ -52,16 +62,27 @@ def main() -> int:
     if suffix:
         declared += "-" + suffix
     if args.version == declared:
-        raise RuntimeError("Choose a distinct review identity; the declared version cannot be overwritten.")
+        raise RuntimeError(
+            "Choose a distinct review identity; the declared version cannot be overwritten."
+        )
     environment = dict(os.environ, DirectoryBuildPropsPath=str(props))
     phases = ("restore", "build", "pack") if args.phase is None else (args.phase,)
-    projects = [root / item.attrib["Path"] for item in
-                ET.parse(root / "LibTmux.slnx").iter("Project")]
-    tool_projects = {project for project in projects
-                     if ET.parse(project).findtext(".//PackAsTool", "").strip() == "true"}
-    source_inputs = sorted([root / "global.json", root / "Directory.Build.props",
-                            root / "Directory.Packages.props",
-                            *root.glob("src/*/packages.lock.json")])
+    projects = [
+        root / item.attrib["Path"] for item in ET.parse(root / "LibTmux.slnx").iter("Project")
+    ]
+    tool_projects = {
+        project
+        for project in projects
+        if ET.parse(project).findtext(".//PackAsTool", "").strip() == "true"
+    }
+    source_inputs = sorted(
+        [
+            root / "global.json",
+            root / "Directory.Build.props",
+            root / "Directory.Packages.props",
+            *root.glob("src/*/packages.lock.json"),
+        ]
+    )
 
     def sha256(path: Path) -> str:
         digest = hashlib.sha256()
@@ -71,22 +92,29 @@ def main() -> int:
         return digest.hexdigest()
 
     def manifest(paths, base: Path):
-        return [{"file": path.relative_to(base).as_posix(), "sha256": sha256(path)}
-                for path in sorted(set(paths))]
+        return [
+            {"file": path.relative_to(base).as_posix(), "sha256": sha256(path)}
+            for path in sorted(set(paths))
+        ]
 
     def identity():
         # Hash environment values rather than writing credentials to the receipt.
         volatile = {"PWD", "OLDPWD", "SHLVL", "_", "TERM", "COLUMNS", "LINES"}
-        stable_environment = {key: value for key, value in environment.items()
-                              if key not in volatile}
+        stable_environment = {
+            key: value for key, value in environment.items() if key not in volatile
+        }
         return {
-            "version": args.version, "revision": args.revision,
-            "tree": git("rev-parse", "HEAD^{tree}"), "root": str(root), "output": str(output),
+            "version": args.version,
+            "revision": args.revision,
+            "tree": git("rev-parse", "HEAD^{tree}"),
+            "root": str(root),
+            "output": str(output),
             "sdk": subprocess.check_output(["dotnet", "--version"], cwd=root, text=True).strip(),
             "inputs": manifest(source_inputs, root),
             "overrides": manifest([props, output / "NuGet.config"], output),
             "environment_sha256": hashlib.sha256(
-                json.dumps(stable_environment, sort_keys=True).encode()).hexdigest(),
+                json.dumps(stable_environment, sort_keys=True).encode()
+            ).hexdigest(),
         }
 
     def restored_inputs():
@@ -96,10 +124,15 @@ def main() -> int:
             assets = directory / "project.assets.json"
             if not assets.is_file():
                 raise RuntimeError(f"Restored assets are missing for {project.relative_to(root)}.")
-            paths.extend([assets, *directory.glob("*.nuget.g.props"),
-                          *directory.glob("*.nuget.g.targets"),
-                          *directory.glob("*.nuget.dgspec.json"),
-                          *directory.glob("project.nuget.cache")])
+            paths.extend(
+                [
+                    assets,
+                    *directory.glob("*.nuget.g.props"),
+                    *directory.glob("*.nuget.g.targets"),
+                    *directory.glob("*.nuget.dgspec.json"),
+                    *directory.glob("project.nuget.cache"),
+                ]
+            )
         return manifest(paths, root)
 
     def built_outputs():
@@ -111,16 +144,23 @@ def main() -> int:
             # Compiler DLL/PDB/XML inputs remain guarded outside those outputs.
             for path in binary.rglob("*"):
                 relative = path.relative_to(binary).parts
-                published = (project in tool_projects and len(relative) > 2
-                             and relative[1] == "publish")
+                published = (
+                    project in tool_projects and len(relative) > 2 and relative[1] == "publish"
+                )
                 if path.is_file() and not published:
                     paths.append(path)
             for path in intermediate.rglob("*"):
                 relative = path.relative_to(intermediate).parts
-                settings = (project in tool_projects and len(relative) == 2
-                            and relative[1] == "DotnetToolSettings.xml")
-                if (path.is_file() and not settings
-                        and path.suffix in {".dll", ".pdb", ".xml", ".resources"}):
+                settings = (
+                    project in tool_projects
+                    and len(relative) == 2
+                    and relative[1] == "DotnetToolSettings.xml"
+                )
+                if (
+                    path.is_file()
+                    and not settings
+                    and path.suffix in {".dll", ".pdb", ".xml", ".resources"}
+                ):
                     paths.append(path)
         engineering = root / "eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engineering.dll"
         if not engineering.is_file() or not any(path.suffix == ".dll" for path in paths):
@@ -143,9 +183,15 @@ def main() -> int:
         ET.SubElement(sources, "add", key="review", value=".")
         ET.SubElement(sources, "add", key="nuget.org", value="https://api.nuget.org/v3/index.json")
         mapping = ET.SubElement(configuration, "packageSourceMapping")
-        ET.SubElement(ET.SubElement(mapping, "packageSource", key="review"), "package", pattern="LibTmux*")
-        ET.SubElement(ET.SubElement(mapping, "packageSource", key="nuget.org"), "package", pattern="*")
-        ET.ElementTree(configuration).write(output / "NuGet.config", encoding="utf-8", xml_declaration=True)
+        ET.SubElement(
+            ET.SubElement(mapping, "packageSource", key="review"), "package", pattern="LibTmux*"
+        )
+        ET.SubElement(
+            ET.SubElement(mapping, "packageSource", key="nuget.org"), "package", pattern="*"
+        )
+        ET.ElementTree(configuration).write(
+            output / "NuGet.config", encoding="utf-8", xml_declaration=True
+        )
         initial = identity()
         state = {"format": 1, "identity": initial, "phase": None}
         commands = []
@@ -156,11 +202,17 @@ def main() -> int:
         except (OSError, ValueError) as error:
             raise RuntimeError("A completed preceding phase receipt is required.") from error
         expected = {"build": "restore", "pack": "build"}[phases[0]]
-        if not isinstance(state, dict) or state.get("format") != 1 or state.get("phase") != expected:
+        if (
+            not isinstance(state, dict)
+            or state.get("format") != 1
+            or state.get("phase") != expected
+        ):
             raise RuntimeError(f"{phases[0]} requires a completed {expected} phase.")
         initial = identity()
         if state.get("identity") != initial:
-            raise RuntimeError("Source, SDK, environment, inputs or review identity changed between phases.")
+            raise RuntimeError(
+                "Source, SDK, environment, inputs or review identity changed between phases."
+            )
         if state.get("commands_sha256") != sha256(commands_path):
             raise RuntimeError("The command receipt changed between phases.")
         if not isinstance(commands, list):
@@ -169,15 +221,25 @@ def main() -> int:
             raise RuntimeError("Restored inputs changed between phases.")
         if phases[0] == "pack" and state.get("built_outputs") != built_outputs():
             raise RuntimeError("Release build outputs changed between phases.")
-        if (list(output.glob("*.nupkg")) or list(output.glob("*.snupkg"))
-                or (output / "provenance.json").exists()):
-            raise RuntimeError("Package archives already exist; their review identity cannot be overwritten.")
+        if (
+            list(output.glob("*.nupkg"))
+            or list(output.glob("*.snupkg"))
+            or (output / "provenance.json").exists()
+        ):
+            raise RuntimeError(
+                "Package archives already exist; their review identity cannot be overwritten."
+            )
 
     def run(*command: str) -> None:
         started = time.monotonic()
         result = subprocess.run(command, cwd=root, env=environment, check=False)
-        commands.append({"argv": list(command), "exit": result.returncode,
-                         "wall_seconds": round(time.monotonic() - started, 4)})
+        commands.append(
+            {
+                "argv": list(command),
+                "exit": result.returncode,
+                "wall_seconds": round(time.monotonic() - started, 4),
+            }
+        )
         commands_path.write_text(json.dumps(commands, indent=2) + "\n")
         if result.returncode:
             raise RuntimeError(f"{command[0]} {command[1]} failed with exit {result.returncode}.")
@@ -188,12 +250,28 @@ def main() -> int:
         if phase == "restore":
             run("dotnet", "restore", "LibTmux.slnx", "--locked-mode")
         elif phase == "build":
-            run("dotnet", "build", "LibTmux.slnx", "--configuration", "Release", "--no-restore",
-                "--warnaserror", "-p:ContinuousIntegrationBuild=true")
+            run(
+                "dotnet",
+                "build",
+                "LibTmux.slnx",
+                "--configuration",
+                "Release",
+                "--no-restore",
+                "--warnaserror",
+                "-p:ContinuousIntegrationBuild=true",
+            )
         else:
             run("dotnet", engineering, "api-inventory", ".", str(inventory))
-            run("dotnet", "pack", "LibTmux.slnx", "--configuration", "Release", "--no-build",
-                "--output", str(output))
+            run(
+                "dotnet",
+                "pack",
+                "LibTmux.slnx",
+                "--configuration",
+                "Release",
+                "--no-build",
+                "--output",
+                str(output),
+            )
             inspected_files = manifest([*output.glob("*.nupkg"), *output.glob("*.snupkg")], output)
             inspected_inventory = sha256(inventory)
             run("dotnet", engineering, "packages", ".", str(output), str(inventory))
@@ -202,7 +280,9 @@ def main() -> int:
                 raise RuntimeError("Packages or inventory changed during inspection.")
         check_source()
         if identity() != initial:
-            raise RuntimeError("Source, SDK, environment, inputs or review identity changed during packaging.")
+            raise RuntimeError(
+                "Source, SDK, environment, inputs or review identity changed during packaging."
+            )
         restored = restored_inputs()
         if phase != "restore" and state.get("restored_inputs") != restored:
             raise RuntimeError("Restored inputs changed during packaging.")
@@ -228,8 +308,7 @@ def main() -> int:
         "tree": initial["tree"],
         "sdk": initial["sdk"],
         "inspection": "passed",
-        "packages": [{"file": path.name, "sha256": sha256(path)}
-                     for path in files],
+        "packages": [{"file": path.name, "sha256": sha256(path)} for path in files],
         "inventory_sha256": sha256(inventory),
         "inputs": initial["inputs"],
     }

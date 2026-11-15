@@ -1,7 +1,6 @@
 """Assemble isolated same-commit producer transactions atomically."""
 
 # Precise producer errors identify the transaction invariant that failed.
-# ruff: noqa: EM101, EM102, TRY003, TRY301
 
 from __future__ import annotations
 
@@ -125,9 +124,7 @@ def _excluded_relative_roots(
     return tuple(roots)
 
 
-def _under_roots(
-    path: pathlib.PurePosixPath, roots: t.Iterable[pathlib.PurePosixPath]
-) -> bool:
+def _under_roots(path: pathlib.PurePosixPath, roots: t.Iterable[pathlib.PurePosixPath]) -> bool:
     return any(path == root or root in path.parents for root in roots)
 
 
@@ -177,9 +174,7 @@ def source_tree_fingerprint(
             capture_output=True,
         ).stdout
     except (OSError, subprocess.CalledProcessError) as exception:
-        raise BundleAssemblyError(
-            "repository state cannot be fingerprinted"
-        ) from exception
+        raise BundleAssemblyError("repository state cannot be fingerprinted") from exception
     digest.update(b"HEAD\0" + head + b"\0INDEX\0")
     for raw_entry in entries.split(b"\0"):
         if not raw_entry:
@@ -199,9 +194,7 @@ def source_tree_fingerprint(
         except FileNotFoundError:
             digest.update(b"<deleted>")
         except OSError as exception:
-            raise BundleAssemblyError(
-                "tracked source cannot be fingerprinted"
-            ) from exception
+            raise BundleAssemblyError("tracked source cannot be fingerprinted") from exception
         digest.update(b"\0")
     for raw_path in sorted(raw for raw in untracked.split(b"\0") if raw):
         untracked_relative = pathlib.PurePosixPath(
@@ -216,9 +209,7 @@ def source_tree_fingerprint(
         try:
             digest.update(path.read_bytes())
         except OSError as exception:
-            raise BundleAssemblyError(
-                "untracked source cannot be fingerprinted"
-            ) from exception
+            raise BundleAssemblyError("untracked source cannot be fingerprinted") from exception
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -269,11 +260,7 @@ def source_state(
         for raw in (tracked + untracked).split(b"\0")
         if raw
     )
-    return (
-        "uncommitted"
-        if any(not _under_roots(path, excluded) for path in paths)
-        else "clean"
-    )
+    return "uncommitted" if any(not _under_roots(path, excluded) for path in paths) else "clean"
 
 
 def _matches_allowlist(producer: str, relative: str) -> bool:
@@ -285,9 +272,7 @@ def _load_json_object(path: pathlib.Path) -> dict[str, t.Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exception:
-        raise BundleAssemblyError(
-            f"producer JSON is invalid: {path.name}"
-        ) from exception
+        raise BundleAssemblyError(f"producer JSON is invalid: {path.name}") from exception
     if not isinstance(value, dict):
         raise BundleAssemblyError(f"producer JSON is not an object: {path.name}")
     return t.cast("dict[str, t.Any]", value)
@@ -296,14 +281,10 @@ def _load_json_object(path: pathlib.Path) -> dict[str, t.Any]:
 def _load_ndjson_objects(path: pathlib.Path) -> list[dict[str, t.Any]]:
     try:
         values = [
-            json.loads(line)
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line
+            json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line
         ]
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exception:
-        raise BundleAssemblyError(
-            f"producer NDJSON is invalid: {path.name}"
-        ) from exception
+        raise BundleAssemblyError(f"producer NDJSON is invalid: {path.name}") from exception
     if not values or not all(isinstance(value, dict) for value in values):
         raise BundleAssemblyError(f"producer NDJSON schema is invalid: {path.name}")
     return t.cast("list[dict[str, t.Any]]", values)
@@ -317,9 +298,7 @@ def _validate_aot(files: dict[str, pathlib.Path], commit: str) -> None:
         if any(row.get("evaluatedCommit") != commit for row in rows):
             raise BundleAssemblyError("AOT internal commit differs from producer")
     markdown = files["api-examples.md"].read_text(encoding="utf-8")
-    commit_lines = [
-        line for line in markdown.splitlines() if line.startswith("evaluatedCommit:")
-    ]
+    commit_lines = [line for line in markdown.splitlines() if line.startswith("evaluatedCommit:")]
     if commit_lines != [f"evaluatedCommit: {commit}"]:
         raise BundleAssemblyError("AOT internal commit differs from producer")
     proof = _load_json_object(files["redaction-proof.json"])
@@ -466,14 +445,10 @@ def inspect_producer(
     if not isinstance(commit, str) or not COMMIT_PATTERN.fullmatch(commit):
         raise BundleAssemblyError("producer evaluated commit is invalid")
     fingerprint = manifest.get("sourceTreeFingerprint")
-    if not isinstance(fingerprint, str) or not FINGERPRINT_PATTERN.fullmatch(
-        fingerprint
-    ):
+    if not isinstance(fingerprint, str) or not FINGERPRINT_PATTERN.fullmatch(fingerprint):
         raise BundleAssemblyError("producer source fingerprint is invalid")
     declared = manifest.get("files")
-    if not isinstance(declared, list) or not all(
-        isinstance(item, str) for item in declared
-    ):
+    if not isinstance(declared, list) or not all(isinstance(item, str) for item in declared):
         raise BundleAssemblyError("producer files must be a string list")
     declared_strings = t.cast("list[str]", declared)
     if len(declared_strings) != len(set(declared_strings)):
@@ -634,9 +609,7 @@ def _exchange_directories(source: pathlib.Path, destination: pathlib.Path) -> No
         try:
             renameat2 = library.renameat2
         except AttributeError as exception:
-            raise BundleAssemblyError(
-                "atomic directory exchange is unavailable"
-            ) from exception
+            raise BundleAssemblyError("atomic directory exchange is unavailable") from exception
         renameat2.argtypes = [
             ctypes.c_int,
             ctypes.c_char_p,
@@ -650,16 +623,12 @@ def _exchange_directories(source: pathlib.Path, destination: pathlib.Path) -> No
         try:
             renamex_np = library.renamex_np
         except AttributeError as exception:
-            raise BundleAssemblyError(
-                "atomic directory exchange is unavailable"
-            ) from exception
+            raise BundleAssemblyError("atomic directory exchange is unavailable") from exception
         renamex_np.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
         renamex_np.restype = ctypes.c_int
         result = renamex_np(source_bytes, destination_bytes, 2)
     else:
-        raise BundleAssemblyError(
-            "atomic directory exchange is unsupported on this platform"
-        )
+        raise BundleAssemblyError("atomic directory exchange is unsupported on this platform")
     if result != 0:
         error = ctypes.get_errno()
         raise OSError(error, os.strerror(error), str(destination))
@@ -675,9 +644,7 @@ def _remove_version(path: pathlib.Path) -> None:
     """
     if path.is_symlink() or not path.is_dir() or path == pathlib.Path(path.anchor):
         raise BundleAssemblyError("cleanup target is not a private directory")
-    for entry in sorted(
-        path.rglob("*"), key=lambda item: len(item.parts), reverse=True
-    ):
+    for entry in sorted(path.rglob("*"), key=lambda item: len(item.parts), reverse=True):
         if entry.is_symlink():
             entry.unlink()
         elif entry.is_dir():
@@ -714,9 +681,7 @@ def create_owned_candidate(destination: pathlib.Path) -> tuple[pathlib.Path, str
         Candidate directory and ownership nonce.
     """
     parent, destination = _publication_parent(destination)
-    candidate = pathlib.Path(
-        tempfile.mkdtemp(prefix=f".{destination.name}.candidate-", dir=parent)
-    )
+    candidate = pathlib.Path(tempfile.mkdtemp(prefix=f".{destination.name}.candidate-", dir=parent))
     nonce = secrets.token_hex(16)
     marker = _ownership_marker(candidate)
     marker.write_text(
@@ -765,9 +730,7 @@ def _verify_owned_candidate(
     return candidate, destination, marker
 
 
-def discard_owned_candidate(
-    candidate: pathlib.Path, destination: pathlib.Path, nonce: str
-) -> None:
+def discard_owned_candidate(candidate: pathlib.Path, destination: pathlib.Path, nonce: str) -> None:
     """Discard only a verified caller-owned generated candidate.
 
     Parameters
@@ -779,16 +742,12 @@ def discard_owned_candidate(
     nonce : str
         Caller-held ownership nonce.
     """
-    candidate, _destination, marker = _verify_owned_candidate(
-        candidate, destination, nonce
-    )
+    candidate, _destination, marker = _verify_owned_candidate(candidate, destination, nonce)
     _remove_version(candidate)
     marker.unlink()
 
 
-def publish_owned_candidate(
-    candidate: pathlib.Path, destination: pathlib.Path, nonce: str
-) -> None:
+def publish_owned_candidate(candidate: pathlib.Path, destination: pathlib.Path, nonce: str) -> None:
     """Publish a verified real directory using one atomic operation.
 
     Parameters
@@ -800,9 +759,7 @@ def publish_owned_candidate(
     nonce : str
         Caller-held ownership nonce.
     """
-    candidate, destination, marker = _verify_owned_candidate(
-        candidate, destination, nonce
-    )
+    candidate, destination, marker = _verify_owned_candidate(candidate, destination, nonce)
     if candidate.stat().st_dev != destination.parent.stat().st_dev:
         raise BundleAssemblyError("publication requires one filesystem")
     if destination.is_symlink():
@@ -861,9 +818,7 @@ def assemble(
         for relative, source in files.items():
             destination_relative = _bundle_relative_path(name, relative)
             if destination_relative in claimed:
-                raise BundleAssemblyError(
-                    f"producer file collision: {destination_relative}"
-                )
+                raise BundleAssemblyError(f"producer file collision: {destination_relative}")
             claimed[destination_relative] = source
 
     output = output.absolute()
@@ -961,9 +916,7 @@ def parse_args(argv: t.Sequence[str] | None = None) -> argparse.Namespace:
         )
     )
     if modes != 1:
-        parser.error(
-            "select exactly one assembly, publication, cleanup, or source mode"
-        )
+        parser.error("select exactly one assembly, publication, cleanup, or source mode")
     if (
         arguments.producer
         or arguments.create_candidate
@@ -986,9 +939,7 @@ def parse_args(argv: t.Sequence[str] | None = None) -> argparse.Namespace:
         arguments.discard_candidate or arguments.publish_candidate
     ):
         parser.error("--ownership-nonce is only valid for publication and cleanup")
-    if arguments.exclude_root and not (
-        arguments.source_fingerprint or arguments.source_state
-    ):
+    if arguments.exclude_root and not (arguments.source_fingerprint or arguments.source_state):
         parser.error("--exclude-root is only valid for source modes")
     return arguments
 

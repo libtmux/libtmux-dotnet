@@ -1,5 +1,15 @@
 target-version = "py310"
 line-length = 100
+src = [
+    "checks",
+    "docs",
+    "tmux-plan",
+    "matrix-evidence",
+    "benchmarks",
+    "mcp-tools",
+    "package-review",
+    "wrapped-captures",
+]
 
 [lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]

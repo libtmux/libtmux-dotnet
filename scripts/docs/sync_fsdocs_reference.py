@@ -22,9 +22,7 @@ SOURCE_LINE = re.compile(r"#L(?P<first>\d+)-(?P<last>\d+)")
 LOCAL_PATH = re.compile(r"(?:/home/|/tmp/|/Users/|[A-Za-z]:\\Users\\)")
 ENTITY_HEADING = re.compile(r"(?m)^(## .+?) (Type|Module|Namespace)$")
 EMPTY_INDEX_DESCRIPTION = re.compile(r"(?m)^(\* \[[^\n]+\]\([^)]+\)) -$")
-EXCEPTION_TEXT = re.compile(
-    r"(\]\(https://learn\.microsoft\.com/dotnet/api/[^)]+\))(?=[A-Z])"
-)
+EXCEPTION_TEXT = re.compile(r"(\]\(https://learn\.microsoft\.com/dotnet/api/[^)]+\))(?=[A-Z])")
 CORE_MARKDOWN_LINK = re.compile(
     r"\[([^\]]+)\]\(https://learn\.microsoft\.com/dotnet/api/libtmux\.[^)]+\)"
 )
@@ -39,7 +37,8 @@ def normalize_documents(pages: dict[str, str]) -> dict[str, str]:
     normalized: dict[str, str] = {}
 
     for name, body in pages.items():
-        def source_link(match: re.Match[str]) -> str:
+
+        def source_link(match: re.Match[str], name: str = name) -> str:
             url = match.group(1)
             if not url.startswith(SOURCE_REPO + "src/"):
                 raise ValueError(f"{name}: invalid fsdocs source link")
@@ -58,7 +57,7 @@ def normalize_documents(pages: dict[str, str]) -> dict[str, str]:
         body = CORE_MARKDOWN_LINK.sub(lambda match: f"`{match.group(1)}`", body)
         body = CORE_HTML_LINK.sub(r"\1", body)
 
-        def link(match: re.Match[str]) -> str:
+        def link(match: re.Match[str], name: str = name) -> str:
             url = match.group("url")
             parts = urlsplit(url)
             if not parts.path.startswith("../reference/"):
@@ -74,9 +73,7 @@ def normalize_documents(pages: dict[str, str]) -> dict[str, str]:
         body = REFERENCE_LINK.sub(link, body)
         body = body.replace("# API Reference\n", "# API reference\n")
         body = body.replace("## Available Namespaces\n", "## Available namespaces\n")
-        body = ENTITY_HEADING.sub(
-            lambda match: f"{match.group(1)} {match.group(2).lower()}", body
-        )
+        body = ENTITY_HEADING.sub(lambda match: f"{match.group(1)} {match.group(2).lower()}", body)
         body = "\n".join(line.rstrip() for line in body.splitlines())
         body = EMPTY_INDEX_DESCRIPTION.sub(r"\1", body).rstrip() + "\n"
         if (
@@ -93,10 +90,7 @@ def normalize_documents(pages: dict[str, str]) -> dict[str, str]:
 
 def compare_documents(expected: dict[str, str], destination: pathlib.Path) -> list[str]:
     """Report missing, stale, and extra generated Markdown pages."""
-    actual = {
-        page.name: page.read_text(encoding="utf-8")
-        for page in destination.glob("*.md")
-    }
+    actual = {page.name: page.read_text(encoding="utf-8") for page in destination.glob("*.md")}
     errors = [f"missing generated page: {name}" for name in sorted(expected.keys() - actual.keys())]
     errors += [f"extra generated page: {name}" for name in sorted(actual.keys() - expected.keys())]
     errors += [
@@ -111,22 +105,31 @@ def generate_documents(output: pathlib.Path) -> dict[str, str]:
     """Run the pinned local fsdocs tool against the F# Release build."""
     subprocess.run(
         [
-            "dotnet", "fsdocs", "build",
-            "--input", "docs/fsharp",
-            "--projects", "src/LibTmux.FSharp/LibTmux.FSharp.fsproj",
-            "--output", str(output),
-            "--properties", "Configuration=Release",
-            "--sourcefolder", "/_/",
-            "--sourcerepo", SOURCE_REPO,
-            "--parameters", "root", "../",
+            "dotnet",
+            "fsdocs",
+            "build",
+            "--input",
+            "docs/fsharp",
+            "--projects",
+            "src/LibTmux.FSharp/LibTmux.FSharp.fsproj",
+            "--output",
+            str(output),
+            "--properties",
+            "Configuration=Release",
+            "--sourcefolder",
+            "/_/",
+            "--sourcerepo",
+            SOURCE_REPO,
+            "--parameters",
+            "root",
+            "../",
             "--strict",
         ],
         check=True,
         cwd=ROOT,
     )
     pages = {
-        page.name: page.read_text(encoding="utf-8")
-        for page in (output / "reference").glob("*.md")
+        page.name: page.read_text(encoding="utf-8") for page in (output / "reference").glob("*.md")
     }
     if "index.md" not in pages or len(pages) < 2:
         raise ValueError("fsdocs did not generate the F# member reference")

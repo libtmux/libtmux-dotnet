@@ -23,11 +23,11 @@ def test_reference_links_and_source_icons_render_on_github() -> None:
             "## Filter Module\n"
             '<a href="../reference/index">Index</a>\n'
             '<code><a href="https://learn.microsoft.com/dotnet/api/libtmux.server">'
-            'Server</a></code>\n'
+            "Server</a></code>\n"
             '<code><a href="https://learn.microsoft.com/dotnet/api/system.string">'
-            'String</a></code>\n'
-            '[IncompleteSnapshotException](https://learn.microsoft.com/dotnet/api/'
-            'libtmux.incompletesnapshotexception)The value is unavailable.\n'
+            "String</a></code>\n"
+            "[IncompleteSnapshotException](https://learn.microsoft.com/dotnet/api/"
+            "libtmux.incompletesnapshotexception)The value is unavailable.\n"
             "[![Link to source code](../content/img/github.png)]"
             "(https://github.com/libtmux/libtmux-dotnet/blob/master/src/Query.fs#L1-L2)\n"
         ),

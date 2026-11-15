@@ -21,12 +21,19 @@ MODES = (
 TOPOLOGIES = (("small", 1, 1), ("medium", 4, 8), ("large", 16, 32))
 PROCESSES = (24, 24, 1, 0, 0)
 STREAM_PAYLOAD_METRICS = (
-    "firstOutputMs", "completeOutputMs", "endToEndBytesPerSecond",
-    "outputEvents", "processAllocatedBytes",
+    "firstOutputMs",
+    "completeOutputMs",
+    "endToEndBytesPerSecond",
+    "outputEvents",
+    "processAllocatedBytes",
 )
 STREAM_OVERFLOW_METRICS = (
-    "count", "totalDropped", "barrierMs", "processAllocatedBytes",
-    "processHeapBeforeBytes", "processHeapAfterBytes",
+    "count",
+    "totalDropped",
+    "barrierMs",
+    "processAllocatedBytes",
+    "processHeapBeforeBytes",
+    "processHeapAfterBytes",
 )
 STREAM_DISPOSAL_METRICS = ("disposalMs", "readerCompletionMs")
 
@@ -48,7 +55,9 @@ def percentile(values: list[float], fraction: float) -> float:
 
 def nonnegative_number(value: object) -> bool:
     """Reject booleans and non-finite timings."""
-    return type(value) in (int, float) and math.isfinite(value) and value >= 0
+    if type(value) is int or type(value) is float:
+        return math.isfinite(value) and value >= 0
+    return False
 
 
 def validate_source_identity(
@@ -101,8 +110,7 @@ def collect(
     except ValueError as error:
         raise ValueError("run collection timestamp is invalid") from error
     require(
-        collected_at.tzinfo is not None
-        and collected_at.utcoffset() == datetime.timedelta(0),
+        collected_at.tzinfo is not None and collected_at.utcoffset() == datetime.timedelta(0),
         "run collection timestamp must be UTC",
     )
     settings = run.get("settings", {})
@@ -150,23 +158,36 @@ def collect(
             description.get("kind") == "topology" and description.get("topology") == topology,
             f"{topology}: topology order changed",
         )
-        require(description.get("physicalWindows") == physical, f"{topology}: physical window count changed")
+        require(
+            description.get("physicalWindows") == physical,
+            f"{topology}: physical window count changed",
+        )
         require(description.get("placements") == placements, f"{topology}: placement count changed")
         require(
             description.get("queryRows") == placements,
             f"{topology}: query row count differs from placements",
         )
-        require(description.get("distinctPaneIds") == physical, f"{topology}: distinct pane count changed")
-        require(description.get("attachedControlClients") == 1, f"{topology}: attached client count changed")
-        require(nonnegative_number(description.get("setupMs")), f"{topology}: setup time is missing")
-        topologies.append({
-            "topology": topology,
-            "physicalWindows": physical,
-            "placements": placements,
-            "queryRows": description["queryRows"],
-            "distinctPaneIds": description["distinctPaneIds"],
-            "setupMs": description["setupMs"],
-        })
+        require(
+            description.get("distinctPaneIds") == physical,
+            f"{topology}: distinct pane count changed",
+        )
+        require(
+            description.get("attachedControlClients") == 1,
+            f"{topology}: attached client count changed",
+        )
+        require(
+            nonnegative_number(description.get("setupMs")), f"{topology}: setup time is missing"
+        )
+        topologies.append(
+            {
+                "topology": topology,
+                "physicalWindows": physical,
+                "placements": placements,
+                "queryRows": description["queryRows"],
+                "distinctPaneIds": description["distinctPaneIds"],
+                "setupMs": description["setupMs"],
+            }
+        )
 
         timings = {mode: [] for mode in MODES}
         for round_number in range(warmups + measured):
@@ -183,18 +204,46 @@ def collect(
                     and sample.get("mode") == mode,
                     f"{topology}: sample order or mode rotation changed",
                 )
-                require(sample.get("physicalWindows") == physical, f"{topology}: sample physical window count changed")
-                require(sample.get("placements") == placements, f"{topology}: sample placement count changed")
-                require(sample.get("warmup") is (round_number < warmups), f"{topology}: warmup label changed")
-                require(sample.get("status") == "ok" and sample.get("validated") is True, f"{topology}: sample was not validated")
-                require(nonnegative_number(sample.get("elapsedMs")), f"{topology}: sample timing is invalid")
-                require(sample.get("processes") == PROCESSES[mode_index], f"{topology}: process count changed")
-                require(sample.get("attachedControlClients") == 1, f"{topology}: attached client count changed")
-                require(sample.get("usedControlClients") == int(mode_index >= 3), f"{topology}: used client count changed")
-                require(sample.get("logicalCommands") == 24, f"{topology}: logical command count changed")
+                require(
+                    sample.get("physicalWindows") == physical,
+                    f"{topology}: sample physical window count changed",
+                )
+                require(
+                    sample.get("placements") == placements,
+                    f"{topology}: sample placement count changed",
+                )
+                require(
+                    sample.get("warmup") is (round_number < warmups),
+                    f"{topology}: warmup label changed",
+                )
+                require(
+                    sample.get("status") == "ok" and sample.get("validated") is True,
+                    f"{topology}: sample was not validated",
+                )
+                require(
+                    nonnegative_number(sample.get("elapsedMs")),
+                    f"{topology}: sample timing is invalid",
+                )
+                require(
+                    sample.get("processes") == PROCESSES[mode_index],
+                    f"{topology}: process count changed",
+                )
+                require(
+                    sample.get("attachedControlClients") == 1,
+                    f"{topology}: attached client count changed",
+                )
+                require(
+                    sample.get("usedControlClients") == int(mode_index >= 3),
+                    f"{topology}: used client count changed",
+                )
+                require(
+                    sample.get("logicalCommands") == 24,
+                    f"{topology}: logical command count changed",
+                )
                 maximum = sample.get("maximumInFlight")
                 require(
-                    type(maximum) is int and 1 <= maximum <= 4
+                    type(maximum) is int
+                    and 1 <= maximum <= 4
                     and (maximum >= 2 if mode_index in (1, 4) else maximum == 1),
                     f"{topology}: concurrency bound changed",
                 )
@@ -205,36 +254,43 @@ def collect(
             values = timings[mode]
             require(len(values) == measured, f"{topology}: measured sample count changed")
             if measured == 1:
-                cases.append({
-                    "topology": topology,
-                    "mode": mode,
-                    "samples": 1,
-                    "observedMs": values[0],
-                })
+                cases.append(
+                    {
+                        "topology": topology,
+                        "mode": mode,
+                        "samples": 1,
+                        "observedMs": values[0],
+                    }
+                )
             else:
-                cases.append({
-                    "topology": topology,
-                    "mode": mode,
-                    "samples": len(values),
-                    "medianMs": statistics.median(values),
-                    "p95Ms": percentile(values, 0.95),
-                    "p99Ms": percentile(values, 0.99),
-                })
+                cases.append(
+                    {
+                        "topology": topology,
+                        "mode": mode,
+                        "samples": len(values),
+                        "medianMs": statistics.median(values),
+                        "p95Ms": percentile(values, 0.95),
+                        "p99Ms": percentile(values, 0.99),
+                    }
+                )
 
     summary = rows[cursor]
     require(
-        summary.get("kind") == "summary" and summary.get("status") == "ok"
+        summary.get("kind") == "summary"
+        and summary.get("status") == "ok"
         and summary.get("sampleCount") == len(TOPOLOGIES) * (warmups + measured) * len(MODES),
         "the final sample summary is missing or inconsistent",
     )
     return {
-        "schema": "libtmux-topology-smoke-v1" if measured == 1 else "libtmux-topology-mode-record-v1",
+        "schema": "libtmux-topology-smoke-v1"
+        if measured == 1
+        else "libtmux-topology-mode-record-v1",
         "collectedUtc": collected,
         "sourceCommit": run["sourceCommit"],
         "sourceClean": run["sourceClean"],
-        "evidenceStatus": "diagnostic-smoke" if measured == 1 else (
-            "exploratory" if exploratory else "clean-source"
-        ),
+        "evidenceStatus": "diagnostic-smoke"
+        if measured == 1
+        else ("exploratory" if exploratory else "clean-source"),
         "sourceTreeFingerprint": source_fingerprint_before if exploratory else None,
         "sourceTreeFingerprintBefore": source_fingerprint_before if exploratory else None,
         "sourceTreeFingerprintAfter": source_fingerprint_after if exploratory else None,
@@ -282,8 +338,7 @@ def collect_stream(
     except ValueError as error:
         raise ValueError("run collection timestamp is invalid") from error
     require(
-        collected_at.tzinfo is not None
-        and collected_at.utcoffset() == datetime.timedelta(0),
+        collected_at.tzinfo is not None and collected_at.utcoffset() == datetime.timedelta(0),
         "run collection timestamp must be UTC",
     )
     validate_source_identity(run, exploratory, source_fingerprint_before, source_fingerprint_after)
@@ -296,10 +351,17 @@ def collect_stream(
     )
 
     settings = run.get("settings", {})
-    counts = tuple(settings.get(field) for field in (
-        "samplesPerPayload", "warmupsPerPayload", "overflowSamples", "disposalSamples",
-        "overflowBufferCapacity", "overflowNotifications",
-    ))
+    counts = tuple(
+        settings.get(field)
+        for field in (
+            "samplesPerPayload",
+            "warmupsPerPayload",
+            "overflowSamples",
+            "disposalSamples",
+            "overflowBufferCapacity",
+            "overflowNotifications",
+        )
+    )
     require(
         counts in ((20, 2, 5, 5, 8, 32), (1, 0, 1, 1, 4, 16)),
         "the stream probe settings are not a full run or smoke run",
@@ -347,8 +409,12 @@ def collect_stream(
                     values[metric].append(measurement[metric])
 
             if scenario in ("latency", "throughput"):
-                payload = settings["latencyPayloadBytes" if scenario == "latency" else "throughputPayloadBytes"]
-                require(measurement.get("payloadBytes") == payload, f"{scenario}: payload size changed")
+                payload = settings[
+                    "latencyPayloadBytes" if scenario == "latency" else "throughputPayloadBytes"
+                ]
+                require(
+                    measurement.get("payloadBytes") == payload, f"{scenario}: payload size changed"
+                )
                 require(
                     measurement["firstOutputMs"] <= measurement["completeOutputMs"]
                     and measurement["endToEndBytesPerSecond"] > 0
@@ -375,29 +441,37 @@ def collect_stream(
                 )
 
         sample_count = count - discarded
-        require(all(len(metric_values) == sample_count for metric_values in values.values()),
-                f"{scenario}: measured sample count changed")
-        cases.append({
-            "scenario": scenario,
-            "samples": sample_count,
-            "measurements": {
-                metric: ({"observed": metric_values[0]} if measured == 1 else {
-                    "median": statistics.median(metric_values),
-                    "p95": percentile(metric_values, 0.95),
-                    "p99": percentile(metric_values, 0.99),
-                })
-                for metric, metric_values in values.items()
-            },
-        })
+        require(
+            all(len(metric_values) == sample_count for metric_values in values.values()),
+            f"{scenario}: measured sample count changed",
+        )
+        cases.append(
+            {
+                "scenario": scenario,
+                "samples": sample_count,
+                "measurements": {
+                    metric: (
+                        {"observed": metric_values[0]}
+                        if measured == 1
+                        else {
+                            "median": statistics.median(metric_values),
+                            "p95": percentile(metric_values, 0.95),
+                            "p99": percentile(metric_values, 0.99),
+                        }
+                    )
+                    for metric, metric_values in values.items()
+                },
+            }
+        )
 
     return {
         "schema": "libtmux-stream-smoke-v1" if measured == 1 else "libtmux-stream-record-v1",
         "collectedUtc": collected,
         "sourceCommit": run["sourceCommit"],
         "sourceClean": run["sourceClean"],
-        "evidenceStatus": "diagnostic-smoke" if measured == 1 else (
-            "exploratory" if exploratory else "clean-source"
-        ),
+        "evidenceStatus": "diagnostic-smoke"
+        if measured == 1
+        else ("exploratory" if exploratory else "clean-source"),
         "sourceTreeFingerprint": source_fingerprint_before if exploratory else None,
         "sourceTreeFingerprintBefore": source_fingerprint_before if exploratory else None,
         "sourceTreeFingerprintAfter": source_fingerprint_after if exploratory else None,

@@ -11,9 +11,7 @@ import pytest
 
 def load_renderer() -> dict[str, t.Any]:
     """Load the renderer as an import-free test namespace."""
-    return runpy.run_path(
-        str(pathlib.Path(__file__).parents[1] / "render_api_reference.py")
-    )
+    return runpy.run_path(str(pathlib.Path(__file__).parents[1] / "render_api_reference.py"))
 
 
 def test_member_reader_keeps_public_facade_and_drops_generated_types(
@@ -82,24 +80,18 @@ def test_member_reader_uses_one_canonical_type_summary(tmp_path: pathlib.Path) -
 
     members = read_members(documentation, frozenset({"T:LibTmux.Server"}))
 
-    assert members == {
-        "T:LibTmux.Server": "Represents an immutable server handle and snapshot."
-    }
+    assert members == {"T:LibTmux.Server": "Represents an immutable server handle and snapshot."}
 
 
 def test_renderer_preserves_generic_metadata_names_as_code() -> None:
     """Generic arity markers must not terminate their Markdown code span."""
     render = load_renderer()["render"]
 
-    rendered = render(
-        {"T:LibTmux.CapturedRelation`1": "Holds captured children."}
-    )
+    rendered = render({"T:LibTmux.CapturedRelation`1": "Holds captured children."})
 
     assert "| ``LibTmux.CapturedRelation`1`` | Holds captured children. |" in rendered
 
-    rendered = render(
-        {"M:LibTmux.Query.QueryExtensions.Compile``1": "Compiles a query."}
-    )
+    rendered = render({"M:LibTmux.Query.QueryExtensions.Compile``1": "Compiles a query."})
 
     assert "| ```LibTmux.Query.QueryExtensions.Compile``1``` | Compiles a query. |" in rendered
 
@@ -132,17 +124,23 @@ def test_fsharp_renderer_writes_names_as_source_spells_them() -> None:
     """Opened namespaces are noise; a core type named like a facade module keeps its own."""
     short_names = load_renderer()["short_names"]
 
-    assert short_names(
-        "val enter: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server"
-        " -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>",
-        {"Server"},
-    ) == "val enter: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IControlModeSession>"
-    assert short_names("val toDocument: filter: Filter<'T> -> LibTmux.Query.QueryDocument", {"Query"}) == (
-        "val toDocument: filter: Filter<'T> -> LibTmux.Query.QueryDocument"
+    assert (
+        short_names(
+            "val enter: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server"
+            " -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>",
+            {"Server"},
+        )
+        == "val enter: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IControlModeSession>"
     )
     assert short_names(
-        "val cleanupFailure: error: Microsoft.FSharp.Core.exn -> Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option"
-    ) == "val cleanupFailure: error: exn -> exn option"
+        "val toDocument: filter: Filter<'T> -> LibTmux.Query.QueryDocument", {"Query"}
+    ) == ("val toDocument: filter: Filter<'T> -> LibTmux.Query.QueryDocument")
+    assert (
+        short_names(
+            "val cleanupFailure: error: Microsoft.FSharp.Core.exn -> Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option"
+        )
+        == "val cleanupFailure: error: exn -> exn option"
+    )
     assert short_names("val name: LibTmux.FSharp.Field<LibTmux.Client,System.String>") == (
         "val name: Field<Client,String>"
     )
@@ -157,17 +155,25 @@ def test_fsharp_check_rejects_stale_generated_output(tmp_path: pathlib.Path, cap
 
     renderer = load_renderer()
     inventory = tmp_path / "inventory.json"
-    inventory.write_text(json.dumps({"members": [{
-        "id": "M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})",
-        "package": "LibTmux.FSharp",
-        "visibility": "public",
-        "implicitDeclaration": False,
-        "accessor": False,
-        "declaringType": "T:LibTmux.FSharp.Filter",
-        "kind": "member",
-        "signature": "val eq: value: 'Value -> field: Field<'T,'Value> -> Filter<'T>",
-        "documentation": '<member name="M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})"><summary>Matches a field against a constant.</summary></member>',
-    }]}))
+    inventory.write_text(
+        json.dumps(
+            {
+                "members": [
+                    {
+                        "id": "M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})",
+                        "package": "LibTmux.FSharp",
+                        "visibility": "public",
+                        "implicitDeclaration": False,
+                        "accessor": False,
+                        "declaringType": "T:LibTmux.FSharp.Filter",
+                        "kind": "member",
+                        "signature": "val eq: value: 'Value -> field: Field<'T,'Value> -> Filter<'T>",
+                        "documentation": '<member name="M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})"><summary>Matches a field against a constant.</summary></member>',
+                    }
+                ]
+            }
+        )
+    )
     output = tmp_path / "api.md"
     context = renderer["main"].__globals__
     context["INVENTORY_PATH"] = inventory
@@ -186,15 +192,34 @@ def test_fsharp_renderer_names_fields_and_folds_a_module_into_its_type() -> None
 
     rendered = render_fsharp(
         [
-            {"id": "T:LibTmux.FSharp.SessionSpec", "declaringType": "", "kind": "record",
-             "signature": "SessionSpec", "summary": "Describes a session."},
-            {"id": "P:LibTmux.FSharp.SessionSpec.Name", "declaringType": "T:LibTmux.FSharp.SessionSpec",
-             "kind": "field", "signature": "string", "summary": "The session's name."},
-            {"id": "T:LibTmux.FSharp.SessionSpecModule", "declaringType": "", "kind": "module",
-             "signature": "SessionSpecModule", "summary": "Starts session descriptions."},
-            {"id": "M:LibTmux.FSharp.SessionSpecModule.named(System.String)",
-             "declaringType": "T:LibTmux.FSharp.SessionSpecModule", "kind": "member",
-             "signature": "val named: name: string -> SessionSpec", "summary": "Names a session."},
+            {
+                "id": "T:LibTmux.FSharp.SessionSpec",
+                "declaringType": "",
+                "kind": "record",
+                "signature": "SessionSpec",
+                "summary": "Describes a session.",
+            },
+            {
+                "id": "P:LibTmux.FSharp.SessionSpec.Name",
+                "declaringType": "T:LibTmux.FSharp.SessionSpec",
+                "kind": "field",
+                "signature": "string",
+                "summary": "The session's name.",
+            },
+            {
+                "id": "T:LibTmux.FSharp.SessionSpecModule",
+                "declaringType": "",
+                "kind": "module",
+                "signature": "SessionSpecModule",
+                "summary": "Starts session descriptions.",
+            },
+            {
+                "id": "M:LibTmux.FSharp.SessionSpecModule.named(System.String)",
+                "declaringType": "T:LibTmux.FSharp.SessionSpecModule",
+                "kind": "member",
+                "signature": "val named: name: string -> SessionSpec",
+                "summary": "Names a session.",
+            },
         ]
     )
 
@@ -210,8 +235,15 @@ def test_fsharp_renderer_refuses_a_section_the_task_index_does_not_place() -> No
 
     with pytest.raises(ValueError, match="Unplaced"):
         render_fsharp(
-            [{"id": "T:LibTmux.FSharp.Unplaced", "declaringType": "", "kind": "module",
-              "signature": "Unplaced", "summary": "Not in the index."}]
+            [
+                {
+                    "id": "T:LibTmux.FSharp.Unplaced",
+                    "declaringType": "",
+                    "kind": "module",
+                    "signature": "Unplaced",
+                    "summary": "Not in the index.",
+                }
+            ]
         )
 
 
@@ -219,15 +251,32 @@ def test_fsharp_renderer_refuses_a_task_call_the_facade_lacks() -> None:
     """The task index names calls; one that was renamed or removed fails the render."""
     render_fsharp = load_renderer()["render_fsharp"]
 
-    with pytest.raises(ValueError, match="Retry.ifNotSent, Retry.ifNotSentAfter"):
+    with pytest.raises(ValueError, match=r"Retry\.ifNotSent, Retry\.ifNotSentAfter"):
         render_fsharp(
-            [{"id": "M:LibTmux.FSharp.Retry.retrying``1(System.Int32)", "declaringType": "T:LibTmux.FSharp.Retry",
-              "kind": "member", "signature": "val retrying: int -> unit", "summary": "Not a task's call."}]
+            [
+                {
+                    "id": "M:LibTmux.FSharp.Retry.retrying``1(System.Int32)",
+                    "declaringType": "T:LibTmux.FSharp.Retry",
+                    "kind": "member",
+                    "signature": "val retrying: int -> unit",
+                    "summary": "Not a task's call.",
+                }
+            ]
         )
 
     rendered = render_fsharp(
-        [{"id": f"M:LibTmux.FSharp.Retry.{name}``1(System.Int32)", "declaringType": "T:LibTmux.FSharp.Retry",
-          "kind": "member", "signature": f"val {name}: int -> unit", "summary": "Retries."}
-         for name in ("ifNotSent", "ifNotSentAfter")]
+        [
+            {
+                "id": f"M:LibTmux.FSharp.Retry.{name}``1(System.Int32)",
+                "declaringType": "T:LibTmux.FSharp.Retry",
+                "kind": "member",
+                "signature": f"val {name}: int -> unit",
+                "summary": "Retries.",
+            }
+            for name in ("ifNotSent", "ifNotSentAfter")
+        ]
     )
-    assert "| Failures and retries | [`Retry.ifNotSent`](#retry), [`Retry.ifNotSentAfter`](#retry) |" in rendered
+    assert (
+        "| Failures and retries | [`Retry.ifNotSent`](#retry), [`Retry.ifNotSentAfter`](#retry) |"
+        in rendered
+    )

@@ -69,11 +69,17 @@ def test_program_output_must_match_its_one_documented_block(tmp_path: pathlib.Pa
     compare = synchronizer()["compare_output"]
 
     assert compare([document], "Demo", "ready: true  \nexit 3\n\n") == []
-    assert compare([document], "Demo", "ready: false\nexit 3\n")[0].startswith("F# output Demo differs")
-    assert compare([document], "Other", "") == ["F# output Other is documented 0 times; expected once"]
+    assert compare([document], "Demo", "ready: false\nexit 3\n")[0].startswith(
+        "F# output Demo differs"
+    )
+    assert compare([document], "Other", "") == [
+        "F# output Other is documented 0 times; expected once"
+    ]
 
 
-def test_recorded_output_rewrites_its_block_and_answers_the_comparison(tmp_path: pathlib.Path) -> None:
+def test_recorded_output_rewrites_its_block_and_answers_the_comparison(
+    tmp_path: pathlib.Path,
+) -> None:
     """A program the manifest records has one output, which its guide block shows."""
     sources = tmp_path / "snippets"
     sources.mkdir()
@@ -93,7 +99,9 @@ def test_recorded_output_rewrites_its_block_and_answers_the_comparison(tmp_path:
     assert sync["run"](sources, [document], check=False, recorded=recorded) == []
     assert "```text\nready: true\n```" in document.read_text(encoding="utf-8")
     assert sync["compare_output"]([], "Demo", "ready: true\n", recorded) == []
-    assert sync["compare_output"]([], "Demo", "ready: false\n", recorded)[0].startswith("F# output Demo differs")
+    assert sync["compare_output"]([], "Demo", "ready: false\n", recorded)[0].startswith(
+        "F# output Demo differs"
+    )
 
 
 def test_output_block_must_name_a_source_block(tmp_path: pathlib.Path) -> None:

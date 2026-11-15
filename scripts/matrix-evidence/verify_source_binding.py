@@ -219,9 +219,7 @@ def covered_by(path: str, roots: t.Sequence[str], files: t.Sequence[str]) -> boo
     >>> covered_by("docs/deltas.json", [], ["docs/deltas.json"])
     True
     """
-    return path in files or any(
-        path == root or path.startswith(f"{root}/") for root in roots
-    )
+    return path in files or any(path == root or path.startswith(f"{root}/") for root in roots)
 
 
 def worktree_paths(repository: pathlib.Path) -> tuple[str, ...]:
@@ -295,9 +293,7 @@ def package_source_binding(package: pathlib.Path) -> list[str]:
     """
     violations: list[str] = []
     with zipfile.ZipFile(package) as archive:
-        specifications = [
-            name for name in archive.namelist() if name.endswith(".nuspec")
-        ]
+        specifications = [name for name in archive.namelist() if name.endswith(".nuspec")]
         if len(specifications) != 1:
             return ["package does not carry exactly one specification"]
 
@@ -383,18 +379,13 @@ def verify(
         descendant_diff = changed_paths(repository, resolved, head)
         if not descendant_diff:
             violations.append("evidence commit records no retained evidence")
-        if any(
-            not covered_by(path, allowed_roots, allowed_files)
-            for path in descendant_diff
-        ):
+        if any(not covered_by(path, allowed_roots, allowed_files) for path in descendant_diff):
             violations.append("evidence commit changes source outside retained roots")
         if worktree_paths(repository):
             violations.append("worktree is not clean after the evidence commit")
         return violations
     outside = [
-        path
-        for path in worktree_paths(repository)
-        if not covered_by(path, allowed_dirty, ())
+        path for path in worktree_paths(repository) if not covered_by(path, allowed_dirty, ())
     ]
     if outside:
         violations.append("source differs from the evaluated commit before staging")

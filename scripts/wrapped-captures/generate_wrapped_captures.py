@@ -8,6 +8,7 @@ they need no tmux at test time.
 
 usage: generate_wrapped_captures.py OUT.json TMUX_3_3A TMUX_3_8
 """
+
 import json
 import os
 import random
@@ -23,19 +24,47 @@ SHAPES = {
     "plain wrapped line": [FILL + "NEEDLE_ONE_here"],
     "line indented by a pane width": ["x", " " * WIDTH + FILL + "NEEDLE_ONE_here"],
     "two lines indented by a pane width, then a wrapped line": [
-        "x", " " * WIDTH + "first", " " * WIDTH + "second", FILL + "NEEDLE_TWO_here_zzzz"],
+        "x",
+        " " * WIDTH + "first",
+        " " * WIDTH + "second",
+        FILL + "NEEDLE_TWO_here_zzzz",
+    ],
     "pane width indent, a blank line, then a wrapped line": [
-        "x", " " * WIDTH + "first", "   ", FILL + "NEEDLE_TWO_here_zzzz"],
-    "indent of two panes": [" " * 2 * WIDTH + FILL + "NEEDLE_ONE_here", FILL + "NEEDLE_TWO_here_zzzz"],
+        "x",
+        " " * WIDTH + "first",
+        "   ",
+        FILL + "NEEDLE_TWO_here_zzzz",
+    ],
+    "indent of two panes": [
+        " " * 2 * WIDTH + FILL + "NEEDLE_ONE_here",
+        FILL + "NEEDLE_TWO_here_zzzz",
+    ],
     "mixed leading spaces": [
-        "  a", " " * 7 + "b", " " * (WIDTH - 1) + "c", " " * (WIDTH + 1) + "d" + FILL + "NEEDLE_ONE_here",
-        "e", FILL + "NEEDLE_TWO_here_zzzz"],
+        "  a",
+        " " * 7 + "b",
+        " " * (WIDTH - 1) + "c",
+        " " * (WIDTH + 1) + "d" + FILL + "NEEDLE_ONE_here",
+        "e",
+        FILL + "NEEDLE_TWO_here_zzzz",
+    ],
     "empty lines between wrapped lines": [
-        FILL + "NEEDLE_ONE_here", "", "", FILL + "NEEDLE_TWO_here_zzzz", "", "tail"],
+        FILL + "NEEDLE_ONE_here",
+        "",
+        "",
+        FILL + "NEEDLE_TWO_here_zzzz",
+        "",
+        "tail",
+    ],
     "blank lines of every width": ["", " ", " " * 5, " " * WIDTH, " " * (WIDTH + 3), "after"],
     "exact width lines": ["a" * WIDTH, "b" * WIDTH, FILL + "NEEDLE_ONE_here", "c" * WIDTH, "end"],
-    "spaces across the fill": ["abc" + " " * 17 + "DEF", "abc" + " " * 18 + "DEF" + FILL + "NEEDLE_ONE"],
-    "spaces only middle row": ["a" * WIDTH + " " * WIDTH + "END_OF_LINE", FILL + "NEEDLE_TWO_here_zzzz"],
+    "spaces across the fill": [
+        "abc" + " " * 17 + "DEF",
+        "abc" + " " * 18 + "DEF" + FILL + "NEEDLE_ONE",
+    ],
+    "spaces only middle row": [
+        "a" * WIDTH + " " * WIDTH + "END_OF_LINE",
+        FILL + "NEEDLE_TWO_here_zzzz",
+    ],
     "wide characters": ["你好世界" * 6 + "NEEDLE_ONE", "你" * 10, "你" * 9 + "ab" + "cd"],
     "wide characters after a pane width indent": [" " * WIDTH + "你好" * 12, "plain"],
     "trailing spaces before a wrapped line": ["abc   ", FILL + "NEEDLE_ONE_here"],
@@ -86,8 +115,9 @@ def random_screen(rnd):
 
 
 def capture(tmux, sock, *args):
-    out = subprocess.run([tmux, "-S", sock, "-f", "/dev/null", *args],
-                         capture_output=True, text=True, check=True).stdout
+    out = subprocess.run(
+        [tmux, "-S", sock, "-f", "/dev/null", *args], capture_output=True, text=True, check=True
+    ).stdout
     rows = out.split("\n")
     if rows and rows[-1] == "":
         rows.pop()
@@ -99,12 +129,27 @@ def record(tmux, sock, name, lines, scratch):
     with open(path, "w", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
     channel = "done" + str(time.monotonic_ns())
-    subprocess.run([tmux, "-S", sock, "respawn-pane", "-k", "-t", "f:0.0",
-                    f"cat '{path}'; '{tmux}' -S '{sock}' wait-for -S {channel}; sleep 600"],
-                   check=True, capture_output=True)
+    subprocess.run(
+        [
+            tmux,
+            "-S",
+            sock,
+            "respawn-pane",
+            "-k",
+            "-t",
+            "f:0.0",
+            f"cat '{path}'; '{tmux}' -S '{sock}' wait-for -S {channel}; sleep 600",
+        ],
+        check=True,
+        capture_output=True,
+    )
     subprocess.run([tmux, "-S", sock, "wait-for", channel], check=True, timeout=20)
-    history = subprocess.run([tmux, "-S", sock, "display-message", "-p", "-t", "f:0.0", "#{history_size}"],
-                             capture_output=True, text=True, check=True).stdout.strip()
+    history = subprocess.run(
+        [tmux, "-S", sock, "display-message", "-p", "-t", "f:0.0", "#{history_size}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
     if history != "0":
         return None
     return {
@@ -120,11 +165,30 @@ def main():
     out, *builds = sys.argv[1:]
     screens = []
     for tmux in builds:
-        version = subprocess.run([tmux, "-V"], capture_output=True, text=True, check=True).stdout.split()[1]
+        version = subprocess.run(
+            [tmux, "-V"], capture_output=True, text=True, check=True
+        ).stdout.split()[1]
         with tempfile.TemporaryDirectory() as scratch:
             sock = os.path.join(scratch, "sock")
-            subprocess.run([tmux, "-S", sock, "-f", "/dev/null", "new-session", "-d", "-x", str(WIDTH),
-                            "-y", str(HEIGHT), "-s", "f", "sleep 600"], check=True)
+            subprocess.run(
+                [
+                    tmux,
+                    "-S",
+                    sock,
+                    "-f",
+                    "/dev/null",
+                    "new-session",
+                    "-d",
+                    "-x",
+                    str(WIDTH),
+                    "-y",
+                    str(HEIGHT),
+                    "-s",
+                    "f",
+                    "sleep 600",
+                ],
+                check=True,
+            )
             try:
                 rnd = random.Random(20261024)
                 named = list(SHAPES.items())

@@ -13,12 +13,18 @@ record_fsharp = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(record_fsharp)
 
 
-def report(path: pathlib.Path, title: str, cases: list[tuple[str, str, list[float]]]) -> pathlib.Path:
+def report(
+    path: pathlib.Path, title: str, cases: list[tuple[str, str, list[float]]]
+) -> pathlib.Path:
     path.write_text(
         json.dumps(
             {
                 "Title": title,
-                "HostEnvironmentInfo": {"OsVersion": "Linux", "ProcessorName": "cpu", "RuntimeVersion": ".NET 10"},
+                "HostEnvironmentInfo": {
+                    "OsVersion": "Linux",
+                    "ProcessorName": "cpu",
+                    "RuntimeVersion": ".NET 10",
+                },
                 "Benchmarks": [
                     {
                         "Method": method,
@@ -37,7 +43,11 @@ def report(path: pathlib.Path, title: str, cases: list[tuple[str, str, list[floa
 
 def test_each_class_reads_in_the_unit_its_median_needs(tmp_path: pathlib.Path, monkeypatch) -> None:
     monkeypatch.setattr(record_fsharp, "git", lambda *arguments: "abcdef0123456789")
-    fast = report(tmp_path / "fast-report-full.json", "LibTmux.Benchmarks.Fast-20261003", [("Fold", "", [40.0, 42.0, 44.0])])
+    fast = report(
+        tmp_path / "fast-report-full.json",
+        "LibTmux.Benchmarks.Fast-20261003",
+        [("Fold", "", [40.0, 42.0, 44.0])],
+    )
     slow = report(
         tmp_path / "slow-report-full.json",
         "LibTmux.Benchmarks.Slow-20261003",
@@ -62,9 +72,18 @@ def test_the_record_says_what_else_shaped_the_run(tmp_path: pathlib.Path, monkey
     monkeypatch.setattr(
         record_fsharp,
         "conditions",
-        lambda: {"hypervisor": True, "governor": None, "cpusAvailable": 2, "loadAverage": [0.5, 1.25, 2.0]},
+        lambda: {
+            "hypervisor": True,
+            "governor": None,
+            "cpusAvailable": 2,
+            "loadAverage": [0.5, 1.25, 2.0],
+        },
     )
-    fast = report(tmp_path / "fast-report-full.json", "LibTmux.Benchmarks.Fast-20261003", [("Fold", "", [40.0])])
+    fast = report(
+        tmp_path / "fast-report-full.json",
+        "LibTmux.Benchmarks.Fast-20261003",
+        [("Fold", "", [40.0])],
+    )
 
     record = record_fsharp.collect([fast], "3.7d", "2026-10-03")
     record["host"]["logicalCores"] = 4
@@ -76,15 +95,25 @@ def test_the_record_says_what_else_shaped_the_run(tmp_path: pathlib.Path, monkey
     ) in record_fsharp.render(record)
 
 
-def pushdown_record(pushed_ns: float, listed_ns: float, pushed_bytes: int, listed_bytes: int) -> dict:
+def pushdown_record(
+    pushed_ns: float, listed_ns: float, pushed_bytes: int, listed_bytes: int
+) -> dict:
     def case(route: str, median_ns: float, allocated: int) -> dict:
-        return {"method": "FindTailPanes", "parameters": f"Route={route}", "median_ns": median_ns, "allocated_bytes": allocated}
+        return {
+            "method": "FindTailPanes",
+            "parameters": f"Route={route}",
+            "median_ns": median_ns,
+            "allocated_bytes": allocated,
+        }
 
     return {
         "classes": [
             {
                 "name": "FSharpQueryPushdownBenchmarks",
-                "cases": [case("pushdown", pushed_ns, pushed_bytes), case("list-then-filter", listed_ns, listed_bytes)],
+                "cases": [
+                    case("pushdown", pushed_ns, pushed_bytes),
+                    case("list-then-filter", listed_ns, listed_bytes),
+                ],
             }
         ]
     }
@@ -103,7 +132,9 @@ def test_the_gate_fails_pushdown_that_no_longer_narrows() -> None:
 
 
 def test_the_gate_fails_a_record_without_the_pushdown_class() -> None:
-    assert record_fsharp.gate({"classes": []}) == ["FSharpQueryPushdownBenchmarks is not in the record"]
+    assert record_fsharp.gate({"classes": []}) == [
+        "FSharpQueryPushdownBenchmarks is not in the record"
+    ]
 
 
 def mirror_record(seen_ns: float, captured_ns: float) -> dict:
@@ -112,8 +143,16 @@ def mirror_record(seen_ns: float, captured_ns: float) -> dict:
         {
             "name": "FSharpMirrorBenchmarks",
             "cases": [
-                {"method": method, "parameters": "Sessions=16", "median_ns": median_ns, "allocated_bytes": 1}
-                for method, median_ns in (("RenameUntilSeen", seen_ns), ("CaptureSnapshot", captured_ns))
+                {
+                    "method": method,
+                    "parameters": "Sessions=16",
+                    "median_ns": median_ns,
+                    "allocated_bytes": 1,
+                }
+                for method, median_ns in (
+                    ("RenameUntilSeen", seen_ns),
+                    ("CaptureSnapshot", captured_ns),
+                )
             ],
         }
     )
@@ -137,7 +176,12 @@ def flood_record(lines_ns: dict[str, tuple[float, float]]) -> dict:
         {
             "name": "FSharpPaneFloodBenchmarks",
             "cases": [
-                {"method": method, "parameters": f"Lines={lines}", "median_ns": median_ns, "allocated_bytes": 1}
+                {
+                    "method": method,
+                    "parameters": f"Lines={lines}",
+                    "median_ns": median_ns,
+                    "allocated_bytes": 1,
+                }
                 for lines, (watched_ns, read_ns) in lines_ns.items()
                 for method, median_ns in (("WatchPane", watched_ns), ("ReadEvents", read_ns))
             ],

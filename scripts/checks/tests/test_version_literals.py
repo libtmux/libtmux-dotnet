@@ -12,9 +12,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "src" / "LibTmux"
 
 def load_checker() -> dict[str, t.Any]:
     """Load the version-literal check as an import-free test namespace."""
-    return runpy.run_path(
-        str(pathlib.Path(__file__).parents[1] / "verify_version_literals.py")
-    )
+    return runpy.run_path(str(pathlib.Path(__file__).parents[1] / "verify_version_literals.py"))
 
 
 def test_checked_in_source_has_no_hand_rolled_comparison() -> None:
@@ -75,7 +73,7 @@ def test_an_unreviewed_third_layout_check_is_still_rejected(
 ) -> None:
     """The layout allowlist is exact text, not a blanket file exemption."""
     (tmp_path / "Window.Layout.cs").write_text(
-        'if (owner.Version is TmuxVersion version\n'
+        "if (owner.Version is TmuxVersion version\n"
         '    && version >= TmuxVersion.Parse("3.9"))\n'
         "{\n"
         "}\n",

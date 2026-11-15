@@ -63,14 +63,13 @@ def test_fsharp_snippet_check_is_required(repository: pathlib.Path) -> None:
         "-p:UsePackageReferences=true",
     ],
 )
-def test_packed_complete_programs_are_required(
-    repository: pathlib.Path, removed: str
-) -> None:
+def test_packed_complete_programs_are_required(repository: pathlib.Path, removed: str) -> None:
     """A workflow cannot skip a displayed program or substitute source references."""
     path = repository / ".github/workflows/dotnet.yml"
     document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
     step = next(
-        step for step in document["jobs"]["build"]["steps"]
+        step
+        for step in document["jobs"]["build"]["steps"]
         if step.get("id") == "fsharp-packed-examples"
     )
     step["run"] = step["run"].replace(removed, "")
@@ -84,8 +83,7 @@ def test_fsdocs_reference_check_is_required(repository: pathlib.Path) -> None:
     path = repository / ".github/workflows/dotnet.yml"
     document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
     step = next(
-        step for step in document["jobs"]["build"]["steps"]
-        if step.get("id") == "fsharp-fsdocs"
+        step for step in document["jobs"]["build"]["steps"] if step.get("id") == "fsharp-fsdocs"
     )
     step["run"] = "true"
     path.write_text(yaml.safe_dump(document))
@@ -133,13 +131,21 @@ def test_fsharp_example_is_required_in_every_tmux_matrix_cell(
     ("job", "step_name", "removed"),
     [
         ("build", "Build F# examples for the tmux matrix", '-p:ExampleProgram="${program}"'),
-        ("build", "Archive runnable assemblies", "examples/LibTmux.FSharp.Examples/bin/Release/programs"),
+        (
+            "build",
+            "Archive runnable assemblies",
+            "examples/LibTmux.FSharp.Examples/bin/Release/programs",
+        ),
         ("matrix", "F# example", "Programs/*.fs"),
         ("matrix", "F# example", 'dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/'),
         ("build", "Build C# programs for the tmux matrix", '-p:ExampleProgram="${program}"'),
         ("build", "Archive runnable assemblies", "examples/LibTmux.Examples/bin/Release/programs"),
         ("matrix", "C# complete programs", "Programs/*.cs"),
-        ("matrix", "C# complete programs", 'dotnet "examples/LibTmux.Examples/bin/Release/programs/'),
+        (
+            "matrix",
+            "C# complete programs",
+            'dotnet "examples/LibTmux.Examples/bin/Release/programs/',
+        ),
     ],
 )
 def test_query_programs_survive_matrix_build_and_execution(
@@ -148,15 +154,16 @@ def test_query_programs_survive_matrix_build_and_execution(
     """Every displayed program must reach and run in the tmux matrix."""
     path = repository / ".github/workflows/dotnet-tmux.yml"
     document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
-    step = next(
-        step for step in document["jobs"][job]["steps"]
-        if step.get("name") == step_name
-    )
+    step = next(step for step in document["jobs"][job]["steps"] if step.get("name") == step_name)
     assert removed in step["run"]
     step["run"] = step["run"].replace(removed, "")
     path.write_text(yaml.safe_dump(document))
 
-    expected = "every F# query program" if "F#" in step_name or "FSharp" in removed else "every complete C# program"
+    expected = (
+        "every F# query program"
+        if "F#" in step_name or "FSharp" in removed
+        else "every complete C# program"
+    )
     assert any(expected in error for error in verify(repository))
 
 
@@ -318,9 +325,18 @@ def debug_steps(document: dict) -> list[dict]:
 @pytest.mark.parametrize(
     ("change", "diagnostic"),
     [
-        (lambda step: step.update(uses="mxschmitt/action-tmate@v3.24"), "pinned to a full commit SHA"),
-        (lambda step: step.update(uses="mxschmitt/action-tmate@" + "g" * 40), "pinned to a full commit SHA"),
-        (lambda step: step["with"].update({"limit-access-to-actor": "false"}), "limited to the actor"),
+        (
+            lambda step: step.update(uses="mxschmitt/action-tmate@v3.24"),
+            "pinned to a full commit SHA",
+        ),
+        (
+            lambda step: step.update(uses="mxschmitt/action-tmate@" + "g" * 40),
+            "pinned to a full commit SHA",
+        ),
+        (
+            lambda step: step["with"].update({"limit-access-to-actor": "false"}),
+            "limited to the actor",
+        ),
         (lambda step: step["with"].pop("limit-access-to-actor"), "limited to the actor"),
         (lambda step: step.pop("timeout-minutes"), "own time limit"),
         (
@@ -406,7 +422,9 @@ def test_a_dispatch_run_must_not_share_a_cancelling_group(
     document["concurrency"]["group"] = group.replace("{name}", workflow)
     path.write_text(yaml.safe_dump(document))
 
-    assert any(f"{workflow}.concurrency" in error and diagnostic in error for error in verify(repository))
+    assert any(
+        f"{workflow}.concurrency" in error and diagnostic in error for error in verify(repository)
+    )
 
 
 @pytest.mark.parametrize("workflow", ["dotnet", "dotnet-tmux"])
@@ -483,9 +501,7 @@ def test_the_aggregate_cannot_pass_a_planned_lane_that_was_skipped(
 def test_reformatting_and_key_order_are_irrelevant(repository: pathlib.Path) -> None:
     for path in (repository / ".github/workflows").glob("*.yml"):
         document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
-        path.write_text(
-            yaml.safe_dump(document, sort_keys=True, default_flow_style=True)
-        )
+        path.write_text(yaml.safe_dump(document, sort_keys=True, default_flow_style=True))
     assert verify(repository) == []
 
 
@@ -495,21 +511,24 @@ def test_duplicate_keys_fail(repository: pathlib.Path) -> None:
     assert any("duplicate" in error for error in verify(repository))
 
 
-@pytest.mark.parametrize("workflow,job_name,step_name", [
-    ("dotnet-tmux", "matrix", "Integration tests"),
-    ("dotnet-tmux", "matrix", "F# example"),
-    ("dotnet-tmux", "build", "Build F# examples for the tmux matrix"),
-    ("release", "validate", "Check the tag matches the version"),
-    ("dotnet", "build", "F# formatting"),
-    ("dotnet", "build", "F# unit tests (net8.0)"),
-    ("dotnet", "build", "F# unit tests (net10.0)"),
-    ("dotnet", "build", "F# package consumer"),
-    ("dotnet", "build", "F# packed example console"),
-    ("dotnet", "build", "F# ahead-of-time smoke test"),
-    ("dotnet", "build", "F# trimmed smoke test"),
-    ("dotnet", "build", "F# example console"),
-    ("dotnet", "build", "F# member reference"),
-])
+@pytest.mark.parametrize(
+    "workflow,job_name,step_name",
+    [
+        ("dotnet-tmux", "matrix", "Integration tests"),
+        ("dotnet-tmux", "matrix", "F# example"),
+        ("dotnet-tmux", "build", "Build F# examples for the tmux matrix"),
+        ("release", "validate", "Check the tag matches the version"),
+        ("dotnet", "build", "F# formatting"),
+        ("dotnet", "build", "F# unit tests (net8.0)"),
+        ("dotnet", "build", "F# unit tests (net10.0)"),
+        ("dotnet", "build", "F# package consumer"),
+        ("dotnet", "build", "F# packed example console"),
+        ("dotnet", "build", "F# ahead-of-time smoke test"),
+        ("dotnet", "build", "F# trimmed smoke test"),
+        ("dotnet", "build", "F# example console"),
+        ("dotnet", "build", "F# member reference"),
+    ],
+)
 @pytest.mark.parametrize("key,value", [("if", "false"), ("continue-on-error", "true")])
 def test_required_steps_cannot_skip_or_forgive_failures(
     repository, workflow, job_name, step_name, key, value
@@ -517,20 +536,21 @@ def test_required_steps_cannot_skip_or_forgive_failures(
     path = repository / f".github/workflows/{workflow}.yml"
     document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
     step = next(
-        step for step in document["jobs"][job_name]["steps"]
-        if step.get("name") == step_name
+        step for step in document["jobs"][job_name]["steps"] if step.get("name") == step_name
     )
     step[key] = value
     path.write_text(yaml.safe_dump(document))
-    assert any(
-        f"{workflow}.{job_name}" in error and key in error
-        for error in verify(repository)
-    )
+    assert any(f"{workflow}.{job_name}" in error and key in error for error in verify(repository))
 
 
-@pytest.mark.parametrize("workflow,job_name", [
-    ("dotnet", "gate"), ("dotnet-tmux", "compatibility"), ("dotnet-tmux", "build"),
-])
+@pytest.mark.parametrize(
+    "workflow,job_name",
+    [
+        ("dotnet", "gate"),
+        ("dotnet-tmux", "compatibility"),
+        ("dotnet-tmux", "build"),
+    ],
+)
 def test_required_aggregate_and_producer_cannot_skip(repository, workflow, job_name):
     path = repository / f".github/workflows/{workflow}.yml"
     document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
@@ -539,27 +559,30 @@ def test_required_aggregate_and_producer_cannot_skip(repository, workflow, job_n
     assert any(f"{workflow}.{job_name}.if" in error for error in verify(repository))
 
 
-@pytest.mark.parametrize("workflow,job_name", [
-    ("dotnet", "gate"), ("dotnet-tmux", "compatibility"),
-])
-@pytest.mark.parametrize("key,value", [
-    ("run", "exit 0"), ("if", "false"), ("continue-on-error", "true"),
-])
-def test_aggregate_rejection_cannot_be_weakened(
-    repository, workflow, job_name, key, value
-):
+@pytest.mark.parametrize(
+    "workflow,job_name",
+    [
+        ("dotnet", "gate"),
+        ("dotnet-tmux", "compatibility"),
+    ],
+)
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("run", "exit 0"),
+        ("if", "false"),
+        ("continue-on-error", "true"),
+    ],
+)
+def test_aggregate_rejection_cannot_be_weakened(repository, workflow, job_name, key, value):
     path = repository / f".github/workflows/{workflow}.yml"
     document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
     step = next(
-        step for step in document["jobs"][job_name]["steps"]
-        if step.get("id") == "require-success"
+        step for step in document["jobs"][job_name]["steps"] if step.get("id") == "require-success"
     )
     step[key] = value
     path.write_text(yaml.safe_dump(document))
-    assert any(
-        f"{workflow}.{job_name}.require-success" in error
-        for error in verify(repository)
-    )
+    assert any(f"{workflow}.{job_name}.require-success" in error for error in verify(repository))
 
 
 def test_aggregate_checks_every_declared_dependency(repository):
@@ -570,12 +593,14 @@ def test_aggregate_checks_every_declared_dependency(repository):
     assert any("gate.require-success.if" in error for error in verify(repository))
 
 
-@pytest.mark.parametrize("key,value", [
-    ("if", "github.event_name != 'pull_request'"), ("continue-on-error", "true"),
-])
-def test_the_windows_lane_cannot_skip_pull_requests_or_forgive_failures(
-    repository, key, value
-):
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("if", "github.event_name != 'pull_request'"),
+        ("continue-on-error", "true"),
+    ],
+)
+def test_the_windows_lane_cannot_skip_pull_requests_or_forgive_failures(repository, key, value):
     path = repository / ".github/workflows/dotnet.yml"
     document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
     document["jobs"]["windows"][key] = value
@@ -618,9 +643,7 @@ def add_run_step(repository: pathlib.Path, run: str, *, action: bool = False) ->
     ],
 )
 @pytest.mark.parametrize("action", [False, True])
-def test_a_raw_apt_call_is_refused(
-    repository: pathlib.Path, run: str, action: bool
-) -> None:
+def test_a_raw_apt_call_is_refused(repository: pathlib.Path, run: str, action: bool) -> None:
     """The wrapper bounds a hung mirror only while every call goes through it."""
     where = add_run_step(repository, run, action=action)
 
@@ -640,9 +663,7 @@ def test_a_raw_apt_call_is_refused(
     ],
 )
 @pytest.mark.parametrize("action", [False, True])
-def test_prose_about_apt_passes(
-    repository: pathlib.Path, run: str, action: bool
-) -> None:
+def test_prose_about_apt_passes(repository: pathlib.Path, run: str, action: bool) -> None:
     add_run_step(repository, run, action=action)
 
     assert verify(repository) == []
@@ -673,8 +694,6 @@ def test_a_shared_action_must_be_pinned_to_a_full_commit(
 
 
 def test_a_pinned_shared_action_passes(repository: pathlib.Path) -> None:
-    add_shared_action(
-        repository, f"libtmux/.github/actions/build-tmux@{SHARED_ACTION_SHA}"
-    )
+    add_shared_action(repository, f"libtmux/.github/actions/build-tmux@{SHARED_ACTION_SHA}")
 
     assert verify(repository) == []

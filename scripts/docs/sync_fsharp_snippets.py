@@ -17,7 +17,6 @@ import sys
 import textwrap
 import typing as t
 
-
 REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
 # Guide blocks are compiled where they live: the examples, and the F# tests
 # for blocks that need a test framework.
@@ -111,7 +110,9 @@ def validate_fences(path: pathlib.Path, text: str) -> list[str]:
             errors.append(f"{path}: F# fence is not registered by an F# snippet anchor")
     for match in ANCHOR.finditer(text):
         if FENCE.fullmatch(match.group("body").strip()) is None:
-            errors.append(f"{path}: F# snippet anchor {match.group('name')} must contain one F# fence")
+            errors.append(
+                f"{path}: F# snippet anchor {match.group('name')} must contain one F# fence"
+            )
     return errors
 
 

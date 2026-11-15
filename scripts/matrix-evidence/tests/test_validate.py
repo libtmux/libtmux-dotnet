@@ -72,9 +72,17 @@ MIRROR_REFRESH_SKIP = (
         ("3.7c", "net10.0", INTEGRATION_PROJECT, [], 1, 0, True),
     ],
     ids=[
-        "allowed-net8", "allowed-net10", "wrong-version", "wrong-framework",
-        "wrong-project", "wrong-name", "extra-skip", "missing-expected-skip",
-        "all-skipped", "failed-run", "ordinary-no-skips",
+        "allowed-net8",
+        "allowed-net10",
+        "wrong-version",
+        "wrong-framework",
+        "wrong-project",
+        "wrong-name",
+        "extra-skip",
+        "missing-expected-skip",
+        "all-skipped",
+        "failed-run",
+        "ordinary-no-skips",
     ],
 )
 def test_matrix_runner_admits_only_the_named_tmux_3_3a_mirror_skip(
@@ -90,14 +98,18 @@ def test_matrix_runner_admits_only_the_named_tmux_3_3a_mirror_skip(
     """A version exception must not turn other skipped or empty lanes green."""
     script = pathlib.Path(__file__).parents[1] / "run-matrix.sh"
     source = script.read_text(encoding="utf-8")
-    run_one = source[source.index("run_one() {"):source.index("\nrun_version() {")]
+    run_one = source[source.index("run_one() {") : source.index("\nrun_version() {")]
     output = tmp_path / "runner-output.txt"
     output.write_text(
-        "\n".join([
-            *(f"skipped {name}" for name in names),
-            f"  See the tracked condition for {MIRROR_REFRESH_SKIP}.",
-            f"total: {total}", f"skipped: {len(names)}", "",
-        ]),
+        "\n".join(
+            [
+                *(f"skipped {name}" for name in names),
+                f"  See the tracked condition for {MIRROR_REFRESH_SKIP}.",
+                f"total: {total}",
+                f"skipped: {len(names)}",
+                "",
+            ]
+        ),
         encoding="utf-8",
     )
     mise = tmp_path / "mise"
@@ -110,14 +122,21 @@ def test_matrix_runner_admits_only_the_named_tmux_3_3a_mirror_skip(
     failure = tmp_path / "failure.txt"
     completed = subprocess.run(
         [
-            "bash", "-c",
+            "bash",
+            "-c",
             "set -eu\ncandidate=\nTRANSITION_TMUX_BINARY=\n"
             "TRANSITION_TMUX_SOURCE_COMMIT=\nPROJECT=$MATRIX_FAKE_PROJECT\n"
             'record_result() { printf "%s\\n" "$3" > "$MATRIX_RECORDED_RESULT"; }\n'
             'keep_failure_output() { mv -- "$1" "$MATRIX_FAILURE_OUTPUT"; }\n'
-            + run_one + '\nrun_one "$@"\n',
-            "matrix-skip-test", version, framework, str(tmp_path / "tmux"),
-            version, COMMIT, "false",
+            + run_one
+            + '\nrun_one "$@"\n',
+            "matrix-skip-test",
+            version,
+            framework,
+            str(tmp_path / "tmux"),
+            version,
+            COMMIT,
+            "false",
         ],
         env={
             **os.environ,
@@ -308,9 +327,7 @@ def test_matrix_runner_skips_transition_outside_component_three_cohort(
         env=environment,
     )
 
-    observations = [
-        line.split("|", maxsplit=3) for line in log.read_text().splitlines()
-    ]
+    observations = [line.split("|", maxsplit=3) for line in log.read_text().splitlines()]
     assert len(observations) == REQUIRED_MATRIX_ROWS
     assert {row[1] for row in observations} == {""}
     assert {row[2] for row in observations} == {""}
@@ -340,9 +357,7 @@ def test_matrix_runner_runs_exact_source_bound_tmux_3_7_transition(
         env=environment,
     )
 
-    observations = [
-        line.split("|", maxsplit=3) for line in log.read_text().splitlines()
-    ]
+    observations = [line.split("|", maxsplit=3) for line in log.read_text().splitlines()]
     ordinary = [row for row in observations if "--filter-method" not in row[3]]
     transition = [row for row in observations if "--filter-method" in row[3]]
     assert len(ordinary) == REQUIRED_MATRIX_ROWS
@@ -354,18 +369,14 @@ def test_matrix_runner_runs_exact_source_bound_tmux_3_7_transition(
     }
     assert len({row[2] for row in ordinary}) == 1
     assert all(
-        "LibTmux.IntegrationTests.Versioning."
-        "VersionParityTests.BreakPane37Workaround" in row[3]
+        "LibTmux.IntegrationTests.Versioning.VersionParityTests.BreakPane37Workaround" in row[3]
         for row in transition
     )
     transcript = evidence / "protocol-transcripts" / "break-pane-transition.txt"
     lines = transcript.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 4
     assert all(validate.BREAK_PANE_TRANSCRIPT_PATTERN.fullmatch(line) for line in lines)
-    assert (
-        len(list((evidence / "results.ndjson").read_text().splitlines()))
-        == REQUIRED_MATRIX_ROWS
-    )
+    assert len(list((evidence / "results.ndjson").read_text().splitlines())) == REQUIRED_MATRIX_ROWS
     environment_observation = json.loads(
         (evidence / "environment.json").read_text(encoding="utf-8")
     )
@@ -395,14 +406,10 @@ def test_matrix_runner_does_not_infer_cohort_from_evidence_basename(
         env=environment,
     )
 
-    observations = [
-        line.split("|", maxsplit=3) for line in log.read_text().splitlines()
-    ]
+    observations = [line.split("|", maxsplit=3) for line in log.read_text().splitlines()]
     assert len(observations) == REQUIRED_MATRIX_ROWS
     assert all("--filter-method" not in row[3] for row in observations)
-    recorded_environment = json.loads(
-        (evidence / "environment.json").read_text(encoding="utf-8")
-    )
+    recorded_environment = json.loads((evidence / "environment.json").read_text(encoding="utf-8"))
     assert "capabilityCohort" not in recorded_environment
     assert "transitionTmuxSourceCommits" not in recorded_environment
 
@@ -428,24 +435,15 @@ def test_matrix_runner_records_wrapper_policy_closure_without_transition(
         env=environment,
     )
 
-    observations = [
-        line.split("|", maxsplit=3) for line in log.read_text().splitlines()
-    ]
+    observations = [line.split("|", maxsplit=3) for line in log.read_text().splitlines()]
     assert len(observations) == REQUIRED_MATRIX_ROWS
     assert all("--filter-method" not in row[3] for row in observations)
-    recorded_environment = json.loads(
-        (evidence / "environment.json").read_text(encoding="utf-8")
-    )
+    recorded_environment = json.loads((evidence / "environment.json").read_text(encoding="utf-8"))
     assert recorded_environment["capabilityCohort"] == CLOSURE_COHORT
     assert recorded_environment["includeMasterAdvisory"] is False
     assert "transitionTmuxSourceCommits" not in recorded_environment
-    assert not (
-        evidence / "protocol-transcripts" / "break-pane-transition.txt"
-    ).exists()
-    assert (
-        len((evidence / "results.ndjson").read_text().splitlines())
-        == REQUIRED_MATRIX_ROWS
-    )
+    assert not (evidence / "protocol-transcripts" / "break-pane-transition.txt").exists()
+    assert len((evidence / "results.ndjson").read_text().splitlines()) == REQUIRED_MATRIX_ROWS
     source_commands = (tmp_path / "source-identity.txt").read_text().splitlines()
     assert len(source_commands) == 2
     assert all(f"--exclude-root {evidence}" in command for command in source_commands)
@@ -606,9 +604,7 @@ def _write_break_pane_transition(
         {
             "framework": framework,
             "outcome": "passed",
-            "tmuxSourceCommit": (
-                TRANSITION_TMUX_SOURCE_COMMIT if version == "3.7" else "e" * 40
-            ),
+            "tmuxSourceCommit": (TRANSITION_TMUX_SOURCE_COMMIT if version == "3.7" else "e" * 40),
             "tmuxVersion": version,
             "workaroundApplied": version == "3.7",
         }
@@ -651,11 +647,7 @@ def test_matrix_phase_retains_previous_complete_release_set(
         json.dumps(environment, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    rows = [
-        row
-        for row in _matrix_rows(COMMIT)
-        if row["tmuxVersion"] != REQUIRED_TMUX_VERSIONS[-1]
-    ]
+    rows = [row for row in _matrix_rows(COMMIT) if row["tmuxVersion"] != REQUIRED_TMUX_VERSIONS[-1]]
     _write_rows(bundle, rows)
 
     validate.validate_bundle(bundle, phase="matrix")
@@ -702,12 +694,8 @@ def test_workspace_matrix_requires_current_stable_versions(
     environment["capabilityCohort"] = "workspace"
     environment["tmuxVersions"] = REQUIRED_TMUX_VERSIONS[:-1]
     environment_path.write_text(json.dumps(environment) + "\n", encoding="utf-8")
-    _write_rows(
-        bundle, [row for row in _matrix_rows(COMMIT) if row["tmuxVersion"] != "3.7c"]
-    )
-    with pytest.raises(
-        validate.EvidenceValidationError, match="environment observations"
-    ):
+    _write_rows(bundle, [row for row in _matrix_rows(COMMIT) if row["tmuxVersion"] != "3.7c"])
+    with pytest.raises(validate.EvidenceValidationError, match="environment observations"):
         validate.validate_bundle(bundle, phase="matrix")
 
 
@@ -805,9 +793,7 @@ def test_matrix_phase_rejects_unbound_break_pane_transition_proof(
         {
             "framework": framework,
             "outcome": "passed",
-            "tmuxSourceCommit": (
-                TRANSITION_TMUX_SOURCE_COMMIT if version == "3.7" else "e" * 40
-            ),
+            "tmuxSourceCommit": (TRANSITION_TMUX_SOURCE_COMMIT if version == "3.7" else "e" * 40),
             "tmuxVersion": version,
             "workaroundApplied": version == "3.7",
         }
@@ -856,10 +842,7 @@ def _write_transport_semantic_transcripts(bundle: pathlib.Path) -> None:
             "event=control-following-request phase=after-drain state=completed",
         ],
         "semicolon-middle-failure.txt": [
-            (
-                "event=semicolon-member position=prefix outcome=completed "
-                "side-effect=present"
-            ),
+            ("event=semicolon-member position=prefix outcome=completed side-effect=present"),
             "event=semicolon-member position=middle outcome=failed side-effect=none",
             "event=semicolon-member position=suffix outcome=skipped side-effect=absent",
         ],
@@ -883,9 +866,7 @@ def _repository_bundle(
     repository.mkdir()
     record_deletion.run_git(repository, "init", "--quiet")
     record_deletion.run_git(repository, "config", "user.name", "Evidence Test")
-    record_deletion.run_git(
-        repository, "config", "user.email", "evidence@example.invalid"
-    )
+    record_deletion.run_git(repository, "config", "user.email", "evidence@example.invalid")
     solution = repository / "csharp" / "LibTmux.slnx"
     solution.parent.mkdir()
     solution.write_text(solution_text, encoding="utf-8")
@@ -925,9 +906,7 @@ def _write_critic_reviews(bundle: pathlib.Path, commit: str) -> dict[str, t.Any]
         ],
     }
     (bundle / "critic-reviews.md").write_text(
-        "# Critic reviews\n\n```json\n"
-        + json.dumps(reviews, indent=2, sort_keys=True)
-        + "\n```\n",
+        "# Critic reviews\n\n```json\n" + json.dumps(reviews, indent=2, sort_keys=True) + "\n```\n",
         encoding="utf-8",
     )
     return reviews
@@ -974,9 +953,7 @@ def _write_decision(
     return path, decision
 
 
-def _write_pre_deletion(
-    repository: pathlib.Path, bundle: pathlib.Path, commit: str
-) -> None:
+def _write_pre_deletion(repository: pathlib.Path, bundle: pathlib.Path, commit: str) -> None:
     if bundle.name == "0001":
         _write_transport_semantic_transcripts(bundle)
     _write_critic_reviews(bundle, commit)
@@ -1016,9 +993,7 @@ def test_matrix_phase_rejects_malformed_environment(
     bundle = _matrix_bundle(tmp_path)
     environment = json.loads((bundle / "environment.json").read_text(encoding="utf-8"))
     environment[field] = value
-    (bundle / "environment.json").write_text(
-        json.dumps(environment) + "\n", encoding="utf-8"
-    )
+    (bundle / "environment.json").write_text(json.dumps(environment) + "\n", encoding="utf-8")
 
     with pytest.raises(validate.EvidenceValidationError, match="environment"):
         validate.validate_bundle(bundle, phase="matrix")
@@ -1031,9 +1006,7 @@ def test_matrix_phase_requires_include_master_environment_key(
     bundle = _matrix_bundle(tmp_path)
     environment = json.loads((bundle / "environment.json").read_text(encoding="utf-8"))
     environment.pop("includeMasterAdvisory")
-    (bundle / "environment.json").write_text(
-        json.dumps(environment) + "\n", encoding="utf-8"
-    )
+    (bundle / "environment.json").write_text(json.dumps(environment) + "\n", encoding="utf-8")
 
     with pytest.raises(validate.EvidenceValidationError, match="environment"):
         validate.validate_bundle(bundle, phase="matrix")
@@ -1267,9 +1240,7 @@ def test_matrix_phase_requires_exact_redaction_proof(
         proof["passed"] = False
     else:
         proof["extra"] = True
-    (bundle / "redaction-proof.json").write_text(
-        json.dumps(proof) + "\n", encoding="utf-8"
-    )
+    (bundle / "redaction-proof.json").write_text(json.dumps(proof) + "\n", encoding="utf-8")
 
     with pytest.raises(validate.EvidenceValidationError, match="redaction proof"):
         validate.validate_bundle(bundle, phase="matrix")
@@ -1345,9 +1316,7 @@ def test_redaction_rejects_portable_absolute_paths(
     """Reject embedded Unix, drive-qualified, and UNC absolute paths."""
     bundle = tmp_path / "bundle"
     bundle.mkdir()
-    (bundle / "leak.txt").write_text(
-        f"prefix={absolute_path};suffix=safe\n", encoding="utf-8"
-    )
+    (bundle / "leak.txt").write_text(f"prefix={absolute_path};suffix=safe\n", encoding="utf-8")
 
     with pytest.raises(validate.EvidenceValidationError, match="sensitive"):
         validate.reject_sensitive_content(bundle)
@@ -1432,9 +1401,7 @@ def test_transport_pre_deletion_rejects_unattributed_semantic_events(
         ]
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    with pytest.raises(
-        validate.EvidenceValidationError, match="semantic transcript lane"
-    ):
+    with pytest.raises(validate.EvidenceValidationError, match="semantic transcript lane"):
         validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
 
 
@@ -1446,9 +1413,7 @@ def test_transport_pre_deletion_rejects_wrong_semantic_fields(
     _write_pre_deletion(repository, bundle, commit)
     path = bundle / "protocol-transcripts" / "control-cancellation.txt"
     content = path.read_text(encoding="utf-8")
-    path.write_text(
-        content.replace("result=typed", "result=success", 1), encoding="utf-8"
-    )
+    path.write_text(content.replace("result=typed", "result=success", 1), encoding="utf-8")
 
     with pytest.raises(validate.EvidenceValidationError, match="semantic transcript"):
         validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
@@ -1475,9 +1440,7 @@ def test_transport_pre_deletion_requires_one_semantic_set_per_lane(
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    with pytest.raises(
-        validate.EvidenceValidationError, match="semantic transcript lane"
-    ):
+    with pytest.raises(validate.EvidenceValidationError, match="semantic transcript lane"):
         validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
 
 
@@ -1704,9 +1667,7 @@ def test_final_phase_allows_later_solution_project_removal(
     )
     record_deletion.write_proof(bundle / "deletion.json", proof)
     hash_tree.write_hashes(bundle)
-    (repository / "csharp" / "LibTmux.slnx").write_text(
-        "<Solution />\n", encoding="utf-8"
-    )
+    (repository / "csharp" / "LibTmux.slnx").write_text("<Solution />\n", encoding="utf-8")
     record_deletion.run_git(repository, "add", "csharp/LibTmux.slnx")
     record_deletion.run_git(repository, "commit", "--quiet", "-m", "remove project")
 
@@ -1731,9 +1692,7 @@ def test_final_phase_rejects_divergent_repository_head(
     record_deletion.write_proof(bundle / "deletion.json", proof)
     hash_tree.write_hashes(bundle)
     tree = record_deletion.run_git(repository, "write-tree")
-    divergent = record_deletion.run_git(
-        repository, "commit-tree", tree, "-m", "divergent"
-    )
+    divergent = record_deletion.run_git(repository, "commit-tree", tree, "-m", "divergent")
     record_deletion.run_git(repository, "reset", "--quiet", "--hard", divergent)
 
     with pytest.raises(validate.EvidenceValidationError, match="ancestry"):

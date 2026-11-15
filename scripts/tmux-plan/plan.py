@@ -126,8 +126,7 @@ def check_ref(item: str) -> str:
         raise PlanError(f"tmux-ref item {item!r} is not a usable git ref")
     if ABBREVIATED_SHA.fullmatch(item):
         raise PlanError(
-            f"tmux-ref item {item!r} looks like an abbreviated commit; "
-            "give the full 40-hex SHA"
+            f"tmux-ref item {item!r} looks like an abbreviated commit; give the full 40-hex SHA"
         )
     return item
 
@@ -260,11 +259,11 @@ def summary(result: dict[str, t.Any]) -> str:
 
 def outputs(result: dict[str, t.Any]) -> dict[str, str]:
     """Flatten a plan into single-line workflow outputs."""
-    compact = {"separators": (",", ":")}
+    separators = (",", ":")
     return {
         "scope": result["scope"],
-        "matrix": json.dumps(result["matrix"], **compact),
-        "rejected": json.dumps(result["rejected"], **compact),
+        "matrix": json.dumps(result["matrix"], separators=separators),
+        "rejected": json.dumps(result["rejected"], separators=separators),
         "exact_3_7": "true" if result["exact_3_7"] else "false",
         "advisory": "true" if result["advisory"] else "false",
         "expected_jobs": str(result["expected_jobs"]),

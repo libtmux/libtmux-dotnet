@@ -62,9 +62,7 @@ FRAMES = (
 
 def _binary() -> pathlib.Path:
     for framework in ("net10.0", "net8.0"):
-        candidate = (
-            REPO / "src" / "LibTmux.Mcp" / "bin" / "Release" / framework / "LibTmux.Mcp"
-        )
+        candidate = REPO / "src" / "LibTmux.Mcp" / "bin" / "Release" / framework / "LibTmux.Mcp"
         if candidate.is_file():
             return candidate
     msg = "build LibTmux.Mcp in Release first"
@@ -96,10 +94,7 @@ def _find_dotnet() -> str:
     found = shutil.which("dotnet")
     if found:
         return str(pathlib.Path(found).resolve())
-    msg = (
-        "no dotnet on PATH and mise could not name one; "
-        "install the SDK or run inside `mise exec`"
-    )
+    msg = "no dotnet on PATH and mise could not name one; install the SDK or run inside `mise exec`"
     raise RuntimeError(msg)
 
 
@@ -221,7 +216,11 @@ def _omitted(tools: list[dict]) -> list[tuple[str, str, list[str]]]:
         properties = (tool.get("inputSchema") or {}).get("properties") or {}
         for name, schema in properties.items():
             sentence = next(
-                (each for each in _sentences(schema.get("description", "")) if each.startswith("Omit ")),
+                (
+                    each
+                    for each in _sentences(schema.get("description", ""))
+                    if each.startswith("Omit ")
+                ),
                 None,
             )
             if sentence is not None:
@@ -244,7 +243,8 @@ def _fields(schema: dict) -> str:
         children = list((inner.get("properties") or {}).keys())
         listed = "[]" if field.get("type") == "array" else ""
         rendered.append(
-            f"`{name}`{listed}" + (f" ({', '.join(f'`{child}`' for child in children)})" if children else "")
+            f"`{name}`{listed}"
+            + (f" ({', '.join(f'`{child}`' for child in children)})" if children else "")
         )
     if not rendered and isinstance(schema.get("additionalProperties"), dict):
         return "a map from each requested name to its value"
@@ -253,7 +253,9 @@ def _fields(schema: dict) -> str:
 
 def _batch_tools(tool: dict) -> list[str]:
     """Return the tools a batch tool's schema lets it run."""
-    items = (((tool.get("inputSchema") or {}).get("properties") or {}).get("operations") or {}).get("items") or {}
+    items = (((tool.get("inputSchema") or {}).get("properties") or {}).get("operations") or {}).get(
+        "items"
+    ) or {}
     return sorted(
         option["properties"]["tool"]["const"]
         for option in items.get("oneOf", [])
@@ -273,7 +275,10 @@ def _does(description: str, shared: set[str]) -> str:
     on many rows.
     """
     sentences = _sentences(description)
-    return next((sentence for sentence in sentences if sentence not in shared), sentences[0] if sentences else "")
+    return next(
+        (sentence for sentence in sentences if sentence not in shared),
+        sentences[0] if sentences else "",
+    )
 
 
 def main() -> int:
@@ -306,7 +311,7 @@ def main() -> int:
         f"templates or prompts are registered ({len(templates)} templates, {len(prompts)} prompts).",
         "",
         "Every row is the capability object advertised with the tool under",
-        f"`_meta[\"{CAPABILITY_KEY}\"]`. Effects and output classes are sets.",
+        f'`_meta["{CAPABILITY_KEY}"]`. Effects and output classes are sets.',
         "All protocol annotations are conservative: read-only false, destructive true,",
         "idempotent false, and open-world true.",
         "Earlier tier-era names and removed families are mapped in the",
@@ -358,7 +363,9 @@ def main() -> int:
         if batched := _batch_tools(tool):
             lines += [
                 "",
-                f"`{tool['name']}` runs any of: " + ", ".join(f"`{name}`" for name in batched) + ".",
+                f"`{tool['name']}` runs any of: "
+                + ", ".join(f"`{name}`" for name in batched)
+                + ".",
             ]
 
     lines += [

@@ -164,7 +164,18 @@ def check_every_ref_is_validated() -> None:
 
 
 def check_too_many_refs_are_refused() -> None:
-    assert len(versions(run("workflow_dispatch", scope="custom", tmux_ref=",".join(f"v{n}" for n in range(8))))) == 8
+    assert (
+        len(
+            versions(
+                run(
+                    "workflow_dispatch",
+                    scope="custom",
+                    tmux_ref=",".join(f"v{n}" for n in range(8)),
+                )
+            )
+        )
+        == 8
+    )
     refused("fit one run", scope="custom", tmux_ref=",".join(f"v{n}" for n in range(9)))
 
 
@@ -237,9 +248,12 @@ def check_the_manifest_alone_decides_the_versions() -> None:
     assert versions(full) == ["9.1", "9.2", "9.3"]
     assert full["rejected"] == ["9.0"]
     assert {each["kind"] for each in cells(full)} == {"release"}
-    assert plan.plan(other, event="workflow_dispatch", scope="custom", tmux_ref="9.2")["matrix"][
-        "include"
-    ][0]["kind"] == "release"
+    assert (
+        plan.plan(other, event="workflow_dispatch", scope="custom", tmux_ref="9.2")["matrix"][
+            "include"
+        ][0]["kind"]
+        == "release"
+    )
 
 
 def check_the_matrix_is_never_empty() -> None:

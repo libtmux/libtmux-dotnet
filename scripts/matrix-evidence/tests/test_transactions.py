@@ -37,9 +37,7 @@ def _repository(tmp_path: pathlib.Path) -> tuple[pathlib.Path, str]:
     repository.mkdir()
     record_deletion.run_git(repository, "init", "--quiet")
     record_deletion.run_git(repository, "config", "user.name", "Evidence Test")
-    record_deletion.run_git(
-        repository, "config", "user.email", "evidence@example.invalid"
-    )
+    record_deletion.run_git(repository, "config", "user.email", "evidence@example.invalid")
     source = repository / "source.txt"
     source.write_text("source\n", encoding="utf-8")
     record_deletion.run_git(repository, "add", "source.txt")
@@ -349,12 +347,8 @@ def test_mixed_commits_are_rejected_before_durable_touch(
     matrix = _matrix_producer(repository / "artifacts" / "staging", commit)
     aot = _aot_producer(repository / "artifacts" / "staging", "b" * 40)
 
-    with pytest.raises(
-        assemble_bundle.BundleAssemblyError, match="mixed evaluated commits"
-    ):
-        assemble_bundle.assemble(
-            {"matrix": matrix, "aot": aot}, output, repository=repository
-        )
+    with pytest.raises(assemble_bundle.BundleAssemblyError, match="mixed evaluated commits"):
+        assemble_bundle.assemble({"matrix": matrix, "aot": aot}, output, repository=repository)
 
     assert (output / "marker.txt").read_text(encoding="utf-8") == "prior\n"
 
@@ -430,12 +424,8 @@ def test_query_aot_accepts_commit_free_canonical_contract(
 
     assemble_bundle.inspect_producer("aot", aot)
 
-    schema = json.loads(
-        (aot / "libtmux-query-v2.schema.json").read_text(encoding="utf-8")
-    )
-    golden = json.loads(
-        (aot / "goldens" / "attached-nvim.json").read_text(encoding="utf-8")
-    )
+    schema = json.loads((aot / "libtmux-query-v2.schema.json").read_text(encoding="utf-8"))
+    golden = json.loads((aot / "goldens" / "attached-nvim.json").read_text(encoding="utf-8"))
     assert "evaluatedCommit" not in schema
     assert "evaluatedCommit" not in golden
     assert schema["properties"]["version"] == {"const": 2}
@@ -460,11 +450,7 @@ def test_query_aot_rejects_obsolete_v1_contract(
         manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
         failure = "not allowed"
     else:
-        path = (
-            aot / schema_name
-            if artifact == "schema"
-            else aot / "goldens" / "attached-nvim.json"
-        )
+        path = aot / schema_name if artifact == "schema" else aot / "goldens" / "attached-nvim.json"
         document = json.loads(path.read_text(encoding="utf-8"))
         if artifact == "schema":
             document["properties"]["version"]["const"] = 1
@@ -579,9 +565,7 @@ def test_model_aot_requires_a_producer_manifest(tmp_path: pathlib.Path) -> None:
     model_aot = _model_aot_producer(repository / "artifacts" / "staging", commit)
     (model_aot / "producer.json").unlink()
 
-    with pytest.raises(
-        assemble_bundle.BundleAssemblyError, match="manifest is missing"
-    ):
+    with pytest.raises(assemble_bundle.BundleAssemblyError, match="manifest is missing"):
         assemble_bundle.inspect_producer("model-aot", model_aot)
 
 
@@ -604,9 +588,7 @@ def test_model_aot_internal_commits_match_manifest(
         rows[0]["evaluatedCommit"] = "b" * 40
         _write_rows(path, rows)
 
-    with pytest.raises(
-        assemble_bundle.BundleAssemblyError, match="model AOT internal commit"
-    ):
+    with pytest.raises(assemble_bundle.BundleAssemblyError, match="model AOT internal commit"):
         assemble_bundle.inspect_producer("model-aot", model_aot)
 
 
@@ -655,9 +637,7 @@ def test_model_aot_rejects_invalid_allocations(
     rows[0]["allocatedBytes"] = allocated_bytes
     _write_rows(path, rows)
 
-    with pytest.raises(
-        assemble_bundle.BundleAssemblyError, match="model AOT allocation"
-    ):
+    with pytest.raises(assemble_bundle.BundleAssemblyError, match="model AOT allocation"):
         assemble_bundle.inspect_producer("model-aot", model_aot)
 
 
@@ -672,9 +652,7 @@ def test_model_aot_requires_materialization_allocations(
     rows[0]["scenario"] = "probe"
     _write_rows(path, rows)
 
-    with pytest.raises(
-        assemble_bundle.BundleAssemblyError, match="model AOT allocation"
-    ):
+    with pytest.raises(assemble_bundle.BundleAssemblyError, match="model AOT allocation"):
         assemble_bundle.inspect_producer("model-aot", model_aot)
 
 
@@ -701,9 +679,7 @@ def test_model_aot_api_commit_line_is_exactly_once(tmp_path: pathlib.Path) -> No
         encoding="utf-8",
     )
 
-    with pytest.raises(
-        assemble_bundle.BundleAssemblyError, match="model AOT internal commit"
-    ):
+    with pytest.raises(assemble_bundle.BundleAssemblyError, match="model AOT internal commit"):
         assemble_bundle.inspect_producer("model-aot", model_aot)
 
 
@@ -719,9 +695,7 @@ def test_model_aot_api_rejects_a_conflicting_commit_line(
         encoding="utf-8",
     )
 
-    with pytest.raises(
-        assemble_bundle.BundleAssemblyError, match="model AOT internal commit"
-    ):
+    with pytest.raises(assemble_bundle.BundleAssemblyError, match="model AOT internal commit"):
         assemble_bundle.inspect_producer("model-aot", model_aot)
 
 
@@ -734,9 +708,7 @@ def test_model_aot_requires_complete_redaction_proof(tmp_path: pathlib.Path) -> 
         encoding="utf-8",
     )
 
-    with pytest.raises(
-        assemble_bundle.BundleAssemblyError, match="model AOT redaction proof"
-    ):
+    with pytest.raises(assemble_bundle.BundleAssemblyError, match="model AOT redaction proof"):
         assemble_bundle.inspect_producer("model-aot", model_aot)
 
 
@@ -920,9 +892,7 @@ def test_matrix_and_aot_publish_under_one_atomic_pointer(
     aot = _aot_producer(staging, commit)
     output = repository / "artifacts" / "durable"
 
-    assemble_bundle.assemble(
-        {"matrix": matrix, "aot": aot}, output, repository=repository
-    )
+    assemble_bundle.assemble({"matrix": matrix, "aot": aot}, output, repository=repository)
 
     assert output.is_dir()
     assert not output.is_symlink()
@@ -1054,9 +1024,7 @@ def test_directory_exchange_rejects_unsupported_platform(
     destination.mkdir()
     monkeypatch.setattr(assemble_bundle.sys, "platform", "win32")
 
-    with pytest.raises(
-        assemble_bundle.BundleAssemblyError, match="atomic directory exchange"
-    ):
+    with pytest.raises(assemble_bundle.BundleAssemblyError, match="atomic directory exchange"):
         assemble_bundle._exchange_directories(source, destination)
 
 

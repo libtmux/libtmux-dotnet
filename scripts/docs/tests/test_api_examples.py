@@ -6,12 +6,12 @@ import copy
 import json
 import os
 import re
-from pathlib import Path
 import shlex
 import shutil
 import subprocess
 import tempfile
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -73,17 +73,32 @@ def test_duplicate_json_fields_are_rejected():
         json.loads('{"targets": ["real"], "targets": ["other"]}', object_pairs_hook=unique_object)
 
 
-@pytest.mark.parametrize("change, message", [
-    (lambda data: data["examples"].pop(), "every complete program"),
-    (lambda data: data["examples"].append(copy.deepcopy(data["examples"][0])), "Duplicate example"),
-    (lambda data: data["examples"][0].update(targets=[]), "needs compiler targets"),
-    (lambda data: data["examples"][0]["targets"].append("M:LibTmux.FSharp.Server.missing"), "no public compiler target"),
-    (lambda data: data["examples"][0]["targets"].append(data["examples"][0]["targets"][0]), "repeats a compiler target"),
-    (lambda data: data["examples"][0].update(sourceFile="../outside.fs"), "escapes the repository"),
-    (lambda data: data["examples"][0].update(output="missing newline"), "output must use LF"),
-    (lambda data: data["examples"][0].update(prelude="hidden helper"), "Unexpected fields"),
-    (lambda data: data.update(setupFiles=[]), "Setup must include"),
-])
+@pytest.mark.parametrize(
+    "change, message",
+    [
+        (lambda data: data["examples"].pop(), "every complete program"),
+        (
+            lambda data: data["examples"].append(copy.deepcopy(data["examples"][0])),
+            "Duplicate example",
+        ),
+        (lambda data: data["examples"][0].update(targets=[]), "needs compiler targets"),
+        (
+            lambda data: data["examples"][0]["targets"].append("M:LibTmux.FSharp.Server.missing"),
+            "no public compiler target",
+        ),
+        (
+            lambda data: data["examples"][0]["targets"].append(data["examples"][0]["targets"][0]),
+            "repeats a compiler target",
+        ),
+        (
+            lambda data: data["examples"][0].update(sourceFile="../outside.fs"),
+            "escapes the repository",
+        ),
+        (lambda data: data["examples"][0].update(output="missing newline"), "output must use LF"),
+        (lambda data: data["examples"][0].update(prelude="hidden helper"), "Unexpected fields"),
+        (lambda data: data.update(setupFiles=[]), "Setup must include"),
+    ],
+)
 def test_manifest_negative_controls(example_tree, change, message):
     root, manifest, inventory = example_tree
     change(manifest)
@@ -91,10 +106,15 @@ def test_manifest_negative_controls(example_tree, change, message):
         validate(root, manifest, inventory)
 
 
-@pytest.mark.parametrize("field, value", [
-    ("visibility", "internal"), ("implicitDeclaration", True),
-    ("accessor", True), ("package", "LibTmux"),
-])
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("visibility", "internal"),
+        ("implicitDeclaration", True),
+        ("accessor", True),
+        ("package", "LibTmux"),
+    ],
+)
 def test_target_must_be_a_public_explicit_fsharp_declaration(example_tree, field, value):
     root, manifest, inventory = example_tree
     target = manifest["examples"][0]["targets"][0]
@@ -105,13 +125,24 @@ def test_target_must_be_a_public_explicit_fsharp_declaration(example_tree, field
         validate(root, manifest, inventory)
 
 
-@pytest.mark.parametrize("old, new, message", [
-    ('<Compile Include="Program.fs" />', '<Compile Include="Helper.fs" />', "displayed entrypoint"),
-    ("net8.0;net10.0", "net10.0", "both supported frameworks"),
-    ("[0.1.1]", "[0.1.0]", "exact library"),
-    ("</Project>", '<Import Project="hidden.props" /></Project>', "hidden source"),
-    ("</Project>", '<Target Name="Hidden" BeforeTargets="Compile" /></Project>', "hidden source"),
-])
+@pytest.mark.parametrize(
+    "old, new, message",
+    [
+        (
+            '<Compile Include="Program.fs" />',
+            '<Compile Include="Helper.fs" />',
+            "displayed entrypoint",
+        ),
+        ("net8.0;net10.0", "net10.0", "both supported frameworks"),
+        ("[0.1.1]", "[0.1.0]", "exact library"),
+        ("</Project>", '<Import Project="hidden.props" /></Project>', "hidden source"),
+        (
+            "</Project>",
+            '<Target Name="Hidden" BeforeTargets="Compile" /></Project>',
+            "hidden source",
+        ),
+    ],
+)
 def test_standalone_project_cannot_hide_context(example_tree, old, new, message):
     root, manifest, inventory = example_tree
     project = root / manifest["profiles"]["fsharp"]["projectFile"]
@@ -142,7 +173,9 @@ def consumer_inputs(tmp_path: Path):
     manifest = {
         "setupFiles": ["NuGet.config"],
         "profiles": {"csharp": {"projectFile": "Example.csproj", "entrypoint": "Program.cs"}},
-        "examples": [{"id": "demo", "profile": "csharp", "sourceFile": "Demo.cs", "output": "shown\n"}],
+        "examples": [
+            {"id": "demo", "profile": "csharp", "sourceFile": "Demo.cs", "output": "shown\n"}
+        ],
     }
     packages = tmp_path / "packages"
     packages.mkdir()
@@ -161,7 +194,11 @@ def fake_commands(monkeypatch, seen: list[dict[str, str]]) -> None:
     """Answer every command run_consumers starts, writing down the environment it was given."""
 
     def check_output(arguments, **_):
-        return "tmux 3.8a\n" if arguments[-1] == "-V" else ("" if "status" in arguments else "revision\n")
+        return (
+            "tmux 3.8a\n"
+            if arguments[-1] == "-V"
+            else ("" if "status" in arguments else "revision\n")
+        )
 
     def run(arguments, cwd, env, capture_output, timeout):
         seen.append(dict(env))
@@ -177,7 +214,9 @@ def fake_commands(monkeypatch, seen: list[dict[str, str]]) -> None:
     monkeypatch.setattr(subprocess, "run", run)
 
 
-def test_consumers_run_with_no_tmux_selector_in_their_environment(consumer_inputs, tmp_path, monkeypatch):
+def test_consumers_run_with_no_tmux_selector_in_their_environment(
+    consumer_inputs, tmp_path, monkeypatch
+):
     root, manifest, packages, output, inventory, tmux = consumer_inputs
     for name in SELECTORS:
         monkeypatch.setenv(name, "decoy")
@@ -202,7 +241,9 @@ def test_consumers_run_with_no_tmux_selector_in_their_environment(consumer_input
     assert kept, "run_consumers dropped a variable it should have kept"
 
 
-def test_consumers_refuse_a_socket_root_one_byte_over_what_a_socket_path_allows(consumer_inputs, monkeypatch):
+def test_consumers_refuse_a_socket_root_one_byte_over_what_a_socket_path_allows(
+    consumer_inputs, monkeypatch
+):
     root, manifest, packages, output, inventory, tmux = consumer_inputs
     monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
     sockets = Path("/tmp") / ("x" * (maximum_socket_root_bytes() + 1 - len("/tmp/")))
@@ -232,7 +273,10 @@ def test_consumers_accept_a_socket_root_at_what_a_socket_path_allows(consumer_in
 def test_the_longest_socket_name_a_program_uses_is_covered():
     # The limit above is computed from this name, so a longer one must raise it.
     names = []
-    for source in [*(ROOT / "examples").glob("*/Programs/*"), *(ROOT / "examples").glob("*/Snippets/*")]:
+    for source in [
+        *(ROOT / "examples").glob("*/Programs/*"),
+        *(ROOT / "examples").glob("*/Snippets/*"),
+    ]:
         for match in re.finditer(
             r'"([A-Za-z0-9-]+)"\s*\+\s*Guid\.NewGuid\(\)\.ToString\(\s*"N"\s*\)(?:\s*\+\s*"([A-Za-z0-9-]*)")?',
             source.read_text(),
@@ -245,7 +289,7 @@ def test_the_longest_socket_name_a_program_uses_is_covered():
 def test_symlink_cannot_supply_an_external_program(example_tree, tmp_path_factory):
     root, manifest, inventory = example_tree
     outside = tmp_path_factory.mktemp("external") / "Program.fs"
-    outside.write_text("printfn \"external\"\n")
+    outside.write_text('printfn "external"\n')
     source = root / manifest["examples"][0]["sourceFile"]
     source.unlink()
     source.symlink_to(outside)
@@ -270,7 +314,7 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
         'case "$*" in\n'
         "  *capture-pane*) echo 'intentional capture failure' >&2; exit 73 ;;\n"
         "esac\n"
-        f"exec {shlex.quote(native)} \"$@\"\n"
+        f'exec {shlex.quote(native)} "$@"\n'
     )
     wrapper.chmod(0o755)
     monkeypatch.setenv("LIBTMUX_TMUX", str(wrapper))
@@ -280,7 +324,9 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
     # capture-pane without a process of its own.
     monkeypatch.setenv("LIBTMUX_CONTROL_TRANSPORT", "0")
     manifest = json.loads((ROOT / "examples/api/manifest.json").read_text())
-    manifest["examples"] = [entry for entry in manifest["examples"] if entry["id"] == f"{profile}-InputCapture"]
+    manifest["examples"] = [
+        entry for entry in manifest["examples"] if entry["id"] == f"{profile}-InputCapture"
+    ]
     output = tmp_path / "consumer"
     with pytest.raises(RuntimeError, match="intentional capture failure"):
         run_consumers(ROOT, manifest, Path(packages), output, ROOT / "artifacts/api-inventory.json")
@@ -317,13 +363,20 @@ def test_csharp_targets_must_belong_to_the_core_package(example_tree):
         validate(root, manifest, inventory)
 
 
-@pytest.mark.parametrize("old, new, message", [
-    ('<Compile Include="Program.cs" />', '<Compile Include="Helper.cs" />', "displayed entrypoint"),
-    ("<ImplicitUsings>disable", "<ImplicitUsings>enable", "declare nullability, imports"),
-    ("<EnableDefaultCompileItems>false", "<EnableDefaultCompileItems>true", "sole entrypoint"),
-    ("[0.1.1]", "[0.1.0]", "exact library"),
-    ("</Project>", '<Import Project="hidden.props" /></Project>', "hidden source"),
-])
+@pytest.mark.parametrize(
+    "old, new, message",
+    [
+        (
+            '<Compile Include="Program.cs" />',
+            '<Compile Include="Helper.cs" />',
+            "displayed entrypoint",
+        ),
+        ("<ImplicitUsings>disable", "<ImplicitUsings>enable", "declare nullability, imports"),
+        ("<EnableDefaultCompileItems>false", "<EnableDefaultCompileItems>true", "sole entrypoint"),
+        ("[0.1.1]", "[0.1.0]", "exact library"),
+        ("</Project>", '<Import Project="hidden.props" /></Project>', "hidden source"),
+    ],
+)
 def test_csharp_standalone_setup_cannot_hide_context(example_tree, old, new, message):
     root, manifest, inventory = example_tree
     project = root / manifest["profiles"]["csharp"]["projectFile"]

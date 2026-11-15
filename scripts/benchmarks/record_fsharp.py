@@ -51,7 +51,9 @@ def summarize(samples_ns: list[float]) -> dict[str, float]:
 def git(*arguments: str) -> str:
     """Read required source provenance from Git."""
     try:
-        return subprocess.run(["git", *arguments], capture_output=True, text=True, check=True).stdout.strip()
+        return subprocess.run(
+            ["git", *arguments], capture_output=True, text=True, check=True
+        ).stdout.strip()
     except (OSError, subprocess.CalledProcessError) as error:
         raise SystemExit("git failed; source provenance is unavailable") from error
 
@@ -62,6 +64,7 @@ def conditions() -> dict:
     Recorded straight after the run, so the 5- and 15-minute load averages
     span it. Every value is None where the host does not expose it.
     """
+
     def read(path: str) -> str | None:
         try:
             return pathlib.Path(path).read_text(encoding="utf-8").strip()
@@ -94,7 +97,9 @@ def collect(reports: list[pathlib.Path], tmux_version: str, collected: str) -> d
             case = {
                 "method": benchmark["Method"],
                 "parameters": benchmark.get("Parameters", ""),
-                "allocated_bytes": (benchmark.get("Memory") or {}).get("BytesAllocatedPerOperation"),
+                "allocated_bytes": (benchmark.get("Memory") or {}).get(
+                    "BytesAllocatedPerOperation"
+                ),
             }
             case.update(summarize(list(benchmark["Statistics"]["OriginalValues"])))
             cases.append(case)
@@ -211,17 +216,27 @@ def gate(record: dict) -> list[str]:
     return (
         _pushdown_failures(record)
         + _ratio_failures(
-            record, MIRROR_CLASS, "RenameUntilSeen", "CaptureSnapshot", MAXIMUM_MIRROR_RATIO,
+            record,
+            MIRROR_CLASS,
+            "RenameUntilSeen",
+            "CaptureSnapshot",
+            MAXIMUM_MIRROR_RATIO,
             "a rename seen through the mirror costs {ratio:.1f} captures",
         )
         + _ratio_failures(
-            record, FLOOD_CLASS, "WatchPane", "ReadEvents", MAXIMUM_FLOOD_RATIO,
+            record,
+            FLOOD_CLASS,
+            "WatchPane",
+            "ReadEvents",
+            MAXIMUM_FLOOD_RATIO,
             "reading a flood through the watch costs {ratio:.1f} times reading every event",
         )
     )
 
 
-def _ratio_failures(record: dict, name: str, method: str, baseline: str, maximum: float, costs: str) -> list[str]:
+def _ratio_failures(
+    record: dict, name: str, method: str, baseline: str, maximum: float, costs: str
+) -> list[str]:
     # Records made before a class's benchmark existed do not carry it.
     cases = next((entry["cases"] for entry in record["classes"] if entry["name"] == name), None)
     if cases is None:
@@ -236,12 +251,16 @@ def _ratio_failures(record: dict, name: str, method: str, baseline: str, maximum
             continue
         ratio = measured["median_ns"] / reference["median_ns"]
         if ratio > maximum:
-            failures.append(f"{name} {parameters}: {costs.format(ratio=ratio)}; the gate allows {maximum:g}")
+            failures.append(
+                f"{name} {parameters}: {costs.format(ratio=ratio)}; the gate allows {maximum:g}"
+            )
     return failures
 
 
 def _pushdown_failures(record: dict) -> list[str]:
-    cases = next((entry["cases"] for entry in record["classes"] if entry["name"] == PUSHDOWN_CLASS), None)
+    cases = next(
+        (entry["cases"] for entry in record["classes"] if entry["name"] == PUSHDOWN_CLASS), None
+    )
     if cases is None:
         return [f"{PUSHDOWN_CLASS} is not in the record"]
     routes = {(case["method"], case["parameters"]): case for case in cases}
@@ -269,12 +288,16 @@ def _pushdown_failures(record: dict) -> list[str]:
 
 def main() -> int:
     """Write the record's JSON and Markdown, refusing a tree HEAD does not describe."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--reports", type=pathlib.Path)
     parser.add_argument("--tmux-version")
     parser.add_argument("--collected", help="ISO date of the run")
     parser.add_argument("--out", type=pathlib.Path)
-    parser.add_argument("--gate", type=pathlib.Path, metavar="RECORD", help="check a written record instead")
+    parser.add_argument(
+        "--gate", type=pathlib.Path, metavar="RECORD", help="check a written record instead"
+    )
     parsed = parser.parse_args()
     if parsed.gate is not None:
         failures = gate(json.loads(parsed.gate.read_text(encoding="utf-8")))
@@ -288,7 +311,9 @@ def main() -> int:
         print("refusing to record from a tree with uncommitted changes", file=sys.stderr)
         return 1
 
-    record = collect(sorted(parsed.reports.glob("*-report-full.json")), parsed.tmux_version, parsed.collected)
+    record = collect(
+        sorted(parsed.reports.glob("*-report-full.json")), parsed.tmux_version, parsed.collected
+    )
     # Appended, not substituted: a tmux version such as 3.7d has a dot of its own.
     stem = f"{parsed.collected}-tmux-{parsed.tmux_version}-fsharp"
     (parsed.out / f"{stem}.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")

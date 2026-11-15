@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import socket
 import subprocess
 import tempfile
-from xml.etree import ElementTree
 import zipfile
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
+from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[2]
 FRAMEWORKS = ("net8.0", "net10.0")
@@ -29,8 +30,13 @@ LONGEST_PROGRAM_SOCKET_NAME = 58
 def maximum_socket_root_bytes() -> int:
     """Return the longest TMUX_TMPDIR at which every program's socket path fits."""
     return (
-        SOCKET_ADDRESS_BYTES - PROGRAM_DIRECTORY_BYTES - len(f"/tmux-{os.getuid()}/") - LONGEST_PROGRAM_SOCKET_NAME
+        SOCKET_ADDRESS_BYTES
+        - PROGRAM_DIRECTORY_BYTES
+        - len(f"/tmux-{os.getuid()}/")
+        - LONGEST_PROGRAM_SOCKET_NAME
     )
+
+
 PROFILE_SOURCES = {
     "fsharp": "examples/LibTmux.FSharp.Examples/Programs/*.fs",
     "csharp": "examples/LibTmux.Examples/Programs/*.cs",
@@ -86,7 +92,8 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
         source_path(root, value)
     feed = ElementTree.parse(root / "examples/api/NuGet.config")
     if [node.attrib for node in feed.findall(".//packageSources/*")] != [
-        {}, {"key": "libtmux-source", "value": "libtmux-source/artifacts/api-example-packages"},
+        {},
+        {"key": "libtmux-source", "value": "libtmux-source/artifacts/api-example-packages"},
         {"key": "nuget.org", "value": "https://api.nuget.org/v3/index.json"},
     ] or [node.tag for node in feed.findall(".//packageSources/*")] != ["clear", "add", "add"]:
         raise ValueError("NuGet.config must use the displayed local feed and nuget.org")
@@ -94,12 +101,12 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
         node.get("key"): [package.get("pattern") for package in node]
         for node in feed.findall(".//packageSourceMapping/packageSource")
     }
-    if (
-        mapping != {"libtmux-source": ["LibTmux", "LibTmux.*"], "nuget.org": ["*"]}
-        or [node.tag for node in feed.findall(".//packageSourceMapping/*")]
-        != ["clear", "packageSource", "packageSource"]
-    ):
-        raise ValueError("NuGet.config must resolve LibTmux packages only from the native local pack")
+    if mapping != {"libtmux-source": ["LibTmux", "LibTmux.*"], "nuget.org": ["*"]} or [
+        node.tag for node in feed.findall(".//packageSourceMapping/*")
+    ] != ["clear", "packageSource", "packageSource"]:
+        raise ValueError(
+            "NuGet.config must resolve LibTmux packages only from the native local pack"
+        )
     if not manifest["profiles"] or not isinstance(manifest["profiles"], dict):
         raise ValueError("At least one example profile is required")
 
@@ -110,16 +117,32 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
     for name, profile in manifest["profiles"].items():
         keys(profile, {"package", "projectFile", "entrypoint"}, f"profile {name}")
         expected = {
-            "fsharp": {"package": "LibTmux.FSharp", "projectFile": "examples/api/fsharp/Example.fsproj", "entrypoint": "Program.fs"},
-            "csharp": {"package": "LibTmux", "projectFile": "examples/api/csharp/Example.csproj", "entrypoint": "Program.cs"},
+            "fsharp": {
+                "package": "LibTmux.FSharp",
+                "projectFile": "examples/api/fsharp/Example.fsproj",
+                "entrypoint": "Program.fs",
+            },
+            "csharp": {
+                "package": "LibTmux",
+                "projectFile": "examples/api/csharp/Example.csproj",
+                "entrypoint": "Program.cs",
+            },
         }
         if name not in expected or profile != expected[name]:
             raise ValueError(f"Unsupported example profile: {name}")
         project = ElementTree.parse(source_path(root, profile["projectFile"]))
         allowed = {
-            "Project", "PropertyGroup", "ItemGroup", "OutputType", "TargetFrameworks",
-            "LangVersion", "TreatWarningsAsErrors", "DisableImplicitFSharpCoreReference",
-            "DisableImplicitLibraryPacksFolder", "Compile", "PackageReference",
+            "Project",
+            "PropertyGroup",
+            "ItemGroup",
+            "OutputType",
+            "TargetFrameworks",
+            "LangVersion",
+            "TreatWarningsAsErrors",
+            "DisableImplicitFSharpCoreReference",
+            "DisableImplicitLibraryPacksFolder",
+            "Compile",
+            "PackageReference",
         }
         if name == "csharp":
             allowed |= {"Nullable", "ImplicitUsings", "EnableDefaultCompileItems", "AnalysisLevel"}
@@ -127,25 +150,41 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
             raise ValueError(f"Profile {name} must not import hidden source or build properties")
         if project.findtext(".//TargetFrameworks") != ";".join(FRAMEWORKS):
             raise ValueError(f"Profile {name} must run on both supported frameworks")
-        if [node.attrib for node in project.findall(".//Compile")] != [{"Include": profile["entrypoint"]}]:
+        if [node.attrib for node in project.findall(".//Compile")] != [
+            {"Include": profile["entrypoint"]}
+        ]:
             raise ValueError(f"Profile {name} must compile only the displayed entrypoint")
         if project.findall(".//ProjectReference") or project.findall(".//Import"):
             raise ValueError(f"Profile {name} must not import hidden source or build properties")
-        references = {node.get("Include"): node.get("Version") for node in project.findall(".//PackageReference")}
-        dependencies = {"LibTmux.FSharp": f"[{version}]", "FSharp.Core": "[10.1.303]"} if name == "fsharp" else {"LibTmux": f"[{version}]"}
+        references = {
+            node.get("Include"): node.get("Version")
+            for node in project.findall(".//PackageReference")
+        }
+        dependencies = (
+            {"LibTmux.FSharp": f"[{version}]", "FSharp.Core": "[10.1.303]"}
+            if name == "fsharp"
+            else {"LibTmux": f"[{version}]"}
+        )
         if references != dependencies:
             raise ValueError(f"Profile {name} must use the exact library and language dependencies")
         if name == "csharp" and any(
             project.findtext(f".//{key}") != value
-            for key, value in {"Nullable": "enable", "ImplicitUsings": "disable", "EnableDefaultCompileItems": "false"}.items()
+            for key, value in {
+                "Nullable": "enable",
+                "ImplicitUsings": "disable",
+                "EnableDefaultCompileItems": "false",
+            }.items()
         ):
-            raise ValueError("The C# profile must declare nullability, imports and its sole entrypoint")
+            raise ValueError(
+                "The C# profile must declare nullability, imports and its sole entrypoint"
+            )
 
     members = {
         (member["package"], member["id"])
         for member in inventory["members"]
         if member["visibility"] == "public"
-        and not member["implicitDeclaration"] and not member["accessor"]
+        and not member["implicitDeclaration"]
+        and not member["accessor"]
     }
     identifiers: set[str] = set()
     sources: set[str] = set()
@@ -157,9 +196,13 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
             {"id", "profile", "title", "description", "sourceFile", "targets", "output"},
             "example",
         )
-        if "requiresTmux" in entry and not re.fullmatch(r"[0-9]+\.[0-9]+[a-z]?", str(entry["requiresTmux"])):
+        if "requiresTmux" in entry and not re.fullmatch(
+            r"[0-9]+\.[0-9]+[a-z]?", str(entry["requiresTmux"])
+        ):
             raise ValueError(f"Example {entry['id']} needs a tmux release in requiresTmux")
-        if not isinstance(entry["id"], str) or not re.fullmatch(r"[a-z]+-[A-Za-z0-9]+", entry["id"]):
+        if not isinstance(entry["id"], str) or not re.fullmatch(
+            r"[a-z]+-[A-Za-z0-9]+", entry["id"]
+        ):
             raise ValueError(f"Invalid example ID: {entry['id']!r}")
         if entry["id"] in identifiers or entry["sourceFile"] in sources:
             raise ValueError(f"Duplicate example ID or source file: {entry['id']}")
@@ -178,7 +221,11 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
         if not source.endswith(b"\n") or b"\r" in source:
             raise ValueError(f"Example {entry['id']} must publish its complete LF-terminated file")
         targets = entry["targets"]
-        if not isinstance(targets, list) or not targets or not all(isinstance(value, str) for value in targets):
+        if (
+            not isinstance(targets, list)
+            or not targets
+            or not all(isinstance(value, str) for value in targets)
+        ):
             raise ValueError(f"Example {entry['id']} needs compiler targets")
         if len(set(targets)) != len(targets):
             raise ValueError(f"Example {entry['id']} repeats a compiler target")
@@ -189,9 +236,13 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
 
     for name, pattern in PROFILE_SOURCES.items():
         complete = {path.relative_to(root).as_posix() for path in root.glob(pattern)}
-        declared = {entry["sourceFile"] for entry in manifest["examples"] if entry["profile"] == name}
+        declared = {
+            entry["sourceFile"] for entry in manifest["examples"] if entry["profile"] == name
+        }
         if declared != complete:
-            raise ValueError(f"Manifest must cover every complete program for {name}: {sorted(declared ^ complete)}")
+            raise ValueError(
+                f"Manifest must cover every complete program for {name}: {sorted(declared ^ complete)}"
+            )
 
 
 def release_key(text: str) -> tuple[int, int, int]:
@@ -200,7 +251,11 @@ def release_key(text: str) -> tuple[int, int, int]:
     if match is None:
         return (0, 0, 0)
     letters = match.group(3)
-    return (int(match.group(1)), int(match.group(2)), sum(ord(c) - 96 for c in letters) + len(letters))
+    return (
+        int(match.group(1)),
+        int(match.group(2)),
+        sum(ord(c) - 96 for c in letters) + len(letters),
+    )
 
 
 def digest(path: Path) -> str:
@@ -209,18 +264,30 @@ def digest(path: Path) -> str:
 
 
 def run_consumers(
-    root: Path, manifest: dict, packages: Path, output: Path, inventory_path: Path,
+    root: Path,
+    manifest: dict,
+    packages: Path,
+    output: Path,
+    inventory_path: Path,
 ) -> None:
     """Compile copied files outside repository props, then check output and cleanup."""
     if output.is_relative_to(root):
         raise ValueError("Standalone consumers must live outside repository build properties")
     output.mkdir(parents=True, exist_ok=False)
-    receipt = {
-        "sourceRevision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
-        "sourceDirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=root, text=True)),
+    receipt: dict[str, Any] = {
+        "sourceRevision": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=root, text=True
+        ).strip(),
+        "sourceDirty": bool(
+            subprocess.check_output(["git", "status", "--porcelain"], cwd=root, text=True)
+        ),
         "manifestSha256": digest(root / "examples/api/manifest.json"),
         "compilerInventorySha256": digest(inventory_path),
-        "files": {}, "packages": {}, "assemblies": {}, "commands": [], "programs": [],
+        "files": {},
+        "packages": {},
+        "assemblies": {},
+        "commands": [],
+        "programs": [],
     }
     environment = without_tmux_selectors(os.environ)
     environment["NUGET_PACKAGES"] = str(output / "packages")
@@ -251,29 +318,47 @@ def run_consumers(
 
     def command(arguments: list[str], cwd: Path, timeout: int) -> subprocess.CompletedProcess:
         try:
-            result = subprocess.run(arguments, cwd=cwd, env=environment, capture_output=True, timeout=timeout)
+            result = subprocess.run(
+                arguments, cwd=cwd, env=environment, capture_output=True, timeout=timeout
+            )
         except subprocess.TimeoutExpired as error:
-            receipt["commands"].append({
-                "argv": arguments, "cwd": str(cwd), "timeoutSeconds": timeout,
-                "stdout": (error.stdout or b"").decode(), "stderr": (error.stderr or b"").decode(),
-            })
+            receipt["commands"].append(
+                {
+                    "argv": arguments,
+                    "cwd": str(cwd),
+                    "timeoutSeconds": timeout,
+                    "stdout": (error.stdout or b"").decode(),
+                    "stderr": (error.stderr or b"").decode(),
+                }
+            )
             raise
-        receipt["commands"].append({
-            "argv": arguments, "cwd": str(cwd), "exitCode": result.returncode,
-            "stdout": result.stdout.decode(), "stderr": result.stderr.decode(),
-        })
+        receipt["commands"].append(
+            {
+                "argv": arguments,
+                "cwd": str(cwd),
+                "exitCode": result.returncode,
+                "stdout": result.stdout.decode(),
+                "stderr": result.stderr.decode(),
+            }
+        )
         if result.returncode:
-            raise RuntimeError(f"Command failed: {arguments}\n{result.stdout.decode()}\n{result.stderr.decode()}")
+            raise RuntimeError(
+                f"Command failed: {arguments}\n{result.stdout.decode()}\n{result.stderr.decode()}"
+            )
         return result
 
     try:
         for entry in manifest["examples"]:
             profile = manifest["profiles"][entry["profile"]]
-            if "requiresTmux" in entry and release_key(receipt["tmuxVersion"]) < release_key(entry["requiresTmux"]):
-                receipt["programs"].append({
-                    "id": entry["id"],
-                    "skipped": f"needs tmux {entry['requiresTmux']}; running {receipt['tmuxVersion']}",
-                })
+            if "requiresTmux" in entry and release_key(receipt["tmuxVersion"]) < release_key(
+                entry["requiresTmux"]
+            ):
+                receipt["programs"].append(
+                    {
+                        "id": entry["id"],
+                        "skipped": f"needs tmux {entry['requiresTmux']}; running {receipt['tmuxVersion']}",
+                    }
+                )
                 continue
             consumer = output / entry["id"]
             consumer.mkdir()
@@ -290,27 +375,50 @@ def run_consumers(
                 receipt["packages"][archive.name] = digest(archive)
             project = Path(profile["projectFile"]).name
             command(["dotnet", "restore", project, "--configfile", "NuGet.config"], consumer, 120)
-            command(["dotnet", "build", project, "--configuration", "Release", "--no-restore", "--warnaserror"], consumer, 60)
+            command(
+                [
+                    "dotnet",
+                    "build",
+                    project,
+                    "--configuration",
+                    "Release",
+                    "--no-restore",
+                    "--warnaserror",
+                ],
+                consumer,
+                60,
+            )
             for framework in FRAMEWORKS:
-                deployed_libraries = ("LibTmux.dll", "LibTmux.FSharp.dll") if entry["profile"] == "fsharp" else ("LibTmux.dll",)
+                deployed_libraries = (
+                    ("LibTmux.dll", "LibTmux.FSharp.dll")
+                    if entry["profile"] == "fsharp"
+                    else ("LibTmux.dll",)
+                )
                 for name in deployed_libraries:
                     deployed = consumer / f"bin/Release/{framework}/{name}"
                     if digest(deployed) != assemblies[framework, name]:
-                        raise ValueError(f"Consumer assembly differs from the native pack: {deployed}")
+                        raise ValueError(
+                            f"Consumer assembly differs from the native pack: {deployed}"
+                        )
                     receipt["assemblies"][f"{entry['id']}/{framework}/{name}"] = digest(deployed)
                 directory = Path(tempfile.mkdtemp(prefix="a-", dir=socket_root))
                 environment["TMUX_TMPDIR"] = str(directory)
                 attempt = {
-                    "id": entry["id"], "framework": framework,
+                    "id": entry["id"],
+                    "framework": framework,
                     "sourceSha256": digest(root / entry["sourceFile"]),
                     "socketRoot": str(directory),
                 }
                 receipt["programs"].append(attempt)
                 try:
-                    result = command(["dotnet", f"bin/Release/{framework}/Example.dll"], consumer, 30)
+                    result = command(
+                        ["dotnet", f"bin/Release/{framework}/Example.dll"], consumer, 30
+                    )
                     attempt["stdout"] = result.stdout.decode()
                     if result.stdout != entry["output"].encode() or result.stderr:
-                        raise ValueError(f"Output differs from the displayed result for {entry['id']} ({framework})")
+                        raise ValueError(
+                            f"Output differs from the displayed result for {entry['id']} ({framework})"
+                        )
                 finally:
                     live = []
                     for path in directory.rglob("*"):
@@ -337,14 +445,19 @@ def main() -> None:
     parser.add_argument("--output", type=Path)
     arguments = parser.parse_args()
     root = arguments.root.resolve()
-    manifest = json.loads((root / "examples/api/manifest.json").read_text(), object_pairs_hook=unique_object)
+    manifest = json.loads(
+        (root / "examples/api/manifest.json").read_text(), object_pairs_hook=unique_object
+    )
     inventory = json.loads(arguments.inventory.read_text())
     validate(root, manifest, inventory)
     if bool(arguments.packages) != bool(arguments.output):
         parser.error("--packages and --output must be supplied together")
     if arguments.packages:
         run_consumers(
-            root, manifest, arguments.packages.resolve(), arguments.output.resolve(),
+            root,
+            manifest,
+            arguments.packages.resolve(),
+            arguments.output.resolve(),
             arguments.inventory.resolve(),
         )
     print(f"Verified {len(manifest['examples'])} complete API examples.")

@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
 
 RECIPE = Path(__file__).resolve().parents[1] / "package_review.py"
 VERSION = "0.0.0-review.1"
@@ -45,18 +44,35 @@ def review(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     for command in (
         ["git", "init", "--quiet"],
         ["git", "add", "."],
-        ["git", "-c", "user.name=Packaging fixture", "-c",
-         "user.email=fixture@example.invalid", "commit", "--quiet", "-m", "Fixture"],
+        [
+            "git",
+            "-c",
+            "user.name=Packaging fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "Fixture",
+        ],
     ):
         actual_run(command, cwd=root, check=True, capture_output=True)
     revision = actual_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    spec = importlib.util.spec_from_file_location("package_review_fixture", root / "scripts/package-review/package_review.py")
+    spec = importlib.util.spec_from_file_location(
+        "package_review_fixture", root / "scripts/package-review/package_review.py"
+    )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     fixture = SimpleNamespace(
-        root=root, output=tmp_path / "packages", revision=revision, module=module,
-        calls=[], sdk="10.0.100", failure=None, mutation=None,
+        root=root,
+        output=tmp_path / "packages",
+        revision=revision,
+        module=module,
+        calls=[],
+        sdk="10.0.100",
+        failure=None,
+        mutation=None,
     )
     fixture.setenv = monkeypatch.setenv
 
@@ -81,9 +97,11 @@ def review(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
                 (directory / "project.nuget.cache").write_text("{}")
                 (directory / "fixture.csproj.nuget.g.props").write_text("<Project />")
         elif operation == "build":
-            for project, name in (("src/LibTmux", "LibTmux"),
-                                  ("src/LibTmux.Mcp", "LibTmux.Mcp"),
-                                  ("eng/LibTmux.Engineering", "LibTmux.Engineering")):
+            for project, name in (
+                ("src/LibTmux", "LibTmux"),
+                ("src/LibTmux.Mcp", "LibTmux.Mcp"),
+                ("eng/LibTmux.Engineering", "LibTmux.Engineering"),
+            ):
                 directory = root / project / "bin/Release/net10.0"
                 directory.mkdir(parents=True)
                 (directory / (name + ".dll")).write_bytes(b"compiled fixture")
@@ -105,8 +123,15 @@ def review(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(module.subprocess, "run", run)
 
     def invoke(phase=None, *, version=VERSION, revision=None, destination=None):
-        arguments = [str(RECIPE), "--version", version, "--revision",
-                     revision or fixture.revision, "--output", str(destination or fixture.output)]
+        arguments = [
+            str(RECIPE),
+            "--version",
+            version,
+            "--revision",
+            revision or fixture.revision,
+            "--output",
+            str(destination or fixture.output),
+        ]
         if phase is not None:
             arguments.extend(["--phase", phase])
         monkeypatch.setattr(sys, "argv", arguments)
@@ -120,11 +145,27 @@ def expected_commands(review):
     inventory = str(review.output / "api-inventory.json")
     return [
         ["dotnet", "restore", "LibTmux.slnx", "--locked-mode"],
-        ["dotnet", "build", "LibTmux.slnx", "--configuration", "Release", "--no-restore",
-         "--warnaserror", "-p:ContinuousIntegrationBuild=true"],
+        [
+            "dotnet",
+            "build",
+            "LibTmux.slnx",
+            "--configuration",
+            "Release",
+            "--no-restore",
+            "--warnaserror",
+            "-p:ContinuousIntegrationBuild=true",
+        ],
         ["dotnet", ENGINEERING, "api-inventory", ".", inventory],
-        ["dotnet", "pack", "LibTmux.slnx", "--configuration", "Release", "--no-build",
-         "--output", str(review.output)],
+        [
+            "dotnet",
+            "pack",
+            "LibTmux.slnx",
+            "--configuration",
+            "Release",
+            "--no-build",
+            "--output",
+            str(review.output),
+        ],
         ["dotnet", ENGINEERING, "packages", ".", str(review.output), inventory],
     ]
 
@@ -136,8 +177,14 @@ def test_package_review_phases_preserve_all_gates(review):
         assert (review.output / "provenance.json").exists() == (phase == "pack")
     provenance = json.loads((review.output / "provenance.json").read_text())
     assert set(provenance) == {
-        "version", "revision", "tree", "sdk", "inspection", "packages",
-        "inventory_sha256", "inputs",
+        "version",
+        "revision",
+        "tree",
+        "sdk",
+        "inspection",
+        "packages",
+        "inventory_sha256",
+        "inputs",
     }
     assert provenance["revision"] == review.revision
     assert provenance["version"] == VERSION
@@ -156,6 +203,7 @@ def test_package_review_default_still_runs_full_recipe(review):
 @pytest.mark.parametrize("phased", [False, True])
 def test_package_review_tool_pack_can_create_publish_payload(review, phased):
     """SDK PackTool publishes copies and writes metadata even with --no-build."""
+
     def publish(operation):
         if operation == "pack":
             build = review.root / "src/LibTmux.Mcp/bin/Release/net10.0"
@@ -198,11 +246,24 @@ def test_package_review_rejects_repeated_or_wrong_phase(review, phase):
     assert review.calls == calls
 
 
-@pytest.mark.parametrize("mutation", [
-    "source", "revision", "version", "sdk", "props", "config", "assets",
-    "assets-missing", "restore-metadata-added", "state-identity", "state-json",
-    "environment", "commands",
-])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "source",
+        "revision",
+        "version",
+        "sdk",
+        "props",
+        "config",
+        "assets",
+        "assets-missing",
+        "restore-metadata-added",
+        "state-identity",
+        "state-json",
+        "environment",
+        "commands",
+    ],
+)
 def test_package_review_restore_identity_cannot_change(review, mutation):
     assert review.invoke("restore") == 0
     kwargs = {}
@@ -243,10 +304,21 @@ def test_package_review_restore_identity_cannot_change(review, mutation):
     assert not (review.output / "provenance.json").exists()
 
 
-@pytest.mark.parametrize("mutation", [
-    "dll", "dll-missing", "dll-added", "intermediate", "archive",
-    "tool-dll", "tool-pdb", "tool-xml", "non-tool-publish", "non-tool-settings",
-])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "dll",
+        "dll-missing",
+        "dll-added",
+        "intermediate",
+        "archive",
+        "tool-dll",
+        "tool-pdb",
+        "tool-xml",
+        "non-tool-publish",
+        "non-tool-settings",
+    ],
+)
 def test_package_review_built_outputs_cannot_change(review, mutation):
     assert review.invoke("restore") == 0
     assert review.invoke("build") == 0
@@ -270,7 +342,9 @@ def test_package_review_built_outputs_cannot_change(review, mutation):
         path.mkdir()
         (path / "Changed.dll").write_bytes(b"not a tool publish output")
     else:
-        (review.root / "src/LibTmux/obj/Release/net10.0/DotnetToolSettings.xml").write_bytes(b"not tool metadata")
+        (review.root / "src/LibTmux/obj/Release/net10.0/DotnetToolSettings.xml").write_bytes(
+            b"not tool metadata"
+        )
     with pytest.raises((OSError, RuntimeError)):
         review.invoke("pack")
     assert len(review.calls) == 2

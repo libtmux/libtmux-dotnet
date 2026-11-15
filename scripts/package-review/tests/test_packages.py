@@ -28,17 +28,12 @@ def artifacts() -> pathlib.Path:
     return path
 
 
-def inspect(
-    directory: pathlib.Path, root: pathlib.Path = ROOT
-) -> subprocess.CompletedProcess[str]:
+def inspect(directory: pathlib.Path, root: pathlib.Path = ROOT) -> subprocess.CompletedProcess[str]:
     """Invoke the owning validator without restoring or building."""
     return subprocess.run(
         [
             "dotnet",
-            str(
-                ROOT
-                / "eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engineering.dll"
-            ),
+            str(ROOT / "eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engineering.dll"),
             "packages",
             str(root),
             str(directory),
@@ -110,9 +105,14 @@ def test_corrupt_fsharp_packages_fail(
         elif mutation == "duplicate-core":
             group.append(ElementTree.fromstring(ElementTree.tostring(core)))
         elif mutation == "extra-runtime-dependency":
-            ElementTree.SubElement(group, f"{namespace}dependency", {
-                "id": "FSharp.Compiler.Service", "version": "43.11.302",
-            })
+            ElementTree.SubElement(
+                group,
+                f"{namespace}dependency",
+                {
+                    "id": "FSharp.Compiler.Service",
+                    "version": "43.11.302",
+                },
+            )
     if mutation == "duplicate-group":
         dependencies.append(ElementTree.fromstring(ElementTree.tostring(groups[0])))
     elif mutation == "missing-version":
@@ -161,7 +161,9 @@ def test_matching_source_and_archive_cannot_expand_allowed_dependencies(
         )
     )
     central = ElementTree.parse(source / "Directory.Packages.props")
-    version = central.find(".//PackageVersion[@Include='YamlDotNet']").attrib["Version"]
+    pinned = central.find(".//PackageVersion[@Include='YamlDotNet']")
+    assert pinned is not None
+    version = pinned.attrib["Version"]
     core = next(packages.glob("LibTmux.[0-9]*.nupkg"))
     with zipfile.ZipFile(core) as archive:
         entries = {name: archive.read(name) for name in archive.namelist()}
@@ -253,9 +255,7 @@ def test_corrupt_packages_fail(
         elif mutation == "dependency":
             name = next(name for name in entries if name.endswith(".nuspec"))
             assert b' version="8.0.0"' in entries[name]
-            entries[name] = entries[name].replace(
-                b' version="8.0.0"', b' version="99.0.0"'
-            )
+            entries[name] = entries[name].replace(b' version="8.0.0"', b' version="99.0.0"')
         elif mutation == "framework":
             del entries["lib/net8.0/LibTmux.dll"]
         elif mutation == "bundled-assembly":

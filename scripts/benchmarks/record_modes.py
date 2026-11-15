@@ -25,6 +25,7 @@ import re
 import statistics
 import subprocess
 import sys
+from typing import Any
 
 # Reported at three significant figures. The samples resolve nothing finer:
 # the spread between repeats of one case is wider than the gap this would show.
@@ -109,7 +110,7 @@ def collect(
     if len(warmups) != 1:
         raise SystemExit(f"cases discarded different warmup counts: {sorted(warmups)}")
 
-    cases = []
+    cases: list[dict[str, Any]] = []
     for benchmark in benchmarks:
         statistics_block = benchmark["Statistics"]
         parameters = benchmark.get("Parameters", "")
@@ -117,9 +118,7 @@ def collect(
         case = {
             "mode": benchmark["Method"],
             "commands": commands,
-            "allocated_bytes": (benchmark.get("Memory") or {}).get(
-                "BytesAllocatedPerOperation"
-            ),
+            "allocated_bytes": (benchmark.get("Memory") or {}).get("BytesAllocatedPerOperation"),
         }
         case.update(summarize(list(statistics_block["OriginalValues"])))
         cases.append(case)
@@ -160,7 +159,9 @@ def collect_workload(
 ) -> dict:
     """Record only a complete, preflight-checked five-mode workload."""
     if run_log is None:
-        candidates = sorted(report.parent.parent.glob("LibTmux.Benchmarks.ModeWorkloadBenchmarks-*.log"))
+        candidates = sorted(
+            report.parent.parent.glob("LibTmux.Benchmarks.ModeWorkloadBenchmarks-*.log")
+        )
         if len(candidates) != 1:
             raise SystemExit("five-mode workloads need one matching log or an explicit --run-log")
         run_log = candidates[0]
@@ -196,10 +197,15 @@ def collect_workload(
         flags=re.MULTILINE,
     )
     head = git("rev-parse", "HEAD")
-    if (len(source) != len(expected) or {row[0] for row in source} != set(expected)
-            or not re.fullmatch(r"[0-9a-f]{40}", head)
-            or any(commit != head or clean != "true" for _, commit, clean in source)):
-        raise SystemExit("the run log lacks a clean source commit matching the current HEAD for every mode")
+    if (
+        len(source) != len(expected)
+        or {row[0] for row in source} != set(expected)
+        or not re.fullmatch(r"[0-9a-f]{40}", head)
+        or any(commit != head or clean != "true" for _, commit, clean in source)
+    ):
+        raise SystemExit(
+            "the run log lacks a clean source commit matching the current HEAD for every mode"
+        )
     if "executed benchmarks: 5" not in log:
         raise SystemExit("the run log does not confirm five executed benchmarks")
     mode_order = re.findall(
@@ -215,15 +221,17 @@ def collect_workload(
         raise SystemExit(f"cases discarded different warmup counts: {sorted(warmups)}")
     actual_iterations = {
         sum(
-            1 for measurement in benchmark["Measurements"]
+            1
+            for measurement in benchmark["Measurements"]
             if measurement.get("IterationMode") == "Workload"
             and measurement.get("IterationStage") == "Actual"
-        ) for benchmark in benchmarks
+        )
+        for benchmark in benchmarks
     }
     if len(actual_iterations) != 1 or 0 in actual_iterations:
         raise SystemExit("cases have different or zero actual iteration counts")
 
-    cases = []
+    cases: list[dict[str, Any]] = []
     for benchmark in benchmarks:
         values = benchmark.get("Statistics", {}).get("OriginalValues", [])
         if not values:
@@ -381,7 +389,9 @@ def main() -> int:
         print("record from a committed tree: the record names HEAD", file=sys.stderr)
         return 1
 
-    record = collect(arguments.report, arguments.tmux_version, arguments.collected, arguments.run_log)
+    record = collect(
+        arguments.report, arguments.tmux_version, arguments.collected, arguments.run_log
+    )
 
     arguments.out.mkdir(parents=True, exist_ok=True)
     stem = f"{arguments.collected}-tmux-{arguments.tmux_version}"

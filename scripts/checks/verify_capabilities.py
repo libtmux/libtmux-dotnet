@@ -12,9 +12,7 @@ SOURCE_ROOT = pathlib.Path(__file__).parents[2] / "src" / "LibTmux"
 TESTS_ROOT = pathlib.Path(__file__).parents[2] / "tests"
 REPOSITORY_ROOT = pathlib.Path(__file__).parents[2]
 MODEL_PATH = SOURCE_ROOT / "Versioning" / "TmuxCapabilities.cs"
-DELTAS_PATH = (
-    pathlib.Path(__file__).parents[2] / "docs" / "parity" / "version-deltas.json"
-)
+DELTAS_PATH = pathlib.Path(__file__).parents[2] / "docs" / "parity" / "version-deltas.json"
 # Every capability name carries an underscore, which the other literals in the
 # profile source -- versions, messages, platform names -- do not.
 CAPABILITY_LITERAL = re.compile(r'"([a-z][a-z0-9]*(?:_[a-z0-9]+)+)"')
@@ -125,22 +123,23 @@ def declared_intervals(source: str) -> dict[str, tuple[str, str | None]]:
     return intervals
 
 
-def stable_version_key(raw: str) -> tuple[int, int, int, int | str]:
+def stable_version_key(raw: str) -> tuple[int, int, int, int, str]:
     """Return the ordering key used by stable boundaries in the ledger."""
     match = STABLE_VERSION.fullmatch(raw)
     if match is None:
         raise ValueError(f"not a stable tmux boundary: {raw}")
+    micro = 0
+    patch_key = ""
     if match.group("micro") is not None:
         kind = 1
-        suffix: int | str = int(match.group("micro"))
+        micro = int(match.group("micro"))
     elif match.group("patch") is not None:
         kind = 2
         patch = match.group("patch")
-        suffix = f"{len(patch):08d}:{patch}"
+        patch_key = f"{len(patch):08d}:{patch}"
     else:
         kind = 0
-        suffix = 0
-    return int(match.group("major")), int(match.group("minor")), kind, suffix
+    return int(match.group("major")), int(match.group("minor")), kind, micro, patch_key
 
 
 def recorded_intervals(
@@ -264,8 +263,7 @@ def unproven_capabilities(
         path, separator, member = proof.partition("::")
         if not separator or member not in members.get(path, set()):
             violations.append(
-                f"capability names a proof that is not there: "
-                f"{row['capability']} ({proof})",
+                f"capability names a proof that is not there: {row['capability']} ({proof})",
             )
 
     return sorted(violations)
@@ -338,16 +336,13 @@ def validate(
     model_intervals = declared_intervals(source)
     delta_intervals = recorded_intervals(document)
     violations = [
-        f"capability is declared but not recorded: {name}"
-        for name in sorted(declared - recorded)
+        f"capability is declared but not recorded: {name}" for name in sorted(declared - recorded)
     ]
     violations.extend(
-        f"capability is recorded but not declared: {name}"
-        for name in sorted(recorded - declared)
+        f"capability is recorded but not declared: {name}" for name in sorted(recorded - declared)
     )
     violations.extend(
-        f"version gate names an unknown capability: {name} "
-        f"({', '.join(sorted(references[name]))})"
+        f"version gate names an unknown capability: {name} ({', '.join(sorted(references[name]))})"
         for name in sorted(set(references) - declared)
     )
     violations.extend(

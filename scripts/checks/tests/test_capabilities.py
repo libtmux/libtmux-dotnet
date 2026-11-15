@@ -10,9 +10,7 @@ import typing as t
 
 def load_verifier() -> dict[str, t.Any]:
     """Load the capability verifier without importing a package."""
-    return runpy.run_path(
-        str(pathlib.Path(__file__).parents[1] / "verify_capabilities.py")
-    )
+    return runpy.run_path(str(pathlib.Path(__file__).parents[1] / "verify_capabilities.py"))
 
 
 def checked_in_source() -> str:
@@ -52,9 +50,7 @@ def test_capability_without_a_recorded_delta_is_rejected() -> None:
         checked_in_document(),
     )
 
-    assert violations == [
-        "capability is declared but not recorded: invented_capability_name"
-    ]
+    assert violations == ["capability is declared but not recorded: invented_capability_name"]
 
 
 def test_recorded_delta_without_a_capability_is_rejected() -> None:
@@ -65,9 +61,7 @@ def test_recorded_delta_without_a_capability_is_rejected() -> None:
 
     violations = namespace["validate"](checked_in_source(), {}, document)
 
-    assert violations == [
-        "capability is recorded but not declared: recorded_only_capability"
-    ]
+    assert violations == ["capability is recorded but not declared: recorded_only_capability"]
 
 
 def test_gate_naming_an_unknown_capability_is_rejected() -> None:
@@ -81,8 +75,7 @@ def test_gate_naming_an_unknown_capability_is_rejected() -> None:
     )
 
     assert violations == [
-        "version gate names an unknown capability: misspelled_capability "
-        "(Pane.Operations.cs)"
+        "version gate names an unknown capability: misspelled_capability (Pane.Operations.cs)"
     ]
 
 
@@ -149,7 +142,6 @@ def test_capability_naming_a_proof_that_was_never_written_is_rejected() -> None:
     )
 
     expected = (
-        "capability names a proof that is not there: "
-        f"{proven['capability']} ({path}::NeverWritten)"
+        f"capability names a proof that is not there: {proven['capability']} ({path}::NeverWritten)"
     )
     assert violations == [expected]

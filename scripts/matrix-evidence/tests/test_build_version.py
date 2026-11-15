@@ -94,9 +94,7 @@ def fixture(tmp_path: pathlib.Path) -> Fixture:
     return Fixture(repository, tmp_path / "artifacts", release, topic, annotated)
 
 
-def build(
-    fixture: Fixture, *arguments: str
-) -> subprocess.CompletedProcess[str]:
+def build(fixture: Fixture, *arguments: str) -> subprocess.CompletedProcess[str]:
     """Run the script against the stand-in repository."""
     environment = {
         **os.environ,
@@ -228,7 +226,9 @@ def test_a_moved_branch_is_built_afresh_not_taken_from_the_cache(fixture: Fixtur
 
 def test_a_tampered_ref_cache_is_rebuilt(fixture: Fixture) -> None:
     first = build(fixture, "--ref", "topic")
-    pathlib.Path(fields(first)["binary"]).write_text('#!/bin/sh\necho "tmux 0.0"\n', encoding="utf-8")
+    pathlib.Path(fields(first)["binary"]).write_text(
+        '#!/bin/sh\necho "tmux 0.0"\n', encoding="utf-8"
+    )
     second = build(fixture, "--ref", "topic")
 
     assert second.returncode == 0, second.stderr

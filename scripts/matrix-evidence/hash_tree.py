@@ -136,8 +136,7 @@ def write_hashes(root: pathlib.Path) -> str:
         msg = f"evidence directory does not exist: {root}"
         raise FileNotFoundError(msg)
     lines = [
-        f"{hash_file(path)}  {path.relative_to(root).as_posix()}"
-        for path in evidence_files(root)
+        f"{hash_file(path)}  {path.relative_to(root).as_posix()}" for path in evidence_files(root)
     ]
     manifest = "\n".join(lines) + ("\n" if lines else "")
     destination = root / "SHA256SUMS"

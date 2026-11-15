@@ -1,4 +1,5 @@
 """A benchmark record must state the method the run actually used."""
+
 import json
 import pathlib
 import runpy
@@ -32,7 +33,15 @@ def report(path, warmups):
             "Measurements": measurements,
         }
 
-    path.write_text(json.dumps({"Benchmarks": [benchmark(f"Mode{index}", warmup) for index, warmup in enumerate(warmups)]}))
+    path.write_text(
+        json.dumps(
+            {
+                "Benchmarks": [
+                    benchmark(f"Mode{index}", warmup) for index, warmup in enumerate(warmups)
+                ]
+            }
+        )
+    )
     return path
 
 
@@ -74,16 +83,18 @@ def test_five_mode_record_requires_complete_samples_and_preflight(tmp_path, monk
     cases = []
     log = []
     for mode, (processes, clients) in modes.items():
-        cases.append({
-            "Method": "Workload",
-            "Parameters": f"Mode={mode}",
-            "Statistics": {"OriginalValues": [1_000_000.0, 2_000_000.0, 3_000_000.0]},
-            "Measurements": [
-                {"IterationMode": "Workload", "IterationStage": "Warmup"},
-                {"IterationMode": "Workload", "IterationStage": "Actual"},
-            ],
-            "Memory": {"BytesAllocatedPerOperation": 128},
-        })
+        cases.append(
+            {
+                "Method": "Workload",
+                "Parameters": f"Mode={mode}",
+                "Statistics": {"OriginalValues": [1_000_000.0, 2_000_000.0, 3_000_000.0]},
+                "Measurements": [
+                    {"IterationMode": "Workload", "IterationStage": "Warmup"},
+                    {"IterationMode": "Workload", "IterationStage": "Actual"},
+                ],
+                "Memory": {"BytesAllocatedPerOperation": 128},
+            }
+        )
         log.append(f"// Benchmark: ModeWorkloadBenchmarks.Workload: Job-X [Mode={mode}]")
         log.append(
             f"Mode '{mode}' preflight: {processes} tmux processes, {clients} control clients, "

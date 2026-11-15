@@ -34,9 +34,7 @@ def write_environment(repository: pathlib.Path, commit: str) -> None:
         json.dumps(
             {
                 "evaluatedCommit": commit,
-                "evaluatedCommitTree": run_git(
-                    repository, "rev-parse", f"{commit}^{{tree}}"
-                ),
+                "evaluatedCommitTree": run_git(repository, "rev-parse", f"{commit}^{{tree}}"),
             },
             indent=2,
         )
@@ -138,9 +136,7 @@ def test_precommit_rejects_source_edited_after_the_evaluated_commit(
 ) -> None:
     """Reject evidence captured while tracked source is still mutable."""
     write_environment(repository, run_git(repository, "rev-parse", "HEAD"))
-    (repository / "csharp" / "src" / "Server.cs").write_text(
-        "// edited\n", encoding="utf-8"
-    )
+    (repository / "csharp" / "src" / "Server.cs").write_text("// edited\n", encoding="utf-8")
 
     assert precommit(repository) == 1
 
@@ -187,9 +183,7 @@ def test_postcommit_rejects_a_descendant_that_also_changes_source(
 ) -> None:
     """Reject a child commit that smuggles source changes beside evidence."""
     write_environment(repository, run_git(repository, "rev-parse", "HEAD"))
-    (repository / "csharp" / "src" / "Server.cs").write_text(
-        "// smuggled\n", encoding="utf-8"
-    )
+    (repository / "csharp" / "src" / "Server.cs").write_text("// smuggled\n", encoding="utf-8")
     run_git(repository, "add", "-A")
     run_git(repository, "commit", "-qm", "evidence and source")
 
@@ -200,9 +194,7 @@ def test_postcommit_rejects_an_unclean_worktree(repository: pathlib.Path) -> Non
     """Reject a bound evidence commit left beside uncommitted source."""
     write_environment(repository, run_git(repository, "rev-parse", "HEAD"))
     commit_evidence(repository)
-    (repository / "csharp" / "src" / "Server.cs").write_text(
-        "// trailing\n", encoding="utf-8"
-    )
+    (repository / "csharp" / "src" / "Server.cs").write_text("// trailing\n", encoding="utf-8")
 
     assert postcommit(repository) == 1
 
@@ -239,9 +231,7 @@ def test_final_matrix_matches_the_closing_source_tree(
         json.dumps(
             {
                 "evaluatedCommit": commit,
-                "evaluatedCommitTree": run_git(
-                    repository, "rev-parse", f"{commit}^{{tree}}"
-                ),
+                "evaluatedCommitTree": run_git(repository, "rev-parse", f"{commit}^{{tree}}"),
             },
             indent=2,
         )
@@ -313,9 +303,7 @@ def test_usage_requires_a_fingerprint_mode(repository: pathlib.Path) -> None:
 
 def test_a_package_naming_its_commit_passes(tmp_path: pathlib.Path) -> None:
     """A package that says which commit built it can be stepped into."""
-    package = write_package(
-        tmp_path, commit="a" * 40, url="https://example.invalid/repo"
-    )
+    package = write_package(tmp_path, commit="a" * 40, url="https://example.invalid/repo")
 
     assert verify_source_binding.package_source_binding(package) == []
 
@@ -340,11 +328,7 @@ def test_a_package_without_a_repository_is_reported(tmp_path: pathlib.Path) -> N
 
 def write_package(directory: pathlib.Path, *, commit: str, url: str) -> pathlib.Path:
     """Write a package shaped the way SourceLink leaves one."""
-    repository = (
-        f'<repository type="git" url="{url}" commit="{commit}" />'
-        if url or commit
-        else ""
-    )
+    repository = f'<repository type="git" url="{url}" commit="{commit}" />' if url or commit else ""
     specification = (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">'

@@ -26,9 +26,12 @@ KIND_TITLES = {
 def public_member_ids(path: pathlib.Path = INVENTORY_PATH) -> frozenset[str]:
     """Read externally visible, explicitly declared core symbols from Roslyn."""
     return frozenset(
-        member["id"] for member in json.loads(path.read_text())["members"]
-        if member["package"] == "LibTmux" and member["visibility"] == "public"
-        and not member["implicitDeclaration"] and not member["accessor"]
+        member["id"]
+        for member in json.loads(path.read_text())["members"]
+        if member["package"] == "LibTmux"
+        and member["visibility"] == "public"
+        and not member["implicitDeclaration"]
+        and not member["accessor"]
     )
 
 
@@ -153,29 +156,52 @@ def short_names(signature: str, modules: t.AbstractSet[str] = frozenset()) -> st
 # starts with. A module or type not listed here fails the render, so a new one
 # is placed before it ships; so does a listed call the facade does not have.
 FSHARP_TASKS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
-    ("List and filter", ("Server.panes", "Query.where", "Query.list"),
-     ("Query", "Filter", "Field", "Relation")),
-    ("Fields to filter on", ("PaneFields.currentCommand", "WindowFields.name", "SessionFields.name"),
-     ("PaneFields", "WindowFields", "SessionFields", "ClientFields")),
-    ("Pick one match, or panes showing text",
-     ("Query.exactlyOne", "Query.atMostOne", "Query.showing", "Server.tryFindPane"),
-     ("Selection", "CardinalityError", "ScreenSearch")),
-    ("Start or attach to a server", ("Server.createOwned", "Server.connect", "Server.within"),
-     ("Server", "Options")),
-    ("Describe sessions, windows and splits",
-     ("Server.newSession", "SessionSpec.named", "WindowSpec.named", "SplitSpec.empty"),
-     ("SessionSpec", "WindowSpec", "SplitSpec", "SplitSize")),
-    ("Split panes and find the active one",
-     ("Pane.split", "Session.activePane", "Window.activePane"),
-     ("Session", "Window", "WindowPlacementKey")),
+    (
+        "List and filter",
+        ("Server.panes", "Query.where", "Query.list"),
+        ("Query", "Filter", "Field", "Relation"),
+    ),
+    (
+        "Fields to filter on",
+        ("PaneFields.currentCommand", "WindowFields.name", "SessionFields.name"),
+        ("PaneFields", "WindowFields", "SessionFields", "ClientFields"),
+    ),
+    (
+        "Pick one match, or panes showing text",
+        ("Query.exactlyOne", "Query.atMostOne", "Query.showing", "Server.tryFindPane"),
+        ("Selection", "CardinalityError", "ScreenSearch"),
+    ),
+    (
+        "Start or attach to a server",
+        ("Server.createOwned", "Server.connect", "Server.within"),
+        ("Server", "Options"),
+    ),
+    (
+        "Describe sessions, windows and splits",
+        ("Server.newSession", "SessionSpec.named", "WindowSpec.named", "SplitSpec.empty"),
+        ("SessionSpec", "WindowSpec", "SplitSpec", "SplitSize"),
+    ),
+    (
+        "Split panes and find the active one",
+        ("Pane.split", "Session.activePane", "Window.activePane"),
+        ("Session", "Window", "WindowPlacementKey"),
+    ),
     ("Type into a pane", ("Pane.sendLine", "Pane.sendKeys", "Pane.pressKey"), ("Pane", "Chain")),
-    ("Wait, run and read results", ("Pane.sendAndWait", "Pane.waitForText", "Pane.run", "Pane.capture"),
-     ("PaneWait", "PaneRun")),
-    ("Stream events",
-     ("Control.withSession", "Control.watchPane", "Control.watchPanes", "Control.foldWhile"),
-     ("Control", "StreamStep", "PaneWatch")),
-    ("Live state and snapshots", ("Mirror.start", "Mirror.tryWaitUntil", "Server.capture"),
-     ("Mirror", "Snapshot", "CaptureState")),
+    (
+        "Wait, run and read results",
+        ("Pane.sendAndWait", "Pane.waitForText", "Pane.run", "Pane.capture"),
+        ("PaneWait", "PaneRun"),
+    ),
+    (
+        "Stream events",
+        ("Control.withSession", "Control.watchPane", "Control.watchPanes", "Control.foldWhile"),
+        ("Control", "StreamStep", "PaneWatch"),
+    ),
+    (
+        "Live state and snapshots",
+        ("Mirror.start", "Mirror.tryWaitUntil", "Server.capture"),
+        ("Mirror", "Snapshot", "CaptureState"),
+    ),
     ("Failures and retries", ("Retry.ifNotSent", "Retry.ifNotSentAfter"), ("TmuxFailure", "Retry")),
     ("Async workflows", ("TmuxAsync.awaitTask", "TmuxAsync.awaitUnitTask"), ("TmuxAsync",)),
 )
@@ -220,7 +246,9 @@ def render_fsharp(members: list[dict[str, str]]) -> str:
     # A call is checked only where its section renders, so a partial inventory
     # still renders the sections it has.
     if missing := sorted(
-        call for _, starts, _ in FSHARP_TASKS for call in starts
+        call
+        for _, starts, _ in FSHARP_TASKS
+        for call in starts
         if call.split(".", 1)[0] in grouped and call not in calls
     ):
         raise ValueError(f"FSHARP_TASKS names calls the facade lacks: {', '.join(missing)}")
@@ -251,7 +279,8 @@ def render_fsharp(members: list[dict[str, str]]) -> str:
         if not (sections := [name for name in names if name in grouped]):
             continue
         start = ", ".join(
-            f"[`{call}`](#{call.split('.', 1)[0].lower()})" for call in starts
+            f"[`{call}`](#{call.split('.', 1)[0].lower()})"
+            for call in starts
             if call.split(".", 1)[0] in grouped
         )
         links = ", ".join(f"[{name}](#{name.lower()})" for name in sections)
@@ -259,9 +288,9 @@ def render_fsharp(members: list[dict[str, str]]) -> str:
     for group, entries in sorted(grouped.items()):
         lines.extend(["", f"## {group}", "", "| Signature | Summary |", "|---|---|"])
         for entry in sorted(entries, key=fsharp_signature):
-            lines.append(
-                f"| {code_span(short_names(fsharp_signature(entry), grouped.keys()))} | {entry['summary'].replace('|', '\\|')} |"
-            )
+            signature = code_span(short_names(fsharp_signature(entry), grouped.keys()))
+            summary = entry["summary"].replace("|", "\\|")
+            lines.append(f"| {signature} | {summary} |")
 
     return "\n".join(lines) + "\n"
 
@@ -312,9 +341,7 @@ def main(arguments: t.Sequence[str] | None = None) -> int:
             nodes.append(ElementTree.fromstring(member["documentation"]))
     rendered = render(read_members(root, public_member_ids(INVENTORY_PATH)))
     if parsed.check:
-        current = (
-            OUTPUT_PATH.read_text(encoding="utf-8") if OUTPUT_PATH.exists() else ""
-        )
+        current = OUTPUT_PATH.read_text(encoding="utf-8") if OUTPUT_PATH.exists() else ""
         if current != rendered:
             print(
                 "api reference differs from the built XML documentation",

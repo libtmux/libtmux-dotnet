@@ -1,7 +1,6 @@
 """Record repository-relative proof that rejected spike code is absent."""
 
 # Precise proof failures identify the absence gate that still fails.
-# ruff: noqa: EM101, EM102, TRY003
 
 from __future__ import annotations
 
@@ -102,9 +101,7 @@ def build_proof(
     repository = repository.resolve()
     solution = require_relative(solution, "solution")
     checked_absent = [require_relative(path, "absent path") for path in absent]
-    checked_prefixes = [
-        require_relative(path, "tracked prefix") for path in tracked_prefixes
-    ]
+    checked_prefixes = [require_relative(path, "tracked prefix") for path in tracked_prefixes]
     for path in checked_absent:
         if (repository / path).exists():
             raise DeletionProofError(f"absent path still exists: {path.as_posix()}")
@@ -117,9 +114,7 @@ def build_proof(
     for prefix in checked_prefixes:
         tracked = run_git(repository, "ls-files", "--cached", "--", prefix.as_posix())
         if tracked:
-            raise DeletionProofError(
-                f"tracked prefix still contains entries: {prefix.as_posix()}"
-            )
+            raise DeletionProofError(f"tracked prefix still contains entries: {prefix.as_posix()}")
     solution_path = repository / solution
     if not solution_path.is_file():
         raise DeletionProofError("solution does not exist")
@@ -183,9 +178,7 @@ def parse_args(argv: t.Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--solution", required=True, type=pathlib.Path)
     parser.add_argument("--absent", action="append", default=[], type=pathlib.Path)
     parser.add_argument("--absent-glob", action="append", default=[])
-    parser.add_argument(
-        "--tracked-prefix", action="append", default=[], type=pathlib.Path
-    )
+    parser.add_argument("--tracked-prefix", action="append", default=[], type=pathlib.Path)
     parser.add_argument("--project-token", action="append", default=[])
     parser.add_argument("--project-count", type=int)
     parser.add_argument("--output", required=True, type=pathlib.Path)
@@ -206,9 +199,7 @@ def main(argv: t.Sequence[str] | None = None) -> int:
         Process status.
     """
     arguments = parse_args(argv)
-    repository = pathlib.Path(
-        run_git(pathlib.Path.cwd(), "rev-parse", "--show-toplevel")
-    )
+    repository = pathlib.Path(run_git(pathlib.Path.cwd(), "rev-parse", "--show-toplevel"))
     proof = build_proof(
         repository=repository,
         solution=arguments.solution,

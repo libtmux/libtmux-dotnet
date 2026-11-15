@@ -96,10 +96,14 @@ def verify(root: pathlib.Path) -> list[str]:
         # lanes from the plan, which reads the manifest and is checked below.
         (".github/workflows/dotnet-tmux.yml", "fromJSON(needs.plan.outputs.matrix)"),
         (".github/workflows/dotnet-tmux.yml", "fromJSON(needs.plan.outputs.rejected)"),
-        ("scripts/matrix-evidence/run-matrix.sh", "REQUIRED_VERSIONS=({})".format(
-            " ".join(supported))),
-        ("scripts/matrix-evidence/run-matrix.sh", 'tmuxVersions:[{}]'.format(
-            ",".join(f'"{version}"' for version in supported))),
+        (
+            "scripts/matrix-evidence/run-matrix.sh",
+            "REQUIRED_VERSIONS=({})".format(" ".join(supported)),
+        ),
+        (
+            "scripts/matrix-evidence/run-matrix.sh",
+            "tmuxVersions:[{}]".format(",".join(f'"{version}"' for version in supported)),
+        ),
     )
     for relative, rendering in renderings:
         text = read(relative)
