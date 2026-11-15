@@ -229,9 +229,7 @@ jobs:
         id: fsharp-readme-quickstart
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-quickstart
-          TMUX_TMPDIR: ${{ runner.temp }}/fsharp-quickstart-tmux
         run: |
-          mkdir -p "${TMUX_TMPDIR}"
           dotnet restore examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
             --configfile tests/NuGet.config \
             -p:UsePackageReferences=true
@@ -251,7 +249,7 @@ jobs:
           fi
           for framework in net8.0 net10.0; do
             # Built above, so only what the program prints reaches the comparison.
-            printed="$(env -u TMUX -u TMUX_PANE dotnet run \
+            printed="$(dotnet run \
               --project examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
               --configuration Release \
               --framework "${framework}" \

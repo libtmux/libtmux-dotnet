@@ -163,11 +163,15 @@ and at 50 fifty-eight more tests do. A uid of more digits leaves less room.
 The claim covers the test projects. These entry points do not carry it, and each
 names its own socket: the F# `AotSmoke` and `Sdk8Consumer` programs, the F#
 `PackageConsumer`, which also removes `LIBTMUX_SOCKET*` from its tmux's
-environment, the F# `Quickstart` and `Examples` programs, the C# examples built
-one at a time with `ExampleProgram`, and `scripts/docs/verify_api_examples.py`,
-which gives each program a fresh `TMUX_TMPDIR`, refuses a caller's that is too
-long for the longest socket name the programs use, and removes `TMUX`,
-`TMUX_PANE` and `LIBTMUX_SOCKET*` from their environment.
+environment, and the F# `Examples` harness, which moves `TMUX_TMPDIR` into a
+directory of its own and clears `TMUX` and `TMUX_PANE`. The complete C# and F#
+programs, including the F# `Quickstart`, make a temporary directory, put their
+socket in it with `ServerConnectionOptions.SocketPath`, and delete it after
+their server stops, so they need no shell setup.
+`scripts/docs/verify_api_examples.py` proves that: it runs every program with
+`TMUX`, `TMUX_PANE`, `TMUX_TMPDIR` and `LIBTMUX_SOCKET*` pointing at servers and
+directories that do not exist, in a `TMPDIR` of its own, and fails a program
+that leaves a process running or a file behind.
 
 Two things are never safe here, because the processes and directories belong
 to other workspaces:

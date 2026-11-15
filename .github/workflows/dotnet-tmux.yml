@@ -303,10 +303,7 @@ jobs:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
-          # Leave room for the socket name within Unix socket path limits.
-          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
         run: |
-          mkdir -p "${TMUX_TMPDIR}"
           if [[ -n "${LIBTMUX_EXPECTED_TMUX_VERSION}" ]]; then
             test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
           fi
@@ -332,9 +329,7 @@ jobs:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
-          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
         run: |
-          mkdir -p "${TMUX_TMPDIR}"
           if [[ -n "${LIBTMUX_EXPECTED_TMUX_VERSION}" ]]; then
             test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
           fi
