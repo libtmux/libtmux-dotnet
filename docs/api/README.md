@@ -2,7 +2,7 @@
 
 Generated from compiler symbols and their XML summaries. Only public
 source declarations render. Regenerate with
-`uv run python eng/docs/render_api_reference.py`.
+`uv run python scripts/docs/render_api_reference.py`.
 
 See [choosing a mode](../modes/matrix.md) for how the three execution
 modes differ.

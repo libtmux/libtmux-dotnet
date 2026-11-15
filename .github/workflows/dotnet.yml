@@ -55,7 +55,16 @@ jobs:
           echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/actionlint.tar.gz" | sha256sum --check --strict
           tar -xzf "${RUNNER_TEMP}/actionlint.tar.gz" -C "${RUNNER_TEMP}" actionlint
           "${RUNNER_TEMP}/actionlint"
-          uv run --locked --script eng/parity/verify_workflows.py
+          uv run --locked --script scripts/checks/verify_workflows.py
+
+      - name: Script format
+        run: uv run --locked --script scripts/run_checks.py format
+
+      - name: Script lint
+        run: uv run --locked --script scripts/run_checks.py lint
+
+      - name: Script types
+        run: uv run --locked --script scripts/run_checks.py types
 
       - name: Install tmux
         # The examples, the ahead-of-time smoke test and the package consumer
@@ -156,7 +165,7 @@ jobs:
       - name: Package mutation tests
         env:
           LIBTMUX_PACKAGE_ARTIFACTS: artifacts/packages
-        run: uv run --locked --script eng/run_tests.py --quiet -m packaging
+        run: uv run --locked --script scripts/run_checks.py tests --quiet -m packaging
 
       - name: Install and inspect the workspace CLI
         run: |
@@ -256,7 +265,7 @@ jobs:
               --framework "${framework}" \
               --no-build \
               -p:UsePackageReferences=true)"
-            printf '%s\n' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart
+            printf '%s\n' "${printed}" | python3 scripts/docs/sync_fsharp_snippets.py --expect-output Quickstart
           done
 
       - name: F# packed example console
@@ -276,7 +285,7 @@ jobs:
               --no-restore \
               -p:UsePackageReferences=true
           done
-          python3 eng/docs/verify_api_examples.py \
+          python3 scripts/docs/verify_api_examples.py \
             --packages artifacts/packages \
             --output "${RUNNER_TEMP}/libtmux-api-examples"
 
@@ -404,27 +413,27 @@ jobs:
         # the same idea aimed the other way: the documents are downstream of
         # code that runs, and this is what says so out loud.
         run: |
-          uv run python eng/parity/verify_public_api.py
-          uv run python eng/parity/verify_capabilities.py
-          uv run python eng/parity/verify_version_literals.py
-          uv run python eng/parity/verify_changelogs.py
-          uv run python eng/parity/verify_tmux_versions.py
-          uv run python eng/docs/render_api_reference.py --check
-          uv run python eng/docs/render_api_reference.py --fsharp --check
-          uv run python eng/docs/sync_snippets.py --check
-          uv run python eng/docs/sync_fsharp_snippets.py --check
-          uv run eng/mcp/dump_tools.py --check
+          uv run python scripts/checks/verify_public_api.py
+          uv run python scripts/checks/verify_capabilities.py
+          uv run python scripts/checks/verify_version_literals.py
+          uv run python scripts/checks/verify_changelogs.py
+          uv run python scripts/checks/verify_tmux_versions.py
+          uv run python scripts/docs/render_api_reference.py --check
+          uv run python scripts/docs/render_api_reference.py --fsharp --check
+          uv run python scripts/docs/sync_snippets.py --check
+          uv run python scripts/docs/sync_fsharp_snippets.py --check
+          uv run scripts/mcp-tools/dump_tools.py --check
 
       - name: F# member reference
         id: fsharp-fsdocs
-        run: python3 eng/docs/sync_fsdocs_reference.py --check
+        run: python3 scripts/docs/sync_fsdocs_reference.py --check
 
-      - name: Engineering tests
+      - name: Script tests
         # Naming pytest and tomlkit on the command line resolved whatever
         # released that morning, so an unrelated release could turn this red.
         # The runner declares them in its own PEP 723 header and pins them in
         # the lock beside it; --locked refuses to run against a stale one.
-        run: uv run --locked --script eng/run_tests.py --quiet
+        run: uv run --locked --script scripts/run_checks.py tests --quiet
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         # A run that failed before packing has nothing to upload, and saying so

@@ -22,7 +22,7 @@ on:
   push:
     paths:
       - 'benchmarks/**'
-      - 'eng/benchmarks/**'
+      - 'scripts/benchmarks/**'
       - '.github/workflows/benchmarks.yml'
       - 'src/LibTmux/Query/**'
       - 'src/LibTmux/Snapshots/**'
@@ -83,7 +83,7 @@ jobs:
       - name: Record the run
         run: |
           mkdir -p artifacts/benchmark-record
-          python3 eng/benchmarks/record_fsharp.py \
+          python3 scripts/benchmarks/record_fsharp.py \
             --reports artifacts/benchmarks-fsharp/results \
             --tmux-version "${TMUX_VERSION}" \
             --collected "$(date -u +%F)" \
@@ -99,4 +99,4 @@ jobs:
 
       # After the upload, so a run that fails the gate is still recorded.
       - name: Gate pushdown against listing everything
-        run: python3 eng/benchmarks/record_fsharp.py --gate artifacts/benchmark-record/*.json
+        run: python3 scripts/benchmarks/record_fsharp.py --gate artifacts/benchmark-record/*.json

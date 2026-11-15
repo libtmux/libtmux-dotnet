@@ -25,20 +25,36 @@ from `global-json-file` and calls `dotnet` directly, so a workflow file never
 carries the prefix.
 
 Compiler inventory and package inspection run through `eng/LibTmux.Engineering`.
-The Python validators run through [uv](https://docs.astral.sh/uv/).
-There is no Python project file — each script carries its own PEP 723 header,
-and a script with dependencies carries a `.lock` beside it so the gate resolves
-the same versions every run:
+The support scripts live under [`scripts/`](../scripts/README.md), follow
+[SCRIPTS.md](SCRIPTS.md), and run through [uv](https://docs.astral.sh/uv/).
+There is no Python project file: each script carries its own PEP 723 header,
+and `scripts/run_checks.py` carries a `.lock` beside it so the gate resolves the
+same versions every run:
 
 ```console
-$ uv lock --script eng/run_tests.py
+$ uv lock --script scripts/run_checks.py
 ```
 
-Run the engineering tests through that locked runner rather than naming pytest
-on the command line, which resolves whatever released that morning:
+Run the four script checks through that locked runner rather than naming pytest
+or ruff on the command line, which resolves whatever released that morning.
+Check formatting, lint and types:
 
 ```console
-$ uv run --locked --script eng/run_tests.py
+$ uv run --locked --script scripts/run_checks.py format
+```
+
+```console
+$ uv run --locked --script scripts/run_checks.py lint
+```
+
+```console
+$ uv run --locked --script scripts/run_checks.py types
+```
+
+Run the tests and doctests:
+
+```console
+$ uv run --locked --script scripts/run_checks.py tests
 ```
 
 You also need a real `tmux`, version 3.3a or newer. The suite drives one
@@ -148,7 +164,7 @@ The claim covers the test projects. These entry points do not carry it, and each
 names its own socket: the F# `AotSmoke` and `Sdk8Consumer` programs, the F#
 `PackageConsumer`, which also removes `LIBTMUX_SOCKET*` from its tmux's
 environment, the F# `Quickstart` and `Examples` programs, the C# examples built
-one at a time with `ExampleProgram`, and `eng/docs/verify_api_examples.py`,
+one at a time with `ExampleProgram`, and `scripts/docs/verify_api_examples.py`,
 which gives each program a fresh `TMUX_TMPDIR`, refuses a caller's that is too
 long for the longest socket name the programs use, and removes `TMUX`,
 `TMUX_PANE` and `LIBTMUX_SOCKET*` from their environment.
@@ -307,7 +323,7 @@ refuses a package that does not. It also checks portable PDB identity
 and SourceLink against `HEAD`. The compiler inventory travels with the packages
 so the publisher repeats this inspection without rebuilding the libraries.
 
-For a downstream review, `eng/package_review.py` runs the same restore, build,
+For a downstream review, `scripts/package-review/package_review.py` runs the same restore, build,
 inventory, pack and inspection commands with a distinct prerelease identity.
 Use a clean, committed checkout with no concurrent builds or edits. Set
 `CORE_REVISION` to its full reviewed commit SHA and choose a version that has
@@ -315,7 +331,7 @@ never been used for other bytes. Run each phase separately with the same SDK,
 environment, version and output directory:
 
 ```console
-$ mise exec -- python3 eng/package_review.py \
+$ mise exec -- python3 scripts/package-review/package_review.py \
     --phase restore \
     --revision "$CORE_REVISION" \
     --version 0.0.0-review.1 \
@@ -323,7 +339,7 @@ $ mise exec -- python3 eng/package_review.py \
 ```
 
 ```console
-$ mise exec -- python3 eng/package_review.py \
+$ mise exec -- python3 scripts/package-review/package_review.py \
     --phase build \
     --revision "$CORE_REVISION" \
     --version 0.0.0-review.1 \
@@ -331,7 +347,7 @@ $ mise exec -- python3 eng/package_review.py \
 ```
 
 ```console
-$ mise exec -- python3 eng/package_review.py \
+$ mise exec -- python3 scripts/package-review/package_review.py \
     --phase pack \
     --revision "$CORE_REVISION" \
     --version 0.0.0-review.1 \
@@ -392,7 +408,7 @@ The outer-loop regression suite mutates real packages:
 
 ```console
 $ LIBTMUX_PACKAGE_ARTIFACTS=artifacts/packages mise exec -- \
-    uv run --locked --script eng/run_tests.py --quiet -m packaging
+    uv run --locked --script scripts/run_checks.py tests --quiet -m packaging
 ```
 
 Use a fresh package cache for each standalone consumer run. Source mapping in
@@ -505,15 +521,15 @@ above. It contains exact compiler XML IDs, effective visibility and source
 comments; no handwritten declaration inventory is maintained.
 
 ```console
-$ uv run python eng/parity/verify_public_api.py
+$ uv run python scripts/checks/verify_public_api.py
 ```
 
 ```console
-$ uv run python eng/parity/verify_capabilities.py
+$ uv run python scripts/checks/verify_capabilities.py
 ```
 
 ```console
-$ uv run python eng/parity/verify_version_literals.py
+$ uv run python scripts/checks/verify_version_literals.py
 ```
 
 ```console
@@ -521,15 +537,15 @@ $ mise exec -- actionlint
 ```
 
 ```console
-$ uv run --locked --script eng/parity/verify_workflows.py
+$ uv run --locked --script scripts/checks/verify_workflows.py
 ```
 
 ```console
-$ uv run python eng/parity/verify_tmux_versions.py
+$ uv run python scripts/checks/verify_tmux_versions.py
 ```
 
 ```console
-$ uv run python eng/docs/render_api_reference.py --check
+$ uv run python scripts/docs/render_api_reference.py --check
 ```
 
 After a Release build with `ContinuousIntegrationBuild=true`, check the F#
@@ -538,15 +554,15 @@ member pages generated from compiler XML documentation by the pinned
 paths in the generated pages and fail this check:
 
 ```console
-$ mise exec -- uv run python eng/docs/sync_fsdocs_reference.py --check
+$ mise exec -- uv run python scripts/docs/sync_fsdocs_reference.py --check
 ```
 
 ```console
-$ uv run python eng/docs/sync_snippets.py --check
+$ uv run python scripts/docs/sync_snippets.py --check
 ```
 
 ```console
-$ uv run eng/mcp/dump_tools.py --check
+$ uv run scripts/mcp-tools/dump_tools.py --check
 ```
 
 The API renderer matches exact compiler identities, including overloads and
@@ -563,9 +579,9 @@ assembly. The Linux workflow runs this owner once per framework and excludes
 it from general integration and tmux-version lanes. [examples/README.md](../examples/README.md)
 describes the snippet markers.
 
-The locked engineering runner owns Python tests. Package mutations are tagged
+The locked runner owns the script checks. Package mutations are tagged
 `packaging` and require the explicit artifact environment variable above;
-ordinary engineering tests do not build or pack.
+ordinary script tests do not build or pack.
 
 ### Test loops
 
@@ -586,7 +602,7 @@ Missing artifacts and empty test selections fail. A push and a pull request
 run the oldest and the newest version in `eng/tmux/versions.json` on net8.0 and
 net10.0. The weekly schedule, a dispatch with `scope=full` and the release
 workflow, which passes `scope: full`, run every version, the four refusal
-lanes and the lane for exactly tmux 3.7. `eng/tmux/plan.py` decides this from
+lanes and the lane for exactly tmux 3.7. `scripts/tmux-plan/plan.py` decides this from
 the manifest and the event, so the workflow lists no version.
 
 The `compatibility` job requires the producer, the matrix and every lane the
@@ -665,7 +681,7 @@ The tool reference is generated rather than written, so it cannot describe a
 surface that is not there:
 
 ```console
-$ uv run eng/mcp/dump_tools.py
+$ uv run scripts/mcp-tools/dump_tools.py
 ```
 
 A wait takes a control-mode client, which is a real attached client: it shows
@@ -681,12 +697,12 @@ being right about tmux, and only tmux can say whether it is.
 
 **A new tmux version starts in the manifest.**
 [`eng/tmux/versions.json`](../eng/tmux/versions.json) decides which versions
-this repository supports. The workflow reads it through `eng/tmux/plan.py`;
+this repository supports. The workflow reads it through `scripts/tmux-plan/plan.py`;
 both build scripts, the runtime constants and every README repeat it, and
-`eng/parity/verify_tmux_versions.py` names each one that has not caught up:
+`scripts/checks/verify_tmux_versions.py` names each one that has not caught up:
 
 ```console
-$ uv run python eng/parity/verify_tmux_versions.py
+$ uv run python scripts/checks/verify_tmux_versions.py
 ```
 
 **A version-dependent behaviour needs a row in the ledger.** Anything that
@@ -719,7 +735,7 @@ how. Add examples to the READMEs or `docs/modes/`, not to the decision records
 **A change a caller can observe has a changelog entry.** It goes under
 `## [Unreleased]` in the `CHANGELOG.md` of the package it changes, or in the
 root file when it spans packages; [WRITING.md](WRITING.md#changelog) says which.
-`eng/parity/verify_changelogs.py` fails when a published package loses its
+`scripts/checks/verify_changelogs.py` fails when a published package loses its
 changelog or its `## [Unreleased]` section, not when an entry is missing.
 
 **A performance claim needs a recorded run.** See
@@ -809,14 +825,14 @@ To record against a clean committed source tree, select a new evidence
 directory -- the next unused number under `docs/parity/evidence/`:
 
 ```console
-$ eng/tmux/run-matrix.sh \
+$ scripts/matrix-evidence/run-matrix.sh \
     --evidence-dir docs/parity/evidence/0014 \
     --capability-cohort workspace \
     tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
 ```
 
 ```console
-$ uv run python eng/parity/reconcile_versions.py \
+$ uv run python scripts/matrix-evidence/reconcile_versions.py \
     --evidence docs/parity/evidence/0014/results.ndjson \
     --write
 ```

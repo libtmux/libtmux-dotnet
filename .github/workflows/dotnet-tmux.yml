@@ -77,7 +77,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sparse-checkout: eng/tmux
+          sparse-checkout: |
+            eng/tmux
+            scripts/tmux-plan
 
       - name: Plan the run
         id: plan
@@ -89,7 +91,7 @@ jobs:
           DOTNET: ${{ inputs.dotnet }}
           TMATE: ${{ inputs.tmate }}
         run: |
-          python3 eng/tmux/plan.py \
+          python3 scripts/tmux-plan/plan.py \
             --event "${EVENT}" \
             --ref "${REF}" \
             --scope "${SCOPE}" \
@@ -321,7 +323,7 @@ jobs:
             fi
             # Each program prints what it found; its guide shows what it must print.
             printed="$(dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll")"
-            printf '%s\n' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output "${program}"
+            printf '%s\n' "${printed}" | python3 scripts/docs/sync_fsharp_snippets.py --expect-output "${program}"
           done
 
       - name: C# complete programs

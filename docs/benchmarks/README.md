@@ -67,7 +67,7 @@ set `LIBTMUX_TMUX` to its binary.
 Turn the result into a record:
 
 ```console
-$ uv run python eng/benchmarks/record_modes.py \
+$ uv run python scripts/benchmarks/record_modes.py \
     --report artifacts/benchmarks/results/LibTmux.Benchmarks.ModeBenchmarks-report-full.json \
     --tmux-version 3.7b \
     --collected 2026-08-16 \
@@ -131,7 +131,7 @@ The config requests five warmup and twenty measured passes per mode. Set
 BenchmarkDotNet JSON and run log. On a committed tree, record them together:
 
 ```console
-$ python3 eng/benchmarks/record_modes.py \
+$ python3 scripts/benchmarks/record_modes.py \
     --report artifacts/benchmarks/mode-workload/results/LibTmux.Benchmarks.ModeWorkloadBenchmarks-report-full.json \
     --tmux-version 3.7d \
     --collected 2026-09-27 \
@@ -178,7 +178,7 @@ On a clean committed tree, validate the full run and retain its median, p95,
 and p99 distributions:
 
 ```console
-$ python3 eng/benchmarks/record_topology.py \
+$ python3 scripts/benchmarks/record_topology.py \
     --input artifacts/benchmarks/topology.ndjson \
     --output artifacts/benchmarks/topology.record.json
 ```
@@ -276,7 +276,7 @@ $ dotnet run \
 ```
 
 ```console
-$ uv run python eng/benchmarks/record_fsharp.py \
+$ uv run python scripts/benchmarks/record_fsharp.py \
     --reports artifacts/benchmarks-fsharp/results \
     --tmux-version 3.7d \
     --collected 2026-10-03 \
@@ -366,7 +366,7 @@ large server spends most of a mirror's cost on captures.
 
 The `benchmarks` workflow runs every F# class on a GitHub-hosted runner
 against a tmux built from source, records the run with
-`eng/benchmarks/record_fsharp.py`, and uploads the record for comparison with
+`scripts/benchmarks/record_fsharp.py`, and uploads the record for comparison with
 those under `runs/`. It runs when a push changes what is measured or how it
 is recorded, and on dispatch for a chosen tmux version:
 
@@ -406,7 +406,7 @@ nothing. Four things are gated instead:
 Check a record with:
 
 ```console
-$ python3 eng/benchmarks/record_fsharp.py \
+$ python3 scripts/benchmarks/record_fsharp.py \
     --gate docs/benchmarks/runs/2026-10-04-tmux-3.7c-fsharp.json
 ```
 
@@ -440,7 +440,7 @@ loss measurement.
 Record a complete run with the shared NDJSON recorder:
 
 ```console
-$ python3 eng/benchmarks/record_topology.py \
+$ python3 scripts/benchmarks/record_topology.py \
     --probe stream \
     --input artifacts/benchmarks/stream.ndjson \
     --output artifacts/benchmarks/stream.record.json

@@ -497,7 +497,7 @@ The loop runs one way: edit the example, then bring the copy across. Never edit
 the block in the document.
 
 ```console
-$ uv run python eng/docs/sync_snippets.py
+$ uv run python scripts/docs/sync_snippets.py
 ```
 
 Prefer anchoring for an example a reader is likely to copy verbatim. A block

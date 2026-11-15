@@ -1,0 +1,12 @@
+[environment]
+python-version = "3.10"
+extra-paths = [
+    "checks",
+    "docs",
+    "tmux-plan",
+    "matrix-evidence",
+    "benchmarks",
+    "mcp-tools",
+    "package-review",
+    "wrapped-captures",
+]

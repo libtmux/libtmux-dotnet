@@ -13,7 +13,7 @@ The following checks catch different failures:
 | Check | Where | Fails when |
 | --- | --- | --- |
 | `ReadmeExampleTests` | `tests/LibTmux.IntegrationTests/Documentation/` | A C# block in a shipped document does not compile, or a `csharp run` block does not run |
-| `sync_snippets.py` | `eng/docs/` | A published block has drifted from the region it was quoted from |
+| `sync_snippets.py` | `scripts/docs/` | A published block has drifted from the region it was quoted from |
 | `SnippetContractTests` | `tests/LibTmux.ExampleTests/` | A published region is not an example that runs, or an example is somewhere the snippet reader cannot see |
 
 ## Writing an example
@@ -62,7 +62,7 @@ between them:
 Then materialize it:
 
 ```console
-$ uv run python eng/docs/sync_snippets.py
+$ uv run python scripts/docs/sync_snippets.py
 ```
 
 The region is dedented before it is written, so code nested inside a method
@@ -74,7 +74,7 @@ written above the block:
 <!-- snippet: ConnectAndBuild usings: LibTmux -->
 ```
 
-[`sync_snippets.py`](../eng/docs/sync_snippets.py) lists the documents that
+[`sync_snippets.py`](../scripts/docs/sync_snippets.py) lists the documents that
 publish snippets. Decision records are deliberately excluded: they quote what
 was run at the time, and an example edited later to keep compiling records
 nothing.
@@ -86,7 +86,7 @@ the document** — `--check` compares the two and fails the build on any
 difference, so a hand-edited block is reported as drift rather than kept:
 
 ```console
-$ uv run python eng/docs/sync_snippets.py --check
+$ uv run python scripts/docs/sync_snippets.py --check
 ```
 
 ### Both failure modes

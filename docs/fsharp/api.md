@@ -1,7 +1,7 @@
 # F# API reference
 
 Generated from compiled F# signatures and XML summaries. Regenerate with
-`uv run python eng/docs/render_api_reference.py --fsharp`.
+`uv run python scripts/docs/render_api_reference.py --fsharp`.
 
 This page is the map: a task table, then every signature with its summary.
 The [member reference](../fsharp-reference/reference/index.md) is the

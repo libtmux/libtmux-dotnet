@@ -9,7 +9,7 @@ TestResults/
 # BenchmarkDotNet writes its reports beside the project it ran.
 BenchmarkDotNet.Artifacts/
 
-# The engineering scripts under eng/ are Python, run through uv.
+# The support scripts under scripts/ are Python, run through uv.
 __pycache__/
 *.py[cod]
 .venv/

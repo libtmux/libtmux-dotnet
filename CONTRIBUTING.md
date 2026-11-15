@@ -38,11 +38,11 @@ A socket file outlives the server that made it, so confirm each with
 miss locally, because they check documents rather than the build:
 
 ```console
-$ uv run python eng/parity/verify_public_api.py
+$ uv run python scripts/checks/verify_public_api.py
 ```
 
 ```console
-$ uv run python eng/parity/verify_capabilities.py
+$ uv run python scripts/checks/verify_capabilities.py
 ```
 
 The packaging tests read what a pack produced, so run the workflow's order —
@@ -59,11 +59,10 @@ differs between 3.2a and 3.7b goes through the capability model, and each
 difference names the test that proves it in
 [`docs/parity/version-deltas.json`](docs/parity/version-deltas.json).
 
-**A public API addition needs five edits, and each will tell you.** The Roslyn
-analyzer baseline (`PublicAPI.Unshipped.txt`), the type and its members in
-`docs/public-api.json`, its values if it is an enum, and its owning component in
-`eng/parity/verify_production_plan.py`. They fail independently and by name;
-follow the errors.
+**A public API addition needs the Roslyn analyzer baseline.** Add it to
+`PublicAPI.Unshipped.txt`; add policy metadata to `docs/public-api.json` only
+when the API introduces ownership, I/O, platform or package-placement rules.
+The checks fail by name; follow the errors.
 
 **A documented example is compiled, and a `csharp run` block is executed against
 a live tmux.** If it does not compile, it is not documentation. Add examples to

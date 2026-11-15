@@ -4,7 +4,7 @@ Generated from the server itself — a table nobody generates is wrong the
 first time somebody adds a tool. Regenerate after changing the surface:
 
 ```console
-$ uv run eng/mcp/dump_tools.py
+$ uv run scripts/mcp-tools/dump_tools.py
 ```
 
 45 tools and 1 static resource. No dynamic resource

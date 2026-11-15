@@ -35,9 +35,9 @@ $ mise exec -- dotnet run \
 Check policy and regenerate the reference:
 
 ```console
-$ uv run python eng/parity/verify_public_api.py
+$ uv run python scripts/checks/verify_public_api.py
 ```
 
 ```console
-$ uv run python eng/docs/render_api_reference.py
+$ uv run python scripts/docs/render_api_reference.py
 ```

@@ -1,5 +1,5 @@
 {
-  "$comment": "The tmux versions this repository supports. Every list of them elsewhere is checked against this by eng/parity/verify_tmux_versions.py; add a version here first.",
+  "$comment": "The tmux versions this repository supports. Every list of them elsewhere is checked against this by scripts/checks/verify_tmux_versions.py; add a version here first.",
   "schemaVersion": 1,
   "minimum": "3.3a",
   "maximumTested": "3.8",
