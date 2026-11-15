@@ -583,7 +583,7 @@ def test_the_windows_lane_cannot_skip_pull_requests_or_forgive_failures(
     assert any(f"dotnet.windows.{key}" in error for error in verify(repository))
 
 
-RAW_APT_FIX = "run it through eng/apt-get.sh"
+RAW_APT_FIX = "run it through the libtmux/.github apt-get action"
 
 
 def add_run_step(repository: pathlib.Path, run: str, *, action: bool = False) -> str:
@@ -635,16 +635,46 @@ def test_a_raw_apt_call_is_refused(
 @pytest.mark.parametrize(
     "run",
     [
-        "./eng/apt-get.sh update",
-        "./eng/apt-get.sh install --yes tmux",
-        "# sudo apt-get update is wrapped by eng/apt-get.sh",
+        "# sudo apt-get update is wrapped by the apt-get action",
         'echo "the runner\'s apt tmux can be older"',
     ],
 )
 @pytest.mark.parametrize("action", [False, True])
-def test_the_wrapper_and_prose_about_apt_pass(
+def test_prose_about_apt_passes(
     repository: pathlib.Path, run: str, action: bool
 ) -> None:
     add_run_step(repository, run, action=action)
+
+    assert verify(repository) == []
+
+
+SHARED_ACTION_SHA = "30f81842b1e639ea4e25f93f1f2543504178e228"
+
+
+def add_shared_action(repository: pathlib.Path, reference: str) -> None:
+    """Write a workflow whose one step uses a shared action at ``reference``."""
+    (repository / ".github/workflows/extra.yml").write_text(
+        "name: extra\non: push\njobs:\n  build:\n    runs-on: ubuntu-24.04\n"
+        f"    steps:\n      - name: Build tmux\n        uses: {reference}\n"
+    )
+
+
+@pytest.mark.parametrize("ref", ["main", "v1", "30f8184"])
+def test_a_shared_action_must_be_pinned_to_a_full_commit(
+    repository: pathlib.Path, ref: str
+) -> None:
+    """A moved tag or branch would change what runs in every job."""
+    add_shared_action(repository, f"libtmux/.github/actions/build-tmux@{ref}")
+
+    errors = [error for error in verify(repository) if "to a full commit SHA" in error]
+
+    assert len(errors) == 1
+    assert "'Build tmux'" in errors[0]
+
+
+def test_a_pinned_shared_action_passes(repository: pathlib.Path) -> None:
+    add_shared_action(
+        repository, f"libtmux/.github/actions/build-tmux@{SHARED_ACTION_SHA}"
+    )
 
     assert verify(repository) == []

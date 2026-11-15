@@ -59,48 +59,11 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install build dependencies
-        run: |
-          ./eng/apt-get.sh update
-          ./eng/apt-get.sh install --yes \
-            autoconf \
-            automake \
-            bison \
-            build-essential \
-            libevent-dev \
-            libncurses-dev \
-            libutempter-dev \
-            pkg-config
-
-      - name: Identify tmux ${{ env.TMUX_VERSION }}
-        id: tmux-build
-        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
-        env:
-          TMUX_VERSION: ${{ env.TMUX_VERSION }}
-
-      - name: Restore tmux ${{ env.TMUX_VERSION }}
-        id: tmux-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.tmux-build.outputs.prefix }}
-          key: ${{ steps.tmux-build.outputs.key }}
-
-      - name: Validate or rebuild tmux ${{ env.TMUX_VERSION }}
+      - name: Build tmux ${{ env.TMUX_VERSION }}
         id: tmux
-        run: |
-          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
-          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
-        env:
-          TMUX_VERSION: ${{ env.TMUX_VERSION }}
-          TMUX_PREFIX: ${{ steps.tmux-build.outputs.prefix }}
-          CACHE_HIT: ${{ steps.tmux-cache.outputs.cache-hit }}
-
-      - name: Save validated tmux ${{ env.TMUX_VERSION }}
-        if: steps.tmux-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: libtmux/.github/actions/build-tmux@30f81842b1e639ea4e25f93f1f2543504178e228
         with:
-          path: ${{ steps.tmux-build.outputs.prefix }}
-          key: ${{ steps.tmux-build.outputs.key }}
+          ref: ${{ env.TMUX_VERSION }}
 
       - name: Run the F# benchmarks
         env:

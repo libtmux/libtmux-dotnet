@@ -145,9 +145,8 @@ def custom_refs(tmux_ref: str) -> list[str]:
 def cell(tmux: str, framework: str, release: bool) -> dict[str, str]:
     """Describe one test leg.
 
-    A release is built through the closed list in `build-version.sh` and its
-    `tmux -V` must match. Anything else is resolved to a commit and built from
-    source, and has no version to assert.
+    A release in the manifest must report its own `tmux -V`. Anything else is
+    resolved to a commit and built from source, and has no version to assert.
     """
     return {
         "tmux": tmux,

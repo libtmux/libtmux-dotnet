@@ -61,35 +61,26 @@ status, which reads as a library bug rather than as two tmuxes.
 ## Native tmux in CI
 
 The `dotnet-tmux` and benchmark workflows build the tmux versions their plan
-names. Stable versions use the official release archives and the SHA256 pins in
-`.github/tmux-releases.toml`. The selected release's checksum is part of its
-cache identity. `master` and a ref a dispatch asks for resolve once to a commit
-and fetch that exact commit. The build follows tmux's
-[release and source-checkout instructions](https://github.com/tmux/tmux/blob/3.8/README#L23-L37).
-Only the installed prefix is cached. Each build uses a fresh source tree and up
-to four available processors. Adding a version to `eng/tmux/versions.json`
-needs its pin in the same change.
+names with the shared
+[build-tmux action](https://github.com/libtmux/.github/tree/main/actions/build-tmux),
+and install packages with the shared
+[apt-get action](https://github.com/libtmux/.github/tree/main/actions/apt-get).
+Both are pinned to a full commit, which `verify_workflows.py` enforces, and a
+workflow never calls `apt-get` directly.
 
-Cache keys include the actual runner image and image version, architecture,
-compiler and dependency versions, source identity, and build script.
-Dependencies are installed before validation on hits and misses. Every restored
-executable must match its recorded hash and version, start a private daemon, and
-report the same connected version. A failed check discards that job's prefix and
-rebuilds it.
-
-The workflow saves a validated installation before any test runs. GitHub caches
-are immutable: repairing an invalid exact hit fixes the current job, but cannot
-overwrite that entry. A build-script change invalidates its key for later jobs.
+A release the action pins is built from its official archive and checked
+against the SHA256 the action records. `master` and any other tag, branch or
+commit resolve once to a commit and build from that exact commit. Only the
+installed prefix is cached, under a key that names the source, the runner image,
+the toolchain and the build recipe. The action validates a restored build
+before using it and rebuilds one it rejects; its README has the details.
 Never add a broad restore-key fallback for native binaries.
 
-`eng/tmux/build-version.sh` stays the local builder behind
-`eng/tmux/run-matrix.sh`; CI does not call it. The CI scripts need Python 3.11
-or newer for the standard-library TOML reader. Run the cache regressions
-against an installed tmux:
-
-```console
-$ python3 -m pytest .github/scripts/test_tmux_build.py
-```
+`add-to-path: 'true'` puts the build's `bin` directory on `PATH` for the later
+steps of the job. Some tests run tmux from inside tmux, the way a user's
+configuration does, which finds it by name, so the build under test has to be
+the one on `PATH`. Adding a version to `eng/tmux/versions.json` needs that
+release in the action's `tmux-releases.json` first.
 
 ## Own your tmux socket root
 
@@ -617,12 +608,10 @@ $ gh workflow run dotnet-tmux.yml --ref my-branch -f scope=custom -f tmux-ref=3.
 
 `tmux-ref` takes versions, tags, branches and full 40-character commits from
 [github.com/tmux/tmux](https://github.com/tmux/tmux), separated by commas, and
-needs `scope=custom`. A table version such as `3.8` goes through the release
-build and is checked against `tmux -V`; anything else is resolved to a commit,
-cached by that commit, and built from source. `scope=full` runs everything the
-release workflow does, plus the master lane. `dotnet` takes `net8.0`,
-`net10.0` or both, and an empty value runs both. Reproduce a ref build
-locally with `eng/tmux/build-version.sh --ref 3.6b`.
+needs `scope=custom`. A table version such as `3.8` is checked against
+`tmux -V`; anything else is built from the commit it resolves to. `scope=full`
+runs everything the release workflow does, plus the master lane. `dotnet`
+takes `net8.0`, `net10.0` or both, and an empty value runs both.
 
 To look at the runner, add `tmate`. The session opens for the person who
 started the run, who needs an SSH key on their GitHub profile, and it needs

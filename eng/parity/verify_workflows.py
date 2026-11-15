@@ -24,6 +24,11 @@ FSHARP_PROGRAM_LOOP = "for source in examples/LibTmux.FSharp.Examples/Programs/*
 
 TMATE_ACTION = "mxschmitt/action-tmate"
 
+# The shared actions every workflow takes apt-get and tmux builds from. A tag
+# or branch can move under a job, so each is pinned to a full commit.
+SHARED_ACTIONS = "libtmux/.github/actions/"
+PINNED_SHARED_ACTION = re.compile(r"libtmux/\.github/actions/[a-z-]+@[0-9a-f]{40}")
+
 # apt or apt-get as a command: first on a line, after a shell separator, or
 # after sudo. A word like "the apt tmux" in an echo does not match.
 RAW_APT = re.compile(r"(?:^|[;&|(`]\s*|\bsudo\s+(?:-\S+\s+)*)apt(?:-get)?(?=\s|$)")
@@ -82,9 +87,9 @@ def names(value: object) -> set[str]:
 def raw_apt_calls(root: pathlib.Path) -> list[str]:
     """Name each workflow or action step that runs apt-get or apt directly.
 
-    eng/apt-get.sh bounds apt-get with a timeout and rotates the mirror on a
-    hang (actions/runner-images#15040), which protects a job only while every
-    call goes through it.
+    The libtmux apt-get action bounds apt-get with a timeout and rotates the
+    mirror on a hang (actions/runner-images#15040), which protects a job only
+    while every call goes through it.
     """
     errors: list[str] = []
     github = root / ".github"
@@ -122,8 +127,36 @@ def raw_apt_calls(root: pathlib.Path) -> list[str]:
                     if not command.startswith("#") and RAW_APT.search(command):
                         errors.append(
                             f"{where}: {scope}, step {label!r}: calls `{command}` "
-                            "directly; run it through eng/apt-get.sh"
+                            "directly; run it through the libtmux/.github apt-get action"
                         )
+    return errors
+
+
+def unpinned_shared_actions(root: pathlib.Path) -> list[str]:
+    """Name each step that takes a libtmux shared action by anything but a full commit."""
+    errors: list[str] = []
+    for path in sorted((root / ".github/workflows").glob("*.yml")):
+        where = path.relative_to(root).as_posix()
+        try:
+            document = yaml.load(path.read_text(encoding="utf-8"), Loader=WorkflowLoader)
+        except (OSError, ValueError, yaml.YAMLError) as error:
+            errors.append(f"{where}: {error}")
+            continue
+        jobs = document.get("jobs") if isinstance(document, dict) else None
+        for name, value in (jobs if isinstance(jobs, dict) else {}).items():
+            steps = value.get("steps") if isinstance(value, dict) else None
+            for index, step in enumerate(steps if isinstance(steps, list) else [], 1):
+                uses = step.get("uses") if isinstance(step, dict) else None
+                if (
+                    isinstance(uses, str)
+                    and uses.startswith(SHARED_ACTIONS)
+                    and PINNED_SHARED_ACTION.fullmatch(uses) is None
+                ):
+                    label = step.get("name") or step.get("id") or f"#{index}"
+                    errors.append(
+                        f"{where}: job {name}, step {label!r}: pin {uses.split('@')[0]} "
+                        "to a full commit SHA"
+                    )
     return errors
 
 
@@ -631,6 +664,7 @@ def verify(root: pathlib.Path) -> list[str]:
         "release.publish.permissions must grant only publication and attestation access",
     )
     errors.extend(raw_apt_calls(root))
+    errors.extend(unpinned_shared_actions(root))
     return errors
 
 

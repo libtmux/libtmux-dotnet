@@ -195,63 +195,27 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install build dependencies
-        # zsh drives the Workspace CLI tests' pane-readiness regression test:
-        # the wait it guards once ran only for that shell, so the test still
-        # exercises a real one to prove the generalized wait did not regress it.
-        run: |
-          ./eng/apt-get.sh update
-          ./eng/apt-get.sh install --yes \
-            autoconf \
-            automake \
-            bison \
-            build-essential \
-            jq \
-            libevent-dev \
-            libncurses-dev \
-            libutempter-dev \
-            pkg-config \
-            zsh
-
-      # A tag, branch or commit outside the table is built from source at the
-      # commit it names. The commit is resolved first so that the cache key
-      # holds it and never the branch name.
-      - name: Resolve the tmux ref
-        id: resolve
-        if: matrix.kind == 'ref'
-        env:
-          TMUX_REF: ${{ matrix.tmux }}
-        run: eng/tmux/build-version.sh --resolve "${TMUX_REF}" | tee -a "${GITHUB_OUTPUT}"
-
-      - name: Identify tmux ${{ matrix.tmux }}
-        id: tmux-build
-        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
-        env:
-          TMUX_VERSION: ${{ matrix.kind == 'ref' && steps.resolve.outputs.commit || matrix.tmux }}
-
-      - name: Restore tmux ${{ matrix.tmux }}
-        id: tmux-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Install jq and zsh
+        # jq reads the example manifest. zsh drives the Workspace CLI tests'
+        # pane-readiness regression test: the wait it guards once ran only for
+        # that shell, so the test still exercises a real one to prove the
+        # generalized wait did not regress it.
+        uses: libtmux/.github/actions/apt-get@30f81842b1e639ea4e25f93f1f2543504178e228
         with:
-          path: ${{ steps.tmux-build.outputs.prefix }}
-          key: ${{ steps.tmux-build.outputs.key }}
+          update: 'true'
+          args: install --yes jq zsh
 
-      - name: Validate or rebuild tmux ${{ matrix.tmux }}
+      # A tag, branch or commit outside the table is resolved and built from
+      # source by the action. The build goes on the path because some of what
+      # is proven here runs tmux from inside tmux, the way a user's
+      # configuration does, which finds it by name: the image has no other,
+      # and reaching a different version would prove nothing about this lane.
+      - name: Build tmux ${{ matrix.tmux }}
         id: tmux
-        run: |
-          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
-          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
-        env:
-          TMUX_VERSION: ${{ matrix.kind == 'ref' && steps.resolve.outputs.commit || matrix.tmux }}
-          TMUX_PREFIX: ${{ steps.tmux-build.outputs.prefix }}
-          CACHE_HIT: ${{ steps.tmux-cache.outputs.cache-hit }}
-
-      - name: Save validated tmux ${{ matrix.tmux }}
-        if: steps.tmux-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: libtmux/.github/actions/build-tmux@30f81842b1e639ea4e25f93f1f2543504178e228
         with:
-          path: ${{ steps.tmux-build.outputs.prefix }}
-          key: ${{ steps.tmux-build.outputs.key }}
+          ref: ${{ matrix.tmux }}
+          add-to-path: 'true'
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -287,8 +251,6 @@ jobs:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
         run: |
-          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
-          export PATH
           dotnet test \
             --test-modules "tests/LibTmux.Workspace.Cli.Tests/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.Workspace.Cli.Tests.dll" \
             --fail-skips on \
@@ -305,17 +267,9 @@ jobs:
           LIBTMUX_INTEGRATION_REQUIRED: '1'
           LIBTMUX_TEST_FRAMEWORK: ${{ matrix.framework }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
-        # Some of what is proven here runs tmux from inside tmux, the way a
-        # user's configuration does, which finds it by name. The build under
-        # test goes on the path so that inner tmux is the same one: the image
-        # has no other, and reaching a different version would prove nothing
-        # about this lane.
-        #
         # Package checks and documentation run in the main build gate.
         # Each lane executes the same assemblies against a different tmux.
         run: |
-          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
-          export PATH
           dotnet test \
             --test-modules "tests/LibTmux.IntegrationTests/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.IntegrationTests.dll" \
             --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \
@@ -356,8 +310,6 @@ jobs:
           fi
           # A ref names no release, so the programs' minimum is read from what was built.
           built="${LIBTMUX_EXPECTED_TMUX_VERSION:-$("${LIBTMUX_TMUX}" -V | sed -e 's/^tmux //' -e 's/^next-//')}"
-          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
-          export PATH
           dotnet "examples/LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
           for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
             program="$(basename "${source}" .fs)"
@@ -384,8 +336,6 @@ jobs:
           if [[ -n "${LIBTMUX_EXPECTED_TMUX_VERSION}" ]]; then
             test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
           fi
-          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
-          export PATH
           for source in examples/LibTmux.Examples/Programs/*.cs; do
             program="$(basename "${source}" .cs)"
             dotnet "examples/LibTmux.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.Examples.dll"
@@ -421,79 +371,18 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install build dependencies
-        run: |
-          ./eng/apt-get.sh update
-          ./eng/apt-get.sh install --yes \
-            autoconf \
-            automake \
-            bison \
-            build-essential \
-            jq \
-            libevent-dev \
-            libncurses-dev \
-            libutempter-dev \
-            pkg-config
-
-      - name: Identify tmux 3.3a
-        id: floor-build
-        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
-        env:
-          TMUX_VERSION: 3.3a
-
-      - name: Restore tmux 3.3a
-        id: floor-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.floor-build.outputs.prefix }}
-          key: ${{ steps.floor-build.outputs.key }}
-
-      - name: Validate or rebuild tmux 3.3a
+      - name: Build tmux 3.3a
         id: floor
-        run: |
-          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
-          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
-        env:
-          TMUX_VERSION: 3.3a
-          TMUX_PREFIX: ${{ steps.floor-build.outputs.prefix }}
-          CACHE_HIT: ${{ steps.floor-cache.outputs.cache-hit }}
-
-      - name: Save validated tmux 3.3a
-        if: steps.floor-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: libtmux/.github/actions/build-tmux@30f81842b1e639ea4e25f93f1f2543504178e228
         with:
-          path: ${{ steps.floor-build.outputs.prefix }}
-          key: ${{ steps.floor-build.outputs.key }}
+          ref: '3.3a'
+          add-to-path: 'true'
 
-      - name: Identify tmux ${{ matrix.rejected-version }}
-        id: rejected-build
-        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
-        env:
-          TMUX_VERSION: ${{ matrix.rejected-version }}
-
-      - name: Restore tmux ${{ matrix.rejected-version }}
-        id: rejected-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.rejected-build.outputs.prefix }}
-          key: ${{ steps.rejected-build.outputs.key }}
-
-      - name: Validate or rebuild tmux ${{ matrix.rejected-version }}
+      - name: Build tmux ${{ matrix.rejected-version }}
         id: rejected
-        run: |
-          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
-          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
-        env:
-          TMUX_VERSION: ${{ matrix.rejected-version }}
-          TMUX_PREFIX: ${{ steps.rejected-build.outputs.prefix }}
-          CACHE_HIT: ${{ steps.rejected-cache.outputs.cache-hit }}
-
-      - name: Save validated tmux ${{ matrix.rejected-version }}
-        if: steps.rejected-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: libtmux/.github/actions/build-tmux@30f81842b1e639ea4e25f93f1f2543504178e228
         with:
-          path: ${{ steps.rejected-build.outputs.prefix }}
-          key: ${{ steps.rejected-build.outputs.key }}
+          ref: ${{ matrix.rejected-version }}
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -517,8 +406,6 @@ jobs:
           mkdir -p "${TMUX_TMPDIR}"
           test "$("${LIBTMUX_REJECTED_TMUX}" -V)" = "tmux ${REJECTED_VERSION}"
           test "$("${LIBTMUX_TMUX}" -V)" = "tmux 3.3a"
-          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
-          export PATH
           # The control client needs 3.7, which this lane does not install,
           # so its hook test runs in the matrix. A client older than 3.2
           # rejects -N, so the two tests that run the rejected build as a
@@ -556,48 +443,12 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install build dependencies
-        run: |
-          ./eng/apt-get.sh update
-          ./eng/apt-get.sh install --yes \
-            autoconf \
-            automake \
-            bison \
-            build-essential \
-            libevent-dev \
-            libncurses-dev \
-            libutempter-dev \
-            pkg-config
-
-      - name: Identify tmux 3.7
-        id: tmux-build
-        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
-        env:
-          TMUX_VERSION: 3.7
-
-      - name: Restore tmux 3.7
-        id: tmux-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.tmux-build.outputs.prefix }}
-          key: ${{ steps.tmux-build.outputs.key }}
-
-      - name: Validate or rebuild tmux 3.7
+      - name: Build tmux 3.7
         id: tmux
-        run: |
-          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
-          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
-        env:
-          TMUX_VERSION: 3.7
-          TMUX_PREFIX: ${{ steps.tmux-build.outputs.prefix }}
-          CACHE_HIT: ${{ steps.tmux-cache.outputs.cache-hit }}
-
-      - name: Save validated tmux 3.7
-        if: steps.tmux-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: libtmux/.github/actions/build-tmux@30f81842b1e639ea4e25f93f1f2543504178e228
         with:
-          path: ${{ steps.tmux-build.outputs.prefix }}
-          key: ${{ steps.tmux-build.outputs.key }}
+          ref: '3.7'
+          add-to-path: 'true'
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -618,8 +469,6 @@ jobs:
         run: |
           mkdir -p "${TMUX_TMPDIR}"
           test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
-          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
-          export PATH
           # A test that skipped here would pass while proving nothing, so a
           # skip fails the lane, and so does a run of fewer tests than there
           # are, which a renamed test would cause.
@@ -651,49 +500,12 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install build dependencies
-        run: |
-          ./eng/apt-get.sh update
-          ./eng/apt-get.sh install --yes \
-            autoconf \
-            automake \
-            bison \
-            build-essential \
-            jq \
-            libevent-dev \
-            libncurses-dev \
-            libutempter-dev \
-            pkg-config
-
-      - name: Identify tmux master
-        id: tmux-build
-        run: python3 .github/scripts/tmux_build.py plan "${TMUX_VERSION}"
-        env:
-          TMUX_VERSION: master
-
-      - name: Restore tmux master
-        id: tmux-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.tmux-build.outputs.prefix }}
-          key: ${{ steps.tmux-build.outputs.key }}
-
-      - name: Validate or rebuild tmux master
+      - name: Build tmux master
         id: tmux
-        run: |
-          python3 .github/scripts/tmux_build.py prepare "${TMUX_VERSION}"
-          echo "binary=${TMUX_PREFIX}/bin/tmux" >> "${GITHUB_OUTPUT}"
-        env:
-          TMUX_VERSION: master
-          TMUX_PREFIX: ${{ steps.tmux-build.outputs.prefix }}
-          CACHE_HIT: ${{ steps.tmux-cache.outputs.cache-hit }}
-
-      - name: Save validated tmux master
-        if: steps.tmux-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: libtmux/.github/actions/build-tmux@30f81842b1e639ea4e25f93f1f2543504178e228
         with:
-          path: ${{ steps.tmux-build.outputs.prefix }}
-          key: ${{ steps.tmux-build.outputs.key }}
+          ref: master
+          add-to-path: 'true'
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -710,8 +522,6 @@ jobs:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_INTEGRATION_REQUIRED: '1'
         run: |
-          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
-          export PATH
           dotnet test \
             --test-modules tests/LibTmux.IntegrationTests/bin/Release/net10.0/LibTmux.IntegrationTests.dll \
             --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \

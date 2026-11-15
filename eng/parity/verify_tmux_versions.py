@@ -28,25 +28,6 @@ def load(root: pathlib.Path) -> dict[str, t.Any]:
         return t.cast(dict[str, t.Any], json.load(handle))
 
 
-def buildable(supported: list[str], transition: str) -> list[str]:
-    """Order what build-version.sh accepts: the transition before its suffixes.
-
-    tmux 3.7 is buildable, and the matrix runs its lettered successors; only
-    the tests that need exactly 3.7 run on it, in a job of their own. It sits
-    with the successors rather than at the end.
-    """
-    if transition in supported:
-        return list(supported)
-    successor = next(
-        (each for each in supported if each.startswith(transition)),
-        None,
-    )
-    if successor is None:
-        return [*supported, transition]
-    at = supported.index(successor)
-    return [*supported[:at], transition, *supported[at:]]
-
-
 def verify_plan(root: pathlib.Path, manifest: dict[str, t.Any]) -> list[str]:
     """Check that the plan, not a list of its own, decides what CI covers.
 
@@ -119,8 +100,6 @@ def verify(root: pathlib.Path) -> list[str]:
             " ".join(supported))),
         ("eng/tmux/run-matrix.sh", 'tmuxVersions:[{}]'.format(
             ",".join(f'"{version}"' for version in supported))),
-        ("eng/tmux/build-version.sh", "<{}|master>".format(
-            "|".join([*rejected, *buildable(supported, manifest["transition"])]))),
     )
     for relative, rendering in renderings:
         text = read(relative)

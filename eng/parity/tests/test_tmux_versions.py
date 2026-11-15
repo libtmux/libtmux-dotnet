@@ -30,7 +30,6 @@ def verify(root: pathlib.Path) -> list[str]:
 
 def write(root: pathlib.Path, supported: list[str]) -> pathlib.Path:
     """Lay out a repository whose every version list agrees."""
-    checker = load_checker()
     transition = "3.7"
     manifest = {
         "schemaVersion": 1,
@@ -46,9 +45,6 @@ def write(root: pathlib.Path, supported: list[str]) -> pathlib.Path:
         "eng/tmux/run-matrix.sh": "REQUIRED_VERSIONS=({})\ntmuxVersions:[{}]".format(
             " ".join(supported),
             ",".join(f'"{version}"' for version in supported),
-        ),
-        "eng/tmux/build-version.sh": "<{}|master>".format(
-            "|".join(["3.0a", "3.1c", "3.2a", "3.3", *checker["buildable"](supported, transition)])
         ),
     }
     both = f"{supported[0]} {supported[-1]}"
