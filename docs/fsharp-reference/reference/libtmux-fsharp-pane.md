@@ -6,6 +6,67 @@ Assembly: LibTmux.FSharp.dll
 
 Reads captured pane fields and starts explicit pane operations.
 
+<p class='fsdocs-para'>
+ Each function takes the pane it acts on last. One that runs a tmux command
+ also takes the cancellation token first and returns a <code>Task</code>. The pane
+ is the core <code>LibTmux.Pane</code> handle, which is immutable and safe to share,
+ and a function that changes it returns a handle carrying the state
+ afterwards.
+ </p><p class='fsdocs-para'><b>What is on here</b></p><p class='fsdocs-para'>
+ A tmux pane has a good many members, but this module covers the part an F#
+ caller reaches first. The rest lives on the core handle. The members fall
+ into a few groups:
+ </p><p class='fsdocs-para'><b>Reading what the pane holds.</b> The working directory and command name
+ are read from the capture and keep an empty string, and throw
+ IncompleteSnapshotException when the field was not
+ captured. Capturing the contents asks tmux, and reading since a position
+ returns only what the pane printed after it, with <code>LinesMissed</code> when
+ scrollback dropped output first. Finding text on screen searches only the
+ rows tmux shows, counted from 1.
+ </p><ul><li><description>Captured: <see cref="M:LibTmux.FSharp.Pane.currentPath" />,
+ <see cref="M:LibTmux.FSharp.Pane.currentCommand" /></description></li><li><description>Contents: <see cref="M:LibTmux.FSharp.Pane.capture" />,
+ <see cref="M:LibTmux.FSharp.Pane.readSince" />,
+ <see cref="M:LibTmux.FSharp.Pane.findOnScreen" /></description></li></ul><p class='fsdocs-para'><b>Sending input.</b> Text is typed literally, with or without Enter, and a
+ key is pressed by its tmux name, where tmux types a name it does not know as
+ text. Cancellation can occur after dispatch and does not undo what was sent.
+ A line whose text was sent but whose Enter failed must not be sent again.
+ </p><ul><li><description>Text: <see cref="M:LibTmux.FSharp.Pane.sendLine" />,
+ <see cref="M:LibTmux.FSharp.Pane.sendText" /></description></li><li><description>Keys: <see cref="M:LibTmux.FSharp.Pane.pressKey" />,
+ <see cref="M:LibTmux.FSharp.Pane.sendKeys" /></description></li></ul><p class='fsdocs-para'><b>Waiting.</b> A wait sleeps on the pane&#39;s own output rather than polling,
+ and returns the outcome <code>TimedOut</code> when time runs out, where only
+ <code>Mirror.waitUntil</code> raises. Text already on screen ends a wait at once.
+ Sending and then waiting counts only output after the keys and discounts the
+ shell&#39;s echo of literal text, so it does not match the typed line itself.
+ A wait throws TmuxPaneException when the pane&#39;s
+ program had already exited, and
+ TmuxObjectNotFoundException when tmux no longer has
+ the pane.
+ </p><ul><li><description>Wait: <see cref="M:LibTmux.FSharp.Pane.waitForText" />,
+ <see cref="M:LibTmux.FSharp.Pane.waitFor" />,
+ <see cref="M:LibTmux.FSharp.Pane.waitUntil" /></description></li><li><description>Send, then wait: <see cref="M:LibTmux.FSharp.Pane.sendAndWait" />,
+ <see cref="M:LibTmux.FSharp.Pane.sendAndWaitFor" /></description></li></ul><p class='fsdocs-para'><b>Running a command.</b> Run a shell command and wait for its exit status
+ and output. The pane must sit at a POSIX shell prompt, a command still
+ running at the timeout keeps running and the result reports
+ <code>TimedOut</code>, and one that was sent but could not be observed fails as
+ <code>MayHaveRun</code>, so inspect the pane before a retry.
+ </p><p class='fsdocs-para'><a href="../reference/libtmux-fsharp-pane.md#run">Pane.run</a></p><p class='fsdocs-para'><b>Splitting and arranging.</b> Splitting takes the core request, which
+ carries every split-window option, and cancellation can leave the split
+ applied, so do not retry automatically.
+ </p><ul><li><description>Split: <see cref="M:LibTmux.FSharp.Pane.split" /></description></li><li><description>Arrange: <see cref="M:LibTmux.FSharp.Pane.resize" />,
+ <see cref="M:LibTmux.FSharp.Pane.swap" />,
+ <see cref="M:LibTmux.FSharp.Pane.select" /></description></li><li><description>Title: <see cref="M:LibTmux.FSharp.Pane.setTitle" /></description></li></ul><p class='fsdocs-para'><b>Restarting and ending.</b> Respawning starts the pane&#39;s program again, and
+ tmux refuses a pane whose program is still running unless
+ <code>KillExistingProcess</code> is set. Killing takes the program in the pane with
+ it, and leaves off the core&#39;s <code>allExcept</code>. Clearing history leaves what
+ the screen shows.
+ </p><p class='fsdocs-para'><a href="../reference/libtmux-fsharp-pane.md#respawn">Pane.respawn</a>,
+ <a href="../reference/libtmux-fsharp-pane.md#kill">Pane.kill</a>,
+ <a href="../reference/libtmux-fsharp-pane.md#clearHistory">Pane.clearHistory</a></p><p class='fsdocs-para'>
+ The rest of a pane is on the core <code>LibTmux.Pane</code>, which F# calls like any
+ .NET type: the pane&#39;s options and hooks, copy mode, pasting, and the raw
+ command through <code>ExecuteCommandAsync</code>.
+ </p>
+
 ### Functions and values
 
 <a name="capture"></a>

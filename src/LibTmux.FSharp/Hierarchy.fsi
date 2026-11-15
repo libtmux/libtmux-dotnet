@@ -329,6 +329,62 @@ module Session =
             Task<LibTmux.Window>
 
 /// <summary>Identifies window placements and starts queries confined to one window.</summary>
+/// <remarks>
+/// <para>
+/// Each function takes the window it acts on last. One that runs a tmux command
+/// also takes the cancellation token first and returns a <c>Task</c>. The
+/// window is the core <c>LibTmux.Window</c> handle, which is immutable and safe
+/// to share, and a function that changes it returns a handle carrying the state
+/// afterwards.
+/// </para>
+/// <para>
+/// <b>What is on here</b>
+/// </para>
+/// <para>
+/// A tmux window has a good many members, but this module covers the part an F#
+/// caller reaches first. The rest lives on the core handle. The members fall
+/// into a few groups:
+/// </para>
+/// <para>
+/// <b>Looking inside.</b> Start a query over the window's panes, which throws
+/// <see cref="T:LibTmux.IncompleteSnapshotException" /> when the window was not
+/// read through a server. Or ask tmux now for the window's active pane, which
+/// throws <see cref="T:LibTmux.TmuxObjectNotFoundException" /> when tmux reports
+/// none. A linked window is one placement per session, and the placement key
+/// names the session and index a handle was captured at.
+/// </para>
+/// <para>
+/// <see cref="M:LibTmux.FSharp.Window.panes" />,
+/// <see cref="M:LibTmux.FSharp.Window.activePane" />,
+/// <see cref="M:LibTmux.FSharp.Window.placementKey" />
+/// </para>
+/// <para>
+/// <b>Arranging.</b> A layout is applied by name, and a name tmux may not
+/// recognise is refused with <see cref="T:LibTmux.TmuxWindowException" /> before
+/// anything is sent. Resizing and moving take the core request.
+/// </para>
+/// <para>
+/// <see cref="M:LibTmux.FSharp.Window.selectLayout" />,
+/// <see cref="M:LibTmux.FSharp.Window.resize" />,
+/// <see cref="M:LibTmux.FSharp.Window.move" />
+/// </para>
+/// <para>
+/// <b>Changing the window.</b> Renaming returns a handle carrying the new name,
+/// and tmux expands the name as a format, so a <c>#</c> in it does not survive
+/// verbatim. Selecting makes the window its session's current one. Killing the
+/// window takes its panes with it, and leaves off the core's other kill options.
+/// </para>
+/// <para>
+/// <see cref="M:LibTmux.FSharp.Window.rename" />,
+/// <see cref="M:LibTmux.FSharp.Window.select" />,
+/// <see cref="M:LibTmux.FSharp.Window.kill" />
+/// </para>
+/// <para>
+/// The rest of a window is on the core <c>LibTmux.Window</c>, which F# calls like
+/// any .NET type: creating panes, linking and unlinking, rotating, its options
+/// and hooks, and the raw command through <c>ExecuteCommandAsync</c>.
+/// </para>
+/// </remarks>
 [<RequireQualifiedAccess>]
 module Window =
     /// <summary>Returns a comparable key including the captured session and window index.</summary>
@@ -377,6 +433,126 @@ module Window =
             Task<LibTmux.Window>
 
 /// <summary>Reads captured pane fields and starts explicit pane operations.</summary>
+/// <remarks>
+/// <para>
+/// Each function takes the pane it acts on last. One that runs a tmux command
+/// also takes the cancellation token first and returns a <c>Task</c>. The pane
+/// is the core <c>LibTmux.Pane</c> handle, which is immutable and safe to share,
+/// and a function that changes it returns a handle carrying the state
+/// afterwards.
+/// </para>
+/// <para>
+/// <b>What is on here</b>
+/// </para>
+/// <para>
+/// A tmux pane has a good many members, but this module covers the part an F#
+/// caller reaches first. The rest lives on the core handle. The members fall
+/// into a few groups:
+/// </para>
+/// <para>
+/// <b>Reading what the pane holds.</b> The working directory and command name
+/// are read from the capture and keep an empty string, and throw
+/// <see cref="T:LibTmux.IncompleteSnapshotException" /> when the field was not
+/// captured. Capturing the contents asks tmux, and reading since a position
+/// returns only what the pane printed after it, with <c>LinesMissed</c> when
+/// scrollback dropped output first. Finding text on screen searches only the
+/// rows tmux shows, counted from 1.
+/// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Captured: <see cref="M:LibTmux.FSharp.Pane.currentPath" />,
+/// <see cref="M:LibTmux.FSharp.Pane.currentCommand" /></description>
+/// </item>
+/// <item>
+/// <description>Contents: <see cref="M:LibTmux.FSharp.Pane.capture" />,
+/// <see cref="M:LibTmux.FSharp.Pane.readSince" />,
+/// <see cref="M:LibTmux.FSharp.Pane.findOnScreen" /></description>
+/// </item>
+/// </list>
+/// <para>
+/// <b>Sending input.</b> Text is typed literally, with or without Enter, and a
+/// key is pressed by its tmux name, where tmux types a name it does not know as
+/// text. Cancellation can occur after dispatch and does not undo what was sent.
+/// A line whose text was sent but whose Enter failed must not be sent again.
+/// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Text: <see cref="M:LibTmux.FSharp.Pane.sendLine" />,
+/// <see cref="M:LibTmux.FSharp.Pane.sendText" /></description>
+/// </item>
+/// <item>
+/// <description>Keys: <see cref="M:LibTmux.FSharp.Pane.pressKey" />,
+/// <see cref="M:LibTmux.FSharp.Pane.sendKeys" /></description>
+/// </item>
+/// </list>
+/// <para>
+/// <b>Waiting.</b> A wait sleeps on the pane's own output rather than polling,
+/// and returns the outcome <c>TimedOut</c> when time runs out, where only
+/// <c>Mirror.waitUntil</c> raises. Text already on screen ends a wait at once.
+/// Sending and then waiting counts only output after the keys and discounts the
+/// shell's echo of literal text, so it does not match the typed line itself.
+/// A wait throws <see cref="T:LibTmux.TmuxPaneException" /> when the pane's
+/// program had already exited, and
+/// <see cref="T:LibTmux.TmuxObjectNotFoundException" /> when tmux no longer has
+/// the pane.
+/// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Wait: <see cref="M:LibTmux.FSharp.Pane.waitForText" />,
+/// <see cref="M:LibTmux.FSharp.Pane.waitFor" />,
+/// <see cref="M:LibTmux.FSharp.Pane.waitUntil" /></description>
+/// </item>
+/// <item>
+/// <description>Send, then wait: <see cref="M:LibTmux.FSharp.Pane.sendAndWait" />,
+/// <see cref="M:LibTmux.FSharp.Pane.sendAndWaitFor" /></description>
+/// </item>
+/// </list>
+/// <para>
+/// <b>Running a command.</b> Run a shell command and wait for its exit status
+/// and output. The pane must sit at a POSIX shell prompt, a command still
+/// running at the timeout keeps running and the result reports
+/// <c>TimedOut</c>, and one that was sent but could not be observed fails as
+/// <c>MayHaveRun</c>, so inspect the pane before a retry.
+/// </para>
+/// <para>
+/// <see cref="M:LibTmux.FSharp.Pane.run" />
+/// </para>
+/// <para>
+/// <b>Splitting and arranging.</b> Splitting takes the core request, which
+/// carries every split-window option, and cancellation can leave the split
+/// applied, so do not retry automatically.
+/// </para>
+/// <list type="bullet">
+/// <item>
+/// <description>Split: <see cref="M:LibTmux.FSharp.Pane.split" /></description>
+/// </item>
+/// <item>
+/// <description>Arrange: <see cref="M:LibTmux.FSharp.Pane.resize" />,
+/// <see cref="M:LibTmux.FSharp.Pane.swap" />,
+/// <see cref="M:LibTmux.FSharp.Pane.select" /></description>
+/// </item>
+/// <item>
+/// <description>Title: <see cref="M:LibTmux.FSharp.Pane.setTitle" /></description>
+/// </item>
+/// </list>
+/// <para>
+/// <b>Restarting and ending.</b> Respawning starts the pane's program again, and
+/// tmux refuses a pane whose program is still running unless
+/// <c>KillExistingProcess</c> is set. Killing takes the program in the pane with
+/// it, and leaves off the core's <c>allExcept</c>. Clearing history leaves what
+/// the screen shows.
+/// </para>
+/// <para>
+/// <see cref="M:LibTmux.FSharp.Pane.respawn" />,
+/// <see cref="M:LibTmux.FSharp.Pane.kill" />,
+/// <see cref="M:LibTmux.FSharp.Pane.clearHistory" />
+/// </para>
+/// <para>
+/// The rest of a pane is on the core <c>LibTmux.Pane</c>, which F# calls like any
+/// .NET type: the pane's options and hooks, copy mode, pasting, and the raw
+/// command through <c>ExecuteCommandAsync</c>.
+/// </para>
+/// </remarks>
 [<RequireQualifiedAccess>]
 module Pane =
     /// <summary>Reads the captured working directory, preserving an empty string.</summary>
