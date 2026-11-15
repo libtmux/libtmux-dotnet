@@ -31,11 +31,10 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import time
-
-import build
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 OUTPUT = REPO / "docs" / "mcp" / "tools.md"
@@ -72,6 +71,47 @@ def _binary() -> pathlib.Path:
     raise SystemExit(msg)
 
 
+def _find_dotnet() -> str:
+    """Locate the SDK an agent must launch, as an absolute path.
+
+    ``dotnet`` is pinned by ``global.json`` and resolves through mise, so it
+    is usually absent from a bare ``PATH``.
+    """
+    root = os.environ.get("DOTNET_ROOT")
+    if root and pathlib.Path(root).is_absolute():
+        rooted = pathlib.Path(root) / ("dotnet.exe" if os.name == "nt" else "dotnet")
+        if rooted.is_file():
+            return str(rooted)
+    try:
+        resolved = subprocess.run(
+            ["mise", "which", "dotnet"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        resolved = ""
+    if resolved:
+        return str(pathlib.Path(resolved).absolute())
+    found = shutil.which("dotnet")
+    if found:
+        return str(pathlib.Path(found).resolve())
+    msg = (
+        "no dotnet on PATH and mise could not name one; "
+        "install the SDK or run inside `mise exec`"
+    )
+    raise RuntimeError(msg)
+
+
+def _dotnet_environment() -> dict[str, str]:
+    """Return the ``DOTNET_ROOT`` a framework-dependent apphost needs.
+
+    The apphost finds its runtime through ``DOTNET_ROOT`` or ``PATH``, and a
+    mise-installed SDK is in neither.
+    """
+    return {"DOTNET_ROOT": str(pathlib.Path(_find_dotnet()).parent)}
+
+
 def _ask() -> dict[int, dict]:
     """Run one server with all four toolsets and collect answers by request id."""
     env = dict(os.environ)
@@ -90,7 +130,7 @@ def _ask() -> dict[int, dict]:
         }
     )
     if "DOTNET_ROOT" not in env:
-        env.update(build.dotnet_environment())
+        env.update(_dotnet_environment())
     proc = subprocess.Popen(
         [str(_binary())],
         stdin=subprocess.PIPE,
