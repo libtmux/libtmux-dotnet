@@ -11,7 +11,7 @@ exits non-zero and names what disagrees. `dotnet.yml` runs them, and
 | `verify_version_literals.py` | No hand-rolled tmux version comparison outside the capability table |
 | `verify_tmux_versions.py` | Every list of supported tmux versions against `eng/tmux/versions.json` |
 | `verify_changelogs.py` | Each published package keeps its own changelog with an `Unreleased` section |
-| `verify_workspace_commands.py` | The command tree the packed `tmux-workspace` tool prints: nine commands, and two `import` sources |
+| `verify_workspace_commands.py` | The command tree the packed `tmux-workspace` tool prints: its commands and the sources of its `import` command |
 | `verify_workflows.py` | The CI dependency graph, permissions, coverage and shared-action pins; its dependencies are pinned in `verify_workflows.py.lock` |
 
 Run one from the repository root:

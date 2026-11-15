@@ -1,8 +1,7 @@
-"""Print the numbers docs/quality-bar.md cites, so the rating is a measurement.
+"""Print the numbers docs/quality-bar.md cites.
 
-Every line is something that can fall, and printing them together makes a
-regression visible before it is argued about. The exit status is the number of
-missing project files and source files with control bytes.
+The exit status is the number of missing project files and source files with
+control bytes.
 
 ```console
 $ uv run python scripts/quality/measure.py

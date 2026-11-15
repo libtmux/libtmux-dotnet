@@ -3,7 +3,7 @@
 # requires-python = ">=3.10"
 # dependencies = []
 # ///
-"""Write the tool reference from what the server actually advertises.
+"""Write the tool reference from what the server advertises.
 
 A hand-written tool table is wrong the first time somebody adds a tool and
 forgets the table. This asks the server, so the document cannot describe a

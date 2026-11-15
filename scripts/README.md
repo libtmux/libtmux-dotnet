@@ -2,8 +2,8 @@
 
 Support scripts for CI, releases, generated documents and maintainer tasks.
 [SCRIPTS.md](../.github/SCRIPTS.md) says what may stay here. Each script is
-typed Python with a PEP 723 header, run through `uv`, and lives in a directory
-of its own with a README and tests.
+typed Python and lives in a directory of its own with a README and tests. Run
+one through `uv`; a script with dependencies declares them in a PEP 723 header.
 
 | Directory | Job |
 | --- | --- |

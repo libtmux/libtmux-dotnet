@@ -280,7 +280,7 @@ def collect_workload(
 
 
 def render(record: dict) -> str:
-    """Render the record as the table a reader actually reads."""
+    """Render the record as the table a reader sees."""
     if record["schema"] == "libtmux-mode-workload-record-v1":
         return render_workload(record)
 
