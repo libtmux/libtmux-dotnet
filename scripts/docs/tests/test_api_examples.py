@@ -16,9 +16,9 @@ from pathlib import Path
 import pytest
 
 from verify_api_examples import (
-    LONGEST_PROGRAM_SOCKET_NAME,
     ROOT,
-    maximum_socket_root_bytes,
+    hostile_environment,
+    maximum_temp_base_bytes,
     run_consumers,
     unique_object,
     validate,
@@ -46,9 +46,9 @@ def test_native_manifest_covers_every_complete_program(example_tree):
     fsharp = [entry for entry in manifest["examples"] if entry["profile"] == "fsharp"]
     csharp = [entry for entry in manifest["examples"] if entry["profile"] == "csharp"]
     assert len(fsharp) == 14
-    assert len({target for entry in fsharp for target in entry["targets"]}) == 56
+    assert len({target for entry in fsharp for target in entry["targets"]}) == 57
     assert len(csharp) == 7
-    assert len({target for entry in csharp for target in entry["targets"]}) == 33
+    assert len({target for entry in csharp for target in entry["targets"]}) == 32
 
 
 # The docs site reads F# targets with this pattern and stops the build on any
@@ -159,7 +159,14 @@ def test_local_package_mapping_cannot_fall_back_to_a_published_library(example_t
         validate(root, manifest, inventory)
 
 
-SELECTORS = ("TMUX", "TMUX_PANE", "LIBTMUX_SOCKET", "LIBTMUX_SOCKET_PATH", "LIBTMUX_SOCKET_NAME")
+SELECTORS = (
+    "TMUX",
+    "TMUX_PANE",
+    "TMUX_TMPDIR",
+    "LIBTMUX_SOCKET",
+    "LIBTMUX_SOCKET_PATH",
+    "LIBTMUX_SOCKET_NAME",
+)
 
 
 @pytest.fixture
@@ -214,76 +221,144 @@ def fake_commands(monkeypatch, seen: list[dict[str, str]]) -> None:
     monkeypatch.setattr(subprocess, "run", run)
 
 
-def test_consumers_run_with_no_tmux_selector_in_their_environment(
+def test_consumers_run_with_every_server_selector_pointing_nowhere(
     consumer_inputs, tmp_path, monkeypatch
 ):
     root, manifest, packages, output, inventory, tmux = consumer_inputs
     for name in SELECTORS:
         monkeypatch.setenv(name, "decoy")
     monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
-    # Short, as the script requires: a pytest temporary directory is not.
-    sockets = Path(tempfile.mkdtemp(prefix="vae", dir="/tmp"))
-    monkeypatch.setenv("TMUX_TMPDIR", str(sockets))
     seen: list[dict[str, str]] = []
     fake_commands(monkeypatch, seen)
 
-    try:
-        run_consumers(root, manifest, packages, output, inventory)
-    finally:
-        shutil.rmtree(sockets)
+    run_consumers(root, manifest, packages, output, inventory)
 
     # Names and booleans only: a failed assertion must not print an environment.
-    ran = len(seen) > 0
-    handed = sorted({name for each in seen for name in each if name in SELECTORS})
+    programs = [each for each in seen if each.get("TMPDIR", "").startswith(tempfile.gettempdir())]
+    assert programs, "run_consumers ran no program"
+    decoys = sorted({name for each in programs for name in SELECTORS if each[name] == "decoy"})
+    nowhere = all(
+        each["TMUX_TMPDIR"].startswith("/nonexistent/") and each["TMUX"].startswith("/nonexistent/")
+        for each in programs
+    )
     kept = all("LIBTMUX_TMUX" in each and "NUGET_PACKAGES" in each for each in seen)
-    assert ran, "run_consumers ran no command"
-    assert handed == []
+    assert decoys == []
+    assert nowhere, "a program was handed a root or server that exists"
     assert kept, "run_consumers dropped a variable it should have kept"
 
 
-def test_consumers_refuse_a_socket_root_one_byte_over_what_a_socket_path_allows(
+def test_the_hostile_environment_replaces_what_the_caller_exported(tmp_path):
+    hostile = hostile_environment({"TMUX": "/tmp/real,1,0", "PATH": "/bin"}, tmp_path)
+
+    assert hostile["PATH"] == "/bin"
+    assert hostile["TMPDIR"] == str(tmp_path)
+    assert not Path(hostile["TMUX_TMPDIR"]).exists()
+    assert hostile["TMUX"] != "/tmp/real,1,0"
+
+
+def test_consumers_refuse_a_temporary_directory_one_byte_over_what_a_socket_path_allows(
     consumer_inputs, monkeypatch
 ):
     root, manifest, packages, output, inventory, tmux = consumer_inputs
     monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
-    sockets = Path("/tmp") / ("x" * (maximum_socket_root_bytes() + 1 - len("/tmp/")))
-    assert len(os.fsencode(sockets)) == maximum_socket_root_bytes() + 1
-    monkeypatch.setenv("TMUX_TMPDIR", str(sockets))
+    base = Path("/tmp") / ("x" * (maximum_temp_base_bytes() + 1 - len("/tmp/")))
+    assert len(os.fsencode(base)) == maximum_temp_base_bytes() + 1
+    monkeypatch.setenv("TMPDIR", str(base))
     fake_commands(monkeypatch, [])
 
-    with pytest.raises(ValueError, match="TMUX_TMPDIR is longer than") as refusal:
+    with pytest.raises(ValueError, match="TMPDIR is longer than") as refusal:
         run_consumers(root, manifest, packages, output, inventory)
-    assert str(sockets) not in str(refusal.value)
-    assert not sockets.exists(), "a root over the limit was made"
+    assert str(base) not in str(refusal.value)
+    assert not base.exists(), "a directory over the limit was made"
 
 
-def test_consumers_accept_a_socket_root_at_what_a_socket_path_allows(consumer_inputs, monkeypatch):
+def test_consumers_accept_a_temporary_directory_at_what_a_socket_path_allows(
+    consumer_inputs, monkeypatch
+):
     root, manifest, packages, output, inventory, tmux = consumer_inputs
     monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
-    sockets = Path("/tmp") / ("y" * (maximum_socket_root_bytes() - len("/tmp/")))
-    assert len(os.fsencode(sockets)) == maximum_socket_root_bytes()
-    monkeypatch.setenv("TMUX_TMPDIR", str(sockets))
+    base = Path("/tmp") / ("y" * (maximum_temp_base_bytes() - len("/tmp/")))
+    assert len(os.fsencode(base)) == maximum_temp_base_bytes()
+    base.mkdir()
+    monkeypatch.setenv("TMPDIR", str(base))
     fake_commands(monkeypatch, [])
     try:
         run_consumers(root, manifest, packages, output, inventory)
     finally:
-        shutil.rmtree(sockets)
+        shutil.rmtree(base)
 
 
-def test_the_longest_socket_name_a_program_uses_is_covered():
-    # The limit above is computed from this name, so a longer one must raise it.
-    names = []
-    for source in [
-        *(ROOT / "examples").glob("*/Programs/*"),
-        *(ROOT / "examples").glob("*/Snippets/*"),
-    ]:
-        for match in re.finditer(
-            r'"([A-Za-z0-9-]+)"\s*\+\s*Guid\.NewGuid\(\)\.ToString\(\s*"N"\s*\)(?:\s*\+\s*"([A-Za-z0-9-]*)")?',
-            source.read_text(),
-        ):
-            names.append(len(match.group(1)) + 32 + len(match.group(2) or ""))
-    assert names, "no program names a socket"
-    assert max(names) <= LONGEST_PROGRAM_SOCKET_NAME
+def test_a_program_that_leaves_a_process_or_a_file_fails_the_run(
+    consumer_inputs, monkeypatch, tmp_path
+):
+    root, manifest, packages, output, inventory, tmux = consumer_inputs
+    monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
+    # Short, as the script requires: a pytest temporary directory is not.
+    short = Path(tempfile.mkdtemp(prefix="vae", dir="/tmp"))
+    monkeypatch.setenv("TMPDIR", str(short))
+    fake_commands(monkeypatch, [])
+    monkeypatch.setattr("verify_api_examples.time.sleep", lambda seconds: None)
+    monkeypatch.setattr("verify_api_examples.os.kill", lambda pid, sig: None)
+    monkeypatch.setattr("verify_api_examples.processes_running_in", lambda directory: [4242])
+
+    with pytest.raises(ValueError, match="left processes running"):
+        run_consumers(root, manifest, packages, output, inventory)
+
+    monkeypatch.setattr("verify_api_examples.processes_running_in", lambda directory: [])
+    real_rmtree = shutil.rmtree
+
+    def leave_a_file(path, *args, **kwargs):
+        real_rmtree(path, *args, **kwargs)
+
+    seen_directories: list[Path] = []
+    original_iterdir = Path.iterdir
+
+    def iterdir(self):
+        seen_directories.append(self)
+        if self.name.startswith("a-"):
+            return iter([self / "libtmux-example-abc"])
+        return original_iterdir(self)
+
+    monkeypatch.setattr(Path, "iterdir", iterdir)
+    monkeypatch.setattr(shutil, "rmtree", leave_a_file)
+    try:
+        with pytest.raises(ValueError, match="left files behind"):
+            run_consumers(root, manifest, packages, tmp_path / "output2", inventory)
+    finally:
+        real_rmtree(short)
+
+
+def test_every_program_makes_its_socket_in_a_short_directory_of_its_own():
+    names = set()
+    for source in (ROOT / "examples").glob("*/Programs/*"):
+        text = source.read_text()
+        assert "SocketPath" in text, source.name
+        names.update(re.findall(r'Path\.Combine\(socketRoot\.FullName, "([^"]+)"\)', text))
+    assert names == {"tmux.sock"}
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        ("SocketPath = Path.Combine", "SocketName = Path.Combine", "must own its server"),
+        ("SocketPath", "Socket", "must own its server"),
+        (
+            "ConfigurationFile",
+            "wait-for -S done; ConfigurationFile",
+            "must not type a tmux command",
+        ),
+    ],
+)
+def test_a_program_must_own_its_server_without_typing_tmux_into_a_pane(
+    example_tree, old, new, message
+):
+    root, manifest, inventory = example_tree
+    entry = next(each for each in manifest["examples"] if each["id"] == "csharp-ServerListings")
+    source = root / entry["sourceFile"]
+    source.write_text(source.read_text().replace(old, new, 1))
+
+    with pytest.raises(ValueError, match=message):
+        validate(root, manifest, inventory)
 
 
 def test_symlink_cannot_supply_an_external_program(example_tree, tmp_path_factory):
@@ -319,7 +394,6 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
     wrapper.chmod(0o755)
     monkeypatch.setenv("LIBTMUX_TMUX", str(wrapper))
     monkeypatch.setenv("PATH", f"{wrapper.parent}{os.pathsep}{os.environ['PATH']}")
-    monkeypatch.setenv("TMUX_TMPDIR", "/tmp/libtmux-dotnet-test")
     # The wrapper matches argv, and the shared control client carries
     # capture-pane without a process of its own.
     monkeypatch.setenv("LIBTMUX_CONTROL_TRANSPORT", "0")
@@ -332,8 +406,8 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
         run_consumers(ROOT, manifest, Path(packages), output, ROOT / "artifacts/api-inventory.json")
     receipt = json.loads((output / "receipt.json").read_text())
     assert len(receipt["programs"]) == 1
-    assert receipt["programs"][0]["ownedServersRemaining"] == 0
-    assert not Path(receipt["programs"][0]["socketRoot"]).exists()
+    assert receipt["programs"][0]["processesRemaining"] == 0
+    assert not Path(receipt["programs"][0]["temporaryDirectory"]).exists()
     assert receipt["commands"][-1]["exitCode"] != 0
     assert "intentional capture failure" in receipt["commands"][-1]["stderr"]
 

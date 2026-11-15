@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
 import re
 import shutil
-import socket
+import signal
 import subprocess
 import tempfile
+import time
 import zipfile
 from collections.abc import Mapping
 from pathlib import Path
@@ -19,21 +21,28 @@ from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[2]
 FRAMEWORKS = ("net8.0", "net10.0")
-# A unix socket address holds this many bytes. Each program gets a directory of
-# `/a-` and eight characters under TMUX_TMPDIR, and its socket is
-# `/tmux-<uid>/<name>` below that, the name being at longest this long.
+# A unix socket address holds this many bytes. Each program makes a directory of
+# `libtmux-example-` and eight characters under its temporary directory, and its
+# socket is a file in it, the name being at longest this long.
 SOCKET_ADDRESS_BYTES = 107
-PROGRAM_DIRECTORY_BYTES = 11
-LONGEST_PROGRAM_SOCKET_NAME = 58
+PROGRAM_DIRECTORY_BYTES = len("/libtmux-example-") + 8
+LONGEST_PROGRAM_SOCKET_NAME = len("/tmux.sock-none")
 
 
-def maximum_socket_root_bytes() -> int:
-    """Return the longest TMUX_TMPDIR at which every program's socket path fits."""
+RUN_DIRECTORY_BYTES = len("/a-") + 8
+
+
+def maximum_temp_base_bytes() -> int:
+    """Return the longest directory a run's own temporary directory can be made in.
+
+    Each run gets ``a-`` and eight characters there, and that is the TMPDIR a
+    program makes its socket directory in.
+    """
     return (
         SOCKET_ADDRESS_BYTES
         - PROGRAM_DIRECTORY_BYTES
-        - len(f"/tmux-{os.getuid()}/")
         - LONGEST_PROGRAM_SOCKET_NAME
+        - RUN_DIRECTORY_BYTES
     )
 
 
@@ -43,13 +52,43 @@ PROFILE_SOURCES = {
 }
 
 
-def without_tmux_selectors(source: Mapping[str, str]) -> dict[str, str]:
-    """Drop what would send a program to a server it did not start."""
+def hostile_environment(source: Mapping[str, str], temp_directory: Path) -> dict[str, str]:
+    """Point every way tmux or the library picks a server at one that is not there.
+
+    A program that owns its server through ``SocketPath`` is unmoved by all of
+    these, so it needs no setup beforehand; one that falls back to a name, a
+    root or the caller's server fails at once instead of reaching somebody
+    else's.
+    """
     return {
-        key: value
-        for key, value in source.items()
-        if key not in {"TMUX", "TMUX_PANE"} and not key.startswith("LIBTMUX_SOCKET")
+        **source,
+        "TMUX": "/nonexistent/tmux-0/default,1,0",
+        "TMUX_PANE": "%0",
+        "TMUX_TMPDIR": "/nonexistent/libtmux-tmux-tmpdir",
+        "LIBTMUX_SOCKET": "libtmux-hostile-socket",
+        "LIBTMUX_SOCKET_NAME": "libtmux-hostile-name",
+        "LIBTMUX_SOCKET_PATH": "/nonexistent/hostile.sock",
+        "TMPDIR": str(temp_directory),
     }
+
+
+def processes_running_in(directory: Path) -> list[int]:
+    """Return the processes that still carry ``directory`` as their TMPDIR.
+
+    A tmux server and its panes inherit the environment of the program that
+    started them, so a survivor is a server the program did not stop. Without
+    /proc there is nothing to read, and none are reported.
+    """
+    marker = f"TMPDIR={directory}".encode()
+    found = []
+    for entry in Path("/proc").glob("[0-9]*"):
+        try:
+            variables = (entry / "environ").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        if marker in variables:
+            found.append(int(entry.name))
+    return found
 
 
 def unique_object(pairs: list[tuple[str, object]]) -> dict:
@@ -220,6 +259,16 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
         source = source_path(root, entry["sourceFile"]).read_bytes()
         if not source.endswith(b"\n") or b"\r" in source:
             raise ValueError(f"Example {entry['id']} must publish its complete LF-terminated file")
+        text = source.decode("utf-8")
+        if "SocketPath" not in text or "SocketName" in text:
+            raise ValueError(
+                f"Example {entry['id']} must own its server on a SocketPath of its own, "
+                "not a SocketName that depends on the caller's environment"
+            )
+        if "wait-for" in text:
+            raise ValueError(
+                f"Example {entry['id']} must not type a tmux command into a pane to signal itself"
+            )
         targets = entry["targets"]
         if (
             not isinstance(targets, list)
@@ -243,6 +292,16 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
             raise ValueError(
                 f"Manifest must cover every complete program for {name}: {sorted(declared ^ complete)}"
             )
+
+
+def wait_for_exit(directory: Path, seconds: float = 5.0) -> list[int]:
+    """Give a stopped server a moment to go, and return what still runs."""
+    deadline = time.monotonic() + seconds
+    survivors = processes_running_in(directory)
+    while survivors and time.monotonic() < deadline:
+        time.sleep(0.1)
+        survivors = processes_running_in(directory)
+    return survivors
 
 
 def release_key(text: str) -> tuple[int, int, int]:
@@ -289,14 +348,14 @@ def run_consumers(
         "commands": [],
         "programs": [],
     }
-    environment = without_tmux_selectors(os.environ)
+    environment = dict(os.environ)
     environment["NUGET_PACKAGES"] = str(output / "packages")
-    socket_root = Path(environment.get("TMUX_TMPDIR", "/tmp/libtmux-dotnet-test"))
-    if len(os.fsencode(socket_root)) > maximum_socket_root_bytes():
+    temp_base = Path(environment.get("TMPDIR", "/tmp"))
+    if len(os.fsencode(temp_base)) > maximum_temp_base_bytes():
         raise ValueError(
-            f"TMUX_TMPDIR is longer than {maximum_socket_root_bytes()} bytes, which leaves no room for the longest socket path"
+            f"TMPDIR is longer than {maximum_temp_base_bytes()} bytes, "
+            "which leaves no room for the longest socket path"
         )
-    socket_root.mkdir(parents=True, exist_ok=True)
     tmux = environment.get("LIBTMUX_TMUX", "tmux")
     receipt["tmuxVersion"] = subprocess.check_output([tmux, "-V"], text=True).strip()
     receipt["tmuxBinarySha256"] = digest(Path(shutil.which(tmux) or tmux).resolve())
@@ -316,10 +375,19 @@ def run_consumers(
     if len(assemblies) != 4:
         raise ValueError("The native pack must contain both library assemblies for both frameworks")
 
-    def command(arguments: list[str], cwd: Path, timeout: int) -> subprocess.CompletedProcess:
+    def command(
+        arguments: list[str],
+        cwd: Path,
+        timeout: int,
+        env: Mapping[str, str] | None = None,
+    ) -> subprocess.CompletedProcess:
         try:
             result = subprocess.run(
-                arguments, cwd=cwd, env=environment, capture_output=True, timeout=timeout
+                arguments,
+                cwd=cwd,
+                env=dict(environment if env is None else env),
+                capture_output=True,
+                timeout=timeout,
             )
         except subprocess.TimeoutExpired as error:
             receipt["commands"].append(
@@ -401,18 +469,21 @@ def run_consumers(
                             f"Consumer assembly differs from the native pack: {deployed}"
                         )
                     receipt["assemblies"][f"{entry['id']}/{framework}/{name}"] = digest(deployed)
-                directory = Path(tempfile.mkdtemp(prefix="a-", dir=socket_root))
-                environment["TMUX_TMPDIR"] = str(directory)
+                directory = Path(tempfile.mkdtemp(prefix="a-", dir=temp_base))
+                run_environment = hostile_environment(environment, directory)
                 attempt = {
                     "id": entry["id"],
                     "framework": framework,
                     "sourceSha256": digest(root / entry["sourceFile"]),
-                    "socketRoot": str(directory),
+                    "temporaryDirectory": str(directory),
                 }
                 receipt["programs"].append(attempt)
                 try:
                     result = command(
-                        ["dotnet", f"bin/Release/{framework}/Example.dll"], consumer, 30
+                        ["dotnet", f"bin/Release/{framework}/Example.dll"],
+                        consumer,
+                        30,
+                        run_environment,
                     )
                     attempt["stdout"] = result.stdout.decode()
                     if result.stdout != entry["output"].encode() or result.stderr:
@@ -420,18 +491,24 @@ def run_consumers(
                             f"Output differs from the displayed result for {entry['id']} ({framework})"
                         )
                 finally:
-                    live = []
-                    for path in directory.rglob("*"):
-                        if path.is_socket():
-                            with socket.socket(socket.AF_UNIX) as connection:
-                                if connection.connect_ex(str(path)) == 0:
-                                    live.append(path)
-                    attempt["ownedServersRemaining"] = len(live)
-                    for path in live:
-                        command([tmux, "-S", str(path), "kill-server"], consumer, 10)
+                    survivors = wait_for_exit(directory)
+                    # The socket directory is the program's own. A cancelled Pane.run
+                    # leaves its libtmux-run-* files by design, in every TMPDIR.
+                    leftovers = sorted(
+                        path.name
+                        for path in directory.iterdir()
+                        if path.name.startswith("libtmux-example-")
+                    )
+                    attempt["processesRemaining"] = len(survivors)
+                    attempt["filesRemaining"] = leftovers
+                    for pid in survivors:
+                        with contextlib.suppress(ProcessLookupError):
+                            os.kill(pid, signal.SIGKILL)
                     shutil.rmtree(directory)
-                    if live:
-                        raise ValueError(f"Example left live owned servers: {live}")
+                    if survivors:
+                        raise ValueError(f"Example left processes running: {survivors}")
+                    if leftovers:
+                        raise ValueError(f"Example left files behind: {leftovers}")
     finally:
         (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
