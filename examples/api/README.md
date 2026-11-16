@@ -152,7 +152,7 @@ F# compiler IDs, with its description and expected output. Validate it after the
 ordinary build:
 
 ```console
-$ python3 scripts/docs/verify_api_examples.py
+$ uv run scripts/docs/verify_api_examples.py
 ```
 
 Run every displayed file as an external consumer, from the packed packages, on
@@ -160,7 +160,7 @@ both target frameworks, comparing exact stdout. Each program must leave no owned
 server running:
 
 ```console
-$ python3 scripts/docs/verify_api_examples.py \
+$ uv run scripts/docs/verify_api_examples.py \
     --packages artifacts/packages \
     --output /tmp/libtmux-dotnet-api-consumers
 ```

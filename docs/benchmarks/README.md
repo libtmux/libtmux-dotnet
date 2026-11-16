@@ -406,7 +406,7 @@ nothing. Four things are gated instead:
 Check a record with:
 
 ```console
-$ python3 scripts/benchmarks/record_fsharp.py \
+$ uv run scripts/benchmarks/record_fsharp.py \
     --gate docs/benchmarks/runs/2026-10-04-tmux-3.7c-fsharp.json
 ```
 

@@ -304,7 +304,7 @@ def verify(root: pathlib.Path) -> list[str]:
     examples_run = examples.get("run", "")
     require(
         "for framework in net8.0 net10.0; do" in examples_run
-        and "python3 scripts/docs/verify_api_examples.py" in examples_run
+        and "uv run scripts/docs/verify_api_examples.py" in examples_run
         and "--packages artifacts/packages" in examples_run
         and '--output "${RUNNER_TEMP}/libtmux-api-examples"' in examples_run
         and examples_run.count("-p:UsePackageReferences=true") >= 2,
@@ -318,7 +318,7 @@ def verify(root: pathlib.Path) -> list[str]:
         line for line in quickstart_run.splitlines() if not line.lstrip().startswith("#")
     )
     require(
-        "python3 scripts/docs/sync_fsharp_snippets.py --expect-output Quickstart" in quickstart_run
+        "uv run scripts/docs/sync_fsharp_snippets.py --expect-output Quickstart" in quickstart_run
         and quickstart_commands.count("-p:UsePackageReferences=true") >= 3,
         "dotnet.build.fsharp-readme-quickstart must compare the packed program's output with the README",
     )
@@ -359,7 +359,7 @@ def verify(root: pathlib.Path) -> list[str]:
 
     fsdocs = required_step("dotnet", "build", "fsharp-fsdocs")
     require(
-        "python3 scripts/docs/sync_fsdocs_reference.py --check" in fsdocs.get("run", ""),
+        "uv run scripts/docs/sync_fsdocs_reference.py --check" in fsdocs.get("run", ""),
         "dotnet.build.fsharp-fsdocs must check the generated member reference",
     )
 
@@ -569,7 +569,7 @@ def verify(root: pathlib.Path) -> list[str]:
         "dotnet-tmux.matrix must execute every F# query program",
     )
     require(
-        'printf \'%s\\n\' "${printed}" | python3 scripts/docs/sync_fsharp_snippets.py --expect-output "${program}"'
+        'printf \'%s\\n\' "${printed}" | uv run scripts/docs/sync_fsharp_snippets.py --expect-output "${program}"'
         in example_lines,
         "dotnet-tmux.matrix must compare every F# program's output with its guide",
     )

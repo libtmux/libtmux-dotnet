@@ -56,7 +56,7 @@ def test_fsharp_snippet_check_is_required(repository: pathlib.Path) -> None:
 @pytest.mark.parametrize(
     "removed",
     [
-        "python3 scripts/docs/verify_api_examples.py",
+        "uv run scripts/docs/verify_api_examples.py",
         "--packages artifacts/packages",
         '--output "${RUNNER_TEMP}/libtmux-api-examples"',
         "for framework in net8.0 net10.0; do",
@@ -224,7 +224,7 @@ def test_commented_dependencies_do_not_gate_publication(
         ("dotnet-tmux", ("jobs", "plan", "if"), "false", "plan.if"),
         (
             "dotnet-tmux",
-            ("jobs", "plan", "steps", 1, "env", "SCOPE"),
+            ("jobs", "plan", "steps", 2, "env", "SCOPE"),
             "full",
             "read the event and every input through env",
         ),
@@ -292,7 +292,7 @@ def test_weakened_policy_fails(
         ("dotnet-tmux", ("jobs", "advisory", "if"), "advisory must run"),
         ("dotnet-tmux", ("jobs", "plan"), "missing required job"),
         ("dotnet-tmux", ("on", "workflow_dispatch", "inputs", "tmate"), "offer the tmate"),
-        ("dotnet-tmux", ("jobs", "plan", "steps", 1, "env", "TMATE"), "through env"),
+        ("dotnet-tmux", ("jobs", "plan", "steps", 2, "env", "TMATE"), "through env"),
         ("dotnet-tmux", ("jobs", "matrix", "timeout-minutes"), "cap the job"),
     ],
 )
@@ -472,7 +472,7 @@ def test_an_input_in_a_run_step_is_refused(repository: pathlib.Path) -> None:
     """An input reaches a shell only through env, never inside the script."""
     path = repository / ".github/workflows/dotnet-tmux.yml"
     document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
-    document["jobs"]["plan"]["steps"][1]["run"] += '\necho "${{ inputs.tmux-ref }}"'
+    document["jobs"]["plan"]["steps"][2]["run"] += '\necho "${{ inputs.tmux-ref }}"'
     path.write_text(yaml.safe_dump(document))
 
     assert any("through env" in error for error in verify(repository))

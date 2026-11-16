@@ -8,7 +8,7 @@ the workflow lists no version.
 Print the plan for a push:
 
 ```console
-$ python3 scripts/tmux-plan/plan.py --event push
+$ uv run scripts/tmux-plan/plan.py --event push
 ```
 
 Scopes are `edges` (oldest and newest release), `full` (the whole table, the

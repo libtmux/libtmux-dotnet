@@ -255,7 +255,7 @@ jobs:
               --framework "${framework}" \
               --no-build \
               -p:UsePackageReferences=true)"
-            printf '%s\n' "${printed}" | python3 scripts/docs/sync_fsharp_snippets.py --expect-output Quickstart
+            printf '%s\n' "${printed}" | uv run scripts/docs/sync_fsharp_snippets.py --expect-output Quickstart
           done
 
       - name: F# packed example console
@@ -275,7 +275,7 @@ jobs:
               --no-restore \
               -p:UsePackageReferences=true
           done
-          python3 scripts/docs/verify_api_examples.py \
+          uv run scripts/docs/verify_api_examples.py \
             --packages artifacts/packages \
             --output "${RUNNER_TEMP}/libtmux-api-examples"
 
@@ -416,7 +416,7 @@ jobs:
 
       - name: F# member reference
         id: fsharp-fsdocs
-        run: python3 scripts/docs/sync_fsdocs_reference.py --check
+        run: uv run scripts/docs/sync_fsdocs_reference.py --check
 
       - name: Script tests
         # Naming pytest and tomlkit on the command line resolved whatever

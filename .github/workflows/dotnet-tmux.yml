@@ -81,6 +81,8 @@ jobs:
             eng/tmux
             scripts/tmux-plan
 
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
       - name: Plan the run
         id: plan
         env:
@@ -91,7 +93,7 @@ jobs:
           DOTNET: ${{ inputs.dotnet }}
           TMATE: ${{ inputs.tmate }}
         run: |
-          python3 scripts/tmux-plan/plan.py \
+          uv run scripts/tmux-plan/plan.py \
             --event "${EVENT}" \
             --ref "${REF}" \
             --scope "${SCOPE}" \
@@ -320,7 +322,7 @@ jobs:
             fi
             # Each program prints what it found; its guide shows what it must print.
             printed="$(dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll")"
-            printf '%s\n' "${printed}" | python3 scripts/docs/sync_fsharp_snippets.py --expect-output "${program}"
+            printf '%s\n' "${printed}" | uv run scripts/docs/sync_fsharp_snippets.py --expect-output "${program}"
           done
 
       - name: C# complete programs
