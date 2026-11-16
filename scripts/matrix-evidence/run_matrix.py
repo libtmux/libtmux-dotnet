@@ -486,7 +486,7 @@ class Matrix:
 
         if self.candidate is not None and options.evidence_directory is not None:
             self.stage_bundle_files(self.candidate, source)
-            validate.validate_bundle(self.candidate, phase="matrix")
+            validate.validate_bundle(self.candidate)
             assert self.ownership_nonce is not None
             assemble_bundle.publish_owned_candidate(
                 self.candidate, options.evidence_directory, self.ownership_nonce

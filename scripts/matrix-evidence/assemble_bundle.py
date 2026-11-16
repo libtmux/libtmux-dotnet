@@ -392,8 +392,6 @@ def _validate_matrix(root: pathlib.Path, commit: str, fingerprint: str) -> None:
         [
             sys.executable,
             str(pathlib.Path(__file__).with_name("validate.py")),
-            "--phase",
-            "matrix",
             str(root),
         ],
         check=False,
@@ -833,8 +831,6 @@ def assemble(
             [
                 sys.executable,
                 str(pathlib.Path(__file__).with_name("validate.py")),
-                "--phase",
-                "matrix",
                 str(candidate),
             ],
             check=False,

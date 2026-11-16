@@ -1,4 +1,4 @@
-"""Tests for phased durable evidence validation."""
+"""Tests for evidence bundle validation."""
 
 from __future__ import annotations
 
@@ -11,8 +11,6 @@ import typing as t
 import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
-hash_tree = t.cast(t.Any, importlib.import_module("hash_tree"))
-record_deletion = t.cast(t.Any, importlib.import_module("record_deletion"))
 validate = t.cast(t.Any, importlib.import_module("validate"))
 
 COMMIT = "c" * 40
@@ -168,7 +166,7 @@ def test_matrix_phase_accepts_exact_break_pane_transition_proof(
     """Accept four source-bound observations across both target frameworks."""
     bundle = _matrix_bundle(tmp_path)
 
-    validate.validate_bundle(bundle, phase="matrix")
+    validate.validate_bundle(bundle)
 
 
 def test_matrix_phase_retains_previous_complete_release_set(
@@ -186,7 +184,7 @@ def test_matrix_phase_retains_previous_complete_release_set(
     rows = [row for row in _matrix_rows(COMMIT) if row["tmuxVersion"] != REQUIRED_TMUX_VERSIONS[-1]]
     _write_rows(bundle, rows)
 
-    validate.validate_bundle(bundle, phase="matrix")
+    validate.validate_bundle(bundle)
 
 
 @pytest.mark.parametrize(
@@ -217,7 +215,7 @@ def test_matrix_phase_requires_exact_component_three_cohort_contract(
     )
 
     with pytest.raises(validate.EvidenceValidationError, match=r"cohort|environment"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 def test_workspace_matrix_requires_current_stable_versions(
@@ -232,7 +230,7 @@ def test_workspace_matrix_requires_current_stable_versions(
     environment_path.write_text(json.dumps(environment) + "\n", encoding="utf-8")
     _write_rows(bundle, [row for row in _matrix_rows(COMMIT) if row["tmuxVersion"] != "3.7c"])
     with pytest.raises(validate.EvidenceValidationError, match="environment observations"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 def test_matrix_phase_accepts_exact_wrapper_policy_closure_cohort(
@@ -250,7 +248,7 @@ def test_matrix_phase_accepts_exact_wrapper_policy_closure_cohort(
         encoding="utf-8",
     )
 
-    validate.validate_bundle(bundle, phase="matrix")
+    validate.validate_bundle(bundle)
     assert validate.validate_matrix(bundle) == commit
 
 
@@ -277,7 +275,7 @@ def test_matrix_phase_rejects_transition_sidecar_for_closure_cohort(
     )
 
     with pytest.raises(validate.EvidenceValidationError, match="transition"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 def test_matrix_phase_forbids_master_rows_for_component_three_cohort(
@@ -305,7 +303,7 @@ def test_matrix_phase_forbids_master_rows_for_component_three_cohort(
     _write_rows(bundle, rows)
 
     with pytest.raises(validate.EvidenceValidationError, match="cohort"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 @pytest.mark.parametrize(
@@ -353,147 +351,7 @@ def test_matrix_phase_rejects_unbound_break_pane_transition_proof(
     _write_break_pane_transition(bundle, rows=rows)
 
     with pytest.raises(validate.EvidenceValidationError, match=error):
-        validate.validate_bundle(bundle, phase="matrix")
-
-
-def _write_transport_semantic_transcripts(bundle: pathlib.Path) -> None:
-    transcripts = bundle / "protocol-transcripts"
-    contents = {
-        "client-observability.txt": [
-            "event=client-attachment phase=before primary=attached selected=unattached",
-            "event=client-attachment phase=during primary=attached selected=attached",
-            "event=client-observability phase=during control-client=visible",
-            "event=client-attachment phase=after primary=attached selected=unattached",
-            "event=client-hook kind=attached count=1",
-            "event=client-hook kind=detached count=1",
-        ],
-        "control-cancellation.txt": [
-            (
-                "event=control-cancellation phase=after-write result=typed "
-                "command-may-have-executed=true"
-            ),
-            "event=control-tombstone phase=before-drain state=blocking",
-            "event=control-following-request phase=before-drain state=blocked",
-            "event=control-tombstone phase=after-drain state=drained",
-            "event=control-following-request phase=after-drain state=completed",
-        ],
-        "semicolon-middle-failure.txt": [
-            ("event=semicolon-member position=prefix outcome=completed side-effect=present"),
-            "event=semicolon-member position=middle outcome=failed side-effect=none",
-            "event=semicolon-member position=suffix outcome=skipped side-effect=absent",
-        ],
-    }
-    for filename, events in contents.items():
-        lines = [
-            f"{event} framework={framework} tmux-version={version}"
-            for version in REQUIRED_TMUX_VERSIONS
-            for framework in REQUIRED_FRAMEWORKS
-            for event in events
-        ]
-        (transcripts / filename).write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def _repository_bundle(
-    tmp_path: pathlib.Path,
-    *,
-    solution_text: str = "<Solution />\n",
-) -> tuple[pathlib.Path, pathlib.Path, str]:
-    repository = tmp_path / "repository"
-    repository.mkdir()
-    record_deletion.run_git(repository, "init", "--quiet")
-    record_deletion.run_git(repository, "config", "user.name", "Evidence Test")
-    record_deletion.run_git(repository, "config", "user.email", "evidence@example.invalid")
-    solution = repository / "csharp" / "LibTmux.slnx"
-    solution.parent.mkdir()
-    solution.write_text(solution_text, encoding="utf-8")
-    record_deletion.run_git(repository, "add", "csharp/LibTmux.slnx")
-    record_deletion.run_git(repository, "commit", "--quiet", "-m", "fixture")
-    commit = record_deletion.run_git(repository, "rev-parse", "HEAD")
-    bundle = _matrix_bundle(
-        repository / "csharp" / "artifacts" / "evidence",
-        commit,
-        bundle_name="0001",
-    )
-    return repository, bundle, commit
-
-
-def _write_critic_reviews(bundle: pathlib.Path, commit: str) -> dict[str, t.Any]:
-    reviews = {
-        "schemaVersion": 1,
-        "evaluatedCommit": commit,
-        "reviews": [
-            {
-                "critic": critic,
-                "findings": [
-                    {
-                        "disposition": "no-findings",
-                        "evidence": "reviewed required corpus",
-                        "finding": "no findings",
-                        "resolution": "not-applicable",
-                        "severity": "none",
-                    }
-                ],
-            }
-            for critic in [
-                "framework-design-guidelines",
-                "python-parity",
-                "tmux-protocol",
-            ]
-        ],
-    }
-    (bundle / "critic-reviews.md").write_text(
-        "# Critic reviews\n\n```json\n" + json.dumps(reviews, indent=2, sort_keys=True) + "\n```\n",
-        encoding="utf-8",
-    )
-    return reviews
-
-
-def _write_decision(
-    repository: pathlib.Path,
-    commit: str,
-    decision_id: str = "0001",
-) -> tuple[pathlib.Path, dict[str, t.Any]]:
-    decision = {
-        "capabilities": ["bounded process execution"],
-        "commands": ["mise exec -- dotnet test"],
-        "criticDispositions": f"evidence/{decision_id}/critic-reviews.md",
-        "decisionId": decision_id,
-        "decisionInputs": {
-            "corpus": "hostile-streams",
-            "interface": "transport",
-            "source": "oracle",
-        },
-        "evaluatedCommit": commit,
-        "evidenceFiles": [f"evidence/{decision_id}/results.ndjson"],
-        "grafts": ["raw-byte result shape"],
-        "hardGates": [
-            {
-                "evidence": f"evidence/{decision_id}/results.ndjson",
-                "name": "required matrix",
-                "status": "passed",
-            }
-        ],
-        "rejectedRisks": ["unbounded stream reads"],
-        "remainingUnknowns": [],
-        "schemaVersion": 1,
-        "winner": "system-process transport",
-    }
-    path = repository / "csharp" / "docs" / "decisions" / f"{decision_id}-transport.md"
-    path.parent.mkdir(parents=True)
-    path.write_text(
-        "# Transport decision\n\n```json\n"
-        + json.dumps(decision, indent=2, sort_keys=True)
-        + "\n```\n",
-        encoding="utf-8",
-    )
-    return path, decision
-
-
-def _write_pre_deletion(repository: pathlib.Path, bundle: pathlib.Path, commit: str) -> None:
-    if bundle.name == "0001":
-        _write_transport_semantic_transcripts(bundle)
-    _write_critic_reviews(bundle, commit)
-    _write_decision(repository, commit, bundle.name)
+        validate.validate_bundle(bundle)
 
 
 def test_matrix_phase_requires_all_release_framework_rows(
@@ -504,7 +362,7 @@ def test_matrix_phase_requires_all_release_framework_rows(
     _write_rows(bundle, _matrix_rows(COMMIT)[:-1])
 
     with pytest.raises(validate.EvidenceValidationError, match="required matrix"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 @pytest.mark.parametrize(
@@ -532,7 +390,7 @@ def test_matrix_phase_rejects_malformed_environment(
     (bundle / "environment.json").write_text(json.dumps(environment) + "\n", encoding="utf-8")
 
     with pytest.raises(validate.EvidenceValidationError, match="environment"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 def test_matrix_phase_requires_include_master_environment_key(
@@ -545,7 +403,7 @@ def test_matrix_phase_requires_include_master_environment_key(
     (bundle / "environment.json").write_text(json.dumps(environment) + "\n", encoding="utf-8")
 
     with pytest.raises(validate.EvidenceValidationError, match="environment"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 @pytest.mark.parametrize(
@@ -571,7 +429,7 @@ def test_matrix_phase_rejects_malformed_required_rows(
     _write_rows(bundle, rows)
 
     with pytest.raises(validate.EvidenceValidationError, match="matrix row"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 def test_matrix_phase_rejects_duplicate_and_unknown_rows(
@@ -584,12 +442,12 @@ def test_matrix_phase_rejects_duplicate_and_unknown_rows(
     _write_rows(bundle, rows)
 
     with pytest.raises(validate.EvidenceValidationError, match="duplicate"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
     rows[-1]["tmuxVersion"] = "3.9"
     _write_rows(bundle, rows)
     with pytest.raises(validate.EvidenceValidationError, match="unknown"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 def test_matrix_phase_requires_master_rows_only_when_declared(
@@ -612,7 +470,7 @@ def test_matrix_phase_requires_master_rows_only_when_declared(
     _write_rows(bundle, rows)
 
     with pytest.raises(validate.EvidenceValidationError, match="master"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
     bundle = _matrix_bundle(
         tmp_path,
@@ -622,7 +480,7 @@ def test_matrix_phase_requires_master_rows_only_when_declared(
     )
     _write_rows(bundle, _matrix_rows(COMMIT))
     with pytest.raises(validate.EvidenceValidationError, match="master"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 def test_matrix_phase_accepts_failed_master_without_changing_required_verdict(
@@ -651,7 +509,7 @@ def test_matrix_phase_accepts_failed_master_without_changing_required_verdict(
     )
     _write_rows(bundle, rows)
 
-    validate.validate_bundle(bundle, phase="matrix")
+    validate.validate_bundle(bundle)
 
 
 def test_matrix_phase_accepts_independent_observed_master_verdicts(
@@ -688,7 +546,7 @@ def test_matrix_phase_accepts_independent_observed_master_verdicts(
     )
     _write_rows(bundle, rows)
 
-    validate.validate_bundle(bundle, phase="matrix")
+    validate.validate_bundle(bundle)
 
 
 @pytest.mark.parametrize(
@@ -744,7 +602,7 @@ def test_matrix_phase_rejects_malformed_master_rows(
     _write_rows(bundle, _matrix_rows(COMMIT) + master)
 
     with pytest.raises(validate.EvidenceValidationError, match="master"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 def test_matrix_phase_requires_per_version_source_consistency(
@@ -757,7 +615,7 @@ def test_matrix_phase_requires_per_version_source_consistency(
     _write_rows(bundle, rows)
 
     with pytest.raises(validate.EvidenceValidationError, match="source commit"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 @pytest.mark.parametrize("mutation", ["missing", "extra", "false", "unknown-key"])
@@ -779,7 +637,7 @@ def test_matrix_phase_requires_exact_redaction_proof(
     (bundle / "redaction-proof.json").write_text(json.dumps(proof) + "\n", encoding="utf-8")
 
     with pytest.raises(validate.EvidenceValidationError, match="redaction proof"):
-        validate.validate_bundle(bundle, phase="matrix")
+        validate.validate_bundle(bundle)
 
 
 @pytest.mark.parametrize(
@@ -887,349 +745,4 @@ def test_validator_rejects_a_symlinked_bundle_root(tmp_path: pathlib.Path) -> No
     alias.symlink_to(bundle, target_is_directory=True)
 
     with pytest.raises(validate.EvidenceValidationError, match="symlink"):
-        validate.validate_bundle(alias, phase="matrix")
-
-
-def test_pre_deletion_requires_all_structured_critics(tmp_path: pathlib.Path) -> None:
-    """Require exactly three complete critic dispositions at the matrix commit."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    reviews = _write_critic_reviews(bundle, commit)
-    _write_decision(repository, commit)
-    reviews["reviews"].pop()
-    (bundle / "critic-reviews.md").write_text(
-        "```json\n" + json.dumps(reviews) + "\n```\n", encoding="utf-8"
-    )
-
-    with pytest.raises(validate.EvidenceValidationError, match="critic"):
-        validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
-
-
-def test_transport_pre_deletion_requires_semantic_transcripts(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Reject a transport decision without scenario-level semantic evidence."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-    (bundle / "protocol-transcripts" / "control-cancellation.txt").unlink()
-
-    with pytest.raises(validate.EvidenceValidationError, match="semantic transcript"):
-        validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
-
-
-def test_transport_pre_deletion_rejects_unattributed_semantic_events(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Reject semantic evidence that cannot be assigned to matrix lanes."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-    transcript_root = bundle / "protocol-transcripts"
-    for path in transcript_root.glob("*.txt"):
-        if path.name in {
-            "break-pane-transition.txt",
-            "control.txt",
-            "control-contender.txt",
-            "pty.txt",
-        }:
-            continue
-        lines = [
-            line.split(" framework=", maxsplit=1)[0]
-            for line in path.read_text(encoding="utf-8").splitlines()
-        ]
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    with pytest.raises(validate.EvidenceValidationError, match="semantic transcript lane"):
-        validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
-
-
-def test_transport_pre_deletion_rejects_wrong_semantic_fields(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Reject a scenario transcript that does not prove the asserted outcome."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-    path = bundle / "protocol-transcripts" / "control-cancellation.txt"
-    content = path.read_text(encoding="utf-8")
-    path.write_text(content.replace("result=typed", "result=success", 1), encoding="utf-8")
-
-    with pytest.raises(validate.EvidenceValidationError, match="semantic transcript"):
-        validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
-
-
-@pytest.mark.parametrize("mutation", ["missing", "duplicate", "advisory"])
-def test_transport_pre_deletion_requires_one_semantic_set_per_lane(
-    tmp_path: pathlib.Path,
-    mutation: str,
-) -> None:
-    """Reject incomplete, repeated, or advisory semantic lane evidence."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-    path = bundle / "protocol-transcripts" / "semicolon-middle-failure.txt"
-    lines = path.read_text(encoding="utf-8").splitlines()
-    if mutation == "missing":
-        lines.pop()
-    elif mutation == "duplicate":
-        lines.append(lines[0])
-    else:
-        lines.append(
-            "event=semicolon-member position=prefix outcome=completed "
-            "side-effect=present framework=net10.0 tmux-version=next-3.8"
-        )
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    with pytest.raises(validate.EvidenceValidationError, match="semantic transcript lane"):
-        validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
-
-
-@pytest.mark.parametrize("decision_id", ["0002", "0003"])
-def test_later_decisions_do_not_require_transport_semantic_transcripts(
-    tmp_path: pathlib.Path,
-    decision_id: str,
-) -> None:
-    """Keep the transport-only transcript contract scoped to decision 0001."""
-    repository, original, commit = _repository_bundle(tmp_path)
-    bundle = original.with_name(decision_id)
-    original.rename(bundle)
-    environment_path = bundle / "environment.json"
-    environment = json.loads(environment_path.read_text(encoding="utf-8"))
-    environment.pop("capabilityCohort")
-    environment.pop("evaluatedCommitTree")
-    environment.pop("transitionTmuxSourceCommits")
-    environment_path.write_text(json.dumps(environment) + "\n", encoding="utf-8")
-    (bundle / "protocol-transcripts" / "break-pane-transition.txt").unlink()
-    _write_pre_deletion(repository, bundle, commit)
-
-    validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
-
-
-@pytest.mark.parametrize(
-    ("disposition", "resolution"),
-    [("pending", "resolved"), ("accepted", "not-applicable")],
-)
-def test_pre_deletion_rejects_unresolved_critic_findings(
-    tmp_path: pathlib.Path,
-    disposition: str,
-    resolution: str,
-) -> None:
-    """Reject pending or accepted-but-unresolved critic findings."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    reviews = _write_critic_reviews(bundle, commit)
-    _write_decision(repository, commit)
-    reviews["reviews"][0]["findings"] = [
-        {
-            "disposition": disposition,
-            "evidence": "specific evidence",
-            "finding": "bounded cleanup issue",
-            "resolution": resolution,
-            "severity": "high",
-        }
-    ]
-    (bundle / "critic-reviews.md").write_text(
-        "```json\n" + json.dumps(reviews) + "\n```\n", encoding="utf-8"
-    )
-
-    with pytest.raises(validate.EvidenceValidationError, match="critic"):
-        validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
-
-
-@pytest.mark.parametrize(
-    "mutation",
-    ["placeholder", "failed-gate", "wrong-id", "duplicate", "absolute", "extra"],
-)
-def test_pre_deletion_rejects_malformed_decision_inputs(
-    tmp_path: pathlib.Path,
-    mutation: str,
-) -> None:
-    """Reject placeholder, unsafe, incomplete, or unknown decision content."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_critic_reviews(bundle, commit)
-    path, decision = _write_decision(repository, commit)
-    if mutation == "placeholder":
-        decision["winner"] = "TBD"
-    elif mutation == "failed-gate":
-        decision["hardGates"][0]["status"] = "failed"
-    elif mutation == "wrong-id":
-        decision["decisionId"] = "0002"
-    elif mutation == "duplicate":
-        decision["commands"].append(decision["commands"][0])
-    elif mutation == "absolute":
-        decision["evidenceFiles"] = ["/private/evidence/results.ndjson"]
-    else:
-        decision["extra"] = True
-    path.write_text("```json\n" + json.dumps(decision) + "\n```\n", encoding="utf-8")
-
-    with pytest.raises(validate.EvidenceValidationError, match="decision"):
-        validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
-
-
-def test_pre_deletion_accepts_complete_structured_inputs(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Accept complete critic and decision blocks bound to the matrix commit."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-
-    validate.validate_bundle(bundle, phase="pre-deletion", repository=repository)
-
-
-def test_final_phase_rechecks_deletion_claims(tmp_path: pathlib.Path) -> None:
-    """Reject a deletion proof whose claimed absent directory has returned."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-    proof = record_deletion.build_proof(
-        repository=repository,
-        solution=pathlib.Path("csharp/LibTmux.slnx"),
-        absent=[pathlib.Path("csharp/spikes/Removed")],
-        absent_globs=["csharp/spikes/Rejected.*"],
-        tracked_prefixes=[pathlib.Path("csharp/spikes/Removed")],
-        project_tokens=["Removed"],
-        project_count=0,
-    )
-    record_deletion.write_proof(bundle / "deletion.json", proof)
-    (repository / "csharp" / "spikes" / "Removed").mkdir(parents=True)
-    hash_tree.write_hashes(bundle)
-
-    with pytest.raises(validate.EvidenceValidationError, match="deletion"):
-        validate.validate_bundle(bundle, phase="final", repository=repository)
-
-
-def test_final_phase_rejects_unknown_deletion_keys(tmp_path: pathlib.Path) -> None:
-    """Reject deletion proof fields that the validator cannot re-evaluate."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-    proof = record_deletion.build_proof(
-        repository=repository,
-        solution=pathlib.Path("csharp/LibTmux.slnx"),
-        absent=[],
-        absent_globs=[],
-        tracked_prefixes=[],
-        project_tokens=[],
-        project_count=0,
-    )
-    proof["unverified"] = True
-    record_deletion.write_proof(bundle / "deletion.json", proof)
-    hash_tree.write_hashes(bundle)
-
-    with pytest.raises(validate.EvidenceValidationError, match="deletion"):
-        validate.validate_bundle(bundle, phase="final", repository=repository)
-
-
-def test_final_phase_accepts_rechecked_complete_proof(tmp_path: pathlib.Path) -> None:
-    """Accept exact deletion and hash proof after live repository re-evaluation."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-    proof = record_deletion.build_proof(
-        repository=repository,
-        solution=pathlib.Path("csharp/LibTmux.slnx"),
-        absent=[pathlib.Path("csharp/spikes/Removed")],
-        absent_globs=["csharp/spikes/Rejected.*"],
-        tracked_prefixes=[pathlib.Path("csharp/spikes/Removed")],
-        project_tokens=["Removed"],
-        project_count=0,
-    )
-    record_deletion.write_proof(bundle / "deletion.json", proof)
-    hash_tree.write_hashes(bundle)
-
-    validate.validate_bundle(bundle, phase="final", repository=repository)
-
-
-def test_final_phase_allows_unrelated_commit_after_evidence(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Allow a later commit that does not resurrect any rejected content."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-    proof = record_deletion.build_proof(
-        repository=repository,
-        solution=pathlib.Path("csharp/LibTmux.slnx"),
-        absent=[pathlib.Path("csharp/spikes/Removed")],
-        absent_globs=["csharp/spikes/Rejected.*"],
-        tracked_prefixes=[pathlib.Path("csharp/spikes/Removed")],
-        project_tokens=["Removed"],
-        project_count=0,
-    )
-    record_deletion.write_proof(bundle / "deletion.json", proof)
-    hash_tree.write_hashes(bundle)
-    (repository / "unrelated.txt").write_text("later\n", encoding="utf-8")
-    record_deletion.run_git(repository, "add", "unrelated.txt")
-    record_deletion.run_git(repository, "commit", "--quiet", "-m", "unrelated")
-
-    validate.validate_bundle(bundle, phase="final", repository=repository)
-
-
-def test_final_phase_allows_later_solution_project_addition(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Allow a later solution project while preserving the proof snapshot."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-    proof = record_deletion.build_proof(
-        repository=repository,
-        solution=pathlib.Path("csharp/LibTmux.slnx"),
-        absent=[],
-        absent_globs=[],
-        tracked_prefixes=[],
-        project_tokens=["Rejected"],
-        project_count=0,
-    )
-    record_deletion.write_proof(bundle / "deletion.json", proof)
-    hash_tree.write_hashes(bundle)
-    (repository / "csharp" / "LibTmux.slnx").write_text(
-        '<Solution><Project Path="Later.csproj" /></Solution>\n',
-        encoding="utf-8",
-    )
-    record_deletion.run_git(repository, "add", "csharp/LibTmux.slnx")
-    record_deletion.run_git(repository, "commit", "--quiet", "-m", "add project")
-
-    validate.validate_bundle(bundle, phase="final", repository=repository)
-
-
-def test_final_phase_allows_later_solution_project_removal(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Allow removal of a project retained in the proof snapshot."""
-    repository, bundle, commit = _repository_bundle(
-        tmp_path,
-        solution_text='<Solution><Project Path="Kept.csproj" /></Solution>\n',
-    )
-    _write_pre_deletion(repository, bundle, commit)
-    proof = record_deletion.build_proof(
-        repository=repository,
-        solution=pathlib.Path("csharp/LibTmux.slnx"),
-        absent=[],
-        absent_globs=[],
-        tracked_prefixes=[],
-        project_tokens=[],
-        project_count=1,
-    )
-    record_deletion.write_proof(bundle / "deletion.json", proof)
-    hash_tree.write_hashes(bundle)
-    (repository / "csharp" / "LibTmux.slnx").write_text("<Solution />\n", encoding="utf-8")
-    record_deletion.run_git(repository, "add", "csharp/LibTmux.slnx")
-    record_deletion.run_git(repository, "commit", "--quiet", "-m", "remove project")
-
-    validate.validate_bundle(bundle, phase="final", repository=repository)
-
-
-def test_final_phase_rejects_divergent_repository_head(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Reject evidence when the checkout no longer descends from its matrix commit."""
-    repository, bundle, commit = _repository_bundle(tmp_path)
-    _write_pre_deletion(repository, bundle, commit)
-    proof = record_deletion.build_proof(
-        repository=repository,
-        solution=pathlib.Path("csharp/LibTmux.slnx"),
-        absent=[],
-        absent_globs=[],
-        tracked_prefixes=[],
-        project_tokens=[],
-        project_count=0,
-    )
-    record_deletion.write_proof(bundle / "deletion.json", proof)
-    hash_tree.write_hashes(bundle)
-    tree = record_deletion.run_git(repository, "write-tree")
-    divergent = record_deletion.run_git(repository, "commit-tree", tree, "-m", "divergent")
-    record_deletion.run_git(repository, "reset", "--quiet", "--hard", divergent)
-
-    with pytest.raises(validate.EvidenceValidationError, match="ancestry"):
-        validate.validate_bundle(bundle, phase="final", repository=repository)
+        validate.validate_bundle(alias)

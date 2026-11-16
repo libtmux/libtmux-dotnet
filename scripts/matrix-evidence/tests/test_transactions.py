@@ -14,7 +14,6 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 assemble_bundle = t.cast(t.Any, importlib.import_module("assemble_bundle"))
-record_deletion = t.cast(t.Any, importlib.import_module("record_deletion"))
 
 REDACTION_CATEGORIES = [
     "absolute-paths",
@@ -30,17 +29,26 @@ REDACTION_CATEGORIES = [
 ]
 
 
+def _git(repository: pathlib.Path, *arguments: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repository), *arguments],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
 def _repository(tmp_path: pathlib.Path) -> tuple[pathlib.Path, str]:
     repository = tmp_path / "repository"
     repository.mkdir()
-    record_deletion.run_git(repository, "init", "--quiet")
-    record_deletion.run_git(repository, "config", "user.name", "Evidence Test")
-    record_deletion.run_git(repository, "config", "user.email", "evidence@example.invalid")
+    _git(repository, "init", "--quiet")
+    _git(repository, "config", "user.name", "Evidence Test")
+    _git(repository, "config", "user.email", "evidence@example.invalid")
     source = repository / "source.txt"
     source.write_text("source\n", encoding="utf-8")
-    record_deletion.run_git(repository, "add", "source.txt")
-    record_deletion.run_git(repository, "commit", "--quiet", "-m", "fixture")
-    return repository, record_deletion.run_git(repository, "rev-parse", "HEAD")
+    _git(repository, "add", "source.txt")
+    _git(repository, "commit", "--quiet", "-m", "fixture")
+    return repository, _git(repository, "rev-parse", "HEAD")
 
 
 def _publish_fixture(source: pathlib.Path, output: pathlib.Path) -> None:
@@ -796,16 +804,16 @@ def test_source_tree_fingerprint_excludes_tracked_index_and_worktree_bytes(
     evidence.mkdir(parents=True)
     result = evidence / "results.ndjson"
     result.write_text("first\n", encoding="utf-8")
-    record_deletion.run_git(
+    _git(
         repository,
         "add",
         result.relative_to(repository).as_posix(),
     )
-    record_deletion.run_git(repository, "commit", "--quiet", "-m", "evidence")
+    _git(repository, "commit", "--quiet", "-m", "evidence")
     baseline = assemble_bundle.source_tree_fingerprint(repository, [evidence])
 
     result.write_text("second\n", encoding="utf-8")
-    record_deletion.run_git(
+    _git(
         repository,
         "add",
         result.relative_to(repository).as_posix(),
@@ -829,8 +837,8 @@ def test_source_fingerprint_cli_accepts_repeatable_excluded_roots(
     candidate = second_output / "results.ndjson"
     result.write_text("first\n", encoding="utf-8")
     candidate.write_text("first\n", encoding="utf-8")
-    record_deletion.run_git(repository, "add", "csharp/docs/parity")
-    record_deletion.run_git(repository, "commit", "--quiet", "-m", "parity")
+    _git(repository, "add", "csharp/docs/parity")
+    _git(repository, "commit", "--quiet", "-m", "parity")
     command = [
         sys.executable,
         str(pathlib.Path(assemble_bundle.__file__)),
@@ -850,7 +858,7 @@ def test_source_fingerprint_cli_accepts_repeatable_excluded_roots(
 
     result.write_text("second\n", encoding="utf-8")
     candidate.write_text("second\n", encoding="utf-8")
-    record_deletion.run_git(repository, "add", "csharp/docs/parity")
+    _git(repository, "add", "csharp/docs/parity")
     repeated = subprocess.run(
         command,
         check=True,
