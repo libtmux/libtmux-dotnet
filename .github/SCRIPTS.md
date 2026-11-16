@@ -72,5 +72,9 @@ commands.
   test suite, which adds no second build system. It keeps a transaction and
   recovery contract, with a lock, a recovery ledger and byte-exact reverts,
   that its own suite covers. A Python copy would be a second implementation of
-  that contract. A tool of this size is a project, not a script. Its README
-  documents the maintainer task that runs it.
+  that contract. A tool with its own TOML and JSONC editors is a project, not a
+  script. Its README documents the maintainer task that runs it.
+- The `tmuxp==1.74.0` install in `dotnet-tmux.yml`, which `LibTmux.Workspace.Cli`'s
+  tests need for its Python bridge. It stays until
+  [libtmux/docs#324](https://github.com/libtmux/docs/issues/324) decides whether
+  the workspace CLIs keep that bridge; it is not a parity check.
