@@ -29,7 +29,8 @@ being made:
   or source comments — follow
   [`.github/WRITING.md`](.github/WRITING.md).
 - Support scripts: what may stay, their language, layout and checks:
-  [`.github/SCRIPTS.md`](.github/SCRIPTS.md).
+  [`.github/SCRIPTS.md`](.github/SCRIPTS.md). It gives the commands that run
+  `scripts/run_checks.py`: format, lint, types and tests.
 - For building, testing, the gates, pull requests, and releases, follow
   [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).
 - For a security-sensitive change, or to report a vulnerability, follow

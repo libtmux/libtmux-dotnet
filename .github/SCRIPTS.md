@@ -33,10 +33,35 @@ inline (PEP 723) and run scripts with `uv run`.
   one file with a usage header.
 - Scripts pass `ruff format`, `ruff check`, `ty check` and `pytest`, with
   `pytest-asyncio` for async code and doctests collected, in CI.
+  `scripts/run_checks.py` runs the four, as the commands below show.
 - Use current language and tool idioms; no shims below the project's floor.
 - Before a new or rewritten script merges, a reviewer who did not write it
   checks it against [WRITING.md](WRITING.md) and
   [no-ai-slop](https://github.com/petergyang/no-ai-slop).
+
+[`scripts/README.md`](../scripts/README.md) lists the scripts.
+`scripts/run_checks.py` runs the four checks over all of them against a locked
+set of tool versions. From the repository root:
+
+```console
+$ uv run --locked --script scripts/run_checks.py format
+```
+
+```console
+$ uv run --locked --script scripts/run_checks.py lint
+```
+
+```console
+$ uv run --locked --script scripts/run_checks.py types
+```
+
+```console
+$ uv run --locked --script scripts/run_checks.py tests
+```
+
+The tests that read `artifacts/api-inventory.json` skip until a build writes
+it; [`scripts/README.md`](../scripts/README.md#running-the-checks) gives the
+commands.
 
 ## What stays
 
