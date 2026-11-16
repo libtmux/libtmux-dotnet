@@ -11,4 +11,7 @@ extra-paths = [
     "package-review",
     "wrapped-captures",
     "psmux-smoke",
+    "example-programs",
+    "rejected-lane",
+    "release-checks",
 ]

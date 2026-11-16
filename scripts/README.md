@@ -16,6 +16,9 @@ one through `uv`; a script with dependencies declares them in a PEP 723 header.
 | [`mcp-tools/`](mcp-tools/README.md) | Write the MCP tool reference from a running server |
 | [`package-review/`](package-review/README.md) | Pack and inspect a prerelease for a downstream review |
 | [`psmux-smoke/`](psmux-smoke/README.md) | Check the psmux preview from native Windows and WSL by hand |
+| [`example-programs/`](example-programs/README.md) | Build and run the example programs the tmux matrix proves, and the F# quickstart |
+| [`rejected-lane/`](rejected-lane/README.md) | Run the minimum-version tests against a tmux below the floor |
+| [`release-checks/`](release-checks/README.md) | Check the tag, the SBOM and what nuget.org serves around a release |
 | [`wrapped-captures/`](wrapped-captures/README.md) | Regenerate the wrapped-capture test fixture from real tmux |
 
 ## Running the checks
