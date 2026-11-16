@@ -44,18 +44,13 @@ jobs:
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - name: Check workflows
+      - name: Lint workflows
         env:
           ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
-        run: |
-          version="$(awk '$1 == "actionlint" {print $2}' .tool-versions)"
-          curl --fail --silent --show-error --location \
-            "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz" \
-            --output "${RUNNER_TEMP}/actionlint.tar.gz"
-          echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/actionlint.tar.gz" | sha256sum --check --strict
-          tar -xzf "${RUNNER_TEMP}/actionlint.tar.gz" -C "${RUNNER_TEMP}" actionlint
-          "${RUNNER_TEMP}/actionlint"
-          uv run --locked --script scripts/checks/verify_workflows.py
+        run: uv run scripts/actionlint/run_actionlint.py
+
+      - name: Check workflow policy
+        run: uv run --locked --script scripts/checks/verify_workflows.py
 
       - name: Script format
         run: uv run --locked --script scripts/run_checks.py format

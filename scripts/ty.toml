@@ -1,6 +1,7 @@
 [environment]
 python-version = "3.10"
 extra-paths = [
+    "actionlint",
     "checks",
     "docs",
     "tmux-plan",

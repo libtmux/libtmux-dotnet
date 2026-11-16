@@ -7,6 +7,7 @@ one through `uv`; a script with dependencies declares them in a PEP 723 header.
 
 | Directory | Job |
 | --- | --- |
+| [`actionlint/`](actionlint/README.md) | Run the pinned actionlint over the workflows |
 | [`checks/`](checks/README.md) | Repository policy checks that run in `dotnet.yml` |
 | [`docs/`](docs/README.md) | Generate and verify the API reference, snippets and example guides |
 | [`tmux-plan/`](tmux-plan/README.md) | Decide which tmux versions and lanes a CI run covers |
