@@ -19,5 +19,8 @@ from `global.json`. It needs a tmux build per version at
 `<root>/<version>/bin/tmux`, which `--tmux-root` names, and reads each release
 tag's commit from the tmux repository; `LIBTMUX_TMUX_REPOSITORY` points it at a
 mirror. `LIBTMUX_MATRIX_MAX_THREADS` sets how many test collections run at once.
+`LIBTMUX_MATRIX_LANE_TIMEOUT` sets a lane's ceiling in seconds, 1800 by default;
+a lane that passes it fails, and its processes stop, as they do on an
+interrupt. The tag and version lookups give up after a minute.
 
 Run the tests with the [script runner](../README.md#running-the-checks).

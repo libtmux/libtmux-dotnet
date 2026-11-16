@@ -7,8 +7,10 @@ import os
 import pathlib
 import shutil
 import subprocess
+import time
 import typing as t
 
+import psutil
 import pytest
 
 import assemble_bundle
@@ -170,6 +172,11 @@ elif [ "$4" = "test" ]; then
             *" --filter-method "*) ;;
             *" --project {INTEGRATION_PROJECT} "*) mirror_skip=1 ;;
         esac
+    fi
+    if [ "${{MATRIX_HANG_VERSION-}}" = "${{LIBTMUX_EXPECTED_TMUX_VERSION-}}" ]; then
+        sleep 60 &
+        printf '%s\\n' "$!" > "$MATRIX_HANG_PID"
+        wait
     fi
     if [ "${{MATRIX_FAIL_VERSION-}}" = "${{LIBTMUX_EXPECTED_TMUX_VERSION-}}" ]; then
         printf '%s\\n' 'total: 1' 'skipped: 0'
@@ -390,3 +397,83 @@ def test_an_unsafe_evidence_directory_is_a_usage_error(
         toolchain.run("--evidence-dir", directory, INTEGRATION_PROJECT)
 
     assert raised.value.code == 2
+
+
+def _gone(pid: int) -> bool:
+    """Say whether a process has ended; a zombie awaiting its parent has."""
+    return not psutil.pid_exists(pid) or psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+
+
+def test_a_lane_that_never_finishes_is_stopped_with_its_children(
+    toolchain: Toolchain, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A hung lane fails at its deadline and leaves no process behind."""
+    child = tmp_path / "hung-child.pid"
+    monkeypatch.setenv("MATRIX_HANG_VERSION", "3.5")
+    monkeypatch.setenv("MATRIX_HANG_PID", str(child))
+    monkeypatch.setenv("LIBTMUX_MATRIX_LANE_TIMEOUT", "1")
+
+    started = time.monotonic()
+    status = toolchain.run(INTEGRATION_PROJECT)
+
+    assert status == 1
+    assert time.monotonic() - started < 30
+    assert _gone(int(child.read_text()))
+    (log,) = tmp_path.glob("libtmux-matrix-failures.*/1-3.5-*.log")
+    assert "exceeded its limit of 1s" in log.read_text()
+    assert VERSIONS[VERSIONS.index("3.5") + 1] not in {row[0] for row in toolchain.observations()}
+
+
+def test_an_interrupted_lane_stops_its_process_group(
+    toolchain: Toolchain, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ctrl-C while a lane runs must not leave dotnet test running behind it."""
+    child = tmp_path / "hung-child.pid"
+    monkeypatch.setenv("MATRIX_HANG_VERSION", VERSIONS[0])
+    monkeypatch.setenv("MATRIX_HANG_PID", str(child))
+    interrupted: list[int] = []
+
+    class InterruptedOnce(subprocess.Popen[str]):
+        def wait(self, timeout: float | None = None) -> int:
+            if not interrupted and isinstance(self.args, list) and "test" in self.args:
+                while not child.exists():
+                    time.sleep(0.01)
+                interrupted.append(self.pid)
+                raise KeyboardInterrupt
+            return super().wait(timeout)
+
+    monkeypatch.setattr(run_matrix.subprocess, "Popen", InterruptedOnce)
+
+    with pytest.raises(KeyboardInterrupt):
+        toolchain.run(INTEGRATION_PROJECT)
+
+    assert interrupted
+    assert _gone(int(child.read_text()))
+
+
+def test_a_stalled_tag_lookup_is_an_error_not_a_hang(
+    toolchain: Toolchain, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``git ls-remote`` gets a deadline, so an unreachable mirror ends the run."""
+
+    def stalled(*arguments: t.Any, **keywords: t.Any) -> t.NoReturn:
+        assert keywords.get("timeout"), "git ls-remote must carry a timeout"
+        raise subprocess.TimeoutExpired(arguments[0], keywords["timeout"])
+
+    monkeypatch.setattr(run_matrix.subprocess, "run", stalled)
+
+    with pytest.raises(run_matrix.MatrixError, match="did not answer within"):
+        run_matrix.resolve_commit("https://example.invalid/tmux.git", "3.5")
+
+
+def test_a_build_that_never_reports_its_version_is_an_error(
+    toolchain: Toolchain, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``tmux -V`` gets a deadline too."""
+    binary = toolchain.root / "3.4" / "bin" / "tmux"
+    binary.write_text("#!/bin/sh\nsleep 60\n", encoding="utf-8")
+    monkeypatch.setattr(run_matrix, "QUERY_TIMEOUT_SECONDS", 1.0)
+
+    assert toolchain.run(INTEGRATION_PROJECT) == 1
+
+    assert "did not report its version within" in capsys.readouterr().err

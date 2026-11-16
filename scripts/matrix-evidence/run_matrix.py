@@ -21,6 +21,11 @@ on a dedicated runner; anywhere else the readiness budgets are starved by the
 suite's own concurrency. Set ``LIBTMUX_MATRIX_MAX_THREADS`` when the host is
 idle.
 
+A lane that runs longer than ``LIBTMUX_MATRIX_LANE_TIMEOUT`` seconds (1800 by
+default, the budget CONTRIBUTING.md gives the whole matrix) fails and its
+process group is stopped. So is a lane that an interrupt ends. The tag and
+version lookups give up after a minute.
+
 ```console
 $ uv run scripts/matrix-evidence/run_matrix.py \\
     --tmux-root artifacts/tmux \\
@@ -39,9 +44,11 @@ import json
 import os
 import pathlib
 import re
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import typing as t
 
 import assemble_bundle
@@ -52,6 +59,16 @@ MANIFEST = REPOSITORY / "eng" / "tmux" / "versions.json"
 GLOBAL_JSON = REPOSITORY / "global.json"
 DEFAULT_TMUX_ROOT = REPOSITORY / "artifacts" / "tmux"
 TMUX_REPOSITORY = "https://github.com/tmux/tmux.git"
+
+#: A lane's ceiling in seconds; CONTRIBUTING.md budgets half an hour for the
+#: whole matrix, so no single lane may outlast it.
+LANE_TIMEOUT_SECONDS = 1800.0
+#: How long ``git ls-remote`` and ``tmux -V`` may take.
+QUERY_TIMEOUT_SECONDS = 60.0
+#: How long a lane's processes get to exit after SIGTERM before SIGKILL.
+TERMINATE_GRACE_SECONDS = 10.0
+#: The exit status ``timeout(1)`` reports; a lane that hit its deadline has it.
+TIMED_OUT_STATUS = 124
 
 FRAMEWORKS = ("net10.0", "net8.0")
 COMPONENT_THREE_COHORT = "0001"
@@ -165,18 +182,24 @@ def parse_arguments(argv: list[str] | None = None) -> Options:
 
 def resolve_commit(repository: str, version: str) -> str:
     """Return the commit a release tag names, peeling an annotated tag."""
-    listing = subprocess.run(
-        [
-            "git",
-            "ls-remote",
-            repository,
-            f"refs/tags/{version}^{{}}",
-            f"refs/tags/{version}",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        listing = subprocess.run(
+            [
+                "git",
+                "ls-remote",
+                repository,
+                f"refs/tags/{version}^{{}}",
+                f"refs/tags/{version}",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=QUERY_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise MatrixError(
+            f"{repository} did not answer within {QUERY_TIMEOUT_SECONDS:g} seconds"
+        ) from error
     if listing.returncode != 0:
         raise MatrixError(f"cannot read tags from {repository}: {listing.stderr.strip()}")
     refs = {
@@ -196,9 +219,18 @@ def locate_build(root: pathlib.Path, version: str, repository: str) -> TmuxBuild
     binary = root / version / "bin" / "tmux"
     if not (binary.is_file() and os.access(binary, os.X_OK)):
         raise MatrixError(f"no tmux {version} at {binary}; build it there first")
-    reported = subprocess.run(
-        [str(binary), "-V"], capture_output=True, text=True, check=False
-    ).stdout.strip()
+    try:
+        reported = subprocess.run(
+            [str(binary), "-V"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=QUERY_TIMEOUT_SECONDS,
+        ).stdout.strip()
+    except subprocess.TimeoutExpired as error:
+        raise MatrixError(
+            f"{binary} did not report its version within {QUERY_TIMEOUT_SECONDS:g} seconds"
+        ) from error
     if reported != f"tmux {version}":
         raise MatrixError(f"{binary} reports {reported!r}, not 'tmux {version}'")
     return TmuxBuild(version, binary, resolve_commit(repository, version))
@@ -240,6 +272,43 @@ def lane_passed(
         and "\n".join(names) == expected_name
     )
     return passed, total or 0
+
+
+def lane_timeout() -> float:
+    """Return a lane's ceiling in seconds, from ``LIBTMUX_MATRIX_LANE_TIMEOUT`` if set."""
+    value = os.environ.get("LIBTMUX_MATRIX_LANE_TIMEOUT")
+    if value is None:
+        return LANE_TIMEOUT_SECONDS
+    try:
+        seconds = float(value)
+    except ValueError:
+        seconds = 0.0
+    if seconds <= 0:
+        raise MatrixError(f"LIBTMUX_MATRIX_LANE_TIMEOUT must be a positive number, not {value!r}")
+    return seconds
+
+
+def terminate_group(process: subprocess.Popen[str]) -> None:
+    """Stop a lane's whole process group: SIGTERM, a grace period, then SIGKILL.
+
+    The lane runs in a session of its own, so this reaches ``dotnet test`` and
+    the test hosts and shells below it, and nothing else.
+    """
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(process.pid, signal.SIGTERM)
+    try:
+        process.wait(timeout=TERMINATE_GRACE_SECONDS)
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(process.pid, signal.SIGKILL)
+        process.wait()
+
+
+def echo_lines(stream: t.IO[str], captured: list[str]) -> None:
+    """Copy a lane's output to the terminal as it arrives, and keep it."""
+    for line in stream:
+        sys.stdout.write(line)
+        captured.append(line)
 
 
 class Matrix:
@@ -321,6 +390,7 @@ class Matrix:
             "--max-threads",
             os.environ.get("LIBTMUX_MATRIX_MAX_THREADS", "2"),
         ]
+        limit = lane_timeout()
         process = subprocess.Popen(
             command,
             cwd=REPOSITORY,
@@ -328,13 +398,28 @@ class Matrix:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            start_new_session=True,
         )
-        assert process.stdout is not None
-        captured = []
-        for line in process.stdout:
-            sys.stdout.write(line)
-            captured.append(line)
-        return process.wait(), "".join(captured)
+        if process.stdout is None:
+            terminate_group(process)
+            raise MatrixError("dotnet test started without an output pipe")
+        captured: list[str] = []
+        reader = threading.Thread(target=echo_lines, args=(process.stdout, captured), daemon=True)
+        reader.start()
+        try:
+            try:
+                status = process.wait(timeout=limit)
+            except subprocess.TimeoutExpired:
+                terminate_group(process)
+                notice = f"lane exceeded its limit of {limit:g}s and was stopped\n"
+                sys.stderr.write(notice)
+                captured.append(notice)
+                status = TIMED_OUT_STATUS
+        finally:
+            if process.poll() is None:
+                terminate_group(process)
+        reader.join(timeout=TERMINATE_GRACE_SECONDS)
+        return status, "".join(captured)
 
     def lane_environment(
         self, build: TmuxBuild, expected_version: str, framework: str, *, transition: bool
