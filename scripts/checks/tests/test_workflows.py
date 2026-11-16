@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+import runpy
 import shutil
 
 import pytest
@@ -21,6 +22,17 @@ def repository(tmp_path: pathlib.Path) -> pathlib.Path:
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / name, tmp_path / name)
     return tmp_path
+
+
+def test_the_loader_falls_back_when_pyyaml_has_no_libyaml(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A PyYAML build without libyaml has no `CBaseLoader`; the checker still loads."""
+    monkeypatch.delattr(yaml, "CBaseLoader", raising=False)
+
+    namespace = runpy.run_path(str(ROOT / "scripts/checks/verify_workflows.py"))
+
+    assert namespace["WorkflowLoader"].__mro__[1] is yaml.BaseLoader
 
 
 def test_current_workflows_pass(repository: pathlib.Path) -> None:

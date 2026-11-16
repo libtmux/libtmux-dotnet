@@ -42,7 +42,16 @@ PLANNED_LANES = {
 }
 
 
-class WorkflowLoader(yaml.CBaseLoader):
+if t.TYPE_CHECKING:
+    from yaml import BaseLoader as _BaseLoader
+else:
+    try:
+        from yaml import CBaseLoader as _BaseLoader
+    except ImportError:  # PyYAML built without libyaml
+        from yaml import BaseLoader as _BaseLoader
+
+
+class WorkflowLoader(_BaseLoader):
     """Read scalars literally, including GitHub's YAML 1.2 `on` key."""
 
     def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict:
