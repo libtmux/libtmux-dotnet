@@ -1,4 +1,4 @@
-"""Critical phase integrity checks; Git is real and only dotnet is replaced."""
+"""Phase integrity checks for package_review.py: a real Git repository, a stand-in dotnet."""
 
 from __future__ import annotations
 

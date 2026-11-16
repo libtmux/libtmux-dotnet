@@ -131,7 +131,7 @@ The config requests five warmup and twenty measured passes per mode. Set
 BenchmarkDotNet JSON and run log. On a committed tree, record them together:
 
 ```console
-$ python3 scripts/benchmarks/record_modes.py \
+$ uv run python scripts/benchmarks/record_modes.py \
     --report artifacts/benchmarks/mode-workload/results/LibTmux.Benchmarks.ModeWorkloadBenchmarks-report-full.json \
     --tmux-version 3.7d \
     --collected 2026-09-27 \
@@ -178,7 +178,7 @@ On a clean committed tree, validate the full run and retain its median, p95,
 and p99 distributions:
 
 ```console
-$ python3 scripts/benchmarks/record_topology.py \
+$ uv run python scripts/benchmarks/record_topology.py \
     --input artifacts/benchmarks/topology.ndjson \
     --output artifacts/benchmarks/topology.record.json
 ```
@@ -440,7 +440,7 @@ loss measurement.
 Record a complete run with the shared NDJSON recorder:
 
 ```console
-$ python3 scripts/benchmarks/record_topology.py \
+$ uv run python scripts/benchmarks/record_topology.py \
     --probe stream \
     --input artifacts/benchmarks/stream.ndjson \
     --output artifacts/benchmarks/stream.record.json

@@ -1,4 +1,4 @@
-"""A benchmark record must state the method the run actually used."""
+"""A benchmark record states the method its run used."""
 
 import json
 import pathlib
