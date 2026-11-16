@@ -7,9 +7,8 @@ import runpy
 import pytest
 
 
-def test_inventory_preserves_compiled_fsharp_contracts():
-    root = pathlib.Path(__file__).parents[3]
-    inventory = json.loads((root / "artifacts/api-inventory.json").read_text())
+def test_inventory_preserves_compiled_fsharp_contracts(api_inventory_path):
+    inventory = json.loads(api_inventory_path.read_text())
     members = {
         member["id"]: member
         for member in inventory["members"]

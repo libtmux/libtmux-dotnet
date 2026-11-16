@@ -42,10 +42,9 @@ def test_fsharp_baseline_rejects_changed_contract(documents, mutation):
 
 
 @pytest.fixture(scope="module")
-def documents():
+def documents(api_inventory_path):
     return tuple(
-        json.loads((ROOT / path).read_text())
-        for path in ("docs/public-api.json", "artifacts/api-inventory.json")
+        json.loads(path.read_text()) for path in (ROOT / "docs/public-api.json", api_inventory_path)
     )
 
 

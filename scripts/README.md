@@ -29,7 +29,21 @@ one through `uv`; a script with dependencies declares them in a PEP 723 header.
 $ uv run --locked --script scripts/run_checks.py tests
 ```
 
-Arguments after `tests` go through to pytest. Refresh the lock deliberately:
+Arguments after `tests` go through to pytest. A checkout with no build has no
+`artifacts/api-inventory.json`, so the tests that read it skip and the run ends
+by naming the commands that write it. Build the solution and write the
+inventory from the repository root to run them:
+
+```console
+$ dotnet build LibTmux.slnx --configuration Release
+```
+
+```console
+$ dotnet run --project eng/LibTmux.Engineering --configuration Release --no-build -- api-inventory . artifacts/api-inventory.json
+```
+
+Under `CI` a missing inventory fails the run instead of skipping. Refresh the
+lock deliberately:
 
 ```console
 $ uv lock --script scripts/run_checks.py

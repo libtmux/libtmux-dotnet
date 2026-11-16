@@ -314,7 +314,7 @@ def main(arguments: t.Sequence[str] | None = None) -> int:
     parsed = parser.parse_args(arguments)
 
     if parsed.fsharp:
-        rendered = render_fsharp(fsharp_members())
+        rendered = render_fsharp(fsharp_members(INVENTORY_PATH))
         if parsed.check:
             current = (
                 FSHARP_OUTPUT_PATH.read_text(encoding="utf-8")

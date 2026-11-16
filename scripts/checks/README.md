@@ -21,6 +21,9 @@ $ uv run python scripts/checks/verify_tmux_versions.py
 ```
 
 `verify_public_api.py` reads `artifacts/api-inventory.json`, which the
-`LibTmux.Engineering` `api-inventory` command writes after a build.
+`LibTmux.Engineering` `api-inventory` command writes after a build. Its tests
+skip when the file is missing; the
+[script runner](../README.md#running-the-checks) gives the two commands that
+write it.
 
 Run the tests with the [script runner](../README.md#running-the-checks).

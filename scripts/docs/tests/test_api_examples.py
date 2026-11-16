@@ -26,10 +26,10 @@ from verify_api_examples import (
 
 
 @pytest.fixture
-def example_tree(tmp_path: Path):
+def example_tree(tmp_path: Path, api_inventory_path: Path):
     """Copy only the source files needed by the manifest, without build outputs."""
     manifest = json.loads((ROOT / "examples/api/manifest.json").read_text())
-    inventory = json.loads((ROOT / "artifacts/api-inventory.json").read_text())
+    inventory = json.loads(api_inventory_path.read_text())
     paths = ["Directory.Build.props", *manifest["setupFiles"]]
     paths.extend(profile["projectFile"] for profile in manifest["profiles"].values())
     paths.extend(entry["sourceFile"] for entry in manifest["examples"])
