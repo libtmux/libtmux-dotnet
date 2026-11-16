@@ -30,16 +30,25 @@ import difflib
 import json
 import os
 import pathlib
+import queue
 import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
+import typing as t
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 OUTPUT = REPO / "docs" / "mcp" / "tools.md"
 
 CAPABILITY_KEY = "com.git-pull.libtmux-mcp/capability"
+
+#: How long the server has to answer every request before the run gives up.
+DEADLINE_SECONDS = 30.0
+
+#: How long the server has to exit once its input is closed.
+EXIT_GRACE_SECONDS = 10.0
 
 FRAMES = (
     {
@@ -107,8 +116,22 @@ def _dotnet_environment() -> dict[str, str]:
     return {"DOTNET_ROOT": str(pathlib.Path(_find_dotnet()).parent)}
 
 
+def _read_lines(stream: t.IO[str], lines: queue.Queue[str | None]) -> None:
+    """Forward each line of ``stream`` to ``lines``, then ``None`` at end of file."""
+    try:
+        for line in stream:
+            lines.put(line)
+    finally:
+        lines.put(None)
+
+
 def _ask() -> dict[int, dict]:
-    """Run one server with all four toolsets and collect answers by request id."""
+    """Run one server with all four toolsets and collect answers by request id.
+
+    A reader thread feeds the server's lines to a queue, so the deadline holds
+    when the server goes quiet; a blocking ``readline`` would wait for it
+    forever.
+    """
     env = dict(os.environ)
     for name in (
         "LIBTMUX_SAFETY",
@@ -137,33 +160,59 @@ def _ask() -> dict[int, dict]:
         # advertised capability surface deterministic.
         env=env,
     )
-    assert proc.stdin is not None
-    assert proc.stdout is not None
+    if proc.stdin is None or proc.stdout is None:
+        proc.kill()
+        proc.wait()
+        msg = "the server's standard streams were not opened"
+        raise RuntimeError(msg)
+
+    lines: queue.Queue[str | None] = queue.Queue()
+    threading.Thread(target=_read_lines, args=(proc.stdout, lines), daemon=True).start()
 
     answers: dict[int, dict] = {}
     wanted = {frame["id"] for frame in FRAMES if "id" in frame}
-    for frame in FRAMES:
-        proc.stdin.write(json.dumps(frame) + "\n")
-        proc.stdin.flush()
-
-    deadline = time.monotonic() + 30
-    while answers.keys() != wanted and time.monotonic() < deadline:
-        line = proc.stdout.readline()
-        if not line:
-            break
-        try:
-            message = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(message, dict) and "id" in message:
-            answers[message["id"]] = message.get("result", {})
-
-    proc.stdin.close()
+    deadline = time.monotonic() + DEADLINE_SECONDS
     try:
-        proc.wait(timeout=10)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+        try:
+            for frame in FRAMES:
+                proc.stdin.write(json.dumps(frame) + "\n")
+                proc.stdin.flush()
+        except BrokenPipeError:
+            pass  # the server exited; reading below reports what it answered
+        while answers.keys() != wanted:
+            try:
+                line = lines.get(timeout=max(deadline - time.monotonic(), 0))
+            except queue.Empty:
+                break
+            if line is None:
+                break
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(message, dict) and "id" in message:
+                answers[message["id"]] = message.get("result", {})
+    finally:
+        _stop(proc, graceful=answers.keys() == wanted)
     return answers
+
+
+def _stop(proc: subprocess.Popen[str], *, graceful: bool) -> None:
+    """End the server.
+
+    After every answer it is asked to exit by closing its input and killed if
+    it stays. A server that missed the deadline is killed at once.
+    """
+    try:
+        if graceful:
+            if proc.stdin is not None:
+                proc.stdin.close()
+            proc.wait(timeout=EXIT_GRACE_SECONDS)
+            return
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    proc.kill()
+    proc.wait()
 
 
 def _one_line(text: str) -> str:

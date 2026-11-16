@@ -19,4 +19,7 @@ committed document no longer matches the server:
 $ uv run scripts/mcp-tools/dump_tools.py --check
 ```
 
+The script gives the server 30 seconds to answer every request and kills it
+after that, so a server that stops responding cannot hold a CI job.
+
 Run the tests with the [script runner](../README.md#running-the-checks).
