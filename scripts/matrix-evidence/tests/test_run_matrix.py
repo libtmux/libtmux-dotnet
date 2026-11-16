@@ -402,7 +402,10 @@ def test_an_unsafe_evidence_directory_is_a_usage_error(
 
 def _gone(pid: int) -> bool:
     """Say whether a process has ended; a zombie awaiting its parent has."""
-    return not psutil.pid_exists(pid) or psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+    try:
+        return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+    except psutil.NoSuchProcess:
+        return True
 
 
 def test_a_lane_that_never_finishes_is_stopped_with_its_children(
