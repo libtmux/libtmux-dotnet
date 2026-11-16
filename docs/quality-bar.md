@@ -103,12 +103,8 @@ published, versioned doc site.
 
 ---
 
-## How to measure a current tree
+## Assessing a current tree
 
-```console
-$ uv run python scripts/quality/measure.py
-```
-
-The script prints current raw measures; it does not refresh this archived prose.
-Current compatibility, package, API, and platform claims require their named CI
-or release gates on the exact tree being assessed.
+This page does not describe the current tree. Current compatibility, package,
+API, and platform claims require their named CI or release gates on the exact
+tree being assessed.

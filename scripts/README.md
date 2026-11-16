@@ -15,7 +15,6 @@ one through `uv`; a script with dependencies declares them in a PEP 723 header.
 | [`mcp-tools/`](mcp-tools/README.md) | Write the MCP tool reference from a running server |
 | [`package-review/`](package-review/README.md) | Pack and inspect a prerelease for a downstream review |
 | [`psmux-smoke/`](psmux-smoke/README.md) | Check the psmux preview from native Windows and WSL by hand |
-| [`quality/`](quality/README.md) | Print the raw measures the quality bar cites |
 | [`wrapped-captures/`](wrapped-captures/README.md) | Regenerate the wrapped-capture test fixture from real tmux |
 
 ## Running the checks
