@@ -116,60 +116,86 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Restore integration dependencies
-        run: |
-          dotnet restore tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj --locked-mode
-          dotnet restore tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj --locked-mode
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - name: Build both frameworks once
-        run: |
-          dotnet build tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
-            --configuration Release --no-restore --warnaserror
-          dotnet build tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj \
-            --configuration Release --no-restore --warnaserror
+      - name: Restore the integration tests
+        run: >-
+          dotnet restore
+          tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
+          --locked-mode
+
+      - name: Restore the workspace CLI tests
+        run: >-
+          dotnet restore
+          tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj
+          --locked-mode
+
+      - name: Build the integration tests on both frameworks
+        run: >-
+          dotnet build
+          tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
+          --configuration Release
+          --no-restore
+          --warnaserror
+
+      - name: Build the workspace CLI tests on both frameworks
+        run: >-
+          dotnet build
+          tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj
+          --configuration Release
+          --no-restore
+          --warnaserror
+
+      - name: Restore the F# examples
+        run: >-
+          dotnet restore
+          examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj
+          --locked-mode
+
+      - name: Build the F# examples
+        run: >-
+          dotnet build
+          examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj
+          --configuration Release
+          --no-restore
+          --warnaserror
 
       - name: Build F# examples for the tmux matrix
         id: fsharp-examples-build
-        run: |
-          dotnet restore examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj --locked-mode
-          dotnet build examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
-            --configuration Release --no-restore --warnaserror
-          for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
-            program="$(basename "${source}" .fs)"
-            dotnet build examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
-              --configuration Release --no-restore --warnaserror \
-              -p:ExampleProgram="${program}"
-          done
+        run: uv run scripts/example-programs/example_programs.py build fsharp
+
+      - name: Restore the C# programs
+        run: >-
+          dotnet restore
+          examples/LibTmux.Examples/LibTmux.Examples.csproj
+          --locked-mode
 
       - name: Build C# programs for the tmux matrix
         id: csharp-examples-build
-        run: |
-          dotnet restore examples/LibTmux.Examples/LibTmux.Examples.csproj --locked-mode
-          for source in examples/LibTmux.Examples/Programs/*.cs; do
-            program="$(basename "${source}" .cs)"
-            dotnet build examples/LibTmux.Examples/LibTmux.Examples.csproj \
-              --configuration Release --no-restore --warnaserror \
-              -p:ExampleProgram="${program}"
-          done
+        run: uv run scripts/example-programs/example_programs.py build csharp
+
+      - name: Create the artifacts directory
+        run: mkdir -p artifacts
+
+      - name: Record the revision the assemblies were built at
+        run: git rev-parse HEAD > artifacts/integration-revision
 
       - name: Archive runnable assemblies
-        run: |
-          mkdir -p artifacts
-          git rev-parse HEAD > artifacts/integration-revision
-          tar -czf artifacts/integration.tar.gz \
-            artifacts/integration-revision \
-            tests/LibTmux.IntegrationTests/bin/Release/net8.0 \
-            tests/LibTmux.IntegrationTests/bin/Release/net10.0 \
-            tests/LibTmux.Workspace.Cli.Tests/bin/Release/net8.0 \
-            tests/LibTmux.Workspace.Cli.Tests/bin/Release/net10.0 \
-            examples/LibTmux.FSharp.Examples/bin/Release/net8.0 \
-            examples/LibTmux.FSharp.Examples/bin/Release/net10.0 \
-            examples/LibTmux.FSharp.Examples/bin/Release/programs \
-            examples/LibTmux.Examples/bin/Release/programs \
-            src/LibTmux.Workspace.Cli/bin/Release/net8.0 \
-            src/LibTmux.Workspace.Cli/bin/Release/net10.0 \
-            tests/LibTmux.TestChild/bin/Release/net8.0 \
-            tests/LibTmux.TestChild/bin/Release/net10.0
+        run: >-
+          tar -czf artifacts/integration.tar.gz
+          artifacts/integration-revision
+          tests/LibTmux.IntegrationTests/bin/Release/net8.0
+          tests/LibTmux.IntegrationTests/bin/Release/net10.0
+          tests/LibTmux.Workspace.Cli.Tests/bin/Release/net8.0
+          tests/LibTmux.Workspace.Cli.Tests/bin/Release/net10.0
+          examples/LibTmux.FSharp.Examples/bin/Release/net8.0
+          examples/LibTmux.FSharp.Examples/bin/Release/net10.0
+          examples/LibTmux.FSharp.Examples/bin/Release/programs
+          examples/LibTmux.Examples/bin/Release/programs
+          src/LibTmux.Workspace.Cli/bin/Release/net8.0
+          src/LibTmux.Workspace.Cli/bin/Release/net10.0
+          tests/LibTmux.TestChild/bin/Release/net8.0
+          tests/LibTmux.TestChild/bin/Release/net10.0
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -199,15 +225,14 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install jq and zsh
-        # jq reads the example manifest. zsh drives the Workspace CLI tests'
-        # pane-readiness regression test: the wait it guards once ran only for
-        # that shell, so the test still exercises a real one to prove the
-        # generalized wait did not regress it.
+      - name: Install zsh
+        # zsh drives the Workspace CLI tests' pane-readiness regression test:
+        # the wait it guards once ran only for that shell, so the test still
+        # exercises a real one to prove the generalized wait did not regress it.
         uses: libtmux/.github/actions/apt-get@30f81842b1e639ea4e25f93f1f2543504178e228
         with:
           update: 'true'
-          args: install --yes jq zsh
+          args: install --yes zsh
 
       # A tag, branch or commit outside the table is resolved and built from
       # source by the action. The build goes on the path because some of what
@@ -226,18 +251,22 @@ jobs:
           name: integration-${{ github.sha }}-Release
           path: artifacts
 
-      - name: Extract the same-commit assemblies
-        run: |
-          tar -xzf artifacts/integration.tar.gz
-          test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
+      - name: Unpack the same-commit assemblies
+        run: tar -xzf artifacts/integration.tar.gz
+
+      - name: Check that the assemblies are this commit's
+        run: test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - name: Prepare the Python compatibility runtime
-        run: |
-          uv venv --python 3.13 "${RUNNER_TEMP}/workspace-python"
-          uv pip install --python "${RUNNER_TEMP}/workspace-python/bin/python" tmuxp==1.74.0
-          echo "TMUX_WORKSPACE_PYTHON=${RUNNER_TEMP}/workspace-python/bin/python" >> "${GITHUB_ENV}"
+      - name: Create the Python compatibility environment
+        run: uv venv --python 3.13 "${RUNNER_TEMP}/workspace-python"
+
+      - name: Install tmuxp in it
+        run: uv pip install --python "${RUNNER_TEMP}/workspace-python/bin/python" tmuxp==1.74.0
+
+      - name: Point the workspace CLI at it
+        run: echo "TMUX_WORKSPACE_PYTHON=${RUNNER_TEMP}/workspace-python/bin/python" >> "${GITHUB_ENV}"
 
       # A debugging session is for a dispatch, and the plan gives it to exactly
       # one leg. It is limited to the person who started the run, who needs an
@@ -299,31 +328,22 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # A ref names no release, so there is no version to match.
+      - name: Check that tmux is the expected release
+        if: ${{ matrix.expected != '' }}
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
+          MATRIX_FRAMEWORK: ${{ matrix.framework }}
+        run: test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+
       - name: F# example
         id: fsharp-examples
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
-        run: |
-          if [[ -n "${LIBTMUX_EXPECTED_TMUX_VERSION}" ]]; then
-            test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
-          fi
-          # A ref names no release, so the programs' minimum is read from what was built.
-          built="${LIBTMUX_EXPECTED_TMUX_VERSION:-$("${LIBTMUX_TMUX}" -V | sed -e 's/^tmux //' -e 's/^next-//')}"
-          dotnet "examples/LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
-          for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
-            program="$(basename "${source}" .fs)"
-            # The manifest names a release for each program that needs one.
-            minimum="$(jq -r --arg id "fsharp-${program}" '.examples[] | select(.id == $id) | .requiresTmux // empty' examples/api/manifest.json)"
-            if [[ -n "${minimum}" && "$(printf '%s\n' "${minimum}" "${built}" | sort -V | head -1)" != "${minimum}" ]]; then
-              echo "skip ${program}: needs tmux ${minimum}"
-              continue
-            fi
-            # Each program prints what it found; its guide shows what it must print.
-            printed="$(dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll")"
-            printf '%s\n' "${printed}" | uv run scripts/docs/sync_fsharp_snippets.py --expect-output "${program}"
-          done
+        run: uv run scripts/example-programs/example_programs.py run fsharp --framework "${MATRIX_FRAMEWORK}"
 
       - name: C# complete programs
         id: csharp-examples
@@ -331,14 +351,7 @@ jobs:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
-        run: |
-          if [[ -n "${LIBTMUX_EXPECTED_TMUX_VERSION}" ]]; then
-            test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
-          fi
-          for source in examples/LibTmux.Examples/Programs/*.cs; do
-            program="$(basename "${source}" .cs)"
-            dotnet "examples/LibTmux.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.Examples.dll"
-          done
+        run: uv run scripts/example-programs/example_programs.py run csharp --framework "${MATRIX_FRAMEWORK}"
 
       - name: Debug session after a failure
         if: failure() && github.event_name == 'workflow_dispatch' && matrix.tmate == 'on-failure'
@@ -370,6 +383,8 @@ jobs:
         with:
           global-json-file: global.json
 
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
       - name: Build tmux 3.3a
         id: floor
         uses: libtmux/.github/actions/build-tmux@30f81842b1e639ea4e25f93f1f2543504178e228
@@ -388,10 +403,36 @@ jobs:
           name: integration-${{ github.sha }}-Release
           path: artifacts
 
-      - name: Extract the same-commit assemblies
-        run: |
-          tar -xzf artifacts/integration.tar.gz
-          test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
+      - name: Unpack the same-commit assemblies
+        run: tar -xzf artifacts/integration.tar.gz
+
+      - name: Check that the assemblies are this commit's
+        run: test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
+
+      - name: Create the test tmux directory
+        env:
+          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
+        run: mkdir -p "${TMUX_TMPDIR}"
+
+      - name: Check that the rejected tmux is the planned release
+        env:
+          LIBTMUX_TMUX: ${{ steps.floor.outputs.binary }}
+          LIBTMUX_FLOOR_TMUX: ${{ steps.floor.outputs.binary }}
+          LIBTMUX_REJECTED_TMUX: ${{ steps.rejected.outputs.binary }}
+          LIBTMUX_REJECTED_REQUIRED: '1'
+          REJECTED_VERSION: ${{ matrix.rejected-version }}
+          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
+        run: test "$("${LIBTMUX_REJECTED_TMUX}" -V)" = "tmux ${REJECTED_VERSION}"
+
+      - name: Check that the client is tmux 3.3a
+        env:
+          LIBTMUX_TMUX: ${{ steps.floor.outputs.binary }}
+          LIBTMUX_FLOOR_TMUX: ${{ steps.floor.outputs.binary }}
+          LIBTMUX_REJECTED_TMUX: ${{ steps.rejected.outputs.binary }}
+          LIBTMUX_REJECTED_REQUIRED: '1'
+          REJECTED_VERSION: ${{ matrix.rejected-version }}
+          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
+        run: test "$("${LIBTMUX_TMUX}" -V)" = "tmux 3.3a"
 
       - name: Refuse the unsupported daemon before any effect
         env:
@@ -401,25 +442,7 @@ jobs:
           LIBTMUX_REJECTED_REQUIRED: '1'
           REJECTED_VERSION: ${{ matrix.rejected-version }}
           TMUX_TMPDIR: /tmp/libtmux-dotnet-test
-        run: |
-          mkdir -p "${TMUX_TMPDIR}"
-          test "$("${LIBTMUX_REJECTED_TMUX}" -V)" = "tmux ${REJECTED_VERSION}"
-          test "$("${LIBTMUX_TMUX}" -V)" = "tmux 3.3a"
-          # The control client needs 3.7, which this lane does not install,
-          # so its hook test runs in the matrix. A client older than 3.2
-          # rejects -N, so the two tests that run the rejected build as a
-          # working client do not apply to a build before 3.2, and the tests
-          # of what only such a build does do not apply to the others.
-          case "${REJECTED_VERSION}" in
-            3.0a|3.1c) skipped=('*reports_a_different_version' '*executable_that_would_start_it_is_below_the_minimum') ;;
-            *) skipped=('*before_3_2*') ;;
-          esac
-          dotnet test \
-            --test-modules tests/LibTmux.IntegrationTests/bin/Release/net10.0/LibTmux.IntegrationTests.dll \
-            --filter-class LibTmux.IntegrationTests.Versioning.MinimumTmuxVersionTests \
-            --filter-not-method '*Attaching_and_watching_through_a_control_client_fires_no_hook' "${skipped[@]}" \
-            --fail-skips on \
-            --minimum-expected-tests 10
+        run: uv run scripts/rejected-lane/rejected_lane.py --version "${REJECTED_VERSION}"
 
   # Exactly tmux 3.7 is the one release that ends the server on an unnamed
   # break-pane and rejects a name with a colon or a period. The matrix runs 3.7a
@@ -454,28 +477,40 @@ jobs:
           name: integration-${{ github.sha }}-Release
           path: artifacts
 
-      - name: Extract the same-commit assemblies
-        run: |
-          tar -xzf artifacts/integration.tar.gz
-          test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
+      - name: Unpack the same-commit assemblies
+        run: tar -xzf artifacts/integration.tar.gz
 
+      - name: Check that the assemblies are this commit's
+        run: test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
+
+      - name: Create the test tmux directory
+        env:
+          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
+        run: mkdir -p "${TMUX_TMPDIR}"
+
+      - name: Check that tmux is 3.7
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_EXPECTED_TMUX_VERSION: '3.7'
+          LIBTMUX_INTEGRATION_REQUIRED: '1'
+          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
+        run: test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+
+      # A test that skipped here would pass while proving nothing, so a
+      # skip fails the lane, and so does a run of fewer tests than there
+      # are, which a renamed test would cause.
       - name: Run the tests that need exactly 3.7
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: '3.7'
           LIBTMUX_INTEGRATION_REQUIRED: '1'
           TMUX_TMPDIR: /tmp/libtmux-dotnet-test
-        run: |
-          mkdir -p "${TMUX_TMPDIR}"
-          test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
-          # A test that skipped here would pass while proving nothing, so a
-          # skip fails the lane, and so does a run of fewer tests than there
-          # are, which a renamed test would cause.
-          dotnet test \
-            --test-modules tests/LibTmux.IntegrationTests/bin/Release/net10.0/LibTmux.IntegrationTests.dll \
-            --filter-method '*exact_3_7*' \
-            --fail-skips on \
-            --minimum-expected-tests 3
+        run: >-
+          dotnet test
+          --test-modules tests/LibTmux.IntegrationTests/bin/Release/net10.0/LibTmux.IntegrationTests.dll
+          --filter-method '*exact_3_7*'
+          --fail-skips on
+          --minimum-expected-tests 3
 
   advisory:
     needs: [plan, build]
@@ -511,10 +546,11 @@ jobs:
           name: integration-${{ github.sha }}-Release
           path: artifacts
 
-      - name: Extract the same-commit assemblies
-        run: |
-          tar -xzf artifacts/integration.tar.gz
-          test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
+      - name: Unpack the same-commit assemblies
+        run: tar -xzf artifacts/integration.tar.gz
+
+      - name: Check that the assemblies are this commit's
+        run: test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
 
       - name: Integration tests
         env:

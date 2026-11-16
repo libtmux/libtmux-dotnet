@@ -67,30 +67,42 @@ jobs:
         with:
           ref: ${{ env.TMUX_VERSION }}
 
+      - name: Create the benchmark tmux directory
+        env:
+          TMUX_TMPDIR: /tmp/libtmux-benchmarks
+        run: mkdir -p "${TMUX_TMPDIR}"
+
+      - name: Check that tmux is the planned version
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+        run: test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${TMUX_VERSION}"
+
       - name: Run the F# benchmarks
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           TMUX_TMPDIR: /tmp/libtmux-benchmarks
-        run: |
-          mkdir -p "${TMUX_TMPDIR}"
-          test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${TMUX_VERSION}"
-          dotnet run \
-            --project benchmarks/LibTmux.Benchmarks \
-            --configuration Release \
-            --framework net10.0 \
-            -- \
-            --filter '*FSharp*' \
-            --artifacts artifacts/benchmarks-fsharp
+        run: >-
+          dotnet run
+          --project benchmarks/LibTmux.Benchmarks
+          --configuration Release
+          --framework net10.0
+          --
+          --filter '*FSharp*'
+          --artifacts artifacts/benchmarks-fsharp
+
+      - name: Create the benchmark record directory
+        run: mkdir -p artifacts/benchmark-record
 
       - name: Record the run
-        run: |
-          mkdir -p artifacts/benchmark-record
-          uv run scripts/benchmarks/record_fsharp.py \
-            --reports artifacts/benchmarks-fsharp/results \
-            --tmux-version "${TMUX_VERSION}" \
-            --collected "$(date -u +%F)" \
-            --out artifacts/benchmark-record
-          cat artifacts/benchmark-record/*.md >> "${GITHUB_STEP_SUMMARY}"
+        run: >-
+          uv run scripts/benchmarks/record_fsharp.py
+          --reports artifacts/benchmarks-fsharp/results
+          --tmux-version "${TMUX_VERSION}"
+          --collected "$(date -u +%F)"
+          --out artifacts/benchmark-record
+
+      - name: Add the record to the run summary
+        run: cat artifacts/benchmark-record/*.md >> "${GITHUB_STEP_SUMMARY}"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

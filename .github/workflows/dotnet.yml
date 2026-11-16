@@ -162,47 +162,83 @@ jobs:
           LIBTMUX_PACKAGE_ARTIFACTS: artifacts/packages
         run: uv run --locked --script scripts/run_checks.py tests --quiet -m packaging
 
-      - name: Install and inspect the workspace CLI
-        run: |
-          version=$(dotnet msbuild src/LibTmux.Workspace.Cli/LibTmux.Workspace.Cli.csproj -getProperty:Version)
-          dotnet tool install LibTmux.Workspace.Cli \
-            --tool-path "${RUNNER_TEMP}/workspace-cli" \
-            --source "${PWD}/artifacts/packages" \
-            --version "${version}"
-          "${RUNNER_TEMP}/workspace-cli/tmux-workspace" --generate reference --json > "${RUNNER_TEMP}/workspace-commands.json"
-          uv run python scripts/checks/verify_workspace_commands.py "${RUNNER_TEMP}/workspace-commands.json"
+      - name: Read the workspace CLI version
+        id: workspace-cli-version
+        run: echo "version=$(dotnet msbuild src/LibTmux.Workspace.Cli/LibTmux.Workspace.Cli.csproj -getProperty:Version)" >> "${GITHUB_OUTPUT}"
 
-      - name: Package consumer
-        # Reaching the library through the package is the point: a missing
-        # assembly or a wrong target framework is invisible from inside the
-        # repository.
+      - name: Install the workspace CLI
+        env:
+          WORKSPACE_CLI_VERSION: ${{ steps.workspace-cli-version.outputs.version }}
+        run: >-
+          dotnet tool install LibTmux.Workspace.Cli
+          --tool-path "${RUNNER_TEMP}/workspace-cli"
+          --source "${PWD}/artifacts/packages"
+          --version "${WORKSPACE_CLI_VERSION}"
+
+      - name: Print the workspace CLI's command reference
+        run: >-
+          "${RUNNER_TEMP}/workspace-cli/tmux-workspace" --generate reference --json
+          > "${RUNNER_TEMP}/workspace-commands.json"
+
+      - name: Verify the workspace CLI's commands
+        run: uv run python scripts/checks/verify_workspace_commands.py "${RUNNER_TEMP}/workspace-commands.json"
+
+      - name: 'Package consumer: restore'
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer
-        run: |
-          dotnet restore tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
-            --configfile tests/NuGet.config
-          for framework in net8.0 net10.0; do
-            dotnet run \
-              --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --no-restore
-          done
+        run: >-
+          dotnet restore
+          tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj
+          --configfile tests/NuGet.config
 
-      - name: F# package consumer
+      - name: Package consumer on net8.0
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer
+        run: >-
+          dotnet run
+          --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj
+          --configuration Release
+          --framework net8.0
+          --no-restore
+
+      - name: Package consumer on net10.0
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer
+        run: >-
+          dotnet run
+          --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj
+          --configuration Release
+          --framework net10.0
+          --no-restore
+
+      - name: 'F# package consumer: restore'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-package-consumer
+        run: >-
+          dotnet restore
+          tests/LibTmux.FSharp.PackageConsumer/LibTmux.FSharp.PackageConsumer.fsproj
+          --configfile tests/NuGet.config
+
+      - name: F# package consumer on net8.0
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-package-consumer
+        run: >-
+          dotnet run
+          --project tests/LibTmux.FSharp.PackageConsumer/LibTmux.FSharp.PackageConsumer.fsproj
+          --configuration Release
+          --framework net8.0
+          --no-restore
+
+      - name: F# package consumer on net10.0
         id: fsharp-package-consumer
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-package-consumer
-        run: |
-          dotnet restore tests/LibTmux.FSharp.PackageConsumer/LibTmux.FSharp.PackageConsumer.fsproj \
-            --configfile tests/NuGet.config
-          for framework in net8.0 net10.0; do
-            dotnet run \
-              --project tests/LibTmux.FSharp.PackageConsumer/LibTmux.FSharp.PackageConsumer.fsproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --no-restore
-          done
+        run: >-
+          dotnet run
+          --project tests/LibTmux.FSharp.PackageConsumer/LibTmux.FSharp.PackageConsumer.fsproj
+          --configuration Release
+          --framework net10.0
+          --no-restore
 
       # An F# application compiles against its own SDK's FSharp.Core, so the
       # package has to load with the oldest one a supported SDK supplies.
@@ -210,143 +246,257 @@ jobs:
         with:
           dotnet-version: '8.0.4xx'
 
+      - name: 'F# SDK 8 consumer: check the SDK'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-sdk8-consumer
+        working-directory: tests/LibTmux.FSharp.Sdk8Consumer
+        run: dotnet --version | grep --quiet '^8\.0\.4'
+
+      - name: 'F# SDK 8 consumer: restore'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-sdk8-consumer
+        working-directory: tests/LibTmux.FSharp.Sdk8Consumer
+        run: dotnet restore --configfile ../NuGet.config
+
       - name: F# SDK 8 consumer
         id: fsharp-sdk8-consumer
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-sdk8-consumer
         working-directory: tests/LibTmux.FSharp.Sdk8Consumer
-        run: |
-          dotnet --version | grep --quiet '^8\.0\.4'
-          dotnet restore --configfile ../NuGet.config
-          env -u TMUX -u TMUX_PANE dotnet run --configuration Release --no-restore
+        run: env -u TMUX -u TMUX_PANE dotnet run --configuration Release --no-restore
+
+      - name: 'F# README quickstart: restore'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-quickstart
+        run: >-
+          dotnet restore
+          examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj
+          --configfile tests/NuGet.config
+          -p:UsePackageReferences=true
+
+      - name: 'F# README quickstart: build'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-quickstart
+        run: >-
+          dotnet build
+          examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj
+          --configuration Release
+          --no-restore
+          -p:UsePackageReferences=true
 
       - name: F# README quickstart
         id: fsharp-readme-quickstart
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-quickstart
-        run: |
-          dotnet restore examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
-            --configfile tests/NuGet.config \
-            -p:UsePackageReferences=true
-          dotnet build examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
-            --configuration Release \
-            --no-restore \
-            -p:UsePackageReferences=true
-          # The quickstart waits through a control client, which tmux promises
-          # from 3.7; the runner's apt tmux can be older.
-          running="$(tmux -V | cut -d' ' -f2)"
-          if [[ "$(printf '%s\n' 3.7 "${running}" | sort -V | head -1)" != 3.7 ]]; then
-            # A warning annotation and a summary line, so the run reads as
-            # skipped rather than as a pass.
-            echo "::warning title=F# quickstart skipped::It needs tmux 3.7; this runner has ${running}."
-            echo "F# README quickstart skipped: it needs tmux 3.7, this runner has ${running}." >> "${GITHUB_STEP_SUMMARY}"
-            exit 0
-          fi
-          for framework in net8.0 net10.0; do
-            # Built above, so only what the program prints reaches the comparison.
-            printed="$(dotnet run \
-              --project examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --no-build \
-              -p:UsePackageReferences=true)"
-            printf '%s\n' "${printed}" | uv run scripts/docs/sync_fsharp_snippets.py --expect-output Quickstart
-          done
+        run: uv run scripts/example-programs/example_programs.py quickstart --framework net8.0 --framework net10.0
 
-      - name: F# packed example console
+      - name: 'F# packed example console: restore'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-packed-examples
+          LIBTMUX_FSHARP_EXPECT_PACKED: '1'
+        run: >-
+          dotnet restore
+          examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj
+          --configfile tests/NuGet.config
+          -p:UsePackageReferences=true
+
+      - name: F# packed example console on net8.0
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-packed-examples
+          LIBTMUX_FSHARP_EXPECT_PACKED: '1'
+        run: >-
+          dotnet run
+          --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj
+          --configuration Release
+          --framework net8.0
+          --no-restore
+          -p:UsePackageReferences=true
+
+      - name: F# packed example console on net10.0
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-packed-examples
+          LIBTMUX_FSHARP_EXPECT_PACKED: '1'
+        run: >-
+          dotnet run
+          --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj
+          --configuration Release
+          --framework net10.0
+          --no-restore
+          -p:UsePackageReferences=true
+
+      - name: 'F# packed example console: every program'
         id: fsharp-packed-examples
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-packed-examples
           LIBTMUX_FSHARP_EXPECT_PACKED: '1'
-        run: |
-          dotnet restore examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
-            --configfile tests/NuGet.config \
-            -p:UsePackageReferences=true
-          for framework in net8.0 net10.0; do
-            dotnet run \
-              --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --no-restore \
-              -p:UsePackageReferences=true
-          done
-          uv run scripts/docs/verify_api_examples.py \
-            --packages artifacts/packages \
-            --output "${RUNNER_TEMP}/libtmux-api-examples"
+        run: >-
+          uv run scripts/docs/verify_api_examples.py
+          --packages artifacts/packages
+          --output "${RUNNER_TEMP}/libtmux-api-examples"
 
       - name: Install the native toolchain
         uses: libtmux/.github/actions/apt-get@30f81842b1e639ea4e25f93f1f2543504178e228
         with:
           args: install --yes clang zlib1g-dev
 
-      - name: Ahead-of-time smoke test
-        # Trim and ahead-of-time warnings are only complete once something is
-        # published that way and run. The isolated cache and mapped source make
-        # this a test of the packages above rather than the project graph.
+      # Trim and ahead-of-time warnings are only complete once something is
+      # published that way and run. The isolated cache and mapped source make
+      # this a test of the packages above rather than the project graph.
+      - name: 'Ahead-of-time smoke test: restore'
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
-        run: |
-          dotnet restore tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
-            --runtime linux-x64 \
-            --configfile tests/NuGet.config
-          for framework in net8.0 net10.0; do
-            dotnet publish tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --runtime linux-x64 \
-              --no-restore
-            "tests/LibTmux.AotSmoke/bin/Release/${framework}/linux-x64/native/LibTmux.AotSmoke"
-          done
+        run: >-
+          dotnet restore
+          tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj
+          --runtime linux-x64
+          --configfile tests/NuGet.config
 
-      - name: F# ahead-of-time smoke test
+      - name: 'Ahead-of-time smoke test: publish net8.0'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
+        run: >-
+          dotnet publish
+          tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj
+          --configuration Release
+          --framework net8.0
+          --runtime linux-x64
+          --no-restore
+
+      - name: Ahead-of-time smoke test on net8.0
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
+        run: >-
+          "tests/LibTmux.AotSmoke/bin/Release/net8.0/linux-x64/native/LibTmux.AotSmoke"
+
+      - name: 'Ahead-of-time smoke test: publish net10.0'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
+        run: >-
+          dotnet publish
+          tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj
+          --configuration Release
+          --framework net10.0
+          --runtime linux-x64
+          --no-restore
+
+      - name: Ahead-of-time smoke test on net10.0
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
+        run: >-
+          "tests/LibTmux.AotSmoke/bin/Release/net10.0/linux-x64/native/LibTmux.AotSmoke"
+
+      - name: 'F# ahead-of-time smoke test: restore'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-aot-smoke
+        run: >-
+          dotnet restore
+          tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj
+          --runtime linux-x64
+          --configfile tests/NuGet.config
+
+      - name: 'F# ahead-of-time smoke test: publish net8.0'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-aot-smoke
+        run: >-
+          dotnet publish
+          tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj
+          --configuration Release
+          --framework net8.0
+          --runtime linux-x64
+          --no-restore
+
+      - name: F# ahead-of-time smoke test on net8.0
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-aot-smoke
+        run: >-
+          "tests/LibTmux.FSharp.AotSmoke/bin/Release/net8.0/linux-x64/native/LibTmux.FSharp.AotSmoke"
+
+      - name: 'F# ahead-of-time smoke test: publish net10.0'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-aot-smoke
+        run: >-
+          dotnet publish
+          tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj
+          --configuration Release
+          --framework net10.0
+          --runtime linux-x64
+          --no-restore
+
+      - name: F# ahead-of-time smoke test on net10.0
         id: fsharp-aot-smoke
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-aot-smoke
-        run: |
-          dotnet restore tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
-            --runtime linux-x64 \
-            --configfile tests/NuGet.config
-          for framework in net8.0 net10.0; do
-            dotnet publish tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --runtime linux-x64 \
-              --no-restore
-            "tests/LibTmux.FSharp.AotSmoke/bin/Release/${framework}/linux-x64/native/LibTmux.FSharp.AotSmoke"
-          done
+        run: >-
+          "tests/LibTmux.FSharp.AotSmoke/bin/Release/net10.0/linux-x64/native/LibTmux.FSharp.AotSmoke"
 
-      - name: F# trimmed smoke test
+      - name: 'F# trimmed smoke test: restore'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-trimmed-smoke
+        run: >-
+          dotnet restore
+          tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj
+          --runtime linux-x64
+          --configfile tests/NuGet.config
+          -p:PublishAot=false
+          -p:PublishTrimmed=true
+
+      - name: 'F# trimmed smoke test: publish net8.0'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-trimmed-smoke
+        run: >-
+          dotnet publish
+          tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj
+          --configuration Release
+          --framework net8.0
+          --runtime linux-x64
+          --no-restore
+          --output "${RUNNER_TEMP}/libtmux-fsharp-trimmed/net8.0"
+          -p:PublishAot=false
+          -p:PublishTrimmed=true
+
+      - name: F# trimmed smoke test on net8.0
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-trimmed-smoke
+        run: >-
+          "${RUNNER_TEMP}/libtmux-fsharp-trimmed/net8.0/LibTmux.FSharp.AotSmoke"
+
+      - name: 'F# trimmed smoke test: publish net10.0'
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-trimmed-smoke
+        run: >-
+          dotnet publish
+          tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj
+          --configuration Release
+          --framework net10.0
+          --runtime linux-x64
+          --no-restore
+          --output "${RUNNER_TEMP}/libtmux-fsharp-trimmed/net10.0"
+          -p:PublishAot=false
+          -p:PublishTrimmed=true
+
+      - name: F# trimmed smoke test on net10.0
         id: fsharp-trimmed-smoke
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-trimmed-smoke
-        run: |
-          dotnet restore tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
-            --runtime linux-x64 \
-            --configfile tests/NuGet.config \
-            -p:PublishAot=false \
-            -p:PublishTrimmed=true
-          for framework in net8.0 net10.0; do
-            dotnet publish tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --runtime linux-x64 \
-              --no-restore \
-              --output "${RUNNER_TEMP}/libtmux-fsharp-trimmed/${framework}" \
-              -p:PublishAot=false \
-              -p:PublishTrimmed=true
-            "${RUNNER_TEMP}/libtmux-fsharp-trimmed/${framework}/LibTmux.FSharp.AotSmoke"
-          done
+        run: >-
+          "${RUNNER_TEMP}/libtmux-fsharp-trimmed/net10.0/LibTmux.FSharp.AotSmoke"
 
-      - name: F# example console
+      - name: F# example console on net8.0
+        run: >-
+          dotnet run
+          --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj
+          --configuration Release
+          --framework net8.0
+          --no-build
+
+      - name: F# example console on net10.0
         id: fsharp-examples
-        run: |
-          for framework in net8.0 net10.0; do
-            dotnet run \
-              --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --no-build
-          done
+        run: >-
+          dotnet run
+          --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj
+          --configuration Release
+          --framework net10.0
+          --no-build
 
       - name: Example console smoke
         run: >
@@ -366,19 +516,29 @@ jobs:
           --no-build
           --minimum-expected-tests 1
 
-      - name: README examples on both frameworks
+      - name: README examples on net8.0
         env:
           LIBTMUX_INTEGRATION_REQUIRED: '1'
-        run: |
-          for framework in net8.0 net10.0; do
-            dotnet test \
-              --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --no-build \
-              --filter-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \
-              --minimum-expected-tests 1
-          done
+        run: >-
+          dotnet test
+          --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
+          --configuration Release
+          --framework net8.0
+          --no-build
+          --filter-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests
+          --minimum-expected-tests 1
+
+      - name: README examples on net10.0
+        env:
+          LIBTMUX_INTEGRATION_REQUIRED: '1'
+        run: >-
+          dotnet test
+          --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
+          --configuration Release
+          --framework net10.0
+          --no-build
+          --filter-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests
+          --minimum-expected-tests 1
 
       - name: Integration tests
         env:
@@ -392,22 +552,39 @@ jobs:
           --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests
           --minimum-expected-tests 1
 
-      - name: Documents
-        # These run on checked-in documents rather than the build, so nothing
-        # else would notice them drifting from the source. The snippet check is
-        # the same idea aimed the other way: the documents are downstream of
-        # code that runs, and this is what says so out loud.
-        run: |
-          uv run python scripts/checks/verify_public_api.py
-          uv run python scripts/checks/verify_capabilities.py
-          uv run python scripts/checks/verify_version_literals.py
-          uv run python scripts/checks/verify_changelogs.py
-          uv run python scripts/checks/verify_tmux_versions.py
-          uv run python scripts/docs/render_api_reference.py --check
-          uv run python scripts/docs/render_api_reference.py --fsharp --check
-          uv run python scripts/docs/sync_snippets.py --check
-          uv run python scripts/docs/sync_fsharp_snippets.py --check
-          uv run scripts/mcp-tools/dump_tools.py --check
+      # These run on checked-in documents rather than the build, so nothing
+      # else would notice them drifting from the source. The snippet check is
+      # the same idea aimed the other way: the documents are downstream of
+      # code that runs, and this is what says so out loud.
+      - name: Verify the public API policy
+        run: uv run python scripts/checks/verify_public_api.py
+
+      - name: Verify the capability model
+        run: uv run python scripts/checks/verify_capabilities.py
+
+      - name: Verify the tmux version literals
+        run: uv run python scripts/checks/verify_version_literals.py
+
+      - name: Verify the changelogs
+        run: uv run python scripts/checks/verify_changelogs.py
+
+      - name: Verify the tmux version lists
+        run: uv run python scripts/checks/verify_tmux_versions.py
+
+      - name: Check the API reference
+        run: uv run python scripts/docs/render_api_reference.py --check
+
+      - name: Check the F# API reference
+        run: uv run python scripts/docs/render_api_reference.py --fsharp --check
+
+      - name: Check the snippets
+        run: uv run python scripts/docs/sync_snippets.py --check
+
+      - name: Check the F# snippets
+        run: uv run python scripts/docs/sync_fsharp_snippets.py --check
+
+      - name: Check the MCP tool reference
+        run: uv run scripts/mcp-tools/dump_tools.py --check
 
       - name: F# member reference
         id: fsharp-fsdocs

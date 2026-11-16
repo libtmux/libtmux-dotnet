@@ -20,7 +20,6 @@ import typing as t
 import yaml
 
 TARGET_FRAMEWORKS = {"net8.0", "net10.0"}
-FSHARP_PROGRAM_LOOP = "for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do"
 
 TMATE_ACTION = "mxschmitt/action-tmate"
 
@@ -235,6 +234,25 @@ def verify(root: pathlib.Path) -> list[str]:
             )
         return step
 
+    def runs(workflow: str, name: str, prefix: str) -> str:
+        """Join the commands of the steps in a job whose name starts with `prefix`.
+
+        A group of steps stands in for one required step, so none of them may
+        skip or forgive a failure.
+        """
+        commands = []
+        for step in job(workflow, name).get("steps", []):
+            if not isinstance(step.get("run"), str) or not str(step.get("name", "")).startswith(
+                prefix
+            ):
+                continue
+            require(
+                "if" not in step and step.get("continue-on-error", "false") == "false",
+                f"{workflow}.{name}: step {step.get('name')!r} may not set if or continue-on-error",
+            )
+            commands.append(step["run"])
+        return "\n".join(commands)
+
     def aggregate(
         workflow: str,
         name: str,
@@ -308,32 +326,38 @@ def verify(root: pathlib.Path) -> list[str]:
         "fsharp-fsdocs",
     ):
         required_step("dotnet", "build", identifier)
+    # Each of these is a restore, a run per framework, and the step that carries
+    # the id; none of the steps may skip or forgive a failure.
+    for group in ("F# package consumer", "F# ahead-of-time smoke test", "F# example console"):
+        runs("dotnet", "build", group)
 
-    examples = required_step("dotnet", "build", "fsharp-packed-examples")
-    examples_run = examples.get("run", "")
+    required_step("dotnet", "build", "fsharp-packed-examples")
+    examples_run = runs("dotnet", "build", "F# packed example console")
     require(
-        "for framework in net8.0 net10.0; do" in examples_run
+        all(f"--framework {framework}" in examples_run for framework in sorted(TARGET_FRAMEWORKS))
         and "uv run scripts/docs/verify_api_examples.py" in examples_run
         and "--packages artifacts/packages" in examples_run
         and '--output "${RUNNER_TEMP}/libtmux-api-examples"' in examples_run
-        and examples_run.count("-p:UsePackageReferences=true") >= 2,
+        and examples_run.count("-p:UsePackageReferences=true") >= 3,
         "dotnet.build.fsharp-packed-examples must execute every complete program on both packed frameworks",
     )
 
     quickstart = required_step("dotnet", "build", "fsharp-readme-quickstart")
-    quickstart_run = quickstart.get("run", "")
-    # Counted in commands only, so a comment that names the flag cannot stand in for one.
-    quickstart_commands = "\n".join(
-        line for line in quickstart_run.splitlines() if not line.lstrip().startswith("#")
-    )
+    quickstart_setup = runs("dotnet", "build", "F# README quickstart:")
     require(
-        "uv run scripts/docs/sync_fsharp_snippets.py --expect-output Quickstart" in quickstart_run
-        and quickstart_commands.count("-p:UsePackageReferences=true") >= 3,
+        quickstart.get("run", "").startswith(
+            "uv run scripts/example-programs/example_programs.py quickstart"
+        )
+        and all(
+            f"--framework {framework}" in quickstart.get("run", "")
+            for framework in sorted(TARGET_FRAMEWORKS)
+        )
+        and quickstart_setup.count("-p:UsePackageReferences=true") >= 2,
         "dotnet.build.fsharp-readme-quickstart must compare the packed program's output with the README",
     )
 
     sdk8 = required_step("dotnet", "build", "fsharp-sdk8-consumer")
-    sdk8_run = sdk8.get("run", "")
+    sdk8_run = runs("dotnet", "build", "F# SDK 8 consumer")
     require(
         sdk8.get("env", {}).get("NUGET_PACKAGES")
         == "${{ runner.temp }}/libtmux-fsharp-sdk8-consumer"
@@ -345,24 +369,26 @@ def verify(root: pathlib.Path) -> list[str]:
     )
 
     trimmed = required_step("dotnet", "build", "fsharp-trimmed-smoke")
-    trimmed_run = trimmed.get("run", "")
+    trimmed_run = runs("dotnet", "build", "F# trimmed smoke test")
     trimmed_project = "tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj"
-    trimmed_output = "${RUNNER_TEMP}/libtmux-fsharp-trimmed/${framework}"
+    trimmed_lines = {line.strip() for line in trimmed_run.splitlines()}
     require(
         trimmed.get("env", {}).get("NUGET_PACKAGES")
         == "${{ runner.temp }}/libtmux-fsharp-trimmed-smoke"
         and f"dotnet restore {trimmed_project}" in trimmed_run
-        and f"dotnet publish {trimmed_project}" in trimmed_run
+        and trimmed_run.count(f"dotnet publish {trimmed_project}") == len(TARGET_FRAMEWORKS)
         and "--configfile tests/NuGet.config" in trimmed_run
-        and "for framework in net8.0 net10.0; do" in trimmed_run
-        and '--framework "${framework}"' in trimmed_run
-        and trimmed_run.count("--runtime linux-x64") >= 2
-        and "--no-restore" in trimmed_run
-        and f'--output "{trimmed_output}"' in trimmed_run
-        and trimmed_run.count("-p:PublishAot=false") >= 2
-        and trimmed_run.count("-p:PublishTrimmed=true") >= 2
-        and f'"{trimmed_output}/LibTmux.FSharp.AotSmoke"'
-        in {line.strip() for line in trimmed_run.splitlines()},
+        and trimmed_run.count("--runtime linux-x64") >= 3
+        and trimmed_run.count("--no-restore") >= len(TARGET_FRAMEWORKS)
+        and trimmed_run.count("-p:PublishAot=false") >= 3
+        and trimmed_run.count("-p:PublishTrimmed=true") >= 3
+        and all(
+            f"--framework {framework}" in trimmed_run
+            and f'--output "${{RUNNER_TEMP}}/libtmux-fsharp-trimmed/{framework}"' in trimmed_run
+            and f'"${{RUNNER_TEMP}}/libtmux-fsharp-trimmed/{framework}/LibTmux.FSharp.AotSmoke"'
+            in trimmed_lines
+            for framework in sorted(TARGET_FRAMEWORKS)
+        ),
         "dotnet.build.fsharp-trimmed-smoke must publish and run both packed trimmed frameworks",
     )
 
@@ -377,21 +403,15 @@ def verify(root: pathlib.Path) -> list[str]:
         "examples" in fsharp_format.get("run", "").split(),
         "dotnet.build.fsharp-format must check F# examples",
     )
-    document_steps = [
-        step for step in job("dotnet", "build").get("steps", []) if step.get("name") == "Documents"
-    ]
-    require(len(document_steps) == 1, "dotnet.build: missing Documents step")
-    if len(document_steps) == 1:
-        require(
-            "uv run python scripts/docs/render_api_reference.py --fsharp --check"
-            in document_steps[0].get("run", ""),
-            "dotnet.build.Documents must check the F# API reference",
-        )
-        require(
-            "uv run python scripts/docs/sync_fsharp_snippets.py --check"
-            in document_steps[0].get("run", ""),
-            "dotnet.build.Documents must check F# snippets",
-        )
+    document_runs = {step.get("run") for step in job("dotnet", "build").get("steps", [])}
+    require(
+        "uv run python scripts/docs/render_api_reference.py --fsharp --check" in document_runs,
+        "dotnet.build must check the F# API reference",
+    )
+    require(
+        "uv run python scripts/docs/sync_fsharp_snippets.py --check" in document_runs,
+        "dotnet.build must check F# snippets",
+    )
 
     plan_script = runpy.run_path(str(root / "scripts/tmux-plan/plan.py"))
     require(
@@ -524,13 +544,15 @@ def verify(root: pathlib.Path) -> list[str]:
     require("if" not in producer, "dotnet-tmux.build.if may not skip the producer")
     fsharp_build = required_step("dotnet-tmux", "build", "fsharp-examples-build")
     fsharp_project = "examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj"
+    build_runs = runs("dotnet-tmux", "build", "")
     require(
-        fsharp_build.get("run", "").count(fsharp_project) >= 2,
+        f"dotnet restore {fsharp_project}" in build_runs
+        and f"dotnet build {fsharp_project}" in build_runs,
         "dotnet-tmux.build must restore and build the F# example",
     )
     require(
-        FSHARP_PROGRAM_LOOP in fsharp_build.get("run", "")
-        and '-p:ExampleProgram="${program}"' in fsharp_build.get("run", ""),
+        fsharp_build.get("run", "").strip()
+        == "uv run scripts/example-programs/example_programs.py build fsharp",
         "dotnet-tmux.build must compile every F# query program",
     )
     archives = [
@@ -564,31 +586,30 @@ def verify(root: pathlib.Path) -> list[str]:
         and example_env.get("MATRIX_FRAMEWORK") == "${{ matrix.framework }}",
         "dotnet-tmux.matrix.fsharp-examples must use the selected tmux and framework",
     )
+    # A release lane must run the release it names; a ref has no version to match.
+    version_checks = [
+        step
+        for step in job("dotnet-tmux", "matrix").get("steps", [])
+        if isinstance(step.get("run"), str)
+        and '"${LIBTMUX_TMUX}" -V' in step["run"]
+        and "LIBTMUX_EXPECTED_TMUX_VERSION" in step["run"]
+    ]
     require(
-        "LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
-        in fsharp_example.get("run", "")
-        and "LIBTMUX_EXPECTED_TMUX_VERSION" in fsharp_example.get("run", ""),
-        "dotnet-tmux.matrix.fsharp-examples must verify and run the selected cell",
+        len(version_checks) == 1
+        and "".join(str(version_checks[0].get("if", "")).split()) == "${{matrix.expected!=''}}",
+        "dotnet-tmux.matrix must verify the selected tmux release before the examples",
     )
-    example_lines = {line.strip() for line in fsharp_example.get("run", "").splitlines()}
     require(
-        FSHARP_PROGRAM_LOOP in fsharp_example.get("run", "")
-        and 'printed="$(dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll")"'
-        in example_lines,
-        "dotnet-tmux.matrix must execute every F# query program",
-    )
-    require(
-        'printf \'%s\\n\' "${printed}" | uv run scripts/docs/sync_fsharp_snippets.py --expect-output "${program}"'
-        in example_lines,
-        "dotnet-tmux.matrix must compare every F# program's output with its guide",
+        fsharp_example.get("run", "").strip()
+        == 'uv run scripts/example-programs/example_programs.py run fsharp --framework "${MATRIX_FRAMEWORK}"',
+        "dotnet-tmux.matrix must execute every F# query program and compare its output with its guide",
     )
     csharp_build = required_step("dotnet-tmux", "build", "csharp-examples-build")
     csharp_project = "examples/LibTmux.Examples/LibTmux.Examples.csproj"
-    csharp_loop = "for source in examples/LibTmux.Examples/Programs/*.cs; do"
     require(
-        csharp_build.get("run", "").count(csharp_project) >= 2
-        and csharp_loop in csharp_build.get("run", "")
-        and '-p:ExampleProgram="${program}"' in csharp_build.get("run", ""),
+        f"dotnet restore {csharp_project}" in build_runs
+        and csharp_build.get("run", "").strip()
+        == "uv run scripts/example-programs/example_programs.py build csharp",
         "dotnet-tmux.build must restore and compile every complete C# program",
     )
     if len(archives) == 1:
@@ -605,10 +626,8 @@ def verify(root: pathlib.Path) -> list[str]:
         "dotnet-tmux.matrix.csharp-examples must use the selected tmux and framework",
     )
     require(
-        csharp_loop in csharp_example.get("run", "")
-        and "LIBTMUX_EXPECTED_TMUX_VERSION" in csharp_example.get("run", "")
-        and 'dotnet "examples/LibTmux.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.Examples.dll"'
-        in {line.strip() for line in csharp_example.get("run", "").splitlines()},
+        csharp_example.get("run", "").strip()
+        == 'uv run scripts/example-programs/example_programs.py run csharp --framework "${MATRIX_FRAMEWORK}"',
         "dotnet-tmux.matrix must execute every complete C# program",
     )
     aggregate("dotnet-tmux", "compatibility", {"plan", "build", "matrix"}, PLANNED_LANES)

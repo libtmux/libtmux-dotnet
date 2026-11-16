@@ -36,24 +36,14 @@ jobs:
         with:
           global-json-file: global.json
 
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
       - name: Check the tag matches the version
         id: validate-tag
         env:
           REF_TYPE: ${{ github.ref_type }}
           TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          if [ "${REF_TYPE}" != tag ] || [[ "${TAG}" != v* ]]; then
-            echo "release must run at a v* tag, not ${REF_TYPE} ${TAG}" >&2
-            exit 1
-          fi
-          version="$(dotnet msbuild src/LibTmux/LibTmux.csproj \
-            -getProperty:Version -verbosity:quiet | tr -d '[:space:]')"
-          if [ "${TAG}" != "v${version}" ]; then
-            echo "tag ${TAG} does not match version ${version}" >&2
-            exit 1
-          fi
-          echo "validated ${TAG} at ${GITHUB_SHA}"
+        run: uv run scripts/release-checks/release_checks.py tag --ref-type "${REF_TYPE}" --tag "${TAG}"
 
   dotnet:
     name: full dotnet gate
@@ -104,11 +94,13 @@ jobs:
           name: packages
           path: artifacts
 
+      - name: Restore the engineering tool
+        run: dotnet restore eng/LibTmux.Engineering/LibTmux.Engineering.csproj --locked-mode
+
       - name: Inspect the packages
-        run: |
-          dotnet restore eng/LibTmux.Engineering/LibTmux.Engineering.csproj --locked-mode
-          dotnet run --project eng/LibTmux.Engineering --configuration Release --no-restore \
-            -- packages . artifacts/packages artifacts/api-inventory.json
+        run: >-
+          dotnet run --project eng/LibTmux.Engineering --configuration Release --no-restore
+          -- packages . artifacts/packages artifacts/api-inventory.json
 
       - name: NuGet login
         # The key this returns lasts an hour, so it is asked for immediately
@@ -118,17 +110,13 @@ jobs:
         with:
           user: ${{ vars.NUGET_USER }}
 
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      # Syft's .NET catalogers read deps.json files and assembly metadata, not
+      # the .nupkg archive around them, so scanning the packed files found
+      # nothing and every SBOM before this one listed zero components.
       - name: Unpack the packages for the SBOM
-        # Syft's .NET catalogers read deps.json files and assembly metadata, not
-        # the .nupkg archive around them, so scanning the packed files found
-        # nothing and every SBOM before this one listed zero components.
-        run: |
-          set -euo pipefail
-          for package in artifacts/packages/*.nupkg; do
-            name="$(basename "${package}" .nupkg)"
-            mkdir -p "artifacts/sbom-input/${name}"
-            unzip -q "${package}" -d "artifacts/sbom-input/${name}"
-          done
+        run: uv run scripts/release-checks/release_checks.py unpack --packages artifacts/packages --output artifacts/sbom-input
 
       - name: Generate an SBOM for the packages
         # A consumer deciding whether to take this needs to know what comes with
@@ -145,26 +133,11 @@ jobs:
           artifact-name: sbom-cyclonedx.json
           output-file: artifacts/sbom-cyclonedx.json
 
+      # An SBOM with nothing in it passes every other check, which is how the
+      # empty ones shipped. Each package is named from its own nuspec, so one
+      # missing from the document stops the release before anything is pushed.
       - name: Prove the SBOM names every package
-        # An SBOM with nothing in it passes every other check, which is how the
-        # empty ones shipped. Each package is named from its own nuspec, so one
-        # missing from the document stops the release before anything is pushed.
-        run: |
-          set -euo pipefail
-          missing=0
-          for package in artifacts/packages/*.nupkg; do
-            # Read the nuspec whole, then match. A grep that stops at the first
-            # match can kill unzip mid-write, and pipefail fails the release.
-            nuspec="$(unzip -p "${package}" '*.nuspec')"
-            id="$(grep -m 1 -oP '(?<=<id>)[^<]+' <<< "${nuspec}")"
-            if ! jq -e --arg id "${id}" \
-              'any(.components[]?; .type == "library" and .name == $id)' \
-              artifacts/sbom-cyclonedx.json > /dev/null; then
-              echo "::error::The SBOM does not name ${id}."
-              missing=1
-            fi
-          done
-          exit "${missing}"
+        run: uv run scripts/release-checks/release_checks.py sbom --packages artifacts/packages --sbom artifacts/sbom-cyclonedx.json
 
       - name: Attest what produced these packages
         # Signed provenance says which workflow, at which commit, on which
@@ -182,35 +155,11 @@ jobs:
           --api-key "${NUGET_API_KEY}"
           --source https://api.nuget.org/v3/index.json
 
+      # nuget.org adds a repository signature to every package it accepts,
+      # which changes the bytes, so the attestation above cannot match the
+      # file a consumer downloads. Wait until each is served, then keep it.
       - name: Fetch the packages nuget.org serves
-        # nuget.org adds a repository signature to every package it accepts,
-        # which changes the bytes, so the attestation above cannot match the
-        # file a consumer downloads. Wait until each is served, then keep it.
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/published
-          deadline=$((SECONDS + 1800))
-          for package in artifacts/packages/*.nupkg; do
-            nuspec="$(unzip -p "${package}" '*.nuspec')"
-            id="$(grep -m 1 -oP '(?<=<id>)[^<]+' <<< "${nuspec}")"
-            version="$(grep -m 1 -oP '(?<=<version>)[^<]+' <<< "${nuspec}")"
-            base="https://api.nuget.org/v3-flatcontainer/${id,,}/${version,,}"
-            published="artifacts/published/${id}.${version}.nupkg"
-            until curl --fail --silent --location --output "${published}" "${base}/${id,,}.${version,,}.nupkg"; do
-              if (( SECONDS > deadline )); then
-                echo "::error::nuget.org did not serve ${id} ${version} within 30 minutes."
-                exit 1
-              fi
-              sleep 30
-            done
-            # Listed whole first: grep -q exiting early can kill unzip, and
-            # pipefail would report that as a missing signature.
-            entries="$(unzip -Z1 "${published}")"
-            if ! grep -qx '.signature.p7s' <<< "${entries}"; then
-              echo "::error::nuget.org served ${id} ${version} without a repository signature."
-              exit 1
-            fi
-          done
+        run: uv run scripts/release-checks/release_checks.py fetch-published --packages artifacts/packages --output artifacts/published
 
       - name: Attest the packages nuget.org serves
         # This is the attestation `gh attestation verify` finds for a package

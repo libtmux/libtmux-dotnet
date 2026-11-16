@@ -42,12 +42,10 @@ def test_current_workflows_pass(repository: pathlib.Path) -> None:
 def test_fsharp_reference_check_is_required(repository: pathlib.Path) -> None:
     """Generated F# API documentation must fail CI when it drifts."""
     path = repository / ".github/workflows/dotnet.yml"
-    path.write_text(
-        path.read_text().replace(
-            "          uv run python scripts/docs/render_api_reference.py --fsharp --check\n",
-            "",
-        )
-    )
+    source = path.read_text()
+    before = "run: uv run python scripts/docs/render_api_reference.py --fsharp --check\n"
+    assert before in source
+    path.write_text(source.replace(before, "run: 'true'\n"))
 
     assert any("F# API reference" in error for error in verify(repository))
 
@@ -55,12 +53,10 @@ def test_fsharp_reference_check_is_required(repository: pathlib.Path) -> None:
 def test_fsharp_snippet_check_is_required(repository: pathlib.Path) -> None:
     """Published F# snippets must not drift from their compiled example source."""
     path = repository / ".github/workflows/dotnet.yml"
-    path.write_text(
-        path.read_text().replace(
-            "          uv run python scripts/docs/sync_fsharp_snippets.py --check\n",
-            "",
-        )
-    )
+    source = path.read_text()
+    before = "run: uv run python scripts/docs/sync_fsharp_snippets.py --check\n"
+    assert before in source
+    path.write_text(source.replace(before, "run: 'true'\n"))
 
     assert any("F# snippets" in error for error in verify(repository))
 
@@ -71,7 +67,7 @@ def test_fsharp_snippet_check_is_required(repository: pathlib.Path) -> None:
         "uv run scripts/docs/verify_api_examples.py",
         "--packages artifacts/packages",
         '--output "${RUNNER_TEMP}/libtmux-api-examples"',
-        "for framework in net8.0 net10.0; do",
+        "--framework net8.0",
         "-p:UsePackageReferences=true",
     ],
 )
@@ -79,12 +75,9 @@ def test_packed_complete_programs_are_required(repository: pathlib.Path, removed
     """A workflow cannot skip a displayed program or substitute source references."""
     path = repository / ".github/workflows/dotnet.yml"
     document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
-    step = next(
-        step
-        for step in document["jobs"]["build"]["steps"]
-        if step.get("id") == "fsharp-packed-examples"
-    )
-    step["run"] = step["run"].replace(removed, "")
+    for step in document["jobs"]["build"]["steps"]:
+        if step.get("name", "").startswith("F# packed example console"):
+            step["run"] = step["run"].replace(removed, "")
     path.write_text(yaml.safe_dump(document))
 
     assert any("execute every complete program" in error for error in verify(repository))
@@ -108,8 +101,8 @@ def test_fsdocs_reference_check_is_required(repository: pathlib.Path) -> None:
     [
         ("-p:PublishTrimmed=true", "-p:PublishTrimmed=false"),
         (
-            '            "${RUNNER_TEMP}/libtmux-fsharp-trimmed/${framework}/LibTmux.FSharp.AotSmoke"',
-            '            echo "${RUNNER_TEMP}/libtmux-fsharp-trimmed/${framework}/LibTmux.FSharp.AotSmoke"',
+            '          "${RUNNER_TEMP}/libtmux-fsharp-trimmed/net8.0/LibTmux.FSharp.AotSmoke"',
+            '          echo "${RUNNER_TEMP}/libtmux-fsharp-trimmed/net8.0/LibTmux.FSharp.AotSmoke"',
         ),
     ],
 )
@@ -142,22 +135,16 @@ def test_fsharp_example_is_required_in_every_tmux_matrix_cell(
 @pytest.mark.parametrize(
     ("job", "step_name", "removed"),
     [
-        ("build", "Build F# examples for the tmux matrix", '-p:ExampleProgram="${program}"'),
+        ("build", "Build F# examples for the tmux matrix", "build fsharp"),
         (
             "build",
             "Archive runnable assemblies",
             "examples/LibTmux.FSharp.Examples/bin/Release/programs",
         ),
-        ("matrix", "F# example", "Programs/*.fs"),
-        ("matrix", "F# example", 'dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/'),
-        ("build", "Build C# programs for the tmux matrix", '-p:ExampleProgram="${program}"'),
+        ("matrix", "F# example", "run fsharp"),
+        ("build", "Build C# programs for the tmux matrix", "build csharp"),
         ("build", "Archive runnable assemblies", "examples/LibTmux.Examples/bin/Release/programs"),
-        ("matrix", "C# complete programs", "Programs/*.cs"),
-        (
-            "matrix",
-            "C# complete programs",
-            'dotnet "examples/LibTmux.Examples/bin/Release/programs/',
-        ),
+        ("matrix", "C# complete programs", "run csharp"),
     ],
 )
 def test_query_programs_survive_matrix_build_and_execution(
@@ -177,6 +164,22 @@ def test_query_programs_survive_matrix_build_and_execution(
         else "every complete C# program"
     )
     assert any(expected in error for error in verify(repository))
+
+
+def test_the_selected_tmux_release_is_checked_before_the_examples(
+    repository: pathlib.Path,
+) -> None:
+    """A release lane that runs another tmux proves nothing about the release it names."""
+    path = repository / ".github/workflows/dotnet-tmux.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    document["jobs"]["matrix"]["steps"] = [
+        step
+        for step in document["jobs"]["matrix"]["steps"]
+        if "LIBTMUX_EXPECTED_TMUX_VERSION" not in step.get("run", "") or step.get("id")
+    ]
+    path.write_text(yaml.safe_dump(document))
+
+    assert any("verify the selected tmux release" in error for error in verify(repository))
 
 
 def test_commented_dependencies_do_not_gate_publication(
@@ -533,11 +536,14 @@ def test_duplicate_keys_fail(repository: pathlib.Path) -> None:
         ("dotnet", "build", "F# formatting"),
         ("dotnet", "build", "F# unit tests (net8.0)"),
         ("dotnet", "build", "F# unit tests (net10.0)"),
-        ("dotnet", "build", "F# package consumer"),
-        ("dotnet", "build", "F# packed example console"),
-        ("dotnet", "build", "F# ahead-of-time smoke test"),
-        ("dotnet", "build", "F# trimmed smoke test"),
-        ("dotnet", "build", "F# example console"),
+        ("dotnet", "build", "F# package consumer on net10.0"),
+        ("dotnet", "build", "F# package consumer: restore"),
+        ("dotnet", "build", "F# packed example console: every program"),
+        ("dotnet", "build", "F# packed example console on net8.0"),
+        ("dotnet", "build", "F# ahead-of-time smoke test on net10.0"),
+        ("dotnet", "build", "F# trimmed smoke test on net10.0"),
+        ("dotnet", "build", "F# trimmed smoke test: publish net8.0"),
+        ("dotnet", "build", "F# example console on net10.0"),
         ("dotnet", "build", "F# member reference"),
     ],
 )
