@@ -7,6 +7,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import time
 import typing as t
 
@@ -91,7 +92,7 @@ class Toolchain:
         for version in [*VERSIONS, TRANSITION]:
             binary = self.root / version / "bin" / "tmux"
             binary.parent.mkdir(parents=True)
-            binary.write_text(f"#!/bin/sh\nprintf 'tmux {version}\\n'\n", encoding="utf-8")
+            binary.write_text(f"#!{sys.executable}\nprint('tmux {version}')\n", encoding="utf-8")
             binary.chmod(0o755)
 
         bin_directory = tmp_path / "bin"
@@ -332,7 +333,7 @@ def test_a_build_that_reports_another_version_is_refused(
     toolchain: Toolchain, capsys: pytest.CaptureFixture[str]
 ) -> None:
     binary = toolchain.root / "3.4" / "bin" / "tmux"
-    binary.write_text("#!/bin/sh\nprintf 'tmux 3.5\\n'\n", encoding="utf-8")
+    binary.write_text(f"#!{sys.executable}\nprint('tmux 3.5')\n", encoding="utf-8")
 
     assert toolchain.run(INTEGRATION_PROJECT) == 1
 
@@ -471,7 +472,7 @@ def test_a_build_that_never_reports_its_version_is_an_error(
 ) -> None:
     """``tmux -V`` gets a deadline too."""
     binary = toolchain.root / "3.4" / "bin" / "tmux"
-    binary.write_text("#!/bin/sh\nsleep 60\n", encoding="utf-8")
+    binary.write_text(f"#!{sys.executable}\nimport time\ntime.sleep(60)\n", encoding="utf-8")
     monkeypatch.setattr(run_matrix, "QUERY_TIMEOUT_SECONDS", 1.0)
 
     assert toolchain.run(INTEGRATION_PROJECT) == 1

@@ -6,9 +6,9 @@ import copy
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -385,11 +385,13 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
     wrapper = tmp_path / "bin" / "tmux"
     wrapper.parent.mkdir()
     wrapper.write_text(
-        "#!/bin/sh\n"
-        'case "$*" in\n'
-        "  *capture-pane*) echo 'intentional capture failure' >&2; exit 73 ;;\n"
-        "esac\n"
-        f'exec {shlex.quote(native)} "$@"\n'
+        f"#!{sys.executable}\n"
+        "import os\n"
+        "import sys\n"
+        'if "capture-pane" in " ".join(sys.argv[1:]):\n'
+        '    sys.stderr.write("intentional capture failure\\n")\n'
+        "    sys.exit(73)\n"
+        f"os.execv({native!r}, [{native!r}, *sys.argv[1:]])\n"
     )
     wrapper.chmod(0o755)
     monkeypatch.setenv("LIBTMUX_TMUX", str(wrapper))
