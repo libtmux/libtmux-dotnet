@@ -42,3 +42,10 @@ inline (PEP 723) and run scripts with `uv run`.
 
 - GitHub Actions `run:` lines that call one command.
 - Test data that is not a comparison, such as workspace files a loader reads.
+- `eng/mcp-swap`, which is C#. It is a project in `LibTmux.slnx`, so the
+  solution's format check and warnings-as-errors build cover it and CI runs its
+  test suite, which adds no second build system. It keeps a transaction and
+  recovery contract, with a lock, a recovery ledger and byte-exact reverts,
+  that its own suite covers. A Python copy would be a second implementation of
+  that contract. A tool of this size is a project, not a script. Its README
+  documents the maintainer task that runs it.
