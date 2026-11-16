@@ -746,3 +746,22 @@ def test_validator_rejects_a_symlinked_bundle_root(tmp_path: pathlib.Path) -> No
 
     with pytest.raises(validate.EvidenceValidationError, match="symlink"):
         validate.validate_bundle(alias)
+
+
+def test_the_sdk_list_is_the_recorded_evidence_plus_the_pinned_sdk(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A new SDK is accepted once it is pinned, and an old one while evidence names it."""
+    evidence = tmp_path / "evidence"
+    (evidence / "0001").mkdir(parents=True)
+    (evidence / "0001" / "environment.json").write_text('{"sdkVersion": "9.9.1"}', encoding="utf-8")
+    (evidence / "0002").mkdir()
+    (evidence / "0002" / "environment.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(validate, "EVIDENCE_ROOT", evidence)
+    validate.known_sdk_versions.cache_clear()
+    try:
+        known = validate.known_sdk_versions()
+    finally:
+        validate.known_sdk_versions.cache_clear()
+
+    assert known == {"9.9.1", validate._pinned_sdk_version()}

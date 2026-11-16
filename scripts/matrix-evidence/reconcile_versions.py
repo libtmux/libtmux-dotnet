@@ -18,6 +18,7 @@ from assemble_bundle import (
     source_state,
     source_tree_fingerprint,
 )
+from validate import known_sdk_versions
 
 REPOSITORY_ROOT = pathlib.Path(__file__).parents[2]
 
@@ -213,15 +214,6 @@ REQUIRED_TMUX_VERSIONS = (
 LEGACY_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-1]
 OLDER_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-2]
 
-
-def _pinned_sdk_version() -> str:
-    document = json.loads((pathlib.Path(__file__).parents[2] / "global.json").read_text("utf-8"))
-    return str(document["sdk"]["version"])
-
-
-# Recorded evidence keeps the SDK it ran under; run_matrix.py stamps new runs
-# with the SDK global.json pins.
-KNOWN_SDK_VERSIONS = {"10.0.302", "10.0.303", _pinned_sdk_version()}
 
 KNOWN_REQUIRED_TMUX_VERSION_SETS = {
     OLDER_REQUIRED_TMUX_VERSIONS,
@@ -839,7 +831,7 @@ def _load_environment(path: pathlib.Path) -> dict[str, t.Any]:
         or environment["platform"] not in {"linux", "macos"}
         or environment["redactionProof"] is not True
         or environment["schemaVersion"] != 1
-        or environment["sdkVersion"] not in KNOWN_SDK_VERSIONS
+        or environment["sdkVersion"] not in known_sdk_versions()
         or environment["sourceState"] not in {"clean", "uncommitted"}
         or not isinstance(fingerprint, str)
         or FINGERPRINT_PATTERN.fullmatch(fingerprint) is None

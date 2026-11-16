@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import pathlib
@@ -27,14 +28,31 @@ LEGACY_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-1]
 OLDER_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-2]
 
 
+REPOSITORY = pathlib.Path(__file__).parents[2]
+EVIDENCE_ROOT = REPOSITORY / "docs" / "parity" / "evidence"
+
+
 def _pinned_sdk_version() -> str:
-    document = json.loads((pathlib.Path(__file__).parents[2] / "global.json").read_text("utf-8"))
+    document = json.loads((REPOSITORY / "global.json").read_text("utf-8"))
     return str(document["sdk"]["version"])
 
 
-# Recorded evidence keeps the SDK it ran under; run_matrix.py stamps new runs
-# with the SDK global.json pins.
-KNOWN_SDK_VERSIONS = {"10.0.302", "10.0.303", _pinned_sdk_version()}
+@functools.cache
+def known_sdk_versions() -> frozenset[str]:
+    """Return the SDK versions a bundle may name.
+
+    Recorded evidence keeps the SDK it ran under, and run_matrix.py stamps a new
+    run with the SDK ``global.json`` pins, so the set is the SDK of every
+    committed bundle plus the pinned one.
+    """
+    recorded = {
+        json.loads(path.read_text("utf-8")).get("sdkVersion")
+        for path in EVIDENCE_ROOT.glob("*/environment.json")
+    }
+    return frozenset({version for version in recorded if isinstance(version, str)}) | {
+        _pinned_sdk_version()
+    }
+
 
 KNOWN_REQUIRED_TMUX_VERSION_SETS = {
     OLDER_REQUIRED_TMUX_VERSIONS,
@@ -289,7 +307,7 @@ def _validate_environment(
         or (capability_cohort == WORKSPACE_COHORT and required_versions != REQUIRED_TMUX_VERSIONS)
         or environment["platform"] not in {"linux", "macos"}
         or environment["redactionProof"] is not True
-        or environment["sdkVersion"] not in KNOWN_SDK_VERSIONS
+        or environment["sdkVersion"] not in known_sdk_versions()
         or environment["sourceState"] not in {"clean", "uncommitted"}
         or not isinstance(environment["sourceTreeFingerprint"], str)
         or not FINGERPRINT_PATTERN.fullmatch(environment["sourceTreeFingerprint"])
