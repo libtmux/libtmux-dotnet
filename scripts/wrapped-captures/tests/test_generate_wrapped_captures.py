@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import pathlib
 import random
+import shlex
 import shutil
 
 import pytest
@@ -25,6 +26,39 @@ def test_random_screens_repeat_for_one_seed_and_fit_the_pane() -> None:
 
     assert first == second
     assert all(len(lines) <= generator.HEIGHT for lines in first)
+
+
+def test_a_pane_command_keeps_every_path_as_one_word() -> None:
+    command = generator.pane_command(
+        "/opt/tmux dir/tmux", "/tmp/it's/sock", "/tmp/it's/screen", "c1"
+    )
+
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=";")
+    lexer.whitespace_split = True
+    words = list(lexer)
+
+    assert words == [
+        "cat",
+        "/tmp/it's/screen",
+        ";",
+        "/opt/tmux dir/tmux",
+        "-S",
+        "/tmp/it's/sock",
+        "wait-for",
+        "-S",
+        "c1",
+        ";",
+        "sleep",
+        "600",
+    ]
+
+
+def test_the_command_line_names_its_arguments(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as stopped:
+        generator.main([])
+
+    assert stopped.value.code == 2
+    assert "output" in capsys.readouterr().err
 
 
 def test_the_committed_fixture_has_the_shape_the_generator_writes() -> None:

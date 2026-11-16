@@ -10,16 +10,20 @@ Each screen is printed into a 20-column pane, then captured twice: as rows
 pair the two and look for every pattern the screen was built to hold, so
 they need no tmux at test time.
 
-usage: generate_wrapped_captures.py OUT.json TMUX_3_3A TMUX_3_8
+```console
+$ uv run scripts/wrapped-captures/generate_wrapped_captures.py \
+    tests/Fixtures/wrapped-captures.json /path/to/tmux-3.3a /path/to/tmux-3.8
+```
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import random
+import shlex
 import subprocess
-import sys
 import tempfile
 import time
 import typing as t
@@ -80,6 +84,7 @@ WORDS = ["ab", "xyz", "NEEDLE", "q", "hello", "0123456789", "W", "你好"]
 
 
 def patterns_of(lines: list[str]) -> list[str]:
+    """Return the words and the trimmed lines a capture of ``lines`` must contain."""
     found = []
     for line in lines:
         for word in line.split(" "):
@@ -92,6 +97,7 @@ def patterns_of(lines: list[str]) -> list[str]:
 
 
 def random_line(rnd: random.Random) -> str:
+    """Build one line from words, runs of spaces and whole pane widths of spaces."""
     parts = []
     for _ in range(rnd.randint(1, 8)):
         kind = rnd.randrange(4)
@@ -108,6 +114,7 @@ def random_line(rnd: random.Random) -> str:
 
 
 def random_screen(rnd: random.Random) -> list[str]:
+    """Build the lines of one screen that wrap but still fit the pane without scrolling."""
     lines = []
     rows = 0
     for _ in range(rnd.randint(1, 5)):
@@ -122,6 +129,7 @@ def random_screen(rnd: random.Random) -> list[str]:
 
 
 def capture(tmux: str, sock: str, *args: str) -> list[str]:
+    """Run one tmux command against the socket and return its stdout as rows."""
     out = subprocess.run(
         [tmux, "-S", sock, "-f", "/dev/null", *args], capture_output=True, text=True, check=True
     ).stdout
@@ -131,9 +139,24 @@ def capture(tmux: str, sock: str, *args: str) -> list[str]:
     return rows
 
 
+def pane_command(tmux: str, sock: str, path: str, channel: str) -> str:
+    """Return the shell command a pane runs: print the screen, signal, then wait.
+
+    Every path is quoted, so a temporary directory with a space or a quote in
+    its name still reaches the shell as one word.
+    """
+    quoted = [shlex.quote(value) for value in (path, tmux, sock, channel)]
+    return f"cat {quoted[0]}; {quoted[1]} -S {quoted[2]} wait-for -S {quoted[3]}; sleep 600"
+
+
 def record(
     tmux: str, sock: str, name: str, lines: list[str], scratch: str
 ) -> dict[str, t.Any] | None:
+    """Print one screen into the pane and capture it as rows and as joined lines.
+
+    Returns ``None`` when the screen scrolled, because a scrolled pane no longer
+    holds the whole screen.
+    """
     path = os.path.join(scratch, "screen.txt")
     with open(path, "w", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
@@ -147,7 +170,7 @@ def record(
             "-k",
             "-t",
             "f:0.0",
-            f"cat '{path}'; '{tmux}' -S '{sock}' wait-for -S {channel}; sleep 600",
+            pane_command(tmux, sock, path, channel),
         ],
         check=True,
         capture_output=True,
@@ -218,9 +241,12 @@ def generate(
 
 def main(argv: list[str] | None = None) -> int:
     """Write the fixture for the tmux builds named on the command line."""
-    out, *builds = sys.argv[1:] if argv is None else argv
-    screens = generate(builds)
-    with open(out, "w", encoding="utf-8") as handle:
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser.add_argument("output", help="the fixture to write, such as wrapped-captures.json")
+    parser.add_argument("tmux", nargs="+", help="a tmux binary to capture with; repeat for each")
+    parsed = parser.parse_args(argv)
+    screens = generate(parsed.tmux)
+    with open(parsed.output, "w", encoding="utf-8") as handle:
         json.dump({"width": WIDTH, "screens": screens}, handle, ensure_ascii=False, indent=1)
         handle.write("\n")
     return 0
