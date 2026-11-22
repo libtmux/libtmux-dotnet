@@ -81,7 +81,7 @@ jobs:
             eng/tmux
             scripts/tmux-plan
 
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
 
       - name: Plan the run
         id: plan
@@ -116,7 +116,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
 
       - name: Restore the integration tests
         run: >-
@@ -257,7 +257,7 @@ jobs:
       - name: Check that the assemblies are this commit's
         run: test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
 
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
 
       - name: Create the Python compatibility environment
         run: uv venv --python 3.13 "${RUNNER_TEMP}/workspace-python"
@@ -383,7 +383,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
 
       - name: Build tmux 3.3a
         id: floor
