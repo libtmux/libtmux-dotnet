@@ -33,8 +33,8 @@ being made:
   `scripts/run_checks.py`: format, lint, types and tests.
 - For building, testing, the gates, pull requests, and releases, follow
   [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).
-- For a security-sensitive change, or to report a vulnerability, follow
-  [`SECURITY.md`](SECURITY.md).
+- To report a vulnerability, open a private
+  [GitHub security advisory](https://github.com/libtmux/libtmux-dotnet/security/advisories/new).
 
 Each is the single home for its subject. Where a rule appears to be stated
 twice, the file listed above governs.

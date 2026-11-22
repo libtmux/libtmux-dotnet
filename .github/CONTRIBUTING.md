@@ -890,4 +890,6 @@ policy metadata or the API baselines either.
 
 ## Reporting a vulnerability
 
-Not here — see [SECURITY.md](../SECURITY.md).
+Report privately through GitHub's
+[security advisories](https://github.com/libtmux/libtmux-dotnet/security/advisories/new)
+rather than in a public issue.
