@@ -64,5 +64,5 @@ configure on macOS without a choice for both.
   reports progress, as `PaneEchoContractTests` does.
 - Logic that takes a `TimeProvider` is driven in tests with
   `ManualTimerTimeProvider`, so a test advances the clock instead of racing it.
-- To reproduce a slow runner, point `LIBTMUX_TMUX` at a wrapper script that
+- To reproduce a slow runner, point `LIBTMUX_TEST_TMUX` at a wrapper script that
   sleeps before it runs tmux.

@@ -114,7 +114,7 @@ public sealed class VersionParityTests
         Directory.CreateDirectory(directory);
         Server server = Server.Open(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
             SocketPath = Path.Combine(directory, "layout-proof-" + Guid.NewGuid().ToString("N")),
             ConfigurationFile = "/dev/null"
         });

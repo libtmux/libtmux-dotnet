@@ -307,11 +307,15 @@ public sealed class McpReadmeConfigurationTests
             UseShellExecute = false,
         };
         foreach (string inherited in startInfo.Environment.Keys
-                     .Where(name => name.StartsWith("LIBTMUX_", StringComparison.Ordinal)
-                         && name != "LIBTMUX_TMUX")
+                     .Where(name => name.StartsWith("LIBTMUX_", StringComparison.Ordinal))
                      .ToArray())
         {
             startInfo.Environment.Remove(inherited);
+        }
+
+        if (WorkspaceSocketRoot.ConfiguredTestTmux() is string configuredTmux)
+        {
+            startInfo.Environment["LIBTMUX_TMUX"] = configuredTmux;
         }
 
         foreach (KeyValuePair<string, string> setting in settings)

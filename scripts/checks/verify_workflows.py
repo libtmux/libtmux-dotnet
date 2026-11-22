@@ -581,7 +581,7 @@ def verify(root: pathlib.Path) -> list[str]:
     fsharp_example = required_step("dotnet-tmux", "matrix", "fsharp-examples")
     example_env = {**matrix.get("env", {}), **fsharp_example.get("env", {})}
     require(
-        example_env.get("LIBTMUX_TMUX") == "${{ steps.tmux.outputs.binary }}"
+        example_env.get("LIBTMUX_TEST_TMUX") == "${{ steps.tmux.outputs.binary }}"
         and example_env.get("LIBTMUX_EXPECTED_TMUX_VERSION") == "${{ matrix.expected }}"
         and example_env.get("MATRIX_FRAMEWORK") == "${{ matrix.framework }}",
         "dotnet-tmux.matrix.fsharp-examples must use the selected tmux and framework",
@@ -591,7 +591,7 @@ def verify(root: pathlib.Path) -> list[str]:
         step
         for step in job("dotnet-tmux", "matrix").get("steps", [])
         if isinstance(step.get("run"), str)
-        and '"${LIBTMUX_TMUX}" -V' in step["run"]
+        and '"${LIBTMUX_TEST_TMUX}" -V' in step["run"]
         and "LIBTMUX_EXPECTED_TMUX_VERSION" in step["run"]
     ]
     require(
@@ -620,7 +620,7 @@ def verify(root: pathlib.Path) -> list[str]:
     csharp_example = required_step("dotnet-tmux", "matrix", "csharp-examples")
     csharp_env = {**matrix.get("env", {}), **csharp_example.get("env", {})}
     require(
-        csharp_env.get("LIBTMUX_TMUX") == "${{ steps.tmux.outputs.binary }}"
+        csharp_env.get("LIBTMUX_TEST_TMUX") == "${{ steps.tmux.outputs.binary }}"
         and csharp_env.get("LIBTMUX_EXPECTED_TMUX_VERSION") == "${{ matrix.expected }}"
         and csharp_env.get("MATRIX_FRAMEWORK") == "${{ matrix.framework }}",
         "dotnet-tmux.matrix.csharp-examples must use the selected tmux and framework",

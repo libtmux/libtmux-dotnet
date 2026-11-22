@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Engineering;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 
@@ -111,7 +112,7 @@ public sealed class ServerSnapshotAccessorTests
     private static TmuxTestOptions HarnessOptions() =>
         new(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
             SocketName = $"lts-{Guid.NewGuid():N}"[..20],
             ConfigurationFile = "/dev/null",
         });

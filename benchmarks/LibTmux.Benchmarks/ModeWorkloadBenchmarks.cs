@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using System.Text;
 using BenchmarkDotNet.Attributes;
+using LibTmux.Engineering;
 using LibTmux.Testing;
 
 namespace LibTmux.Benchmarks;
@@ -45,7 +46,7 @@ public class ModeWorkloadBenchmarks
         {
             var options = new TmuxTestOptions(new ServerConnectionOptions
             {
-                TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
                 SocketName = $"lt-workload-{Guid.NewGuid():N}"[..24],
                 ConfigurationFile = "/dev/null",
                 CommandTimeout = SampleBudget,

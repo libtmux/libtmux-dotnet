@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Versioning;
+using LibTmux.Engineering;
 using LibTmux.Query;
 using LibTmux.Query.Json;
 using LibTmux.Testing;
@@ -36,7 +37,7 @@ internal static class Program
         TmuxTestFactory factory = new();
         TmuxTestOptions options = new(new ServerConnectionOptions
             {
-                TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
                 SocketName = $"libtmux-aot-{Guid.NewGuid():N}"[..24],
                 ConfigurationFile = "/dev/null",
             });

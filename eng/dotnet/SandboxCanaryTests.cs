@@ -235,7 +235,7 @@ public sealed class SandboxCanaryTests
         }
 
         // A bare server, or one on a socket of its own inside the run's directory.
-        string tmux = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        string tmux = WorkspaceSocketRoot.TestTmux();
         string[] socket = Environment.GetEnvironmentVariable(ExitModeVariable) == "custom"
             ? ["-S", Path.Combine(WorkspaceSocketRoot.Root, "custom.sock")]
             : [];
@@ -638,6 +638,7 @@ public sealed class SandboxCanaryTests
         Dictionary<string, string?> clean = new(StringComparer.Ordinal)
         {
             ["TMUX_TMPDIR"] = root,
+            ["LIBTMUX_TEST_TMUX"] = "/usr/bin/tmux",
             ["LIBTMUX_TMUX"] = "/usr/bin/tmux",
             ["LIBTMUX_CONTROL_TRANSPORT"] = "0",
             [WorkspaceSocketRoot.RootVariable] = root,
@@ -729,7 +730,8 @@ public sealed class SandboxCanaryTests
             start.Environment[decoy] = "/decoy/value,1,0";
         }
 
-        start.Environment["LIBTMUX_TMUX"] = "kept";
+        start.Environment["LIBTMUX_TEST_TMUX"] = "kept-primary";
+        start.Environment["LIBTMUX_TMUX"] = "kept-legacy";
         WorkspaceSocketRoot.Isolate(start);
 
         foreach (string decoy in Decoys)
@@ -737,7 +739,37 @@ public sealed class SandboxCanaryTests
             Assert.False(start.Environment.ContainsKey(decoy), decoy);
         }
 
-        Assert.Equal("kept", start.Environment["LIBTMUX_TMUX"]);
+        Assert.Equal("kept-primary", start.Environment["LIBTMUX_TEST_TMUX"]);
+        Assert.Equal("kept-legacy", start.Environment["LIBTMUX_TMUX"]);
+    }
+
+    [Theory]
+    [InlineData("/opt/tmux-test/bin/tmux", "/opt/tmux-legacy/bin/tmux", "/opt/tmux-test/bin/tmux")]
+    [InlineData("/opt/tmux-test/bin/tmux", null, "/opt/tmux-test/bin/tmux")]
+    [InlineData(null, "/opt/tmux-legacy/bin/tmux", "/opt/tmux-legacy/bin/tmux")]
+    [InlineData("", "/opt/tmux-legacy/bin/tmux", "/opt/tmux-legacy/bin/tmux")]
+    [InlineData("   \t\n", "/opt/tmux-legacy/bin/tmux", "/opt/tmux-legacy/bin/tmux")]
+    [InlineData(null, "", "tmux")]
+    [InlineData("", "   \t\n", "tmux")]
+    [InlineData(null, null, "tmux")]
+    [InlineData(" /tmp/with spaces/tmux ", "/opt/tmux-legacy/bin/tmux", " /tmp/with spaces/tmux ")]
+    [InlineData("   ", " /tmp/legacy spaces/tmux ", " /tmp/legacy spaces/tmux ")]
+    public void Test_tmux_prefers_LIBTMUX_TEST_TMUX_falls_back_to_LIBTMUX_TMUX_and_keeps_non_blank_paths_untrimmed(
+        string? testTmux,
+        string? legacyTmux,
+        string expected)
+    {
+        Dictionary<string, string?> variables = new(StringComparer.Ordinal)
+        {
+            [WorkspaceSocketRoot.TestTmuxVariable] = testTmux,
+            [WorkspaceSocketRoot.LegacyTestTmuxVariable] = legacyTmux,
+        };
+
+        string? configured = WorkspaceSocketRoot.ConfiguredTestTmux(name => variables.GetValueOrDefault(name));
+        string resolved = WorkspaceSocketRoot.TestTmux(name => variables.GetValueOrDefault(name));
+
+        Assert.Equal(expected, resolved);
+        Assert.Equal(expected == "tmux" ? null : expected, configured);
     }
 
     // Short, and outside the root under test: a named parent has a limit of its own.

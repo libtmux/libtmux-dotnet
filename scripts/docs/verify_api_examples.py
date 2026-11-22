@@ -52,6 +52,20 @@ PROFILE_SOURCES = {
 }
 
 
+def configured_tmux(environment: Mapping[str, str]) -> str | None:
+    """Return the configured test tmux executable, keeping non-blank values untrimmed."""
+    for variable in ("LIBTMUX_TEST_TMUX", "LIBTMUX_TMUX"):
+        candidate = environment.get(variable)
+        if candidate is not None and candidate.strip():
+            return candidate
+    return None
+
+
+def resolve_tmux(environment: Mapping[str, str]) -> str:
+    """Return the tmux executable under test."""
+    return configured_tmux(environment) or "tmux"
+
+
 def hostile_environment(source: Mapping[str, str], temp_directory: Path) -> dict[str, str]:
     """Point every way tmux or the library picks a server at one that is not there.
 
@@ -356,7 +370,21 @@ def run_consumers(
             f"TMPDIR is longer than {maximum_temp_base_bytes()} bytes, "
             "which leaves no room for the longest socket path"
         )
-    tmux = environment.get("LIBTMUX_TMUX", "tmux")
+    tmux = resolve_tmux(environment)
+    configured = configured_tmux(environment)
+    if configured is not None and os.path.sep in configured:
+        shim_dir = output / "tmux-bin"
+        shim_dir.mkdir()
+        target = (
+            configured
+            if os.path.isabs(configured) or configured[:1].isspace()
+            else os.path.abspath(configured)
+        )
+        (shim_dir / "tmux").symlink_to(target)
+        existing_path = environment.get("PATH", "")
+        environment["PATH"] = (
+            f"{shim_dir}{os.pathsep}{existing_path}" if existing_path else str(shim_dir)
+        )
     receipt["tmuxVersion"] = subprocess.check_output([tmux, "-V"], text=True).strip()
     receipt["tmuxBinarySha256"] = digest(Path(shutil.which(tmux) or tmux).resolve())
     archives = list(packages.glob("*.nupkg"))

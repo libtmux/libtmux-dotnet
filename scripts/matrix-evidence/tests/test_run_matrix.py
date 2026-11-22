@@ -233,6 +233,37 @@ def test_an_ordinary_run_skips_the_transition(toolchain: Toolchain) -> None:
     assert {row[2] for row in rows} == {""}
 
 
+def test_lane_environment_sets_LIBTMUX_TEST_TMUX_and_clears_ambient_selectors(
+    toolchain: Toolchain, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each lane receives LIBTMUX_TEST_TMUX without inherited selectors or LIBTMUX_TMUX."""
+    for decoy in (
+        "TMUX",
+        "TMUX_PANE",
+        "LIBTMUX_SOCKET",
+        "LIBTMUX_SOCKET_PATH",
+        "LIBTMUX_SOCKET_NAME",
+        "LIBTMUX_TMUX",
+    ):
+        monkeypatch.setenv(decoy, "decoy")
+    options = run_matrix.parse_arguments(["--tmux-root", str(toolchain.root), INTEGRATION_PROJECT])
+    matrix = run_matrix.Matrix(options, ["3.8"])
+    build = run_matrix.locate_build(toolchain.root, "3.8", os.environ["LIBTMUX_TMUX_REPOSITORY"])
+
+    lane = matrix.lane_environment(build, "3.8", "net10.0", transition=False)
+
+    assert lane["LIBTMUX_TEST_TMUX"] == str(build.binary)
+    assert "LIBTMUX_TMUX" not in lane
+    for decoy in (
+        "TMUX",
+        "TMUX_PANE",
+        "LIBTMUX_SOCKET",
+        "LIBTMUX_SOCKET_PATH",
+        "LIBTMUX_SOCKET_NAME",
+    ):
+        assert decoy not in lane
+
+
 @pytest.mark.parametrize("cohort", [run_matrix.COMPONENT_THREE_COHORT, "workspace"])
 def test_an_exact_transition_proof_binds_the_tmux_3_7_source(
     toolchain: Toolchain, tmp_path: pathlib.Path, cohort: str

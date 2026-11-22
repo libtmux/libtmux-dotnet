@@ -167,7 +167,7 @@ public sealed class Component10ParityTests
     private static ServerConnectionOptions IsolatedOptions() =>
         new()
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
             SocketName = $"ltcs-parity-{Guid.NewGuid():N}",
             ConfigurationFile = "/dev/null",
         };

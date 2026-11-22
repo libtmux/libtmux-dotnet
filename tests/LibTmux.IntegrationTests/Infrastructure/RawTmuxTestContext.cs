@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text;
+using LibTmux.Engineering;
 using LibTmux.Internal;
 
 namespace LibTmux.IntegrationTests.Infrastructure;
@@ -30,14 +31,7 @@ internal sealed class RawTmuxTestContext : IAsyncDisposable
 
     internal string SessionName { get; }
 
-    internal static string ConfiguredBinary
-    {
-        get
-        {
-            string configured = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? string.Empty;
-            return string.IsNullOrWhiteSpace(configured) ? "tmux" : configured;
-        }
-    }
+    internal static string ConfiguredBinary => WorkspaceSocketRoot.TestTmux();
 
     // The library attaches no control client to a server older than 3.7 (a
     // tmux before then can crash on the attach), and a wait there polls. A
@@ -203,7 +197,7 @@ internal sealed class RawTmuxTestContext : IAsyncDisposable
 
     internal static void ConfigureEnvironment(ProcessStartInfo startInfo)
     {
-        startInfo.Environment.Remove("TMUX");
+        WorkspaceSocketRoot.Isolate(startInfo);
         string locale = OperatingSystem.IsMacOS() ? "en_US.UTF-8" : "C.UTF-8";
         startInfo.Environment["LANG"] = locale;
         startInfo.Environment["LC_ALL"] = locale;

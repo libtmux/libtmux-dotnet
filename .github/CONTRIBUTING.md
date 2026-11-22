@@ -64,8 +64,13 @@ and only tmux can say whether it is.
 Name that tmux explicitly when the machine has more than one:
 
 ```console
-$ export LIBTMUX_TMUX=/usr/local/bin/tmux
+$ export LIBTMUX_TEST_TMUX=/usr/local/bin/tmux
 ```
+
+Test, example, and benchmark harnesses read `LIBTMUX_TEST_TMUX` first, fall back
+to `LIBTMUX_TMUX` when `LIBTMUX_TEST_TMUX` is unset or blank, and otherwise
+resolve `tmux` on `PATH`. Published tools (`tmux-workspace` and `libtmux-mcp`)
+continue to read `LIBTMUX_TMUX` at runtime and never read `LIBTMUX_TEST_TMUX`.
 
 Without it the tests spawn whatever `tmux` their own `PATH` resolves, while a
 command they send into a pane resolves it again through that pane's
@@ -161,13 +166,12 @@ has to trim a socket name, at 31 two MCP tests fail with "File name too long",
 and at 50 fifty-eight more tests do. A uid of more digits leaves less room.
 
 The claim covers the test projects. These entry points do not carry it, and each
-names its own socket: the F# `AotSmoke` and `Sdk8Consumer` programs, the F#
-`PackageConsumer`, which also removes `LIBTMUX_SOCKET*` from its tmux's
-environment, and the F# `Examples` harness, which moves `TMUX_TMPDIR` into a
-directory of its own and clears `TMUX` and `TMUX_PANE`. The complete C# and F#
-programs, including the F# `Quickstart`, make a temporary directory, put their
-socket in it with `ServerConnectionOptions.SocketPath`, and delete it after
-their server stops, so they need no shell setup.
+names its own socket while clearing `TMUX`, `TMUX_PANE` and `LIBTMUX_SOCKET*`:
+the F# `AotSmoke`, `Sdk8Consumer` and `PackageConsumer` programs, and the F#
+`Examples` harness, which moves `TMUX_TMPDIR` into a directory of its own. The
+complete C# and F# programs, including the F# `Quickstart`, make a temporary
+directory, put their socket in it with `ServerConnectionOptions.SocketPath`, and
+delete it after their server stops, so they need no shell setup.
 `scripts/docs/verify_api_examples.py` proves that: it runs every program with
 `TMUX`, `TMUX_PANE`, `TMUX_TMPDIR` and `LIBTMUX_SOCKET*` pointing at servers and
 directories that do not exist, in a `TMPDIR` of its own, and fails a program
@@ -492,15 +496,19 @@ The required F# trimmed smoke step publishes and runs the same static route
 with NativeAOT disabled. Reproduce it against a fresh local pack on Linux:
 
 ```console
-$ env -u TMUX -u TMUX_PANE NUGET_PACKAGES="$(mktemp -d)" mise exec -- bash -euc '
+$ env -u TMUX -u TMUX_PANE -u LIBTMUX_SOCKET -u LIBTMUX_SOCKET_PATH \
+    -u LIBTMUX_SOCKET_NAME NUGET_PACKAGES="$(mktemp -d)" \
+    mise exec -- bash -euc '
     output=$(mktemp -d)
-    dotnet restore tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+    dotnet restore \
+        tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
         --runtime linux-x64 \
         --configfile tests/NuGet.config \
         -p:PublishAot=false \
         -p:PublishTrimmed=true
     for framework in net8.0 net10.0; do
-        dotnet publish tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+        dotnet publish \
+            tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
             --configuration Release \
             --framework "$framework" \
             --runtime linux-x64 \

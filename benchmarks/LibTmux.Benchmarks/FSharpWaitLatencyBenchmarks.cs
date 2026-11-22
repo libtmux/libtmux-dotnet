@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using BenchmarkDotNet.Attributes;
+using LibTmux.Engineering;
 using LibTmux.Testing;
 
 namespace LibTmux.Benchmarks;
@@ -56,7 +57,7 @@ public class FSharpWaitLatencyBenchmarks : IAsyncDisposable
         CancellationToken cancellationToken = setup.Token;
         var options = new TmuxTestOptions(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
             SocketName = $"lt-wait-{Guid.NewGuid():N}"[..20],
             ConfigurationFile = "/dev/null",
             ChildEnvironment = new Dictionary<string, string?> { ["TMUX"] = null, ["TMUX_PANE"] = null },

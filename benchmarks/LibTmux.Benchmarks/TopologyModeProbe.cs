@@ -5,6 +5,7 @@ using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using LibTmux.Engineering;
 using LibTmux.Testing;
 
 namespace LibTmux.Benchmarks;
@@ -42,11 +43,11 @@ internal static class TopologyModeProbe
 
         int warmupRounds = smoke ? 0 : 5;
         int measuredRounds = smoke ? 1 : 20;
-        string tmuxBinary = Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            ?? throw new InvalidOperationException("Set LIBTMUX_TMUX to the benchmark tmux binary.");
+        string tmuxBinary = WorkspaceSocketRoot.ConfiguredTestTmux()
+            ?? throw new InvalidOperationException("Set LIBTMUX_TEST_TMUX to the benchmark tmux binary.");
         if (!Path.IsPathFullyQualified(tmuxBinary) || !File.Exists(tmuxBinary))
         {
-            throw new InvalidOperationException("LIBTMUX_TMUX must name an existing absolute binary path.");
+            throw new InvalidOperationException("LIBTMUX_TEST_TMUX must name an existing absolute binary path.");
         }
 
         using FileStream binary = File.OpenRead(tmuxBinary);

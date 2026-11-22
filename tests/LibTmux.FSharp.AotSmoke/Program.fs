@@ -8,17 +8,35 @@ open LibTmux.Testing
 
 let private socketRoot = "/tmp/libtmux-dotnet-test"
 
+let private testTmux () =
+    let nonBlank (candidate: string | null) =
+        match candidate with
+        | null -> None
+        | value when String.IsNullOrWhiteSpace value -> None
+        | value -> Some value
+
+    nonBlank (Environment.GetEnvironmentVariable "LIBTMUX_TEST_TMUX")
+    |> Option.orElseWith (fun () -> nonBlank (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"))
+    |> Option.defaultValue "tmux"
+
 let private createOptions () =
     Directory.CreateDirectory(socketRoot) |> ignore
     Environment.SetEnvironmentVariable("TMUX_TMPDIR", socketRoot)
     Environment.SetEnvironmentVariable("TMPDIR", socketRoot)
 
+    for name in
+        [
+            "TMUX"
+            "TMUX_PANE"
+            "LIBTMUX_SOCKET"
+            "LIBTMUX_SOCKET_PATH"
+            "LIBTMUX_SOCKET_NAME"
+        ] do
+        Environment.SetEnvironmentVariable(name, null)
+
     let connection =
         ServerConnectionOptions(
-            TmuxBinaryPath =
-                (Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-                 |> Option.ofObj
-                 |> Option.defaultValue "tmux"),
+            TmuxBinaryPath = testTmux (),
             SocketName = ("libtmux-fsharp-aot-" + Guid.NewGuid().ToString("N"))[..23],
             ConfigurationFile = "/dev/null"
         )

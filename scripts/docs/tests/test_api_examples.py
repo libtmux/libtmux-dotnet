@@ -17,8 +17,10 @@ import pytest
 
 from verify_api_examples import (
     ROOT,
+    configured_tmux,
     hostile_environment,
     maximum_temp_base_bytes,
+    resolve_tmux,
     run_consumers,
     unique_object,
     validate,
@@ -227,7 +229,7 @@ def test_consumers_run_with_every_server_selector_pointing_nowhere(
     root, manifest, packages, output, inventory, tmux = consumer_inputs
     for name in SELECTORS:
         monkeypatch.setenv(name, "decoy")
-    monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
+    monkeypatch.setenv("LIBTMUX_TEST_TMUX", str(tmux))
     seen: list[dict[str, str]] = []
     fake_commands(monkeypatch, seen)
 
@@ -241,7 +243,7 @@ def test_consumers_run_with_every_server_selector_pointing_nowhere(
         each["TMUX_TMPDIR"].startswith("/nonexistent/") and each["TMUX"].startswith("/nonexistent/")
         for each in programs
     )
-    kept = all("LIBTMUX_TMUX" in each and "NUGET_PACKAGES" in each for each in seen)
+    kept = all("LIBTMUX_TEST_TMUX" in each and "NUGET_PACKAGES" in each for each in seen)
     assert decoys == []
     assert nowhere, "a program was handed a root or server that exists"
     assert kept, "run_consumers dropped a variable it should have kept"
@@ -256,11 +258,30 @@ def test_the_hostile_environment_replaces_what_the_caller_exported(tmp_path):
     assert hostile["TMUX"] != "/tmp/real,1,0"
 
 
+@pytest.mark.parametrize(
+    ("primary", "legacy", "expected"),
+    [
+        ("/opt/test/bin/tmux", "/opt/legacy/bin/tmux", "/opt/test/bin/tmux"),
+        ("", "/opt/legacy/bin/tmux", "/opt/legacy/bin/tmux"),
+        ("   \t\n", "/opt/legacy/bin/tmux", "/opt/legacy/bin/tmux"),
+        ("", "   ", "tmux"),
+        (" /tmp/with spaces/tmux ", "/opt/legacy/bin/tmux", " /tmp/with spaces/tmux "),
+    ],
+)
+def test_tmux_selection_prefers_LIBTMUX_TEST_TMUX_and_falls_back_to_LIBTMUX_TMUX(
+    primary: str, legacy: str, expected: str
+) -> None:
+    environment = {"LIBTMUX_TEST_TMUX": primary, "LIBTMUX_TMUX": legacy}
+
+    assert resolve_tmux(environment) == expected
+    assert configured_tmux(environment) == (None if expected == "tmux" else expected)
+
+
 def test_consumers_refuse_a_temporary_directory_one_byte_over_what_a_socket_path_allows(
     consumer_inputs, monkeypatch
 ):
     root, manifest, packages, output, inventory, tmux = consumer_inputs
-    monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
+    monkeypatch.setenv("LIBTMUX_TEST_TMUX", str(tmux))
     base = Path("/tmp") / ("x" * (maximum_temp_base_bytes() + 1 - len("/tmp/")))
     assert len(os.fsencode(base)) == maximum_temp_base_bytes() + 1
     monkeypatch.setenv("TMPDIR", str(base))
@@ -276,7 +297,7 @@ def test_consumers_accept_a_temporary_directory_at_what_a_socket_path_allows(
     consumer_inputs, monkeypatch
 ):
     root, manifest, packages, output, inventory, tmux = consumer_inputs
-    monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
+    monkeypatch.setenv("LIBTMUX_TEST_TMUX", str(tmux))
     base = Path("/tmp") / ("y" * (maximum_temp_base_bytes() - len("/tmp/")))
     assert len(os.fsencode(base)) == maximum_temp_base_bytes()
     base.mkdir()
@@ -292,7 +313,7 @@ def test_a_program_that_leaves_a_process_or_a_file_fails_the_run(
     consumer_inputs, monkeypatch, tmp_path
 ):
     root, manifest, packages, output, inventory, tmux = consumer_inputs
-    monkeypatch.setenv("LIBTMUX_TMUX", str(tmux))
+    monkeypatch.setenv("LIBTMUX_TEST_TMUX", str(tmux))
     # Short, as the script requires: a pytest temporary directory is not.
     short = Path(tempfile.mkdtemp(prefix="vae", dir="/tmp"))
     monkeypatch.setenv("TMPDIR", str(short))
@@ -379,9 +400,9 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
     packages = os.environ.get("LIBTMUX_PACKAGE_ARTIFACTS")
     if packages is None:
         pytest.skip("outer loop: set LIBTMUX_PACKAGE_ARTIFACTS after Release pack")
-    native = shutil.which(os.environ.get("LIBTMUX_TMUX", "tmux"))
+    native = shutil.which(resolve_tmux(os.environ))
     assert native, "the native failure control requires tmux"
-    # F# programs run the tmux on PATH and C# ones LIBTMUX_TMUX; both reach this.
+    # F# programs run the tmux on PATH and C# ones LIBTMUX_TEST_TMUX; both reach this.
     wrapper = tmp_path / "bin" / "tmux"
     wrapper.parent.mkdir()
     wrapper.write_text(
@@ -394,7 +415,7 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
         f"os.execv({native!r}, [{native!r}, *sys.argv[1:]])\n"
     )
     wrapper.chmod(0o755)
-    monkeypatch.setenv("LIBTMUX_TMUX", str(wrapper))
+    monkeypatch.setenv("LIBTMUX_TEST_TMUX", str(wrapper))
     monkeypatch.setenv("PATH", f"{wrapper.parent}{os.pathsep}{os.environ['PATH']}")
     # The wrapper matches argv, and the shared control client carries
     # capture-pane without a process of its own.

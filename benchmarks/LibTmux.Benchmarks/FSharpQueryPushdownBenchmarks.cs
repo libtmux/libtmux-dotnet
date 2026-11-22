@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using BenchmarkDotNet.Attributes;
+using LibTmux.Engineering;
 using LibTmux.Query;
 using LibTmux.Testing;
 
@@ -38,7 +39,7 @@ public class FSharpQueryPushdownBenchmarks
         CancellationToken cancellationToken = setup.Token;
         var options = new TmuxTestOptions(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
             SocketName = $"lt-pushdown-{Guid.NewGuid():N}"[..24],
             ConfigurationFile = "/dev/null",
             ChildEnvironment = new Dictionary<string, string?> { ["TMUX"] = null, ["TMUX_PANE"] = null },

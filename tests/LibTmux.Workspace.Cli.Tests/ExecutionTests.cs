@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using System.Text.Json.Nodes;
+using LibTmux.Engineering;
 
 namespace LibTmux.Workspace.Cli.Tests;
 
@@ -54,7 +55,7 @@ public sealed class ExecutionTests : IDisposable
         if (synchronization == "after") window["options_after"] = new JsonObject { ["synchronize-panes"] = true };
         JsonObject document = new() { ["session_name"] = "ordered", ["windows"] = new JsonArray(window) };
         await File.WriteAllTextAsync(file, document.ToJsonString(), token);
-        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(), SocketPath = socket, ConfigurationFile = "/dev/null" });
         async Task<string> Native(params string[] arguments)
         {
             TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, token);
@@ -135,7 +136,7 @@ public sealed class ExecutionTests : IDisposable
                 window_index: 4
                 panes: [["printf ready"]]
             """, token);
-        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(), SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             (int code, string output, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
@@ -199,7 +200,7 @@ public sealed class ExecutionTests : IDisposable
         CancellationToken token = TestContext.Current.CancellationToken;
         string socket = Path.Combine(_root, form + "-dotted.socket");
         string destination = Path.Combine(_root, form + "-dotted.yaml");
-        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(), SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             // tmux 3.7 alone refuses this outright; 3.3a-3.6b accept it and
@@ -243,7 +244,7 @@ public sealed class ExecutionTests : IDisposable
         string socket = Path.Combine(_root, "shell-omit.socket");
         string file = Path.Combine(_root, "shell-omit.yaml");
         await File.WriteAllTextAsync(file, "session_name: shellomit\nwindows: [{panes: [null, {shell_command: 'sleep 60'}]}]\n", token);
-        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(), SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             (int code, _, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
@@ -279,7 +280,7 @@ public sealed class ExecutionTests : IDisposable
         string socket = Path.Combine(_root, "shell-mismatch.socket");
         string file = Path.Combine(_root, "shell-mismatch.yaml");
         await File.WriteAllTextAsync(file, "session_name: shellmismatch\nwindows: [{panes: [null]}]\n", token);
-        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(), SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             // An empty server exits by default, taking any pre-set global
@@ -375,7 +376,7 @@ public sealed class ExecutionTests : IDisposable
                   focus: true
                   panes: [null]
             """, token);
-        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(), SocketPath = socket, ConfigurationFile = "/dev/null" });
         async Task<string> Native(params string[] arguments)
         {
             TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, token);
@@ -533,7 +534,7 @@ public sealed class ExecutionTests : IDisposable
             ["windows"] = new JsonArray(new JsonObject { ["main"] = window }),
         };
         await File.WriteAllTextAsync(source, document.ToJsonString(), token);
-        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(), SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             (int code, _, string error) = await Run("import", "tmuxinator", source, "--save-to", destination, "--workspace-format", "json", "--json");
@@ -577,7 +578,7 @@ public sealed class ExecutionTests : IDisposable
         await File.WriteAllTextAsync(source, kind == "teamocil"
             ? "root: project\nwindows: [{name: main, root: child, panes: [null]}]"
             : "root: project\npre: ''\nwindows: [{main: {root: child, panes: [null]}}]", token);
-        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(), SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             (int code, _, string error) = await Run("import", kind, source, "--save-to", destination, "--workspace-format", "json", "--json");
@@ -611,7 +612,7 @@ public sealed class ExecutionTests : IDisposable
             : new JsonObject { ["main"] = new JsonObject { ["synchronize"] = phase, ["panes"] = new JsonArray(first, second) } };
         JsonObject document = new() { ["name"] = "synchronized", ["windows"] = new JsonArray(window) };
         await File.WriteAllTextAsync(source, document.ToJsonString(), token);
-        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(), SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             (int code, _, string error) = await Run("import", kind, source, "--save-to", destination, "--workspace-format", "json", "--json");
@@ -727,7 +728,7 @@ public sealed class ExecutionTests : IDisposable
     {
         using StringWriter output = new();
         using StringWriter error = new();
-        int code = await CliRunner.RunAsync(args, output, error, _root, cancellationToken: TestContext.Current.CancellationToken);
+        int code = await CliRunner.RunAsync(args, output, error, _root, RegressionTests.CliEnvironment(), TestContext.Current.CancellationToken);
         return (code, output.ToString(), error.ToString());
     }
 

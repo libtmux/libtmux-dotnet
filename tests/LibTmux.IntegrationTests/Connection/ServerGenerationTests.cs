@@ -503,7 +503,7 @@ public sealed class ServerGenerationTests
     [UnixFact]
     public async Task Socket_name_connects_to_the_named_endpoint()
     {
-        string tmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        string tmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary;
         string socketName = $"ltcs-{Guid.NewGuid():N}";
         var transport = new TmuxProcessTransport(
             tmuxBinaryPath,
@@ -554,7 +554,7 @@ public sealed class ServerGenerationTests
     public async Task Named_endpoint_is_frozen_across_ambient_tmux_tmpdir_changes(
         bool useFactory)
     {
-        string tmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        string tmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary;
 
         // This test nests a root of its own inside the temporary directory and
         // then names a socket within it, so the nonce lands in the path twice.
@@ -677,7 +677,7 @@ public sealed class ServerGenerationTests
         string socketRoot = Path.Combine(Path.GetTempPath(), $"ltcs-default-{nonce}");
         string expectedSession = $"expected-{nonce}";
         Directory.CreateDirectory(socketRoot);
-        string tmux = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        string tmux = RawTmuxTestContext.ConfiguredBinary;
         var expectedTransport = CreateNamedTransport(tmux, socketRoot, "default");
 
         try
@@ -724,7 +724,7 @@ public sealed class ServerGenerationTests
         string socketRoot = Path.Combine(Path.GetTempPath(), $"ltcs-env-{nonce}");
         string socketName = $"env-{nonce}";
         Directory.CreateDirectory(socketRoot);
-        string tmux = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        string tmux = RawTmuxTestContext.ConfiguredBinary;
         var namedTransport = CreateNamedTransport(tmux, socketRoot, socketName);
 
         try
@@ -926,7 +926,7 @@ public sealed class ServerGenerationTests
         Server absent = Server.Open(
             new ServerConnectionOptions
             {
-                TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
                 SocketName = $"ltcs-discovery-{Guid.NewGuid():N}",
                 ConfigurationFile = "/dev/null",
             });

@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json.Nodes;
+using LibTmux.Engineering;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.Internal;
 using LibTmux.Mcp;
@@ -255,7 +256,7 @@ public sealed class ServerPolicyTests
         Dictionary<string, string?> environment = new(StringComparer.Ordinal)
         {
             [variable] = value,
-            ["LIBTMUX_TMUX"] = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            ["LIBTMUX_TMUX"] = WorkspaceSocketRoot.TestTmux(),
             ["TMUX_TMPDIR"] = root,
             ["PATH"] = Environment.GetEnvironmentVariable("PATH"),
         };

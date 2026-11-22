@@ -281,7 +281,7 @@ jobs:
 
       - name: Workspace CLI tests
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.tmux.outputs.binary }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
         run: |
           dotnet test \
@@ -292,7 +292,7 @@ jobs:
       - name: Integration tests
         id: integration-tests
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.tmux.outputs.binary }}
           # Empty for a ref, which is no release and has no version to match.
           LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           # A lane whose integration tests silently skipped would pass while
@@ -332,15 +332,15 @@ jobs:
       - name: Check that tmux is the expected release
         if: ${{ matrix.expected != '' }}
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
-        run: test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+        run: test "$("${LIBTMUX_TEST_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
 
       - name: F# example
         id: fsharp-examples
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
         run: uv run scripts/example-programs/example_programs.py run fsharp --framework "${MATRIX_FRAMEWORK}"
@@ -348,7 +348,7 @@ jobs:
       - name: C# complete programs
         id: csharp-examples
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.expected }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
         run: uv run scripts/example-programs/example_programs.py run csharp --framework "${MATRIX_FRAMEWORK}"
@@ -416,7 +416,7 @@ jobs:
 
       - name: Check that the rejected tmux is the planned release
         env:
-          LIBTMUX_TMUX: ${{ steps.floor.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.floor.outputs.binary }}
           LIBTMUX_FLOOR_TMUX: ${{ steps.floor.outputs.binary }}
           LIBTMUX_REJECTED_TMUX: ${{ steps.rejected.outputs.binary }}
           LIBTMUX_REJECTED_REQUIRED: '1'
@@ -426,17 +426,17 @@ jobs:
 
       - name: Check that the client is tmux 3.3a
         env:
-          LIBTMUX_TMUX: ${{ steps.floor.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.floor.outputs.binary }}
           LIBTMUX_FLOOR_TMUX: ${{ steps.floor.outputs.binary }}
           LIBTMUX_REJECTED_TMUX: ${{ steps.rejected.outputs.binary }}
           LIBTMUX_REJECTED_REQUIRED: '1'
           REJECTED_VERSION: ${{ matrix.rejected-version }}
           TMUX_TMPDIR: /tmp/libtmux-dotnet-test
-        run: test "$("${LIBTMUX_TMUX}" -V)" = "tmux 3.3a"
+        run: test "$("${LIBTMUX_TEST_TMUX}" -V)" = "tmux 3.3a"
 
       - name: Refuse the unsupported daemon before any effect
         env:
-          LIBTMUX_TMUX: ${{ steps.floor.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.floor.outputs.binary }}
           LIBTMUX_FLOOR_TMUX: ${{ steps.floor.outputs.binary }}
           LIBTMUX_REJECTED_TMUX: ${{ steps.rejected.outputs.binary }}
           LIBTMUX_REJECTED_REQUIRED: '1'
@@ -490,18 +490,18 @@ jobs:
 
       - name: Check that tmux is 3.7
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: '3.7'
           LIBTMUX_INTEGRATION_REQUIRED: '1'
           TMUX_TMPDIR: /tmp/libtmux-dotnet-test
-        run: test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+        run: test "$("${LIBTMUX_TEST_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
 
       # A test that skipped here would pass while proving nothing, so a
       # skip fails the lane, and so does a run of fewer tests than there
       # are, which a renamed test would cause.
       - name: Run the tests that need exactly 3.7
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: '3.7'
           LIBTMUX_INTEGRATION_REQUIRED: '1'
           TMUX_TMPDIR: /tmp/libtmux-dotnet-test
@@ -554,7 +554,7 @@ jobs:
 
       - name: Integration tests
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_INTEGRATION_REQUIRED: '1'
         run: |
           dotnet test \

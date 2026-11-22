@@ -40,6 +40,12 @@ internal static class WorkspaceSocketRoot
     /// <summary>The variable that moves the shared parent of the per-run roots.</summary>
     internal const string RootVariable = "LIBTMUX_TEST_SOCKET_ROOT";
 
+    /// <summary>The cross-port variable that names the tmux executable under test.</summary>
+    internal const string TestTmuxVariable = "LIBTMUX_TEST_TMUX";
+
+    /// <summary>The legacy variable accepted when <see cref="TestTmuxVariable"/> is unset.</summary>
+    internal const string LegacyTestTmuxVariable = "LIBTMUX_TMUX";
+
     /// <summary>The longest per-run root, in bytes, at which every socket path the suites build fits.</summary>
     internal const int MaximumRootLength = 39;
 
@@ -175,6 +181,28 @@ internal static class WorkspaceSocketRoot
 
         return environment;
     }
+
+    /// <summary>Returns the configured test tmux executable, or <see langword="null"/> when neither variable sets one.</summary>
+    /// <param name="readVariable">Reads one environment variable by name, or <see langword="null"/> for this process.</param>
+    /// <returns>The non-blank value of <see cref="TestTmuxVariable"/> or <see cref="LegacyTestTmuxVariable"/>, untrimmed.</returns>
+    internal static string? ConfiguredTestTmux(Func<string, string?>? readVariable = null)
+    {
+        Func<string, string?> lookup = readVariable ?? Environment.GetEnvironmentVariable;
+        string? primary = lookup(TestTmuxVariable);
+        if (!string.IsNullOrWhiteSpace(primary))
+        {
+            return primary;
+        }
+
+        string? legacy = lookup(LegacyTestTmuxVariable);
+        return string.IsNullOrWhiteSpace(legacy) ? null : legacy;
+    }
+
+    /// <summary>Returns the tmux executable a test or benchmark harness should run.</summary>
+    /// <param name="readVariable">Reads one environment variable by name, or <see langword="null"/> for this process.</param>
+    /// <returns>The configured executable, or <c>tmux</c> on <c>PATH</c>.</returns>
+    internal static string TestTmux(Func<string, string?>? readVariable = null) =>
+        ConfiguredTestTmux(readVariable) ?? "tmux";
 
     /// <summary>Chooses the directory the per-run roots are made in.</summary>
     /// <param name="chosen">The value of <see cref="RootVariable"/>, if any.</param>
@@ -572,7 +600,7 @@ internal static class WorkspaceSocketRoot
             ReleaseRun();
             (List<string> findings, bool removed) = EndRun(
                 Root,
-                Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                TestTmux(),
                 SettleFor);
             foreach (string finding in findings)
             {

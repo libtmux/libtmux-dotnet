@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Engineering;
 using LibTmux.Internal;
 using LibTmux.Mcp;
 using LibTmux.Testing;
@@ -116,8 +117,7 @@ internal sealed class McpToolFixture : IAsyncDisposable
         CapabilityRegistry? registry = null,
         IReadOnlyDictionary<string, string?>? childEnvironment = null)
     {
-        string configuredBinary = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            ?? "tmux";
+        string configuredBinary = WorkspaceSocketRoot.TestTmux();
         string tmuxBinaryPath = McpStartup.ResolveExecutablePath(
             configuredBinary,
             System.Environment.GetEnvironmentVariable("PATH"));

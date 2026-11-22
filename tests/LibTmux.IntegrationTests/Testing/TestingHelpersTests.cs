@@ -233,7 +233,7 @@ public sealed class TestingHelpersTests
     private static TmuxTestOptions HarnessOptions() =>
         new(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
             SocketName = $"lths-{Guid.NewGuid():N}"[..20],
             ConfigurationFile = "/dev/null",
         });

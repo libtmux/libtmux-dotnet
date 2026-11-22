@@ -153,7 +153,7 @@ public sealed class EntityFilterTests
         TmuxTestFactory factory = new();
         TmuxTestOptions options = new(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
             SocketName = $"ltquery-{Guid.NewGuid():N}"[..24],
             ConfigurationFile = "/dev/null",
         });

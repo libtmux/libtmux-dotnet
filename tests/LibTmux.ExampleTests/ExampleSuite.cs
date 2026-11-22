@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Engineering;
 using LibTmux.Examples;
 
 namespace LibTmux.ExampleTests;
@@ -23,7 +24,7 @@ public sealed class ExampleSuite
     {
         ExampleCase example = Find(name);
         TmuxVersion running = await TmuxVersion.DetectAsync(
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            WorkspaceSocketRoot.TestTmux(),
             TestContext.Current.CancellationToken);
         Assert.SkipWhen(example.WhyNotOn(running) is not null, $"This example {example.WhyNotOn(running)}.");
         await example.RunAsync(TestContext.Current.CancellationToken);

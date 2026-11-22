@@ -443,7 +443,7 @@ public sealed class ServerSessionLifecycleTests
     private static ServerConnectionOptions IsolatedOptions() =>
         new()
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
             SocketName = $"ltcs-owned-{Guid.NewGuid():N}",
             ConfigurationFile = "/dev/null",
         };

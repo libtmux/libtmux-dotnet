@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using LibTmux.Engineering;
 
 namespace LibTmux.Workspace.Cli.Tests;
 
@@ -50,7 +51,7 @@ public sealed class LayoutTests : IDisposable
         await File.WriteAllTextAsync(file, document.ToJsonString(), token);
         Server server = Server.Open(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
             SocketPath = socket,
             ConfigurationFile = "/dev/null"
         });
@@ -67,7 +68,7 @@ public sealed class LayoutTests : IDisposable
             using StringWriter error = new();
 
             int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"],
-                output, error, _root, cancellationToken: token);
+                output, error, _root, RegressionTests.CliEnvironment(), token);
 
             Assert.Equal(expected ? 0 : 1, code);
             Assert.Equal(before, await Keeper(server, token));

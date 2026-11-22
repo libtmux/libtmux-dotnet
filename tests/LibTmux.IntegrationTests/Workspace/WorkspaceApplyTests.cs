@@ -355,7 +355,7 @@ public sealed class WorkspaceApplyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(Options(), token);
         Session existing = await scope.Server.CreateSessionAsync(new() { Name = "planned", Command = "exec /bin/cat" }, token);
-        string binary = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+        string binary = ShellQuote(RawTmuxTestContext.ConfiguredBinary);
         await existing.Options.SetAsync(new("default-command", $"{binary} wait-for -S \"$LIBTMUX_WORKSPACE_READY\"; exec /bin/cat"), token);
         WorkspaceBuilder builder = new(scope.Server);
         WorkspacePlan plan = await builder.PlanAsync(new("planned", windows:
@@ -697,7 +697,7 @@ public sealed class WorkspaceApplyTests
 
     private static TmuxTestOptions Options(TmuxInterceptor? interceptor = null) => new(new ServerConnectionOptions
     {
-        TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+        TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
         SocketName = $"ltwa-{Guid.NewGuid():N}"[..20],
         ConfigurationFile = "/dev/null",
         ChildEnvironment = new Dictionary<string, string?> { ["SHELL"] = "/bin/sh", ["ENV"] = null, ["BASH_ENV"] = null },

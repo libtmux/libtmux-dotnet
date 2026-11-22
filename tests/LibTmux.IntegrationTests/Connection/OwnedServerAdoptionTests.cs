@@ -54,7 +54,7 @@ public sealed class OwnedServerAdoptionTests
                 "#!/bin/sh\n"
                 + "case \" $* \" in *\" list-sessions \"*) echo 'error connecting to /socket (Permission denied)' >&2; exit 1 ;; "
                 + $"*\" start-server \"*) : > '{started}' ;; esac\n"
-                + $"exec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
+                + $"exec '{RawTmuxTestContext.ConfiguredBinary}' \"$@\"\n",
                 token);
 
             await Assert.ThrowsAsync<TmuxCommandException>(
@@ -164,7 +164,7 @@ public sealed class OwnedServerAdoptionTests
                 "#!/bin/sh\n"
                 + $"case \" $* \" in *\" display-message \"*) [ -e '{hidePid}' ] && exit 1; [ -e '{pid}' ] && {{ cat '{pid}'; exit 0; }} ;; esac\n"
                 + $"case \" $* \" in *\" kill-server \"*) [ -e '{refuseKill}' ] && exit 1 ;; esac\n"
-                + $"exec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
+                + $"exec '{RawTmuxTestContext.ConfiguredBinary}' \"$@\"\n",
                 token);
             OwnedServerScope owned = await Server.CreateOwnedAsync(Options(root, "owned") with { TmuxBinaryPath = tmux, ForceProcessTransport = true }, token);
             await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "kept" }, token);
@@ -230,7 +230,7 @@ public sealed class OwnedServerAdoptionTests
             tmux,
             "#!/bin/sh\n"
             + $"case \" $* \" in *\" start-server \"*) : > '{started}' ;; *\" list-sessions \"*) [ -e '{started}' ] && printf x 1<>'{listed}' && exit 1 ;; esac\n"
-            + $"exec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
+            + $"exec '{RawTmuxTestContext.ConfiguredBinary}' \"$@\"\n",
             token);
         using (Process mkfifo = Process.Start(new ProcessStartInfo("mkfifo") { ArgumentList = { listed } })!)
         {
@@ -285,7 +285,7 @@ public sealed class OwnedServerAdoptionTests
         string tmux = Path.Join(root, "tmux");
         await TestExecutable.WriteAsync(
             tmux,
-            $"#!/bin/sh\n[ -e '{refuse}' ] && exit 1\nexec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
+            $"#!/bin/sh\n[ -e '{refuse}' ] && exit 1\nexec '{RawTmuxTestContext.ConfiguredBinary}' \"$@\"\n",
             cancellationToken);
         OwnedServerScope owned = await Server.CreateOwnedAsync(
             Options(root, "owned") with { TmuxBinaryPath = tmux, ForceProcessTransport = true },
@@ -306,7 +306,7 @@ public sealed class OwnedServerAdoptionTests
     private static ServerConnectionOptions Options(string root, string? socketName) =>
         new()
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
             SocketName = socketName,
             ConfigurationFile = "/dev/null",
             ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = root },

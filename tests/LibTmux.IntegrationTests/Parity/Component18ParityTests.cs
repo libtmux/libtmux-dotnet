@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Engineering;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 
@@ -93,7 +94,7 @@ public sealed class Component18ParityTests
     private static TmuxTestOptions Options() =>
         new(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
             SocketName = $"ltp-{Guid.NewGuid():N}"[..20],
             ConfigurationFile = "/dev/null",
         });

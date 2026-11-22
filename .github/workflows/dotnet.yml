@@ -263,7 +263,10 @@ jobs:
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-sdk8-consumer
         working-directory: tests/LibTmux.FSharp.Sdk8Consumer
-        run: env -u TMUX -u TMUX_PANE dotnet run --configuration Release --no-restore
+        run: >-
+          env -u TMUX -u TMUX_PANE -u LIBTMUX_SOCKET
+          -u LIBTMUX_SOCKET_PATH -u LIBTMUX_SOCKET_NAME
+          dotnet run --configuration Release --no-restore
 
       - name: 'F# README quickstart: restore'
         env:

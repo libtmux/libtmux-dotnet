@@ -385,7 +385,7 @@ public sealed class TmuxOptionsTests
     private static ServerConnectionOptions IsolatedOptions() =>
         new()
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
             SocketName = $"ltcs-options-{Guid.NewGuid():N}",
             ConfigurationFile = "/dev/null",
         };
