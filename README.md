@@ -687,6 +687,10 @@ Changelog: [`CHANGELOG.md`](src/LibTmux.Mcp/CHANGELOG.md).
   supported: see
   [Release candidates](https://libtmux.org/en/tmux/guides/tmux-support/#release-candidates).
   `TmuxVersion` orders `X.Y-rcN` below `X.Y` and promises nothing more.
+- **Pane exits.** Unpatched tmux before 3.6 linked with `libutempter` can delay
+  `Pane.DeadStatus` and `pane-died` hooks until another child exits. Use
+  tmux 3.6+ or a build with the
+  [upstream fix](https://github.com/tmux/tmux/commit/fa5f3cef3d651b0eb9abfa77fc37ccade81679b5).
 - **.NET.** net8.0 and net10.0.
 - **Systems.** Linux, including WSL. macOS is best effort. Native Windows has
   only the read-only [`Psmux*` preview](docs/psmux.md), also best effort.
