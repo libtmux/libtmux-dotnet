@@ -119,13 +119,52 @@ def test_a_ref_that_names_no_release_is_judged_by_what_it_built(
     world: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("LIBTMUX_EXPECTED_TMUX_VERSION", raising=False)
+    monkeypatch.setenv("LIBTMUX_TMUX", str(stand_in(world, "legacy-tmux", "print('tmux 3.4')\n")))
     monkeypatch.setenv(
-        "LIBTMUX_TMUX", str(stand_in(world, "next-tmux", "print('tmux next-3.8')\n"))
+        "LIBTMUX_TEST_TMUX", str(stand_in(world, "next-tmux", "print('tmux next-3.8')\n"))
     )
 
     assert programs.main(["run", "fsharp", "--framework", "net8.0"]) == 0
 
     assert len(calls(world)) == 3
+
+
+@pytest.mark.parametrize(
+    ("test_tmux", "legacy_tmux", "expected"),
+    [
+        ("/opt/test/bin/tmux", "/opt/legacy/bin/tmux", "/opt/test/bin/tmux"),
+        ("", "/opt/legacy/bin/tmux", "/opt/legacy/bin/tmux"),
+        ("   \t\n", "/opt/legacy/bin/tmux", "/opt/legacy/bin/tmux"),
+        ("   ", "   ", "tmux"),
+        (" /tmp/with spaces/tmux ", "/opt/legacy/bin/tmux", " /tmp/with spaces/tmux "),
+    ],
+)
+def test_test_tmux_precedence_and_whitespace_handling(
+    test_tmux: str, legacy_tmux: str, expected: str
+) -> None:
+    environment = {"LIBTMUX_TEST_TMUX": test_tmux, "LIBTMUX_TMUX": legacy_tmux}
+
+    assert programs.resolve_tmux(environment) == expected
+
+
+def test_isolated_environment_clears_ambient_selectors_and_shims_custom_tmux_binary() -> None:
+    dirty = {
+        "PATH": "/usr/local/bin:/usr/bin:/bin",
+        "LIBTMUX_TEST_TMUX": "/opt/tmux-3.8/bin/tmux-custom",
+        "TMUX": "/tmp/tmux-1000/default,1,0",
+        "TMUX_PANE": "%0",
+        "LIBTMUX_SOCKET": "dev",
+        "LIBTMUX_SOCKET_PATH": "/tmp/dev.sock",
+        "LIBTMUX_SOCKET_NAME": "retired",
+    }
+
+    with programs.isolated_environment(dirty) as clean:
+        for selector in programs.AMBIENT_SELECTORS:
+            assert selector not in clean
+        first_entry, remainder = clean["PATH"].split(os.pathsep, 1)
+        assert remainder == "/usr/local/bin:/usr/bin:/bin"
+        assert os.readlink(pathlib.Path(first_entry) / "tmux") == "/opt/tmux-3.8/bin/tmux-custom"
+    assert not pathlib.Path(first_entry).exists()
 
 
 def test_output_that_the_guide_rejects_fails_the_run(

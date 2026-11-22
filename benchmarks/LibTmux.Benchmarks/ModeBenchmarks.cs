@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using BenchmarkDotNet.Attributes;
+using LibTmux.Engineering;
 using LibTmux.Testing;
 
 namespace LibTmux.Benchmarks;
@@ -31,7 +32,7 @@ public class ModeBenchmarks
         _factory = new TmuxTestFactory();
         TmuxTestOptions options = new(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
             SocketName = $"ltbench-{Guid.NewGuid():N}"[..24],
             ConfigurationFile = "/dev/null",
         });

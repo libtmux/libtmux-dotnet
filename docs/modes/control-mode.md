@@ -50,11 +50,15 @@ the wait.
 ```csharp
 using LibTmux;
 
+string? testTmux = Environment.GetEnvironmentVariable("LIBTMUX_TEST_TMUX");
+string? binary = !string.IsNullOrWhiteSpace(testTmux)
+    ? testTmux
+    : Environment.GetEnvironmentVariable("LIBTMUX_TMUX");
 await using OwnedServerScope owned = await Server.CreateOwnedAsync(
     new ServerConnectionOptions
     {
         SocketName = "text-wait",
-        TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+        TmuxBinaryPath = string.IsNullOrWhiteSpace(binary) ? "tmux" : binary,
     });
 Session session = await owned.Value.CreateSessionAsync(
     new NewSessionRequest { Name = "text-wait", Command = "exec /bin/sh" });

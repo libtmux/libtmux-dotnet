@@ -57,16 +57,35 @@ let verifyPackage () =
         "loaded assembly matches restored package bytes"
         (restored |> Seq.exists (fun path -> File.ReadAllBytes path = loaded))
 
+let private testTmux () =
+    let nonBlank (candidate: string | null) =
+        match candidate with
+        | null -> None
+        | value when String.IsNullOrWhiteSpace value -> None
+        | value -> Some value
+
+    nonBlank (Environment.GetEnvironmentVariable "LIBTMUX_TEST_TMUX")
+    |> Option.orElseWith (fun () -> nonBlank (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"))
+    |> Option.defaultValue "tmux"
+
+let private clearAmbientSelectors () =
+    for name in
+        [
+            "TMUX"
+            "TMUX_PANE"
+            "LIBTMUX_SOCKET"
+            "LIBTMUX_SOCKET_PATH"
+            "LIBTMUX_SOCKET_NAME"
+        ] do
+        Environment.SetEnvironmentVariable(name, null)
+
 let runScenario mode =
     task {
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
-        let binary =
-            match Environment.GetEnvironmentVariable "LIBTMUX_TMUX" with
-            | null
-            | "" -> "tmux"
-            | value -> value
+        clearAmbientSelectors ()
+        let binary = testTmux ()
 
         let childEnvironment = Dictionary<string, string | null>()
         childEnvironment["TMUX"] <- null

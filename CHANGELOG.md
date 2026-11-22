@@ -47,6 +47,11 @@ exact version to avoid one. Releases before 0.1.0 were alphas numbered
 
 ### Development
 
+- `LIBTMUX_TEST_TMUX` selects the `tmux` executable under test across test,
+  example, benchmark, matrix-evidence, and CI harnesses, falling back to
+  `LIBTMUX_TMUX` when unset or blank while published runtime packages never read
+  `LIBTMUX_TEST_TMUX` and F# example and consumer harnesses clear
+  `LIBTMUX_SOCKET*` alongside `TMUX` and `TMUX_PANE`. (#190)
 - Support scripts live under `scripts/<name>/`, each with a README and tests.
   `scripts/run_checks.py` runs `ruff format`, `ruff check`, `ty check` and
   `pytest`, with doctests, over them in `dotnet.yml`. (#172)

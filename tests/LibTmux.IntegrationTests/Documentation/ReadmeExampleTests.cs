@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.RegularExpressions;
+using LibTmux.Engineering;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 using Microsoft.CodeAnalysis;
@@ -102,7 +103,7 @@ public sealed class ReadmeExampleTests
 
         TmuxTestFactory factory = new();
         TmuxVersion running = await TmuxVersion.DetectAsync(
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            WorkspaceSocketRoot.TestTmux(),
             TestContext.Current.CancellationToken);
         List<string> failures = [];
         foreach (Example example in runnable)
@@ -121,7 +122,7 @@ public sealed class ReadmeExampleTests
             // one example's windows out of the next one's reads.
             TmuxTestOptions options = new(new ServerConnectionOptions
             {
-                TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
                 SocketName = $"ltreadme-{Guid.NewGuid():N}"[..24],
                 ConfigurationFile = "/dev/null",
                 ChildEnvironment = new Dictionary<string, string?>

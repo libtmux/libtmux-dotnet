@@ -22,12 +22,14 @@ An F# program prints what it found, and its guide shows what it must print:
 `run fsharp` pipes each program's output to `sync_fsharp_snippets.py
 --expect-output`. A program the manifest says needs a newer tmux than the one
 under test is skipped, and the tmux under test is `LIBTMUX_EXPECTED_TMUX_VERSION`
-or, for a ref that names no release, what `$LIBTMUX_TMUX -V` reports.
+or, for a ref that names no release, what `$LIBTMUX_TEST_TMUX -V` (or
+`$LIBTMUX_TMUX -V` when unset) reports.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import dataclasses
 import json
 import os
@@ -35,6 +37,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import typing as t
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -42,6 +45,13 @@ MANIFEST = ROOT / "examples" / "api" / "manifest.json"
 SYNC_SNIPPETS = ROOT / "scripts" / "docs" / "sync_fsharp_snippets.py"
 QUICKSTART_PROJECT = "examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj"
 QUICKSTART_MINIMUM = "3.7"
+AMBIENT_SELECTORS = (
+    "TMUX",
+    "TMUX_PANE",
+    "LIBTMUX_SOCKET",
+    "LIBTMUX_SOCKET_PATH",
+    "LIBTMUX_SOCKET_NAME",
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -113,12 +123,52 @@ def required_tmux(manifest: pathlib.Path, program: str) -> str:
     return ""
 
 
+def configured_tmux(environment: t.Mapping[str, str]) -> str | None:
+    """Return the configured test tmux path, preserving non-blank values untrimmed."""
+    for variable in ("LIBTMUX_TEST_TMUX", "LIBTMUX_TMUX"):
+        candidate = environment.get(variable)
+        if candidate is not None and candidate.strip():
+            return candidate
+    return None
+
+
+def resolve_tmux(environment: t.Mapping[str, str]) -> str:
+    """Return the tmux executable under test."""
+    return configured_tmux(environment) or "tmux"
+
+
+@contextlib.contextmanager
+def isolated_environment(
+    environment: t.Mapping[str, str],
+) -> t.Generator[dict[str, str], None, None]:
+    """Yield a child environment with ambient selectors removed and `tmux` shimmed."""
+    clean = {
+        key: value
+        for key, value in environment.items()
+        if key not in AMBIENT_SELECTORS and not key.startswith("LIBTMUX_SOCKET")
+    }
+    configured = configured_tmux(environment)
+    if configured is None or os.path.sep not in configured:
+        yield clean
+        return
+    with tempfile.TemporaryDirectory(prefix="libtmux-tmux-") as shim_root:
+        target = (
+            configured
+            if os.path.isabs(configured) or configured[:1].isspace()
+            else os.path.abspath(configured)
+        )
+        (pathlib.Path(shim_root) / "tmux").symlink_to(target)
+        existing = clean.get("PATH", "")
+        clean["PATH"] = f"{shim_root}{os.pathsep}{existing}" if existing else shim_root
+        yield clean
+
+
 def running_tmux(environment: t.Mapping[str, str]) -> str:
     """Return the release under test: the expected one, or what the built tmux reports."""
     expected = environment.get("LIBTMUX_EXPECTED_TMUX_VERSION", "")
     if expected:
         return expected
-    binary = environment.get("LIBTMUX_TMUX", "tmux")
+    binary = resolve_tmux(environment)
     done = subprocess.run([binary, "-V"], capture_output=True, text=True, check=True)
     return tmux_release(done.stdout)
 
@@ -156,12 +206,13 @@ def build(kind_name: str) -> None:
         )
 
 
-def run_csharp(framework: str) -> None:
+def run_csharp(framework: str, environment: t.Mapping[str, str]) -> None:
     """Run every C# program on one framework."""
     kind = KINDS["csharp"]
-    for program in program_names(kind):
-        assembly = pathlib.Path(kind.built) / program / framework / kind.assembly
-        subprocess.run(["dotnet", str(assembly)], cwd=ROOT, check=True)
+    with isolated_environment(environment) as clean:
+        for program in program_names(kind):
+            assembly = pathlib.Path(kind.built) / program / framework / kind.assembly
+            subprocess.run(["dotnet", str(assembly)], cwd=ROOT, env=clean, check=True)
 
 
 def run_fsharp(framework: str, environment: t.Mapping[str, str]) -> None:
@@ -169,17 +220,23 @@ def run_fsharp(framework: str, environment: t.Mapping[str, str]) -> None:
     kind = KINDS["fsharp"]
     built = running_tmux(environment)
     console = f"examples/LibTmux.FSharp.Examples/bin/Release/{framework}/{kind.assembly}"
-    subprocess.run(["dotnet", console], cwd=ROOT, check=True)
-    for program in program_names(kind):
-        minimum = required_tmux(MANIFEST, program)
-        if minimum and version_key(built) < version_key(minimum):
-            print(f"skip {program}: needs tmux {minimum}")
-            continue
-        assembly = pathlib.Path(kind.built) / program / framework / kind.assembly
-        done = subprocess.run(
-            ["dotnet", str(assembly)], cwd=ROOT, stdout=subprocess.PIPE, text=True, check=True
-        )
-        check_expected_output(program, done.stdout)
+    with isolated_environment(environment) as clean:
+        subprocess.run(["dotnet", console], cwd=ROOT, env=clean, check=True)
+        for program in program_names(kind):
+            minimum = required_tmux(MANIFEST, program)
+            if minimum and version_key(built) < version_key(minimum):
+                print(f"skip {program}: needs tmux {minimum}")
+                continue
+            assembly = pathlib.Path(kind.built) / program / framework / kind.assembly
+            done = subprocess.run(
+                ["dotnet", str(assembly)],
+                cwd=ROOT,
+                env=clean,
+                stdout=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+            check_expected_output(program, done.stdout)
 
 
 def quickstart(frameworks: t.Sequence[str], environment: t.Mapping[str, str]) -> None:
@@ -189,42 +246,50 @@ def quickstart(frameworks: t.Sequence[str], environment: t.Mapping[str, str]) ->
     the runner's apt tmux can be older. A skip is a warning annotation and a
     summary line, so the run reads as skipped rather than as a pass.
     """
-    done = subprocess.run(["tmux", "-V"], capture_output=True, text=True, check=True)
-    running = tmux_release(done.stdout)
-    if version_key(running) < version_key(QUICKSTART_MINIMUM):
-        print(
-            "::warning title=F# quickstart skipped::"
-            f"It needs tmux {QUICKSTART_MINIMUM}; this runner has {running}."
-        )
-        summary = environment.get("GITHUB_STEP_SUMMARY")
-        if summary:
-            with open(summary, "a", encoding="utf-8") as handle:
-                handle.write(
-                    f"F# README quickstart skipped: it needs tmux {QUICKSTART_MINIMUM}, "
-                    f"this runner has {running}.\n"
-                )
-        return
-    for framework in frameworks:
-        # Built before, so only what the program prints reaches the comparison.
-        printed = subprocess.run(
-            [
-                "dotnet",
-                "run",
-                "--project",
-                QUICKSTART_PROJECT,
-                "--configuration",
-                "Release",
-                "--framework",
-                framework,
-                "--no-build",
-                "-p:UsePackageReferences=true",
-            ],
-            cwd=ROOT,
-            stdout=subprocess.PIPE,
+    with isolated_environment(environment) as clean:
+        done = subprocess.run(
+            [resolve_tmux(environment), "-V"],
+            capture_output=True,
             text=True,
+            env=clean,
             check=True,
         )
-        check_expected_output("Quickstart", printed.stdout)
+        running = tmux_release(done.stdout)
+        if version_key(running) < version_key(QUICKSTART_MINIMUM):
+            print(
+                "::warning title=F# quickstart skipped::"
+                f"It needs tmux {QUICKSTART_MINIMUM}; this runner has {running}."
+            )
+            summary = environment.get("GITHUB_STEP_SUMMARY")
+            if summary:
+                with open(summary, "a", encoding="utf-8") as handle:
+                    handle.write(
+                        f"F# README quickstart skipped: it needs tmux {QUICKSTART_MINIMUM}, "
+                        f"this runner has {running}.\n"
+                    )
+            return
+        for framework in frameworks:
+            # Built before, so only what the program prints reaches the comparison.
+            printed = subprocess.run(
+                [
+                    "dotnet",
+                    "run",
+                    "--project",
+                    QUICKSTART_PROJECT,
+                    "--configuration",
+                    "Release",
+                    "--framework",
+                    framework,
+                    "--no-build",
+                    "-p:UsePackageReferences=true",
+                ],
+                cwd=ROOT,
+                env=clean,
+                stdout=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+            check_expected_output("Quickstart", printed.stdout)
 
 
 def main(argv: t.Sequence[str] | None = None) -> int:
@@ -243,7 +308,7 @@ def main(argv: t.Sequence[str] | None = None) -> int:
         if options.command == "build":
             build(options.kind)
         elif options.command == "run" and options.kind == "csharp":
-            run_csharp(options.framework)
+            run_csharp(options.framework, os.environ)
         elif options.command == "run":
             run_fsharp(options.framework, os.environ)
         else:

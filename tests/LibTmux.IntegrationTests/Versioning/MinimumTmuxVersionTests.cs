@@ -10,11 +10,12 @@ namespace LibTmux.IntegrationTests.Versioning;
 /// <summary>Proves the tmux minimum against daemons that really are below it.</summary>
 /// <remarks>
 /// <para>
-/// <c>LIBTMUX_TMUX</c> names the qualified tmux that serves as client and
-/// daemon. <c>LIBTMUX_REJECTED_TMUX</c> names one that is below the minimum,
-/// and <c>LIBTMUX_FLOOR_TMUX</c> a 3.3a build whose protocol the rejected
-/// client can speak. Without the rejected build these tests skip, unless
-/// <c>LIBTMUX_REJECTED_REQUIRED</c> is set, which makes its absence a failure.
+/// <c>LIBTMUX_TEST_TMUX</c> (with <c>LIBTMUX_TMUX</c> as a fallback) names the
+/// qualified tmux that serves as client and daemon. <c>LIBTMUX_REJECTED_TMUX</c>
+/// names one that is below the minimum, and <c>LIBTMUX_FLOOR_TMUX</c> a 3.3a build
+/// whose protocol the rejected client can speak. Without the rejected build these
+/// tests skip, unless <c>LIBTMUX_REJECTED_REQUIRED</c> is set, which makes its
+/// absence a failure.
 /// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
@@ -443,11 +444,7 @@ public sealed class MinimumTmuxVersionTests
         throw new TimeoutException($"{path} stayed busy.");
     }
 
-    private static string Qualified()
-    {
-        string path = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? string.Empty;
-        return string.IsNullOrWhiteSpace(path) ? "tmux" : path;
-    }
+    private static string Qualified() => RawTmuxTestContext.ConfiguredBinary;
 
     private static string Rejected() => Fixture("LIBTMUX_REJECTED_TMUX", "a tmux below 3.3a");
 

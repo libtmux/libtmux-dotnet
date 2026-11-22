@@ -38,6 +38,7 @@ public sealed class ExampleNamespace : IAsyncDisposable
         "TMPDIR",
         "LIBTMUX_SOCKET",
         "LIBTMUX_SOCKET_PATH",
+        "LIBTMUX_SOCKET_NAME",
         "LIBTMUX_MCP_COMMAND",
         "TMUX",
         "TMUX_PANE",
@@ -107,6 +108,7 @@ public sealed class ExampleNamespace : IAsyncDisposable
         Environment.SetEnvironmentVariable("TMPDIR", directory);
         Environment.SetEnvironmentVariable("LIBTMUX_SOCKET", socketName);
         Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_PATH", null);
+        Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_NAME", null);
         Environment.SetEnvironmentVariable(
             "LIBTMUX_MCP_COMMAND",
             Path.Combine(
@@ -125,8 +127,7 @@ public sealed class ExampleNamespace : IAsyncDisposable
             OwnedServerScope server = await Server.CreateOwnedAsync(
                 new ServerConnectionOptions
                 {
-                    TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-                        ?? "tmux",
+                    TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
                     SocketName = socketName,
                     ChildEnvironment = new Dictionary<string, string?>
                     {

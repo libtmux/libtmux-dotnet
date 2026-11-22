@@ -204,7 +204,7 @@ public sealed class WorkspaceBuilderTests
             await using TemporaryServerScope scope = await factory.CreateServerAsync(HarnessOptions(), token);
             string output = Path.Combine(origin, "result");
             string destination = ShellQuote(output);
-            string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+            string tmux = ShellQuote(RawTmuxTestContext.ConfiguredBinary);
             string ready = $"workspace-ready-{Guid.NewGuid():N}";
             await scope.Server.CreateSessionAsync(new NewSessionRequest
             {
@@ -259,7 +259,7 @@ public sealed class WorkspaceBuilderTests
             token);
 
         string completed = $"workspace-built-{Guid.NewGuid():N}";
-        string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+        string tmux = ShellQuote(RawTmuxTestContext.ConfiguredBinary);
         WorkspaceFile workspace = WorkspaceFile.Parse(Yaml.Replace("echo command-two",
             $"echo command-two; {tmux} wait-for -S {completed}", StringComparison.Ordinal));
         WorkspaceBuilder builder = new(scope.Server);
@@ -520,7 +520,7 @@ public sealed class WorkspaceBuilderTests
             await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
             string received = Path.Combine(directory, "received");
             string completed = $"workspace-enter-{Guid.NewGuid():N}";
-            string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+            string tmux = ShellQuote(RawTmuxTestContext.ConfiguredBinary);
             string command = $"IFS= read -r value; printf '%s' \"$value\" > {ShellQuote(received)}; {tmux} wait-for -S {completed}";
             WorkspaceFile workspace = new("libtmux-single-enter", windows:
                 [new WorkspaceWindow(panes: [new WorkspacePane([command])])]);
@@ -550,7 +550,7 @@ public sealed class WorkspaceBuilderTests
             await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
             string received = Path.Combine(directory, "received");
             string completed = $"workspace-held-{Guid.NewGuid():N}";
-            string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+            string tmux = ShellQuote(RawTmuxTestContext.ConfiguredBinary);
             string command = $"printf 'held' > {ShellQuote(received)}; {tmux} wait-for -S {completed}";
             // A pinned shell keeps the prompt short: the runner's login prompt
             // carries its host name and pushed the typed command past the
@@ -592,7 +592,7 @@ public sealed class WorkspaceBuilderTests
             string command = Path.Combine(directory, "receiver");
             string received = Path.Combine(directory, "received");
             string completed = $"workspace-options-{Guid.NewGuid():N}";
-            string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+            string tmux = ShellQuote(RawTmuxTestContext.ConfiguredBinary);
             await File.WriteAllTextAsync(command,
                 "#!/bin/sh\nset -eu\nIFS= read -r first\n"
                 + $"printf '%s\\n' \"$first\" > {ShellQuote(received)}\n"
@@ -698,7 +698,7 @@ public sealed class WorkspaceBuilderTests
     private static TmuxTestOptions HarnessOptions() =>
         new(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
             SocketName = $"ltw-{Guid.NewGuid():N}"[..20],
             ConfigurationFile = "/dev/null",
             ChildEnvironment = new Dictionary<string, string?>

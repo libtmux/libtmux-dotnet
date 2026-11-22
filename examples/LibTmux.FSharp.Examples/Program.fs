@@ -159,13 +159,33 @@ let private verifyBoundedCleanupAsync (cancellationToken: CancellationToken) =
     }
 
 // The guides name sockets and leave the root to tmux. Moving the root here
-// keeps those servers away from the default socket, and clearing TMUX keeps a
-// run started inside tmux from reaching the server the developer is using.
+// keeps those servers away from the default socket, and clearing TMUX and any
+// LIBTMUX_SOCKET* variable keeps a run started inside tmux or a configured
+// shell from reaching a server it does not own.
+let private testTmux () =
+    let nonBlank (candidate: string | null) =
+        match candidate with
+        | null -> None
+        | value when String.IsNullOrWhiteSpace value -> None
+        | value -> Some value
+
+    nonBlank (Environment.GetEnvironmentVariable "LIBTMUX_TEST_TMUX")
+    |> Option.orElseWith (fun () -> nonBlank (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"))
+    |> Option.defaultValue "tmux"
+
 let private enterSocketRoot () =
     let root = Directory.CreateTempSubdirectory "lt-"
     Environment.SetEnvironmentVariable("TMUX_TMPDIR", root.FullName)
-    Environment.SetEnvironmentVariable("TMUX", null)
-    Environment.SetEnvironmentVariable("TMUX_PANE", null)
+
+    for name in
+        [
+            "TMUX"
+            "TMUX_PANE"
+            "LIBTMUX_SOCKET"
+            "LIBTMUX_SOCKET_PATH"
+            "LIBTMUX_SOCKET_NAME"
+        ] do
+        Environment.SetEnvironmentVariable(name, null)
 
     { new IDisposable with
         member _.Dispose() = root.Delete true
@@ -177,9 +197,13 @@ let private runAsync () =
         use _socketRoot = enterSocketRoot ()
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let cancellationToken = deadline.Token
+        let binary = testTmux ()
 
         let connection =
-            ServerConnectionOptions(SocketName = "libtmux-fsharp-example-" + Guid.NewGuid().ToString("N"))
+            ServerConnectionOptions(
+                SocketName = "libtmux-fsharp-example-" + Guid.NewGuid().ToString("N"),
+                TmuxBinaryPath = binary
+            )
 
         use! scope =
             TmuxTestFactory().CreateHierarchyAsync(TmuxTestOptions(connection), cancellationToken)
@@ -196,7 +220,8 @@ let private runAsync () =
                     use! owned =
                         ServerConnectionOptions(
                             SocketName = "libtmux-fsharp-tour-" + Guid.NewGuid().ToString("N"),
-                            ConfigurationFile = "/dev/null"
+                            ConfigurationFile = "/dev/null",
+                            TmuxBinaryPath = binary
                         )
                         |> Server.createOwned cancellationToken
 
@@ -272,7 +297,7 @@ let private runAsync () =
         else
             printfn "SKIP testing guide: running a command in a pane needs tmux 3.4"
 
-        let ciOptions = GuideSnippets.testOptionsWith "tmux"
+        let ciOptions = GuideSnippets.testOptionsWith binary
 
         do!
             task {
@@ -465,7 +490,8 @@ let private runAsync () =
         use! readmeServer =
             ServerConnectionOptions(
                 SocketName = "libtmux-fsharp-readme-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null"
+                ConfigurationFile = "/dev/null",
+                TmuxBinaryPath = binary
             )
             |> Server.createOwned readmeToken
 

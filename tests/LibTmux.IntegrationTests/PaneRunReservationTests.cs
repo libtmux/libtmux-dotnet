@@ -13,7 +13,7 @@ public sealed class PaneRunReservationTests
     {
         TmuxFeatureSupport.RequireNamedBuffers();
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-        string binary = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        string binary = RawTmuxTestContext.ConfiguredBinary;
         var options = new TmuxTestOptions(new ServerConnectionOptions
         {
             TmuxBinaryPath = binary,

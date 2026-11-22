@@ -74,12 +74,12 @@ jobs:
 
       - name: Check that tmux is the planned version
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
-        run: test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${TMUX_VERSION}"
+          LIBTMUX_TEST_TMUX: ${{ steps.tmux.outputs.binary }}
+        run: test "$("${LIBTMUX_TEST_TMUX}" -V)" = "tmux ${TMUX_VERSION}"
 
       - name: Run the F# benchmarks
         env:
-          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_TEST_TMUX: ${{ steps.tmux.outputs.binary }}
           TMUX_TMPDIR: /tmp/libtmux-benchmarks
         run: >-
           dotnet run

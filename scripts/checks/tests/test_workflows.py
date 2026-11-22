@@ -182,6 +182,24 @@ def test_the_selected_tmux_release_is_checked_before_the_examples(
     assert any("verify the selected tmux release" in error for error in verify(repository))
 
 
+@pytest.mark.parametrize("step_id", ["fsharp-examples", "csharp-examples"])
+def test_example_steps_must_pass_LIBTMUX_TEST_TMUX(repository: pathlib.Path, step_id: str) -> None:
+    """Matrix example steps must select the built tmux through LIBTMUX_TEST_TMUX."""
+    path = repository / ".github/workflows/dotnet-tmux.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    step = next(step for step in document["jobs"]["matrix"]["steps"] if step.get("id") == step_id)
+    step["env"] = {
+        ("LIBTMUX_TMUX" if key == "LIBTMUX_TEST_TMUX" else key): value
+        for key, value in step["env"].items()
+    }
+    path.write_text(yaml.safe_dump(document))
+
+    assert any(
+        f"dotnet-tmux.matrix.{step_id} must use the selected tmux and framework" in error
+        for error in verify(repository)
+    )
+
+
 def test_commented_dependencies_do_not_gate_publication(
     repository: pathlib.Path,
 ) -> None:

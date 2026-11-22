@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Engineering;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 using LibTmux.Workspace;
@@ -441,7 +442,7 @@ public sealed class WorkspacePlanTests
 
     private static TmuxTestOptions Options() => new(new ServerConnectionOptions
     {
-        TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+        TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
         SocketName = $"ltwp-{Guid.NewGuid():N}"[..20],
         ConfigurationFile = "/dev/null",
         ChildEnvironment = new Dictionary<string, string?> { ["SHELL"] = "/bin/sh", ["ENV"] = null, ["BASH_ENV"] = null },

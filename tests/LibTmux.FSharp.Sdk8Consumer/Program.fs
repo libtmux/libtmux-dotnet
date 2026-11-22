@@ -9,16 +9,33 @@ let check label condition =
 
     printfn "PASS %s" label
 
+let private testTmux () =
+    let nonBlank (candidate: string) =
+        if isNull candidate || String.IsNullOrWhiteSpace candidate then
+            None
+        else
+            Some candidate
+
+    nonBlank (Environment.GetEnvironmentVariable "LIBTMUX_TEST_TMUX")
+    |> Option.orElseWith (fun () -> nonBlank (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"))
+    |> Option.defaultValue "tmux"
+
 let run () =
     task {
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
-        let binary =
-            match Environment.GetEnvironmentVariable "LIBTMUX_TMUX" with
-            | null
-            | "" -> "tmux"
-            | value -> value
+        for name in
+            [
+                "TMUX"
+                "TMUX_PANE"
+                "LIBTMUX_SOCKET"
+                "LIBTMUX_SOCKET_PATH"
+                "LIBTMUX_SOCKET_NAME"
+            ] do
+            Environment.SetEnvironmentVariable(name, null)
+
+        let binary = testTmux ()
 
         let options =
             ServerConnectionOptions(

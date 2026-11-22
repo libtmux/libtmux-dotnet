@@ -13,7 +13,11 @@ if (OperatingSystem.IsWindows())
 
 using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(10));
 CancellationToken token = deadline.Token;
-string binary = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+string? testTmux = Environment.GetEnvironmentVariable("LIBTMUX_TEST_TMUX");
+string? configured = !string.IsNullOrWhiteSpace(testTmux)
+    ? testTmux
+    : Environment.GetEnvironmentVariable("LIBTMUX_TMUX");
+string binary = string.IsNullOrWhiteSpace(configured) ? "tmux" : configured;
 using TemporaryDirectory socketRoot = new();
 ServerConnectionOptions options = new()
 {

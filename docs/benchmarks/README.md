@@ -62,7 +62,7 @@ $ dotnet run \
 
 The project multi-targets, so the framework has to be named; the recorded runs
 are `net10.0`. To measure a specific tmux rather than whatever is on the path,
-set `LIBTMUX_TMUX` to its binary.
+set `LIBTMUX_TEST_TMUX` to its binary.
 
 Turn the result into a record:
 
@@ -157,7 +157,7 @@ query rows, process counts, and actual concurrency before writing the sample.
 One control client stays attached through all five modes, so the results
 measure operation cost with that client already present.
 
-Set `LIBTMUX_TMUX` to an absolute tmux binary path as described above, then
+Set `LIBTMUX_TEST_TMUX` to an absolute tmux binary path as described above, then
 write a full NDJSON run:
 
 ```console

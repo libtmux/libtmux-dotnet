@@ -485,10 +485,7 @@ type SandboxCanaryTests() =
         | null
         | "" -> ()
         | result ->
-            let tmux =
-                match Environment.GetEnvironmentVariable "LIBTMUX_TMUX" with
-                | null -> "tmux"
-                | text -> text
+            let tmux = Sandbox.testTmux ()
 
             // A bare server, or one on a socket of its own inside the run's directory.
             let socket =
@@ -883,6 +880,7 @@ type SandboxCanaryTests() =
             Map.ofList
                 [
                     "TMUX_TMPDIR", root
+                    "LIBTMUX_TEST_TMUX", "/usr/bin/tmux"
                     "LIBTMUX_TMUX", "/usr/bin/tmux"
                     "LIBTMUX_CONTROL_TRANSPORT", "0"
                     Sandbox.RootVariable, root
@@ -932,3 +930,28 @@ type SandboxCanaryTests() =
             Assert.Empty(Sandbox.findings (Sandbox.snapshot ()) Sandbox.root.Value)
         finally
             Sandbox.enter ()
+
+    [<Theory>]
+    [<InlineData("/opt/tmux-test/bin/tmux", "/opt/tmux-legacy/bin/tmux", "/opt/tmux-test/bin/tmux")>]
+    [<InlineData("/opt/tmux-test/bin/tmux", "", "/opt/tmux-test/bin/tmux")>]
+    [<InlineData("", "/opt/tmux-legacy/bin/tmux", "/opt/tmux-legacy/bin/tmux")>]
+    [<InlineData("   \t\n", "/opt/tmux-legacy/bin/tmux", "/opt/tmux-legacy/bin/tmux")>]
+    [<InlineData("", "   \t\n", "tmux")>]
+    [<InlineData(" /tmp/with spaces/tmux ", "/opt/tmux-legacy/bin/tmux", " /tmp/with spaces/tmux ")>]
+    [<InlineData("   ", " /tmp/legacy spaces/tmux ", " /tmp/legacy spaces/tmux ")>]
+    member _.``test tmux prefers LIBTMUX_TEST_TMUX falls back to LIBTMUX_TMUX and keeps non blank paths untrimmed``
+        (testTmux: string, legacyTmux: string, expected: string)
+        =
+        let lookup name : string | null =
+            if name = Sandbox.TestTmuxVariable then
+                if testTmux = "" then null else testTmux
+            elif name = Sandbox.LegacyTestTmuxVariable then
+                if legacyTmux = "" then null else legacyTmux
+            else
+                null
+
+        let configured = Sandbox.configuredTestTmux lookup
+        let resolved = configured |> Option.defaultValue "tmux"
+
+        Assert.Equal(expected, resolved)
+        Assert.Equal((if expected = "tmux" then None else Some expected), configured)

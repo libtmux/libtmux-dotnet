@@ -1,6 +1,6 @@
-using System.Collections;
 using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
+using LibTmux.Engineering;
 
 namespace LibTmux.Workspace.Cli.Tests;
 
@@ -110,9 +110,7 @@ public sealed class ReadmeCommandTests : IAsyncDisposable
             .Single(arguments => arguments.SequenceEqual(["load", "-d", "-L", "demo", "myproject"]));
         string socketRoot = Path.Combine(_root, "tmux");
         Directory.CreateDirectory(socketRoot);
-        Dictionary<string, string?> environment = Environment.GetEnvironmentVariables()
-            .Cast<DictionaryEntry>()
-            .ToDictionary(entry => (string)entry.Key, entry => entry.Value?.ToString(), StringComparer.Ordinal);
+        Dictionary<string, string?> environment = RegressionTests.CliEnvironment();
         environment["HOME"] = home;
         environment["TMUX_TMPDIR"] = socketRoot;
         environment["NO_COLOR"] = "1";
@@ -123,7 +121,7 @@ public sealed class ReadmeCommandTests : IAsyncDisposable
 
         Server server = Server.Open(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
             SocketName = load[3],
             ConfigurationFile = "/dev/null",
             ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = socketRoot },

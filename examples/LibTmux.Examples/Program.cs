@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Text;
+using LibTmux.Engineering;
 
 namespace LibTmux.Examples;
 
@@ -46,7 +47,7 @@ internal static class Program
             Console.WriteLine();
             Console.WriteLine($"── {example.Topic}.{example.Id} — {example.Title}");
             if (example.WhyNotOn(await TmuxVersion.DetectAsync(
-                    Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux")) is { } reason)
+                    WorkspaceSocketRoot.TestTmux())) is { } reason)
             {
                 Console.WriteLine($"   skipped: {reason}");
                 continue;

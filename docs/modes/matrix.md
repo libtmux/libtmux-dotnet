@@ -101,7 +101,7 @@ $ dotnet run \
 
 The project multi-targets, so the framework has to be named: the numbers above
 are `net10.0`, and running the other one measures something else. Set
-`LIBTMUX_TMUX` to measure a tmux other than the one on the path.
+`LIBTMUX_TEST_TMUX` to measure a tmux other than the one on the path.
 
 See [docs/benchmarks](../benchmarks/README.md) for how a run becomes a record,
 and for the warmup mistake that once put an impossible number in this table.

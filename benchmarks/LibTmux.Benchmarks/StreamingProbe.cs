@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
+using LibTmux.Engineering;
 using LibTmux.Testing;
 
 namespace LibTmux.Benchmarks;
@@ -438,7 +439,7 @@ internal static class StreamingProbe
     private static TmuxTestOptions TestOptions(int? eventBufferCapacity) =>
         new(new ServerConnectionOptions
         {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
             SocketName = $"ltstream-{Guid.NewGuid():N}"[..24],
             ConfigurationFile = "/dev/null",
             ControlModeEventBufferCapacity = eventBufferCapacity,

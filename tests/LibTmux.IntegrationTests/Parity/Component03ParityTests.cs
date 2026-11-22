@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Engineering;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Internal;
 
@@ -76,7 +77,7 @@ public sealed class Component03ParityTests
     public async Task Owned_parity_row_has_version_or_catalog_behavior(
         string pythonSymbolId)
     {
-        string tmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        string tmuxBinaryPath = WorkspaceSocketRoot.TestTmux();
         TmuxVersion detected = await TmuxVersion.DetectAsync(
             tmuxBinaryPath,
             TestContext.Current.CancellationToken);

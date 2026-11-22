@@ -11,12 +11,9 @@ namespace LibTmux.IntegrationTests.Infrastructure;
 internal static class TmuxFeatureSupport
 {
     private static readonly Lazy<TmuxVersion> Running = new(() =>
-    {
-        string? configured = Environment.GetEnvironmentVariable("LIBTMUX_TMUX");
-        return TmuxVersion.DetectAsync(string.IsNullOrWhiteSpace(configured) ? "tmux" : configured)
+        TmuxVersion.DetectAsync(RawTmuxTestContext.ConfiguredBinary)
             .GetAwaiter()
-            .GetResult();
-    });
+            .GetResult());
 
     /// <summary>Gets the version of the tmux executable the tests run against.</summary>
     internal static TmuxVersion Version => Running.Value;

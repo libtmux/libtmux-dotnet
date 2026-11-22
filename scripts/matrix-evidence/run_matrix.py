@@ -427,17 +427,22 @@ class Matrix:
         """Return the environment one lane runs under.
 
         Part of what a lane proves runs tmux from inside tmux, the way a user's
-        configuration does, which finds it by name rather than by LIBTMUX_TMUX.
-        ``dotnet-tmux.yml`` puts the build under test on the path for that
-        reason; a developer machine has another tmux, and reaching a different
-        version proves nothing about the lane.
+        configuration does, which finds it by name rather than by
+        LIBTMUX_TEST_TMUX. ``dotnet-tmux.yml`` puts the build under test on the
+        path for that reason; a developer machine has another tmux, and reaching
+        a different version proves nothing about the lane.
         """
         transcripts = self.candidate / "protocol-transcripts" if self.candidate else None
-        environment = os.environ.copy()
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in ("TMUX", "TMUX_PANE", "LIBTMUX_TMUX")
+            and not key.startswith("LIBTMUX_SOCKET")
+        }
         environment.update(
             {
                 "PATH": f"{build.binary.parent}{os.pathsep}{environment.get('PATH', '')}",
-                "LIBTMUX_TMUX": str(build.binary),
+                "LIBTMUX_TEST_TMUX": str(build.binary),
                 "LIBTMUX_TMUX_SOURCE_COMMIT": build.commit,
                 "LIBTMUX_EXPECTED_TMUX_VERSION": expected_version,
                 "LIBTMUX_INTEGRATION_REQUIRED": "1",

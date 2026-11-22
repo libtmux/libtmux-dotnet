@@ -20,6 +20,14 @@ module Sandbox =
     [<Literal>]
     let RootVariable = "LIBTMUX_TEST_SOCKET_ROOT"
 
+    /// The cross-port variable that names the tmux executable under test.
+    [<Literal>]
+    let TestTmuxVariable = "LIBTMUX_TEST_TMUX"
+
+    /// The legacy variable accepted when TestTmuxVariable is unset.
+    [<Literal>]
+    let LegacyTestTmuxVariable = "LIBTMUX_TMUX"
+
     /// The longest per-run root, in bytes, at which every socket path the suites build fits.
     [<Literal>]
     let MaximumRootLength = 39
@@ -418,15 +426,29 @@ module Sandbox =
                 + "tests/LibTmux.FSharp.Tests/Sandbox.fs."
             )
 
+    /// Returns the configured test tmux executable, or None when neither variable sets one.
+    let configuredTestTmux (readVariable: string -> string | null) : string option =
+        let nonBlank (candidate: string | null) =
+            match candidate with
+            | null -> None
+            | value when String.IsNullOrWhiteSpace value -> None
+            | value -> Some value
+
+        match nonBlank (readVariable TestTmuxVariable) with
+        | Some primary -> Some primary
+        | None -> nonBlank (readVariable LegacyTestTmuxVariable)
+
+    /// Returns the tmux executable this test project should run.
+    let testTmux () : string =
+        configuredTestTmux Environment.GetEnvironmentVariable
+        |> Option.defaultValue "tmux"
+
     let private watchForLeaks () =
         if isNull (AppDomain.CurrentDomain.GetData WatchKey) then
             AppDomain.CurrentDomain.SetData(WatchKey, box true)
 
             AppDomain.CurrentDomain.ProcessExit.Add(fun _ ->
-                let tmux =
-                    match Environment.GetEnvironmentVariable "LIBTMUX_TMUX" with
-                    | null -> "tmux"
-                    | text -> text
+                let tmux = testTmux ()
 
                 releaseRun ()
                 let findings, removed = endRun root.Value tmux settleFor
