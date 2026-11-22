@@ -1391,6 +1391,103 @@ public sealed class McpProtocolTests
             .Select(value => value.GetString()).ToArray());
     }
 
+    [UnixFact]
+    public async Task Run_shell_command_awaits_pre_exec_shell_and_refuses_drawn_tmux_pane()
+    {
+        TmuxFeatureSupport.RequireNamedBuffers();
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string directory = Path.Combine(
+            WorkspaceSocketRoot.Root,
+            $"mcp-preexec-{Guid.NewGuid():N}"[..20]);
+        Directory.CreateDirectory(directory);
+        string symlink = Path.Combine(directory, "tmux");
+        File.CreateSymbolicLink(symlink, "/bin/sh");
+        try
+        {
+            await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
+            _ = await harness.Client.CallToolAsync(
+                "create_session",
+                new Dictionary<string, object?> { ["name"] = "pre-exec-probe" },
+                cancellationToken: token);
+            Server server = await harness.ConnectServerAsync(token);
+
+            TmuxCommandResult split = await server.ExecuteCommandAsync(
+                [
+                    "split-window",
+                    "-d",
+                    "-P",
+                    "-F",
+                    "#{pane_id}",
+                    symlink,
+                    "-c",
+                    "sleep 0.12; exec env PS1='$ ' ENV= /bin/sh",
+                ],
+                token);
+            string preExecPaneId = Assert.Single(split.StandardOutputLines);
+            TmuxCommandResult current = await server.ExecuteCommandAsync(
+                ["display-message", "-p", "-t", preExecPaneId, "#{pane_current_command}"],
+                token);
+            Assert.Equal("tmux", Path.GetFileName(Assert.Single(current.StandardOutputLines)));
+
+            CallToolResult result = await harness.Client.CallToolAsync(
+                "run_shell_command",
+                new Dictionary<string, object?>
+                {
+                    ["paneId"] = preExecPaneId,
+                    ["command"] = "printf 'ready\\n'",
+                },
+                cancellationToken: token);
+            Assert.False(
+                result.IsError ?? false,
+                JsonSerializer.Serialize(result, ToolJson.Options));
+            JsonElement structured = Structured(result);
+            Assert.Equal(0, structured.GetProperty("exitStatus").GetInt32());
+            Assert.Equal(
+                ["ready"],
+                structured.GetProperty("output").GetProperty("lines")
+                    .EnumerateArray()
+                    .Select(static line => line.GetString())
+                    .ToArray());
+
+            TmuxCommandResult drawnSplit = await server.ExecuteCommandAsync(
+                [
+                    "split-window",
+                    "-d",
+                    "-P",
+                    "-F",
+                    "#{pane_id}",
+                    symlink,
+                    "-c",
+                    "printf 'nested\\n'; read _ || true",
+                ],
+                token);
+            string drawnPaneId = Assert.Single(drawnSplit.StandardOutputLines);
+            Pane drawn = await server.GetPaneAsync(PaneId.Parse(drawnPaneId), token);
+            PaneWaitResult printed = await drawn.WaitUntilAsync(
+                rows => rows.Any(row => row.Contains("nested", StringComparison.Ordinal)),
+                TimeSpan.FromSeconds(5),
+                token);
+            Assert.True(printed.Found);
+
+            CallToolResult refused = await harness.Client.CallToolAsync(
+                "run_shell_command",
+                new Dictionary<string, object?>
+                {
+                    ["paneId"] = drawnPaneId,
+                    ["command"] = "printf 'never\\n'",
+                },
+                cancellationToken: token);
+            Assert.True(refused.IsError ?? false);
+            string refusalText = Assert.IsType<TextContentBlock>(Assert.Single(refused.Content)).Text;
+            Assert.Contains("requires a POSIX-compatible shell", refusalText, StringComparison.Ordinal);
+            Assert.Contains("running 'tmux'", refusalText, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private sealed class ProtocolHarness : IAsyncDisposable
     {
         private readonly McpServer _server;
@@ -1411,10 +1508,8 @@ public sealed class McpProtocolTests
 
         internal McpClient Client { get; }
 
-        // A pane is ready for input once its shell has drawn its first prompt.
-        internal async Task WaitForShellsAsync(CancellationToken cancellationToken, params string[] paneIds)
-        {
-            Server tmux = await Server.ConnectAsync(
+        internal Task<Server> ConnectServerAsync(CancellationToken cancellationToken) =>
+            Server.ConnectAsync(
                 new ServerConnectionOptions
                 {
                     TmuxBinaryPath = WorkspaceSocketRoot.TestTmux(),
@@ -1422,6 +1517,11 @@ public sealed class McpProtocolTests
                     ConfigurationFile = "/dev/null",
                 },
                 cancellationToken);
+
+        // A pane is ready for input once its shell has drawn its first prompt.
+        internal async Task WaitForShellsAsync(CancellationToken cancellationToken, params string[] paneIds)
+        {
+            Server tmux = await ConnectServerAsync(cancellationToken);
             foreach (string id in paneIds)
             {
                 Pane pane = await tmux.GetPaneAsync(PaneId.Parse(id), cancellationToken);

@@ -862,6 +862,97 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task Capability_run_awaits_shell_exec_on_a_blank_pane_reporting_tmux()
+    {
+        await using var fixture = new ToolFixture(generation: new ServerGeneration(121, 1_204))
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "tmux")],
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "sh")],
+            ],
+        };
+
+        RunResult result = await fixture.Capabilities.RunShellCommandAsync(
+            "echo ready",
+            "%1",
+            timeoutSeconds: 1,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal((0, false), (result.ExitStatus, result.TimedOut));
+        Assert.Equal(3, fixture.PaneListingCount);
+        Assert.Equal(1, fixture.SuccessfulSends);
+    }
+
+    [Theory]
+    [InlineData("1", "0", "0")]
+    [InlineData("0", "1", "0")]
+    [InlineData("0", "0", "1")]
+    public async Task Capability_run_refuses_a_drawn_pane_reporting_tmux_without_retrying(
+        string cursorX,
+        string cursorY,
+        string historySize)
+    {
+        await using var fixture = new ToolFixture(generation: new ServerGeneration(121, 1_205))
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow(
+                        "%1",
+                        "0",
+                        "0",
+                        CurrentCommand: "tmux",
+                        CursorX: cursorX,
+                        CursorY: cursorY,
+                        HistorySize: historySize),
+                ],
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "sh")],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.RunShellCommandAsync(
+                "echo never",
+                "%1",
+                timeoutSeconds: 1,
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains(
+            "run_shell_command requires a POSIX-compatible shell in pane %1; it is running 'tmux'",
+            refusal.Message,
+            StringComparison.Ordinal);
+        Assert.Equal(1, fixture.PaneListingCount);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_run_refuses_a_blank_pane_that_stays_tmux_past_the_bound()
+    {
+        await using var fixture = new ToolFixture(generation: new ServerGeneration(121, 1_206))
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "tmux")],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.RunShellCommandAsync(
+                "echo never",
+                "%1",
+                timeoutSeconds: 0.05,
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains(
+            "run_shell_command requires a POSIX-compatible shell in pane %1; it is running 'tmux'",
+            refusal.Message,
+            StringComparison.Ordinal);
+        Assert.True(fixture.PaneListingCount >= 2);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
     public async Task Capability_run_refuses_a_socket_transition_before_dispatch()
     {
         string directory = SocketRoots.Reserve("route");
@@ -3020,7 +3111,11 @@ public sealed class WriteToolsExecutionSafetyTests
         string SocketPath = ToolFixture.SocketPath,
         string SessionId = "$1",
         string WindowId = "@1",
-        string WindowIndex = "0");
+        string WindowIndex = "0",
+        string CursorX = "0",
+        string CursorY = "0",
+        string HistorySize = "0",
+        string StartCommand = "");
 
     private sealed record ClientListingRow(
         string Control,
@@ -3580,10 +3675,14 @@ public sealed class WriteToolsExecutionSafetyTests
             "pane_active" => pane.Active,
             "window_zoomed_flag" => pane.WindowZoomed,
             "pane_current_command" => pane.CurrentCommand,
+            "pane_start_command" => pane.StartCommand,
             "pane_dead" => pane.Dead,
             "pane_input_off" => pane.InputOff,
             "pane_in_mode" => pane.InMode,
             "pane_synchronized" => pane.Synchronized,
+            "cursor_x" => pane.CursorX,
+            "cursor_y" => pane.CursorY,
+            "history_size" => pane.HistorySize,
             "socket_path" => pane.SocketPath,
             _ => string.Empty,
         };

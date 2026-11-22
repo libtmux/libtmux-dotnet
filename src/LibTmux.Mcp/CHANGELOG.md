@@ -21,6 +21,11 @@ changes under each shipped in the release after.
 
 ### Changed
 
+- `run_shell_command` re-reads a blank pane whose `pane_current_command` still
+  names `tmux` across a sub-second backoff window before signing the initial
+  input snapshot, and continues to refuse drawn panes or panes started as an
+  interactive `tmux` client immediately. (#192)
+
 ### Removed
 
 ## [0.1.1] — 2026-11-01
