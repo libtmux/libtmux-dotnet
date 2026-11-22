@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
@@ -73,6 +74,120 @@ public sealed class PaneRunValidationTests
         Assert.Equal(0, Volatile.Read(ref dispatched));
     }
 
+    [Fact]
+    public async Task Blank_pre_exec_tmux_pane_re_reads_until_posix_shell_starts()
+    {
+        var fixture = new PreExecRunFixture(
+            [
+                new PreExecPaneRow("tmux", "0", "0", "0"),
+                new PreExecPaneRow("sh", "0", "0", "0"),
+                new PreExecPaneRow("sh", "2", "0", "0"),
+            ],
+            new ServerGeneration(92, 902));
+
+        PaneRunResult result = await fixture.Pane.RunAsync(
+            "printf 'ready\\n'",
+            TimeSpan.FromSeconds(1),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitStatus);
+        Assert.False(result.TimedOut);
+        Assert.Equal(3, fixture.ListPanesCount);
+        Assert.Equal(1, fixture.PasteCount);
+    }
+
+    [Theory]
+    [InlineData("1", "0", "0", "", "tmux")]
+    [InlineData("0", "1", "0", "", "tmux")]
+    [InlineData("0", "0", "1", "", "tmux")]
+    [InlineData("0", "0", "0", "tmux attach -t nested", "tmux")]
+    [InlineData("0", "0", "0", "tmux -L inner new-session", "tmux")]
+    [InlineData("0", "0", "0", "", "vim")]
+    public async Task Drawn_or_non_pre_exec_pane_is_refused_immediately_without_retrying(
+        string cursorX,
+        string cursorY,
+        string historySize,
+        string startCommand,
+        string currentCommand)
+    {
+        var fixture = new PreExecRunFixture(
+            [
+                new PreExecPaneRow(currentCommand, cursorX, cursorY, historySize, startCommand),
+                new PreExecPaneRow("sh", "0", "0", "0"),
+            ],
+            new ServerGeneration(93, 903));
+
+        TmuxPaneException refusal = await Assert.ThrowsAsync<TmuxPaneException>(() =>
+            fixture.Pane.RunAsync(
+                "printf 'never\\n'",
+                TimeSpan.FromSeconds(1),
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.Equal(
+            $"Pane %1 is running '{currentCommand}', not a POSIX-compatible shell.",
+            refusal.Message);
+        Assert.Equal(1, fixture.ListPanesCount);
+        Assert.Equal(0, fixture.PasteCount);
+    }
+
+    [Theory]
+    [InlineData("tmux-custom-3.8a-binary")]
+    [InlineData("tmux-custom-3.8")]
+    public async Task Configured_binary_basename_and_darwin_comm_prefix_re_read_on_blank_pane(
+        string initialCommand)
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            $"lt-bin-{Guid.NewGuid():N}"[..18]);
+        Directory.CreateDirectory(directory);
+        string customBinary = Path.Combine(directory, "tmux-custom-3.8a-binary");
+        File.CreateSymbolicLink(customBinary, "/bin/sh");
+        try
+        {
+            var fixture = new PreExecRunFixture(
+                [
+                    new PreExecPaneRow(initialCommand, "0", "0", "0"),
+                    new PreExecPaneRow("sh", "0", "0", "0"),
+                    new PreExecPaneRow("sh", "2", "0", "0"),
+                ],
+                new ServerGeneration(95, 905),
+                customBinary);
+
+            PaneRunResult result = await fixture.Pane.RunAsync(
+                "printf 'ready\\n'",
+                TimeSpan.FromSeconds(1),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(0, result.ExitStatus);
+            Assert.Equal(3, fixture.ListPanesCount);
+            Assert.Equal(1, fixture.PasteCount);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Blank_pane_staying_tmux_past_the_bound_is_refused()
+    {
+        var fixture = new PreExecRunFixture(
+            [new PreExecPaneRow("tmux", "0", "0", "0")],
+            new ServerGeneration(94, 904));
+
+        TmuxPaneException refusal = await Assert.ThrowsAsync<TmuxPaneException>(() =>
+            fixture.Pane.RunAsync(
+                "printf 'never\\n'",
+                TimeSpan.FromMilliseconds(50),
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.Equal("Pane %1 is running 'tmux', not a POSIX-compatible shell.", refusal.Message);
+        Assert.True(fixture.ListPanesCount >= 2);
+        Assert.Equal(0, fixture.PasteCount);
+    }
+
     private static Pane CreatePane(Action onDispatch)
     {
         var connection = new TmuxConnection(
@@ -104,5 +219,129 @@ public sealed class PaneRunValidationTests
             {
                 ["socket_path"] = "/tmp/libtmux-command-run-test.sock",
             });
+    }
+
+    private sealed record PreExecPaneRow(
+        string CurrentCommand,
+        string CursorX,
+        string CursorY,
+        string HistorySize,
+        string StartCommand = "");
+
+    private sealed class PreExecRunFixture
+    {
+        private const string TestSocketPath = "/tmp/libtmux-pre-exec-run-test.sock";
+        private readonly IReadOnlyList<PreExecPaneRow> _rows;
+        private readonly ServerGeneration _generation;
+        private int _listPanesCount;
+        private int _pasteCount;
+
+        internal PreExecRunFixture(
+            IReadOnlyList<PreExecPaneRow> rows,
+            ServerGeneration generation,
+            string tmuxBinaryPath = "/bin/sh")
+        {
+            _rows = rows;
+            _generation = generation;
+            var connection = new TmuxConnection(
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = tmuxBinaryPath,
+                    SocketPath = TestSocketPath,
+                },
+                FakeMultiplexer.AnsweringVersion(ExecuteAsync));
+            var server = new Server(connection, generation, "tmux 3.7");
+            Pane = new Pane(
+                server,
+                connection,
+                generation,
+                new PaneId(1),
+                new Dictionary<string, string?>
+                {
+                    ["socket_path"] = TestSocketPath,
+                    ["pane_width"] = "80",
+                    ["pane_height"] = "24",
+                });
+        }
+
+        internal Pane Pane { get; }
+
+        internal int ListPanesCount => Volatile.Read(ref _listPanesCount);
+
+        internal int PasteCount => Volatile.Read(ref _pasteCount);
+
+        private Task<TmuxCommandResult> ExecuteAsync(
+            TmuxCommandRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<string> arguments = request.LogicalArguments;
+            if (arguments.Contains("paste-buffer", StringComparer.Ordinal))
+            {
+                Interlocked.Increment(ref _pasteCount);
+            }
+
+            string body = arguments.Contains("list-panes", StringComparer.Ordinal)
+                ? RenderListPanes()
+                : arguments.Any(static argument => argument.Contains(
+                    "#{history_size}",
+                    StringComparison.Ordinal))
+                    ? $"4242\t0\t50000\t24\t{(PasteCount == 0 ? 0 : 1)}\t0\t0\t80\n"
+                    : arguments.Contains("capture-pane", StringComparer.Ordinal)
+                        ? PasteCount == 0 ? "$\n" : "ready\n"
+                        : arguments.Contains("show-options", StringComparer.Ordinal)
+                            ? $"{arguments[^1]} 0\n"
+                            : string.Empty;
+            string stdout = arguments.Count > 2
+                && arguments[0] == "display-message"
+                && arguments[2] == "#{pid}:#{start_time}"
+                    ? $"{_generation.ProcessId.ToString(CultureInfo.InvariantCulture)}:{_generation.StartTime.ToString(CultureInfo.InvariantCulture)}\n{body}"
+                    : body;
+            byte[] encoded = Encoding.UTF8.GetBytes(stdout);
+            return Task.FromResult(new TmuxCommandResult(
+                arguments,
+                0,
+                encoded,
+                ReadOnlyMemory<byte>.Empty,
+                Utf8BackslashDecoder.ProjectOutputLines(encoded),
+                []));
+        }
+
+        private string RenderListPanes()
+        {
+            FormatProjection projection = FormatProjection.Create(
+                "list-panes",
+                TmuxVersion.Parse("3.7"));
+            int index = Interlocked.Increment(ref _listPanesCount) - 1;
+            PreExecPaneRow row = _rows[Math.Min(index, _rows.Count - 1)];
+            return string.Concat(projection.Fields.Select(field =>
+                FieldValue(field.WireName, row) + FormatProjection.RowSeparator)) + "\n";
+        }
+
+        private string FieldValue(string field, PreExecPaneRow row) => field switch
+        {
+            "pid" => _generation.ProcessId.ToString(CultureInfo.InvariantCulture),
+            "start_time" => _generation.StartTime.ToString(CultureInfo.InvariantCulture),
+            "session_id" => "$1",
+            "window_id" => "@1",
+            "window_index" => "0",
+            "pane_id" => "%1",
+            "pane_pid" => "4242",
+            "pane_width" => "80",
+            "pane_height" => "24",
+            "pane_active" => "1",
+            "window_zoomed_flag" => "0",
+            "pane_current_command" => row.CurrentCommand,
+            "pane_start_command" => row.StartCommand,
+            "pane_dead" => "0",
+            "pane_input_off" => "0",
+            "pane_in_mode" => "0",
+            "pane_synchronized" => "0",
+            "cursor_x" => row.CursorX,
+            "cursor_y" => row.CursorY,
+            "history_size" => row.HistorySize,
+            "socket_path" => TestSocketPath,
+            _ => string.Empty,
+        };
     }
 }

@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Engineering;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
@@ -8,6 +9,95 @@ namespace LibTmux.IntegrationTests;
 [UnsupportedOSPlatform("windows")]
 public sealed class PaneRunReservationTests
 {
+    [UnixFact]
+    public async Task Public_pane_run_awaits_pre_exec_shell_and_refuses_drawn_tmux_pane()
+    {
+        TmuxFeatureSupport.RequireNamedBuffers();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        string directory = Path.Combine(
+            WorkspaceSocketRoot.Root,
+            $"preexec-{Guid.NewGuid():N}"[..16]);
+        Directory.CreateDirectory(directory);
+        string symlink = Path.Combine(directory, "tmux");
+        File.CreateSymbolicLink(symlink, "/bin/sh");
+        try
+        {
+            var options = new TmuxTestOptions(new ServerConnectionOptions
+            {
+                TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
+                SocketName = $"lt-preexec-{Guid.NewGuid():N}"[..20],
+            });
+            TmuxTestFactory factory = new();
+            await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+                options,
+                cancellationToken);
+
+            TmuxCommandResult split = await scope.Server.ExecuteCommandAsync(
+                [
+                    "split-window",
+                    "-d",
+                    "-P",
+                    "-F",
+                    "#{pane_id}",
+                    "-t",
+                    scope.Pane.Id.ToString(),
+                    symlink,
+                    "-c",
+                    "sleep 0.12; exec env PS1='$ ' ENV= /bin/sh",
+                ],
+                cancellationToken);
+            Pane preExec = await scope.Server.GetPaneAsync(
+                PaneId.Parse(Assert.Single(split.StandardOutputLines)),
+                cancellationToken);
+            Assert.Equal("tmux", Path.GetFileName(preExec.CurrentCommand));
+
+            PaneRunResult ran = await preExec.RunAsync(
+                "printf 'ready\\n'",
+                TimeSpan.FromSeconds(5),
+                cancellationToken);
+            Assert.Equal(0, ran.ExitStatus);
+            Assert.Equal(["ready"], ran.Output);
+
+            TmuxCommandResult drawnSplit = await scope.Server.ExecuteCommandAsync(
+                [
+                    "split-window",
+                    "-d",
+                    "-P",
+                    "-F",
+                    "#{pane_id}",
+                    "-t",
+                    scope.Pane.Id.ToString(),
+                    symlink,
+                    "-c",
+                    "printf 'nested\\n'; read _ || true",
+                ],
+                cancellationToken);
+            Pane drawn = await scope.Server.GetPaneAsync(
+                PaneId.Parse(Assert.Single(drawnSplit.StandardOutputLines)),
+                cancellationToken);
+            PaneWaitResult printed = await drawn.WaitUntilAsync(
+                rows => rows.Any(row => row.Contains("nested", StringComparison.Ordinal)),
+                TimeSpan.FromSeconds(5),
+                cancellationToken);
+            Assert.True(printed.Found);
+
+            TmuxPaneException refused = await Assert.ThrowsAsync<TmuxPaneException>(() =>
+                drawn.RunAsync(
+                    "printf 'never\\n'",
+                    TimeSpan.FromSeconds(5),
+                    cancellationToken));
+            Assert.Equal(TmuxDispatchState.NotDispatched, refused.Dispatch);
+            Assert.Contains(
+                "is running 'tmux', not a POSIX-compatible shell.",
+                refused.Message,
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [UnixFact]
     public async Task Public_pane_run_reports_status_retains_timeout_and_borrows_server()
     {

@@ -21,6 +21,11 @@ changes under each shipped in the release after.
 
 ### Changed
 
+- `Pane.RunAsync` re-reads a blank pane whose `pane_current_command` still
+  names `tmux` across a sub-second backoff window while a newly spawned shell
+  completes `exec`, and continues to refuse drawn panes or panes started as an
+  interactive `tmux` client immediately. (#104)
+
 ### Removed
 
 ## [0.1.1] — 2026-11-01
