@@ -16,8 +16,10 @@ public static class OneShot
         await using OwnedServerScope owned = await Server.CreateOwnedAsync(
             new ServerConnectionOptions { SocketName = "quickstart" });
         Server server = owned.Value;
-        Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
-        Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
+        Session session = await server.CreateSessionAsync(
+            new NewSessionRequest { Name = "build" });
+        Window window = await session.CreateWindowAsync(
+            new NewWindowRequest { Name = "tests" });
         Pane pane = (await window.GetPanesAsync())[0];
 
         await pane.SendTextAsync("dotnet test");

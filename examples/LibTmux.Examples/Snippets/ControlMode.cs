@@ -43,9 +43,11 @@ public static class ControlMode
     public static async Task WatchForWindowAdd(Server server, CancellationToken ct)
     {
         #region WatchForWindowAdd
-        await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
+        await using IControlModeSession control =
+            await server.EnterControlModeAsync(cancellationToken: ct);
 
-        await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
+        await control.SendAsync(
+            TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
 
         await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
         {

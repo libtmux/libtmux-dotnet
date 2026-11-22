@@ -2,23 +2,29 @@
 <div align="center">
   <picture>
     <source srcset="assets/logo.svg" type="image/svg+xml">
-    <img src="assets/logo.png" width="128" height="128" alt="libtmux for C#">
+    <img src="assets/logo.png" width="128" height="128" alt="libtmux for .NET">
   </picture>
 </div>
 <!-- /libtmux-logo -->
 
-# libtmux for C#
+<div align="center">
+
+# libtmux for .NET
 
 [![dotnet](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
 [![LibTmux](https://img.shields.io/nuget/v/LibTmux?label=LibTmux)](https://www.nuget.org/packages/LibTmux)
 [![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/csharp/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
 
-Drive [tmux](https://github.com/tmux/tmux) from C#: [servers][api-server],
+Drive [tmux](https://github.com/tmux/tmux) from
+[C#](https://libtmux.org/en/csharp/) with [`LibTmux`](src/LibTmux/README.md)
+and from F# with [`LibTmux.FSharp`](src/LibTmux.FSharp/README.md) and the
+[F# docs](https://libtmux.org/en/fsharp/): [servers][api-server],
 [sessions][api-session], [windows][api-window], [panes][api-pane],
-[clients][api-client], [options][api-tmuxoptions], [hooks][api-tmuxhooks] and
-buffers, typed and asynchronous, for tmux **3.3a and newer** on **net8.0** and
-**net10.0**.
+[clients][api-client], [options][api-tmuxoptions], [hooks][api-tmuxhooks], and
+buffers, for tmux **3.3a and newer** on **net8.0** and **net10.0**.
+
+</div>
 
 [Run a command][api-pane-runasync] and read its exit status,
 [find][api-session-getwindowsasync] and
@@ -26,21 +32,11 @@ buffers, typed and asynchronous, for tmux **3.3a and newer** on **net8.0** and
 [type into a pane and wait][api-tmuxwait-untilasync] for the answer, and choose
 [how a call reaches tmux][api-server-entercontrolmodeasync].
 
-Add it to your project:
+Add the C# client, or [`LibTmux.FSharp`](src/LibTmux.FSharp/README.md) for F#:
 
 ```console
 $ dotnet add package LibTmux
 ```
-
-**Contents** — [Quick start](#quick-start) · [Is this for you?](#is-this-for-you) ·
-[Packages](#packages) · [Find things](#find-sessions-windows-and-panes) ·
-[Run a command](#run-a-command-and-read-what-it-printed) ·
-[Panes](#split-resize-and-close-panes) · [Filter](#filter-what-you-read) ·
-[Options](#change-options-and-hooks) · [Versions](#check-the-tmux-version) ·
-[Choose a path](#choose-how-to-reach-tmux) · [Testing](#testing-your-own-code) ·
-[Workspaces](#workspaces-from-the-command-line) ·
-[Assistants](#an-assistant-on-your-terminal) · [Leaves out](#what-it-leaves-out)
-· [Support](#support-and-status)
 
 ## Quick start
 
@@ -56,8 +52,10 @@ using LibTmux;
 await using OwnedServerScope owned = await Server.CreateOwnedAsync(
     new ServerConnectionOptions { SocketName = "quickstart" });
 Server server = owned.Value;
-Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
-Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
+Session session = await server.CreateSessionAsync(
+    new NewSessionRequest { Name = "build" });
+Window window = await session.CreateWindowAsync(
+    new NewWindowRequest { Name = "tests" });
 Pane pane = (await window.GetPanesAsync())[0];
 
 await pane.SendTextAsync("dotnet test");
@@ -142,7 +140,8 @@ foreach (Window each in await session.GetWindowsAsync(ct))
 {
     foreach (Pane every in await each.GetPanesAsync(ct))
     {
-        Console.WriteLine($"{each.Name} pane {every.Index} {every.Width}x{every.Height}");
+        Console.WriteLine(
+            $"{each.Name} pane {every.Index} {every.Width}x{every.Height}");
     }
 }
 ```
@@ -170,7 +169,8 @@ Window sameWindow = await window.RenameAsync("integration", ct);
 Console.WriteLine($"{window == sameWindow} {window.Name} {sameWindow.Name}");
 
 // Identifiers order the way tmux issued them, oldest first.
-IEnumerable<Window> oldest = (await session.GetWindowsAsync(ct)).OrderBy(each => each.Id);
+IEnumerable<Window> oldest = (await session.GetWindowsAsync(ct))
+    .OrderBy(each => each.Id);
 Console.WriteLine(string.Join(", ", oldest.Select(each => each.Id)));
 ```
 
@@ -186,10 +186,12 @@ it printed. A command that exits nonzero returns normally with that status:
 ```csharp run tmux-3.4
 using LibTmux;
 
-PaneRunResult result = await pane.RunAsync("echo hello; exit 3", TimeSpan.FromSeconds(10), ct);
+PaneRunResult result = await pane.RunAsync(
+    "echo hello; exit 3", TimeSpan.FromSeconds(10), ct);
 if (result.ExitStatus != 3 || !result.Output.Contains("hello"))
 {
-    throw new InvalidOperationException("Expected exit status 3 and the line hello.");
+    throw new InvalidOperationException(
+        "Expected exit status 3 and the line hello.");
 }
 ```
 
@@ -207,7 +209,8 @@ await pane.EnterAsync(ct);
 // tmux accepts a command before the shell has finished it, so the result is
 // waited for rather than assumed.
 string output = await TmuxWait.UntilAsync(
-    async token => string.Join('\n', await pane.CaptureAsync(cancellationToken: token)),
+    async token => string.Join(
+        '\n', await pane.CaptureAsync(cancellationToken: token)),
     text => text.Contains("hello-from-libtmux", StringComparison.Ordinal),
     TimeSpan.FromSeconds(10),
     TimeSpan.FromMilliseconds(20));
@@ -227,15 +230,20 @@ with [`Pane.SendTextAsync`][api-pane-sendtextasync] and read it with
 ```csharp run
 using LibTmux;
 
-Window wide = await window.ResizeAsync(new ResizeWindowRequest { Width = 120, Height = 30 }, ct);
-Pane right = await pane.SplitAsync(new SplitPaneRequest { Direction = PaneDirection.Right }, ct);
-Pane narrow = await right.ResizeAsync(new ResizePaneRequest { Width = "30" }, ct);
+Window wide = await window.ResizeAsync(
+    new ResizeWindowRequest { Width = 120, Height = 30 }, ct);
+Pane right = await pane.SplitAsync(
+    new SplitPaneRequest { Direction = PaneDirection.Right }, ct);
+Pane narrow = await right.ResizeAsync(
+    new ResizePaneRequest { Width = "30" }, ct);
 
 await narrow.SendTextAsync("echo $((6*7))", cancellationToken: ct);
 await narrow.WaitForTextAsync("42", TimeSpan.FromSeconds(10), ct);
-string screen = string.Join('\n', await narrow.CaptureAsync(cancellationToken: ct));
+string screen = string.Join(
+    '\n', await narrow.CaptureAsync(cancellationToken: ct));
 
-Console.WriteLine($"{wide.Width}x{wide.Height} {narrow.Width} {screen.Contains("42")}");
+Console.WriteLine(
+    $"{wide.Width}x{wide.Height} {narrow.Width} {screen.Contains("42")}");
 await narrow.KillAsync(cancellationToken: ct);
 ```
 
@@ -306,11 +314,13 @@ which, and it runs when you ask:
 Server inspected = await server.InspectAsync(ct)
     ?? throw new InvalidOperationException("The tmux daemon is absent.");
 QueryDocument predicate = QueryExtensions.Translate<Window>(
-    candidate => candidate.IsActive && candidate.Name.StartsWith("build", StringComparison.Ordinal));
+    candidate => candidate.IsActive
+        && candidate.Name.StartsWith("build", StringComparison.Ordinal));
 QueryPlan<Window> plan = predicate.Plan<Window>(inspected.DaemonVersion!.Value);
 QueryResult<Window> result = await plan.ExecuteAsync(inspected, ct);
 
-Console.WriteLine($"{result.Count} matches from {result.Snapshot.Windows.Count} placements");
+Console.WriteLine(
+    $"{result.Count} matches from {result.Snapshot.Windows.Count} placements");
 foreach (string reason in plan.FallbackReasons)
 {
     Console.WriteLine(reason);
@@ -335,11 +345,14 @@ a value carries the text it reported alongside the readings that text supports:
 ```csharp run
 using LibTmux;
 
-await window.Options.SetAsync(new SetOptionRequest("automatic-rename", "off"), ct);
+await window.Options.SetAsync(
+    new SetOptionRequest("automatic-rename", "off"), ct);
 TmuxOption option = (await window.Options.GetAsync(
     new GetOptionRequest("automatic-rename"), ct))[0];
 
-Console.WriteLine($"{option.Value.Raw} flag={option.Value.Boolean} number={option.Value.Integer}");
+Console.WriteLine(
+    $"{option.Value.Raw} flag={option.Value.Boolean} "
+    + $"number={option.Value.Integer}");
 ```
 
 It prints the raw value, its flag reading, and its number reading.
@@ -366,7 +379,8 @@ using LibTmux;
 // A handle says what it read: the version is what tmux reported when this
 // server was reached, and null when it reported something unparsable.
 TmuxVersion? version = server.Version;
-Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVersion.Parse("3.4"))}");
+bool? has34 = version?.IsAtLeast(TmuxVersion.Parse("3.4"));
+Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={has34}");
 ```
 
 It prints the version tmux reported and whether it is 3.4 or newer.
@@ -405,7 +419,8 @@ the host, and [Choosing a mode](docs/modes/matrix.md) has allocations.
 using LibTmux;
 
 // One-shot: a command, a typed object back.
-Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
+Window built = await session.CreateWindowAsync(
+    new NewWindowRequest { Name = "build" }, ct);
 Console.WriteLine(built.Name);
 ```
 
@@ -413,7 +428,8 @@ Console.WriteLine(built.Name);
 
 ```csharp run tmux-3.7
 // Control mode: one client, held open, streaming what tmux does.
-await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
+await using IControlModeSession control =
+    await server.EnterControlModeAsync(cancellationToken: ct);
 IReadOnlyList<string> reply = await control.SendAsync(
     TmuxCommand.Create("new-window", "-d", "-n", "build"),
     ct);
@@ -429,9 +445,11 @@ pane output and the end of the session. More:
 ```csharp
 using LibTmux;
 
-await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
+await using IControlModeSession control =
+    await server.EnterControlModeAsync(cancellationToken: ct);
 
-await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
+await control.SendAsync(
+    TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
 
 await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
 {
@@ -465,7 +483,8 @@ own socket, killed deterministically:
 using LibTmux.Testing;
 
 TmuxTestFactory factory = new();
-await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync();
+await using TemporaryHierarchyScope scope =
+    await factory.CreateHierarchyAsync();
 
 await scope.Pane.SendTextAsync("echo hello");
 ```
@@ -678,8 +697,9 @@ Changelog: [`CHANGELOG.md`](src/LibTmux.Mcp/CHANGELOG.md).
 
 ## Documentation
 
-- [Guides on libtmux.org](https://libtmux.org/en/csharp/latest/) — tutorials,
-  topics and the workspace command reference
+- [C# guides](https://libtmux.org/en/csharp/latest/) and
+  [F# guides](https://libtmux.org/en/fsharp/latest/) on libtmux.org — tutorials,
+  topics, and references
 - [Choosing a mode](docs/modes/matrix.md) — the three dispatch modes, measured
 - [Windows psmux preview](docs/psmux.md) — what it reads, and what it refuses
 - [API reference](docs/api/README.md) — rendered from the doc comments
@@ -705,24 +725,11 @@ submit and wait for a maintainer's invitation before preparing a pull request.
 See the [AI policy](https://libtmux.org/en/meta/ai-policy/), also kept as
 [AI_POLICY.md](https://github.com/libtmux/.github/blob/HEAD/AI_POLICY.md).
 
-## Attribution
-
-Please use the following BibTeX template to cite libtmux-dotnet in scientific
-discourse:
-
-```bibtex
-@misc{libtmux-dotnet,
-   author = {Tony Narlock},
-   year = {2026},
-   note = {https://libtmux.org/en/csharp/},
-   title = {libtmux-dotnet: C\# wrapper for tmux}
-}
-```
-
 ## License
 
 [MIT](LICENSE). Practical parity with Python
-[libtmux](https://github.com/tmux-python/libtmux), rewritten in C#.
+[libtmux](https://github.com/tmux-python/libtmux), rewritten in C# and F#. See
+[libtmux.org](https://libtmux.org/) for sibling ports across other languages.
 
 [pkg-testing]: https://www.nuget.org/packages/LibTmux.Testing
 

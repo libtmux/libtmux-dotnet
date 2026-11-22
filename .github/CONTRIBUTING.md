@@ -722,10 +722,10 @@ that makes it not a capability.
 
 **A public API addition updates one declaration baseline.** Update the
 packable library's `PublicAPI.Unshipped.txt`; RS0016, RS0017 and RS0036 enforce
-new, stale and incorrectly annotated declarations. Add policy metadata only
-when the API introduces ownership, I/O, platform or package-placement rules.
-Regenerate compiler inventory and API Markdown after changing source comments
-or declarations.
+new, stale and incorrectly annotated declarations. Add policy metadata to
+[`docs/public-api.json`](../docs/public-api.json) only when the API introduces
+ownership, I/O, platform or package-placement rules. Regenerate compiler
+inventory and API Markdown after changing source comments or declarations.
 
 **A documented example is compiled, and a `csharp run` block is executed
 against a live tmux.** `ReadmeExampleTests` compiles every C# block in the
@@ -890,4 +890,6 @@ policy metadata or the API baselines either.
 
 ## Reporting a vulnerability
 
-Not here — see [SECURITY.md](../SECURITY.md).
+Report privately through GitHub's
+[security advisories](https://github.com/libtmux/libtmux-dotnet/security/advisories/new)
+rather than in a public issue.
