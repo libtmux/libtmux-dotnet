@@ -19,6 +19,10 @@ changes under each shipped in the release after.
 
 ### Fixed
 
+- `Server.ExecuteCommandAsync`, batches and chains reject JSON layouts and
+  mirrored presets that the daemon cannot read. On tmux 3.3a this keeps a
+  raw `select-layout` from stopping the server. (#112)
+
 ### Changed
 
 - `Pane.RunAsync` re-reads a blank pane whose `pane_current_command` still
