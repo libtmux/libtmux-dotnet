@@ -26,8 +26,16 @@ exact version to avoid one. Releases before 0.1.0 were alphas numbered
 
 ### Fixed
 
+- `eng/mcp-swap` can lock and replace MCP configuration files on Linux ARM64.
+  It uses the platform's directory-open flags and reads the owner and link
+  count from the native file status.
+
 ### Changed
 
+- On `net10.0`, `LibTmux` requires `Microsoft.Extensions.Logging.Abstractions`
+  10.0.15, and `LibTmux.Extensions.DependencyInjection` requires
+  `Microsoft.Extensions.DependencyInjection.Abstractions` and
+  `Microsoft.Extensions.Options` 10.0.15.
 - The complete C# and F# programs under `examples/` put their tmux socket in a
   temporary directory of their own with `ServerConnectionOptions.SocketPath` and
   delete it after their server stops, so running one no longer needs
@@ -68,9 +76,13 @@ exact version to avoid one. Releases before 0.1.0 were alphas numbered
 - `verify_api_examples.py` runs each complete program with `TMUX`, `TMUX_PANE`,
   `TMUX_TMPDIR` and `LIBTMUX_SOCKET*` pointing at nothing and fails a program
   that does not own its server or leaves a process or file behind. (#170)
-- The ahead-of-time smoke projects name the patched NativeAOT packs (8.0.33 and
-  10.0.14) that GHSA-p3jp-9v83-76w9 requires, so restore no longer fails with
-  NU1903. (#151)
+- The C# and F# NativeAOT smoke projects use the patched compiler and runtime
+  packs supplied by the SDK in `global.json`. (#151)
+- The workflow check rejects a default mise SDK that differs from
+  `global.json`. (#175)
+- The script checks and workflow checker record a three-day package cooldown
+  in their uv locks. Both run with `--locked` on hosts using that cooldown.
+  (#180)
 
 ## [0.1.1] — 2026-11-01
 
