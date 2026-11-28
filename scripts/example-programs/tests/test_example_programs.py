@@ -54,6 +54,8 @@ def world(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> pathlib.Pa
         "print('output of ' + os.path.basename(os.path.dirname(os.path.dirname(sys.argv[-1]))))\n",
     )
     stand_in(bin_directory, "tmux", "print('tmux 3.8')\n")
+    for variable in ("LIBTMUX_TEST_TMUX", "LIBTMUX_TMUX", "LIBTMUX_EXPECTED_TMUX_VERSION"):
+        monkeypatch.delenv(variable, raising=False)
     monkeypatch.setenv("PATH", f"{bin_directory}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setattr(programs, "ROOT", root)
     monkeypatch.setattr(programs, "MANIFEST", manifest)
@@ -118,7 +120,6 @@ def test_an_fsharp_program_needing_a_newer_tmux_is_skipped_and_the_rest_compared
 def test_a_ref_that_names_no_release_is_judged_by_what_it_built(
     world: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv("LIBTMUX_EXPECTED_TMUX_VERSION", raising=False)
     monkeypatch.setenv("LIBTMUX_TMUX", str(stand_in(world, "legacy-tmux", "print('tmux 3.4')\n")))
     monkeypatch.setenv(
         "LIBTMUX_TEST_TMUX", str(stand_in(world, "next-tmux", "print('tmux next-3.8')\n"))
