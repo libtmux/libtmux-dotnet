@@ -19,6 +19,8 @@ CI, tests and release tooling, are in the [main changelog](../../CHANGELOG.md).
 
 ### Changed
 
+- `tmux-workspace` ships `System.CommandLine` 2.0.15.
+
 ### Removed
 
 ## [0.1.1] — 2026-11-01
