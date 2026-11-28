@@ -214,7 +214,7 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
             for node in project.findall(".//PackageReference")
         }
         dependencies = (
-            {"LibTmux.FSharp": f"[{version}]", "FSharp.Core": "[10.1.303]"}
+            {"LibTmux.FSharp": f"[{version}]", "FSharp.Core": "[10.1.404]"}
             if name == "fsharp"
             else {"LibTmux": f"[{version}]"}
         )

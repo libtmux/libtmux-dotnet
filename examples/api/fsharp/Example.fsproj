@@ -9,7 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.fs" />
-    <PackageReference Include="FSharp.Core" Version="[10.1.303]" />
+    <PackageReference Include="FSharp.Core" Version="[10.1.404]" />
     <PackageReference Include="LibTmux.FSharp" Version="[0.1.1]" />
   </ItemGroup>
 </Project>

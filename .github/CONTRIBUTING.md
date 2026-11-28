@@ -503,9 +503,9 @@ only `LibTmux.FSharp` into a separate cache, and runs the exact program on .NET
 `LibTmux.FSharp.AotSmoke` restores from the same mapped feed and publishes its
 native binary for both target frameworks. It covers the static snapshot and
 native sequence route, and a tmux query read with `Query.tryExactlyOne` and
-`Query.atMostOne`. `Selection.exactlyOne` and `Query.exactlyOne` are not
-NativeAOT routes while FSharp.Core 10.1.302 emits linker diagnostics for their
-`Result` return type.
+`Query.atMostOne`. For a NativeAOT build that expects one match, use
+`Seq.tryExactlyOne` on a captured sequence or `Query.tryExactlyOne` on a
+live query.
 
 The required F# trimmed smoke step publishes and runs the same static route
 with NativeAOT disabled. Reproduce it against a fresh local pack on Linux:
