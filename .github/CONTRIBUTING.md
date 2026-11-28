@@ -79,6 +79,21 @@ makes those two different binaries, and a client cannot talk to a server of
 another version. What you see is `run_shell_command` timing out with no exit
 status, which reads as a library bug rather than as two tmuxes.
 
+The workspace shell tests need a Python interpreter with `tmuxp==1.74.0`.
+Create the same environment as the tmux matrix before running those tests.
+
+```console
+$ uv venv --python 3.13 artifacts/workspace-python
+```
+
+```console
+$ uv pip install --python artifacts/workspace-python/bin/python tmuxp==1.74.0
+```
+
+```console
+$ export TMUX_WORKSPACE_PYTHON="$PWD/artifacts/workspace-python/bin/python"
+```
+
 ## Native tmux in CI
 
 The `dotnet-tmux` and benchmark workflows build the tmux versions their plan
