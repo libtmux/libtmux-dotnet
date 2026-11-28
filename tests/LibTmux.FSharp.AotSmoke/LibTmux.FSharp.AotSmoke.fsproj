@@ -19,7 +19,7 @@
     <Compile Include="Program.fs" />
     <PackageReference Include="LibTmux.FSharp" Version="$(LibTmuxPackageVersion)" />
     <PackageReference Include="LibTmux.Testing" Version="$(LibTmuxPackageVersion)" />
-    <PackageReference Include="FSharp.Core" Version="10.1.303" />
+    <PackageReference Include="FSharp.Core" Version="10.1.404" />
   </ItemGroup>
 
   <!-- The SDK's own NativeAOT packs are on an advisory's vulnerable list. -->
