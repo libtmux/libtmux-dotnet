@@ -1102,6 +1102,8 @@ internal sealed class CapabilityTools
             timeoutSeconds is double seconds && double.IsFinite(seconds) && seconds > 0
                 ? TimeSpan.FromSeconds(Math.Min(seconds, 600.0))
                 : null);
+        TimeSpan preExecBudget = PaneRunner.PreExecWaitBound(budget);
+        Stopwatch preExecElapsed = Stopwatch.StartNew();
         PaneInputPreflight initial = await PreflightPaneInputDispatchAsync(
             paneId,
             "run_shell_command",
@@ -1109,7 +1111,7 @@ internal sealed class CapabilityTools
             reserveDispatch: false,
             runLease: null,
             inputLease: null,
-            preExecBudget: PaneRunner.PreExecWaitBound(budget),
+            preExecBudget: preExecBudget - preExecElapsed.Elapsed,
             cancellationToken).ConfigureAwait(false);
         RunCommandRoute route = RunCommandRoute.From(initial.Pane, "run_shell_command");
         PaneRunRegistry.PaneRunLease lease = PaneRunRegistry.Acquire(initial.Pane);
@@ -1128,6 +1130,7 @@ internal sealed class CapabilityTools
                         reserveDispatch: false,
                         runLease: lease,
                         inputLease: null,
+                        preExecBudget: preExecBudget - preExecElapsed.Elapsed,
                         cancellationToken: token).ConfigureAwait(false);
                     initial.RequireSame(final, "run_shell_command");
                     route.RequireSame(
@@ -1441,67 +1444,68 @@ internal sealed class CapabilityTools
             TimeSpan preExecBudget,
             CancellationToken cancellationToken)
     {
+        Stopwatch preExecElapsed = Stopwatch.StartNew();
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         string requestedPaneId = await ResolvePaneInputIdAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
 
-        // Re-read a blank pre-exec pane before signing the snapshot so the first and
-        // final preflights compare the shell rather than tmux against the shell.
-        Stopwatch? preExecElapsed = null;
+        IReadOnlyList<Pane> panes;
         TimeSpan delay = PaneRunner.PreExecInitialBackoff;
         while (true)
         {
-            IReadOnlyList<Pane> panes = await server.GetPanesAsync(cancellationToken)
-                .ConfigureAwait(false);
-            IReadOnlyList<Client> clients = await server.GetClientsAsync(cancellationToken)
-                .ConfigureAwait(false);
-            string? socketPath = await TmuxTargets.SocketPathAsync(server, cancellationToken)
-                .ConfigureAwait(false);
-            if (socketPath is null)
+            panes = await server.GetPanesAsync(cancellationToken).ConfigureAwait(false);
+            Pane? pending = panes.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id.ToString(), requestedPaneId, StringComparison.Ordinal));
+            if (kind != PaneInputPreflightKind.SingularCommand
+                || preExecBudget <= TimeSpan.Zero
+                || pending is null
+                || IsPosixShell(pending, out _)
+                || !PaneRunner.CanAwaitShellExec(pending))
             {
-                throw new McpException(
-                    "Pane input is refused because the selected server socket is unavailable.");
+                break;
             }
 
-            PaneInputEndpointIdentity endpoint = PaneInputEndpoint.Identify(
-                socketPath,
-                "selected tmux socket path");
-            ServerGeneration generation = server.Generation
-                ?? throw new McpException(
-                    "Pane input is refused because the selected server generation is unavailable.");
-            PaneInputCallerIdentity caller = ResolvePaneInputCaller(
-                panes,
-                endpoint,
-                generation);
-            (PaneInputPreflight? resolved, Pane? preExecPane) = await TryResolvePaneInputTargetsAsync(
-                panes,
-                clients,
-                caller,
-                endpoint,
-                requestedPaneId,
-                toolName,
-                kind,
-                reserveDispatch,
-                runLease,
-                inputLease,
-                allowPreExecRetry: preExecBudget > TimeSpan.Zero,
-                cancellationToken).ConfigureAwait(false);
-            if (resolved is not null)
-            {
-                return resolved;
-            }
-
-            preExecElapsed ??= Stopwatch.StartNew();
+            RequireWritablePane(pending, toolName);
             TimeSpan remaining = preExecBudget - preExecElapsed.Elapsed;
             if (remaining <= TimeSpan.Zero)
             {
-                RequirePosixShell(preExecPane!, toolName);
+                break;
             }
 
             TimeSpan sleep = delay < remaining ? delay : remaining;
             await Task.Delay(sleep, cancellationToken).ConfigureAwait(false);
             delay = PaneRunner.NextPreExecBackoff(delay);
         }
+
+        IReadOnlyList<Client> clients = await server.GetClientsAsync(cancellationToken)
+            .ConfigureAwait(false);
+        string? socketPath = await TmuxTargets.SocketPathAsync(server, cancellationToken)
+            .ConfigureAwait(false);
+        if (socketPath is null)
+        {
+            throw new McpException(
+                "Pane input is refused because the selected server socket is unavailable.");
+        }
+
+        PaneInputEndpointIdentity endpoint = PaneInputEndpoint.Identify(
+            socketPath,
+            "selected tmux socket path");
+        ServerGeneration generation = server.Generation
+            ?? throw new McpException(
+                "Pane input is refused because the selected server generation is unavailable.");
+        PaneInputCallerIdentity caller = ResolvePaneInputCaller(panes, endpoint, generation);
+        return await ResolvePaneInputTargetsAsync(
+            panes,
+            clients,
+            caller,
+            endpoint,
+            requestedPaneId,
+            toolName,
+            kind,
+            reserveDispatch,
+            runLease,
+            inputLease,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private Task<PaneInputPreflight> PreflightPaneInputDispatchAsync(
@@ -1553,7 +1557,7 @@ internal sealed class CapabilityTools
         return parsed.ToString();
     }
 
-    private static async Task<(PaneInputPreflight? Preflight, Pane? PreExecPane)> TryResolvePaneInputTargetsAsync(
+    private static async Task<PaneInputPreflight> ResolvePaneInputTargetsAsync(
         IReadOnlyList<Pane> panes,
         IReadOnlyList<Client> clients,
         PaneInputCallerIdentity caller,
@@ -1564,7 +1568,6 @@ internal sealed class CapabilityTools
         bool reserveDispatch,
         PaneRunRegistry.PaneRunLease? runLease,
         PaneRunRegistry.PaneInputLease? inputLease,
-        bool allowPreExecRetry,
         CancellationToken cancellationToken)
     {
         PaneInputTopology topology = ValidatePaneInputTopology(panes, endpoint);
@@ -1635,13 +1638,6 @@ internal sealed class CapabilityTools
                     + $"{string.Join(", ", configuredIds)}.");
             }
 
-            if (!IsPosixShell(source, out _)
-                && allowPreExecRetry
-                && PaneRunner.CanAwaitShellExec(source))
-            {
-                return (null, source);
-            }
-
             RequirePosixShell(source, toolName);
         }
 
@@ -1674,11 +1670,11 @@ internal sealed class CapabilityTools
             toolName,
             reserveDispatch);
 
-        return (new PaneInputPreflight(
+        return new PaneInputPreflight(
             source,
             configuredIds,
             safetySignature,
-            dispatchLease), null);
+            dispatchLease);
     }
 
     private static string PaneInputSafetySignature(

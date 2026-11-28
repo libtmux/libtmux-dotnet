@@ -97,12 +97,176 @@ public sealed class PaneRunValidationTests
     }
 
     [Theory]
+    [InlineData("locale")]
+    [InlineData("path_helper")]
+    [InlineData("python3")]
+    public async Task Blank_login_startup_helper_is_re_read_before_dispatch(string helper)
+    {
+        var fixture = new PreExecRunFixture(
+            [
+                new PreExecPaneRow(helper, "0", "0", "0"),
+                new PreExecPaneRow("sh", "0", "0", "0"),
+                new PreExecPaneRow("sh", "2", "0", "0"),
+            ],
+            new ServerGeneration(96, 906));
+
+        PaneRunResult result = await fixture.Pane.RunAsync(
+            "printf 'ready\\n'",
+            TimeSpan.FromSeconds(1),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitStatus);
+        Assert.Equal(1, fixture.PasteCount);
+    }
+
+    [Theory]
+    [InlineData("sh")]
+    [InlineData("/bin/sh")]
+    [InlineData("/usr/bin/bash")]
+    public async Task A_bare_shell_start_command_can_settle_before_run(string start)
+    {
+        var fixture = new PreExecRunFixture(
+            [
+                new PreExecPaneRow("tmux", "0", "0", "0", start),
+                new PreExecPaneRow("sh", "0", "0", "0", start),
+            ],
+            new ServerGeneration(102, 912));
+
+        PaneRunResult result = await fixture.Pane.RunAsync(
+            "printf 'ready\\n'", TimeSpan.FromSeconds(1),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitStatus);
+        Assert.Equal(1, fixture.PasteCount);
+    }
+
+    [Fact]
+    public async Task A_startup_helper_that_never_becomes_a_shell_is_not_dispatched_to()
+    {
+        var fixture = new PreExecRunFixture(
+            [new PreExecPaneRow("locale", "0", "0", "0")],
+            new ServerGeneration(99, 909));
+
+        TmuxPaneException refusal = await Assert.ThrowsAsync<TmuxPaneException>(() =>
+            fixture.Pane.RunAsync(
+                "printf 'never\\n'", TimeSpan.FromMilliseconds(50),
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.True(fixture.ListPanesCount >= 2);
+        Assert.Equal(0, fixture.PasteCount);
+    }
+
+    [Fact]
+    public async Task Cancellation_during_a_startup_helper_wait_does_not_dispatch()
+    {
+        var fixture = new PreExecRunFixture(
+            [new PreExecPaneRow("locale", "0", "0", "0")],
+            new ServerGeneration(100, 910));
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(30));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            fixture.Pane.RunAsync(
+                "printf 'never\\n'", TimeSpan.FromSeconds(1), cancellation.Token));
+
+        Assert.Equal(0, fixture.PasteCount);
+    }
+
+    [Fact]
+    public async Task The_first_pane_read_consumes_the_startup_grace()
+    {
+        var fixture = new PreExecRunFixture(
+            [
+                new PreExecPaneRow("locale", "0", "0", "0"),
+                new PreExecPaneRow("sh", "0", "0", "0"),
+            ],
+            new ServerGeneration(103, 913))
+        {
+            FirstListingDelay = TimeSpan.FromMilliseconds(80),
+        };
+
+        await Assert.ThrowsAsync<TmuxPaneException>(() => fixture.Pane.RunAsync(
+            "printf 'never\\n'", TimeSpan.FromMilliseconds(50),
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, fixture.PasteCount);
+        Assert.Equal(1, fixture.ListPanesCount);
+    }
+
+    [Fact]
+    public async Task Public_final_startup_wait_shares_the_initial_budget()
+    {
+        var fixture = new PreExecRunFixture(
+            [
+                new PreExecPaneRow("sh", "0", "0", "0"),
+                new PreExecPaneRow("locale", "0", "0", "0"),
+                new PreExecPaneRow("sh", "0", "0", "0"),
+            ],
+            new ServerGeneration(101, 911))
+        {
+            BaselineCaptureDelay = TimeSpan.FromMilliseconds(80),
+        };
+
+        await Assert.ThrowsAsync<TmuxPaneException>(() => fixture.Pane.RunAsync(
+            "printf 'never\\n'", TimeSpan.FromMilliseconds(50),
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, fixture.PasteCount);
+        Assert.Equal(2, fixture.ListPanesCount);
+    }
+
+    [Fact]
+    public async Task Blank_login_helper_between_preflights_can_settle_before_dispatch()
+    {
+        var fixture = new PreExecRunFixture(
+            [
+                new PreExecPaneRow("sh", "0", "0", "0"),
+                new PreExecPaneRow("locale", "0", "0", "0"),
+                new PreExecPaneRow("sh", "0", "0", "0"),
+            ],
+            new ServerGeneration(97, 907));
+
+        PaneRunResult result = await fixture.Pane.RunAsync(
+            "printf 'ready\\n'",
+            TimeSpan.FromSeconds(1),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitStatus);
+        Assert.Equal(1, fixture.PasteCount);
+        Assert.Equal(3, fixture.ListPanesCount);
+    }
+
+    [Theory]
+    [InlineData("tmux -c true")]
+    [InlineData("\"tmux attach\"")]
+    [InlineData("\"env FOO=1 tmux attach\"")]
+    public async Task Explicit_non_shell_start_command_is_refused_before_retry(string start)
+    {
+        var fixture = new PreExecRunFixture(
+            [
+                new PreExecPaneRow("tmux", "0", "0", "0", start),
+                new PreExecPaneRow("sh", "0", "0", "0"),
+            ],
+            new ServerGeneration(98, 908));
+
+        TmuxPaneException refusal = await Assert.ThrowsAsync<TmuxPaneException>(() =>
+            fixture.Pane.RunAsync(
+                "printf 'never\\n'",
+                TimeSpan.FromSeconds(1),
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.Equal(1, fixture.ListPanesCount);
+        Assert.Equal(0, fixture.PasteCount);
+    }
+
+    [Theory]
     [InlineData("1", "0", "0", "", "tmux")]
     [InlineData("0", "1", "0", "", "tmux")]
     [InlineData("0", "0", "1", "", "tmux")]
     [InlineData("0", "0", "0", "tmux attach -t nested", "tmux")]
     [InlineData("0", "0", "0", "tmux -L inner new-session", "tmux")]
-    [InlineData("0", "0", "0", "", "vim")]
+    [InlineData("0", "0", "0", "vim", "vim")]
     public async Task Drawn_or_non_pre_exec_pane_is_refused_immediately_without_retrying(
         string cursorX,
         string cursorY,
@@ -270,12 +434,26 @@ public sealed class PaneRunValidationTests
 
         internal int PasteCount => Volatile.Read(ref _pasteCount);
 
-        private Task<TmuxCommandResult> ExecuteAsync(
+        internal TimeSpan BaselineCaptureDelay { get; init; }
+
+        internal TimeSpan FirstListingDelay { get; init; }
+
+        private async Task<TmuxCommandResult> ExecuteAsync(
             TmuxCommandRequest request,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<string> arguments = request.LogicalArguments;
+            if (arguments.Contains("list-panes", StringComparer.Ordinal) && ListPanesCount == 0)
+            {
+                await Task.Delay(FirstListingDelay, cancellationToken);
+            }
+
+            if (arguments.Contains("capture-pane", StringComparer.Ordinal) && PasteCount == 0)
+            {
+                await Task.Delay(BaselineCaptureDelay, cancellationToken);
+            }
+
             if (arguments.Contains("paste-buffer", StringComparer.Ordinal))
             {
                 Interlocked.Increment(ref _pasteCount);
@@ -298,13 +476,13 @@ public sealed class PaneRunValidationTests
                     ? $"{_generation.ProcessId.ToString(CultureInfo.InvariantCulture)}:{_generation.StartTime.ToString(CultureInfo.InvariantCulture)}\n{body}"
                     : body;
             byte[] encoded = Encoding.UTF8.GetBytes(stdout);
-            return Task.FromResult(new TmuxCommandResult(
+            return new TmuxCommandResult(
                 arguments,
                 0,
                 encoded,
                 ReadOnlyMemory<byte>.Empty,
                 Utf8BackslashDecoder.ProjectOutputLines(encoded),
-                []));
+                []);
         }
 
         private string RenderListPanes()

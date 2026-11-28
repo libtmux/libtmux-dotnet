@@ -199,7 +199,6 @@ internal static partial class PaneRunner
     internal static readonly object CompletedRunOutcomeDataKey = new();
 
     private const int MaximumInheritedTrapBytes = 64 * 1024;
-    private const int DarwinCommBytes = 15;
     internal static readonly TimeSpan PreExecInitialBackoff = TimeSpan.FromMilliseconds(5);
     private static readonly TimeSpan PreExecMaximumBackoff = TimeSpan.FromMilliseconds(150);
     private static readonly TimeSpan PreExecMaximumWait = TimeSpan.FromMilliseconds(750);
@@ -262,9 +261,11 @@ internal static partial class PaneRunner
             reservation = await ReserveAsync(
                     pane, route, hooks.Completed, hooks.Unresolved, cancellationToken)
                 .ConfigureAwait(false);
+            var dispatch = new RunDispatchState(pane, PreExecWaitBound(budget));
             if (hooks.DispatchPreflight is null)
             {
-                Pane current = await RequireSingleWritableShellAsync(pane, budget, cancellationToken)
+                Pane current = await RequireSingleWritableShellAsync(
+                        pane, dispatch.RemainingPreExecBudget, cancellationToken)
                     .ConfigureAwait(false);
                 route.RequireSame(PaneRunRoute.From(current));
                 pane = current;
@@ -280,7 +281,7 @@ internal static partial class PaneRunner
             var sequence = new TmuxMutationSequence(
                 "The command was sent, but observing its result failed. It may still be "
                 + "running or may already have finished; do not retry until you inspect the pane.");
-            var dispatch = new RunDispatchState(pane);
+            dispatch.Pane = pane;
             TmuxWaitChannel? completionWait = null;
             bool completionAuthenticated = false;
             Exception? primaryFailure = null;
@@ -627,228 +628,23 @@ internal static partial class PaneRunner
         return doubled < PreExecMaximumBackoff ? doubled : PreExecMaximumBackoff;
     }
 
+    // pane_start_command serializes argv, not a shell parse tree. Only an
+    // implicit shell or a bare shell executable permits startup retries.
     internal static bool CanAwaitShellExec(Pane pane) =>
-        pane.RawFormatFields.TryGetValue("pane_current_command", out string? rawCommand)
-        && rawCommand is not null
-        && CanAwaitShellExec(pane, rawCommand);
-
-    internal static bool MatchesTmuxProcessName(
-        string rawCurrentCommand,
-        string configuredTmuxBinaryPath)
-    {
-        string name = Path.GetFileName(rawCurrentCommand);
-        if (name.Length == 0)
-        {
-            return false;
-        }
-
-        if (string.Equals(name, "tmux", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        string configuredName = Path.GetFileName(
-            Path.TrimEndingDirectorySeparator(configuredTmuxBinaryPath));
-        if (configuredName.Length == 0)
-        {
-            return false;
-        }
-
-        if (string.Equals(name, configuredName, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        if (Encoding.UTF8.GetByteCount(configuredName) > DarwinCommBytes)
-        {
-            string truncated = TruncateUtf8Bytes(configuredName, DarwinCommBytes);
-            if (truncated.Length > 0 && string.Equals(name, truncated, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool CanAwaitShellExec(Pane pane, string rawCommand)
-    {
-        string configuredBinary = pane.Server.ConnectionOptions.TmuxBinaryPath;
-        return MatchesTmuxProcessName(rawCommand, configuredBinary)
-            && IsZeroField(pane, "cursor_x")
-            && IsZeroField(pane, "cursor_y")
-            && IsZeroField(pane, "history_size")
-            && !StartsInteractiveTmuxClient(pane, configuredBinary);
-    }
+        pane.RawFormatFields.TryGetValue("pane_current_command", out string? current)
+        && !string.IsNullOrWhiteSpace(current)
+        && IsZeroField(pane, "cursor_x")
+        && IsZeroField(pane, "cursor_y")
+        && IsZeroField(pane, "history_size")
+        && pane.RawFormatFields.TryGetValue("pane_start_command", out string? start)
+        && (string.IsNullOrEmpty(start)
+            || (PosixShells.Contains(Path.GetFileName(start))
+                && start.All(static character =>
+                    char.IsLetterOrDigit(character) || character is '/' or '.' or '_' or '-')));
 
     private static bool IsZeroField(Pane pane, string field) =>
         pane.RawFormatFields.TryGetValue(field, out string? value)
         && string.Equals(value, "0", StringComparison.Ordinal);
-
-    private static bool StartsInteractiveTmuxClient(Pane pane, string configuredBinary)
-    {
-        if (!pane.RawFormatFields.TryGetValue("pane_start_command", out string? startCommand)
-            || string.IsNullOrWhiteSpace(startCommand))
-        {
-            return false;
-        }
-
-        List<string> words = ScanFirstCommandWords(startCommand);
-        if (words.Count == 0)
-        {
-            return false;
-        }
-
-        string executable = words[0];
-        string shellCandidate = Path.GetFileName(executable).TrimStart('-');
-        if (PosixShells.Contains(shellCandidate)
-            || !MatchesTmuxProcessName(executable, configuredBinary))
-        {
-            return false;
-        }
-
-        for (int index = 1; index < words.Count; index++)
-        {
-            string word = words[index];
-            if (word == "--" || word.Length < 2 || word[0] != '-')
-            {
-                break;
-            }
-
-            for (int offset = 1; offset < word.Length; offset++)
-            {
-                char flag = word[offset];
-                if (flag == 'c')
-                {
-                    return false;
-                }
-
-                if (flag is 'f' or 'L' or 'S' or 'T')
-                {
-                    if (offset + 1 == word.Length)
-                    {
-                        index++;
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    private static List<string> ScanFirstCommandWords(string command)
-    {
-        List<string> words = [];
-        StringBuilder current = new();
-        bool hasToken = false;
-        bool inSingleQuotes = false;
-        bool inDoubleQuotes = false;
-        for (int index = 0; index < command.Length; index++)
-        {
-            char ch = command[index];
-            if (inSingleQuotes)
-            {
-                if (ch == '\'')
-                {
-                    inSingleQuotes = false;
-                }
-                else
-                {
-                    current.Append(ch);
-                }
-
-                continue;
-            }
-
-            if (inDoubleQuotes)
-            {
-                if (ch == '"')
-                {
-                    inDoubleQuotes = false;
-                }
-                else if (ch == '\\' && index + 1 < command.Length)
-                {
-                    index++;
-                    current.Append(command[index]);
-                }
-                else
-                {
-                    current.Append(ch);
-                }
-
-                continue;
-            }
-
-            if (ch is ';' or '|' or '&' or '\n' or '\r')
-            {
-                break;
-            }
-
-            if (char.IsWhiteSpace(ch))
-            {
-                if (hasToken)
-                {
-                    words.Add(current.ToString());
-                    current.Clear();
-                    hasToken = false;
-                }
-
-                continue;
-            }
-
-            hasToken = true;
-            if (ch == '\'')
-            {
-                inSingleQuotes = true;
-            }
-            else if (ch == '"')
-            {
-                inDoubleQuotes = true;
-            }
-            else if (ch == '\\' && index + 1 < command.Length)
-            {
-                index++;
-                current.Append(command[index]);
-            }
-            else
-            {
-                current.Append(ch);
-            }
-        }
-
-        if (hasToken)
-        {
-            words.Add(current.ToString());
-        }
-
-        return words;
-    }
-
-    private static string TruncateUtf8Bytes(string value, int maxBytes)
-    {
-        int length = 0;
-        int bytes = 0;
-        while (length < value.Length)
-        {
-            int chars = char.IsHighSurrogate(value[length])
-                && length + 1 < value.Length
-                && char.IsLowSurrogate(value[length + 1])
-                ? 2
-                : 1;
-            int next = Encoding.UTF8.GetByteCount(value.AsSpan(length, chars));
-            if (bytes + next > maxBytes)
-            {
-                break;
-            }
-
-            bytes += next;
-            length += chars;
-        }
-
-        return value[..length];
-    }
 
     private static async Task<Pane> RequireSingleWritableShellAsync(
         Pane pane,
@@ -872,10 +668,10 @@ internal static partial class PaneRunner
                 TmuxDispatchState.NotDispatched),
         };
 
-        // tmux answers split-window and new-session before the forked child calls
-        // exec, so pane_current_command still names tmux while the screen is blank.
+        // A blank login-shell pane can report tmux before exec or a profile helper
+        // before its first prompt. Explicit command payloads remain opaque.
         TimeSpan limit = PreExecWaitBound(preExecBudget);
-        Stopwatch? waited = null;
+        long preExecStarted = Stopwatch.GetTimestamp();
         TimeSpan delay = PreExecInitialBackoff;
         while (true)
         {
@@ -928,7 +724,7 @@ internal static partial class PaneRunner
                 return current;
             }
 
-            if (limit <= TimeSpan.Zero || !CanAwaitShellExec(current, rawCommand))
+            if (limit <= TimeSpan.Zero || !CanAwaitShellExec(current))
             {
                 throw new TmuxPaneException(
                     $"Pane {current.Id} is running '{shell}', not a POSIX-compatible shell.",
@@ -936,8 +732,7 @@ internal static partial class PaneRunner
                     TmuxDispatchState.NotDispatched);
             }
 
-            waited ??= Stopwatch.StartNew();
-            TimeSpan remaining = limit - waited.Elapsed;
+            TimeSpan remaining = limit - Stopwatch.GetElapsedTime(preExecStarted);
             if (remaining <= TimeSpan.Zero)
             {
                 throw new TmuxPaneException(
@@ -1006,8 +801,13 @@ internal static partial class PaneRunner
         }
     }
 
-    internal sealed class RunDispatchState(Pane pane)
+    internal sealed class RunDispatchState(Pane pane, TimeSpan preExecBudget = default)
     {
+        private readonly long _preExecStarted = Stopwatch.GetTimestamp();
+
+        internal TimeSpan RemainingPreExecBudget =>
+            preExecBudget - Stopwatch.GetElapsedTime(_preExecStarted);
+
         internal Pane Pane { get; set; } = pane;
 
         internal string? Directory { get; set; }
@@ -1099,7 +899,8 @@ internal static partial class PaneRunner
             }
 
             dispatch.Pane = hooks.DispatchPreflight is null
-                ? await RequireSingleWritableShellAsync(dispatch.Pane, TimeSpan.Zero, cancellationToken)
+                ? await RequireSingleWritableShellAsync(
+                        dispatch.Pane, dispatch.RemainingPreExecBudget, cancellationToken)
                     .ConfigureAwait(false)
                 : await hooks.DispatchPreflight(cancellationToken).ConfigureAwait(false);
             route.RequireSame(PaneRunRoute.From(dispatch.Pane));

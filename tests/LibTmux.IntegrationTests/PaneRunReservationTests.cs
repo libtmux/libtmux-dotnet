@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
 using LibTmux.Engineering;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
+using LibTmux.Internal;
 using LibTmux.Testing;
 
 namespace LibTmux.IntegrationTests;
@@ -20,41 +22,53 @@ public sealed class PaneRunReservationTests
         Directory.CreateDirectory(directory);
         string symlink = Path.Combine(directory, "tmux");
         File.CreateSymbolicLink(symlink, "/bin/sh");
+        string release = Path.Combine(directory, "release");
+        string shim = Path.Combine(directory, "login-shim");
+        await File.WriteAllTextAsync(
+            shim,
+            "#!/bin/bash\nexec -a locale /bin/bash --noprofile --norc -c "
+                + PaneRunner.ShellQuote(
+                    $"while [ ! -e {PaneRunner.ShellQuote(release)} ]; do sleep 0.01; done; "
+                    + "exec env PS1= ENV= /bin/sh") + "\n",
+            cancellationToken);
+        File.SetUnixFileMode(shim, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         try
         {
             var options = new TmuxTestOptions(new ServerConnectionOptions
             {
                 TmuxBinaryPath = RawTmuxTestContext.ConfiguredBinary,
                 SocketName = $"lt-preexec-{Guid.NewGuid():N}"[..20],
+                ChildEnvironment = new Dictionary<string, string?> { ["BASH_ENV"] = null },
             });
             TmuxTestFactory factory = new();
             await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
                 options,
                 cancellationToken);
 
+            await scope.Session.Options.SetAsync(new("default-shell", shim), cancellationToken);
+            await scope.Session.Options.SetAsync(new("default-command", string.Empty), cancellationToken);
             TmuxCommandResult split = await scope.Server.ExecuteCommandAsync(
-                [
-                    "split-window",
-                    "-d",
-                    "-P",
-                    "-F",
-                    "#{pane_id}",
-                    "-t",
-                    scope.Pane.Id.ToString(),
-                    symlink,
-                    "-c",
-                    "sleep 0.12; exec env PS1='$ ' ENV= /bin/sh",
-                ],
+                ["split-window", "-d", "-P", "-F", "#{pane_id}", "-t", scope.Pane.Id.ToString()],
                 cancellationToken);
-            Pane preExec = await scope.Server.GetPaneAsync(
-                PaneId.Parse(Assert.Single(split.StandardOutputLines)),
-                cancellationToken);
-            Assert.Equal("tmux", Path.GetFileName(preExec.CurrentCommand));
+            PaneId id = PaneId.Parse(Assert.Single(split.StandardOutputLines));
+            Pane preExec = await scope.Server.GetPaneAsync(id, cancellationToken);
+            Stopwatch observed = Stopwatch.StartNew();
+            while (preExec.CurrentCommand != "locale" && observed.Elapsed < TimeSpan.FromSeconds(2))
+            {
+                await Task.Delay(5, cancellationToken);
+                preExec = await scope.Server.GetPaneAsync(id, cancellationToken);
+            }
 
-            PaneRunResult ran = await preExec.RunAsync(
-                "printf 'ready\\n'",
-                TimeSpan.FromSeconds(5),
-                cancellationToken);
+            Assert.Equal("locale", preExec.CurrentCommand);
+            Assert.Null(preExec.RawFormatFields["pane_start_command"]);
+            Assert.Equal("0", preExec.RawFormatFields["cursor_x"]);
+            Assert.Equal("0", preExec.RawFormatFields["cursor_y"]);
+            Assert.Equal("0", preExec.RawFormatFields["history_size"]);
+            Task<PaneRunResult> run = preExec.RunAsync(
+                "printf 'ready\\n'", TimeSpan.FromSeconds(5), cancellationToken);
+            await Task.Delay(80, cancellationToken);
+            await File.WriteAllTextAsync(release, string.Empty, cancellationToken);
+            PaneRunResult ran = await run;
             Assert.Equal(0, ran.ExitStatus);
             Assert.Equal(["ready"], ran.Output);
 

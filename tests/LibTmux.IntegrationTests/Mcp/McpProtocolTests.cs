@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using LibTmux.Engineering;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
+using LibTmux.Internal;
 using LibTmux.Mcp;
 using LibTmux.Support;
 using Microsoft.Extensions.DependencyInjection;
@@ -1402,6 +1403,16 @@ public sealed class McpProtocolTests
         Directory.CreateDirectory(directory);
         string symlink = Path.Combine(directory, "tmux");
         File.CreateSymbolicLink(symlink, "/bin/sh");
+        string release = Path.Combine(directory, "release");
+        string shim = Path.Combine(directory, "login-shim");
+        await File.WriteAllTextAsync(
+            shim,
+            "#!/bin/bash\nexec -a locale /bin/bash --noprofile --norc -c "
+                + PaneRunner.ShellQuote(
+                    $"while [ ! -e {PaneRunner.ShellQuote(release)} ]; do sleep 0.01; done; "
+                    + "exec env PS1= ENV= /bin/sh") + "\n",
+            token);
+        File.SetUnixFileMode(shim, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         try
         {
             await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
@@ -1411,25 +1422,25 @@ public sealed class McpProtocolTests
                 cancellationToken: token);
             Server server = await harness.ConnectServerAsync(token);
 
+            _ = await server.ExecuteCommandAsync(["set-option", "-g", "default-shell", shim], token);
+            _ = await server.ExecuteCommandAsync(["set-option", "-g", "default-command", string.Empty], token);
             TmuxCommandResult split = await server.ExecuteCommandAsync(
-                [
-                    "split-window",
-                    "-d",
-                    "-P",
-                    "-F",
-                    "#{pane_id}",
-                    symlink,
-                    "-c",
-                    "sleep 0.12; exec env PS1='$ ' ENV= /bin/sh",
-                ],
-                token);
+                ["split-window", "-d", "-P", "-F", "#{pane_id}"], token);
             string preExecPaneId = Assert.Single(split.StandardOutputLines);
-            TmuxCommandResult current = await server.ExecuteCommandAsync(
-                ["display-message", "-p", "-t", preExecPaneId, "#{pane_current_command}"],
-                token);
-            Assert.Equal("tmux", Path.GetFileName(Assert.Single(current.StandardOutputLines)));
+            Pane startup = await server.GetPaneAsync(PaneId.Parse(preExecPaneId), token);
+            Stopwatch observed = Stopwatch.StartNew();
+            while (startup.CurrentCommand != "locale" && observed.Elapsed < TimeSpan.FromSeconds(2))
+            {
+                await Task.Delay(5, token);
+                startup = await server.GetPaneAsync(PaneId.Parse(preExecPaneId), token);
+            }
 
-            CallToolResult result = await harness.Client.CallToolAsync(
+            Assert.Equal("locale", startup.CurrentCommand);
+            Assert.Null(startup.RawFormatFields["pane_start_command"]);
+            Assert.Equal("0", startup.RawFormatFields["cursor_x"]);
+            Assert.Equal("0", startup.RawFormatFields["cursor_y"]);
+            Assert.Equal("0", startup.RawFormatFields["history_size"]);
+            var run = harness.Client.CallToolAsync(
                 "run_shell_command",
                 new Dictionary<string, object?>
                 {
@@ -1437,6 +1448,9 @@ public sealed class McpProtocolTests
                     ["command"] = "printf 'ready\\n'",
                 },
                 cancellationToken: token);
+            await Task.Delay(80, token);
+            await File.WriteAllTextAsync(release, string.Empty, token);
+            CallToolResult result = await run;
             Assert.False(
                 result.IsError ?? false,
                 JsonSerializer.Serialize(result, ToolJson.Options));

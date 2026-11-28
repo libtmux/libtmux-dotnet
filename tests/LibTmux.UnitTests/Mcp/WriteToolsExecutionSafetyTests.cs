@@ -858,7 +858,7 @@ public sealed class WriteToolsExecutionSafetyTests
                 cancellationToken: TestContext.Current.CancellationToken));
         Assert.Contains("POSIX", finalRefusal.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, transition.SuccessfulSends);
-        Assert.Equal(2, transition.PaneListingCount);
+        Assert.True(transition.PaneListingCount >= 2);
     }
 
     [Fact]
@@ -882,6 +882,135 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Equal((0, false), (result.ExitStatus, result.TimedOut));
         Assert.Equal(3, fixture.PaneListingCount);
         Assert.Equal(1, fixture.SuccessfulSends);
+    }
+
+    [Theory]
+    [InlineData("locale")]
+    [InlineData("path_helper")]
+    [InlineData("python3")]
+    public async Task Capability_run_waits_through_a_blank_login_startup_helper(string helper)
+    {
+        await using var fixture = new ToolFixture(generation: new ServerGeneration(122, 1_210))
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: helper)],
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "sh")],
+            ],
+        };
+
+        RunResult result = await fixture.Capabilities.RunShellCommandAsync(
+            "echo ready", "%1", timeoutSeconds: 1,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal((0, false), (result.ExitStatus, result.TimedOut));
+        Assert.Equal(1, fixture.SuccessfulSends);
+        Assert.Equal(2, fixture.ClientListingCount);
+    }
+
+    [Fact]
+    public async Task Capability_refuses_a_startup_helper_that_never_settles_without_dispatch()
+    {
+        await using var fixture = new ToolFixture(generation: new ServerGeneration(122, 1_213))
+        {
+            PaneListings = [[new PaneListingRow("%1", "0", "0", CurrentCommand: "locale")]],
+        };
+
+        await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.RunShellCommandAsync(
+                "echo never", "%1", timeoutSeconds: 0.05,
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.True(fixture.PaneListingCount >= 2);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_startup_helper_wait_observes_cancellation_without_dispatch()
+    {
+        await using var fixture = new ToolFixture(generation: new ServerGeneration(122, 1_214))
+        {
+            PaneListings = [[new PaneListingRow("%1", "0", "0", CurrentCommand: "locale")]],
+        };
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(30));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            fixture.Capabilities.RunShellCommandAsync(
+                "echo never", "%1", timeoutSeconds: 1,
+                cancellationToken: cancellation.Token));
+
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_final_startup_wait_shares_the_initial_budget()
+    {
+        await using var fixture = new ToolFixture(generation: new ServerGeneration(122, 1_215))
+        {
+            BlockCaptureAttempt = 1,
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "sh")],
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "locale")],
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "sh")],
+            ],
+        };
+
+        Task<RunResult> run = fixture.Capabilities.RunShellCommandAsync(
+            "echo never", "%1", timeoutSeconds: 0.05,
+            cancellationToken: TestContext.Current.CancellationToken);
+        await fixture.CaptureBlocked.WaitAsync(TestContext.Current.CancellationToken);
+        await Task.Delay(80, TestContext.Current.CancellationToken);
+        fixture.ReleaseCapture();
+        await Assert.ThrowsAsync<McpException>(() => run);
+
+        Assert.Equal(0, fixture.SuccessfulSends);
+        Assert.Equal(2, fixture.PaneListingCount);
+    }
+
+    [Fact]
+    public async Task Capability_run_waits_for_a_helper_between_its_preflights()
+    {
+        await using var fixture = new ToolFixture(generation: new ServerGeneration(122, 1_211))
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "sh")],
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "locale")],
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "sh")],
+            ],
+        };
+
+        RunResult result = await fixture.Capabilities.RunShellCommandAsync(
+            "echo ready", "%1", timeoutSeconds: 1,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal((0, false), (result.ExitStatus, result.TimedOut));
+        Assert.Equal(1, fixture.SuccessfulSends);
+        Assert.Equal(2, fixture.ClientListingCount);
+    }
+
+    [Fact]
+    public async Task Capability_startup_retry_reads_client_topology_after_the_shell_settles()
+    {
+        await using var fixture = new ToolFixture(generation: new ServerGeneration(122, 1_212))
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "tmux")],
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "tmux")],
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "sh")],
+            ],
+        };
+
+        RunResult result = await fixture.Capabilities.RunShellCommandAsync(
+            "echo ready", "%1", timeoutSeconds: 1,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal((0, false), (result.ExitStatus, result.TimedOut));
+        Assert.Equal(1, fixture.SuccessfulSends);
+        Assert.Equal(4, fixture.PaneListingCount);
+        Assert.Equal(2, fixture.ClientListingCount);
     }
 
     [Theory]
