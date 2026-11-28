@@ -675,19 +675,19 @@ internal static partial class NativeFileSystem
     private static NativeIdentity DecodeLinux(ReadOnlySpan<byte> data)
     {
         int modeOffset;
-        int linksOffset;
+        ulong links;
         int userOffset;
         switch (RuntimeInformation.ProcessArchitecture)
         {
             case Architecture.X64:
                 modeOffset = 24;
-                linksOffset = 16;
+                links = BinaryPrimitives.ReadUInt64LittleEndian(data[16..]);
                 userOffset = 28;
                 break;
             case Architecture.Arm64:
                 modeOffset = 16;
-                linksOffset = 24;
-                userOffset = 28;
+                links = BinaryPrimitives.ReadUInt32LittleEndian(data[20..]);
+                userOffset = 24;
                 break;
             default:
                 throw new PlatformNotSupportedException(
@@ -698,7 +698,7 @@ internal static partial class NativeFileSystem
             BinaryPrimitives.ReadUInt64LittleEndian(data),
             BinaryPrimitives.ReadUInt64LittleEndian(data[8..]),
             BinaryPrimitives.ReadUInt32LittleEndian(data[modeOffset..]),
-            BinaryPrimitives.ReadUInt64LittleEndian(data[linksOffset..]),
+            links,
             BinaryPrimitives.ReadUInt32LittleEndian(data[userOffset..]),
             BinaryPrimitives.ReadInt64LittleEndian(data[48..]),
             checked(
@@ -760,9 +760,13 @@ internal static partial class NativeFileSystem
 
     private static int OpenExclusive => OperatingSystem.IsMacOS() ? 0x800 : 0x80;
 
-    private static int OpenNoFollow => OperatingSystem.IsMacOS() ? 0x100 : 0x20000;
+    private static int OpenNoFollow => OperatingSystem.IsMacOS()
+        ? 0x100
+        : RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? 0x8000 : 0x20000;
 
-    private static int OpenDirectory => OperatingSystem.IsMacOS() ? 0x100000 : 0x10000;
+    private static int OpenDirectory => OperatingSystem.IsMacOS()
+        ? 0x100000
+        : RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? 0x4000 : 0x10000;
 
     private static int OpenCloseOnExec => OperatingSystem.IsMacOS() ? 0x1000000 : 0x80000;
 
