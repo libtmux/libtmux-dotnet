@@ -11,6 +11,7 @@ policy, using YAML values so comments cannot satisfy required dependencies.
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import re
 import runpy
@@ -277,6 +278,14 @@ def verify(root: pathlib.Path) -> list[str]:
             step.get("run", "").strip() == "exit 1",
             f"{workflow}.{name}.require-success must fail the job",
         )
+
+    sdk = json.loads((root / "global.json").read_text(encoding="utf-8"))["sdk"]["version"]
+    pins = (root / ".tool-versions").read_text(encoding="utf-8")
+    dotnet = re.search(r"^[ \t]*dotnet[ \t]+([^\s#]+)", pins, re.MULTILINE)
+    require(
+        dotnet is not None and dotnet[1] == sdk,
+        f".tool-versions must list the .NET SDK {sdk} from global.json first",
+    )
 
     for name, document in documents.items():
         require(

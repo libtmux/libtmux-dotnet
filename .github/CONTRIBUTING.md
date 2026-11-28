@@ -11,10 +11,10 @@ them.
 
 ## Getting set up
 
-`dotnet` is pinned to `10.0.303` by [`global.json`](../global.json) with
-`rollForward: disable`, and again by `.tool-versions`. It resolves through
-[mise](https://mise.jdx.dev) locally, so it is not on `PATH` — every command
-below is prefixed accordingly:
+[`global.json`](../global.json) selects the exact SDK for the solution.
+[`.tool-versions`](../.tool-versions) lists it first for
+[mise](https://mise.jdx.dev), followed by the .NET 8 SDK for the F# consumer.
+Build with mise from the repository root.
 
 ```console
 $ mise exec -- dotnet build LibTmux.slnx --configuration Release --warnaserror

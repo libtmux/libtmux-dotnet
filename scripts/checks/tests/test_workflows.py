@@ -18,7 +18,12 @@ ROOT = pathlib.Path(__file__).parents[3]
 def repository(tmp_path: pathlib.Path) -> pathlib.Path:
     """Copy only the inputs owned by the policy checker."""
     shutil.copytree(ROOT / ".github/workflows", tmp_path / ".github/workflows")
-    for name in ("eng/tmux/versions.json", "scripts/tmux-plan/plan.py"):
+    for name in (
+        "eng/tmux/versions.json",
+        "scripts/tmux-plan/plan.py",
+        "global.json",
+        ".tool-versions",
+    ):
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / name, tmp_path / name)
     return tmp_path
@@ -37,6 +42,13 @@ def test_the_loader_falls_back_when_pyyaml_has_no_libyaml(
 
 def test_current_workflows_pass(repository: pathlib.Path) -> None:
     assert verify(repository) == []
+
+
+def test_mise_must_select_the_ci_sdk_first(repository: pathlib.Path) -> None:
+    pins = repository / ".tool-versions"
+    pins.write_text(pins.read_text().replace("dotnet ", "dotnet 9.0.100 ", 1))
+
+    assert any(".tool-versions must list" in error for error in verify(repository))
 
 
 def test_fsharp_reference_check_is_required(repository: pathlib.Path) -> None:
