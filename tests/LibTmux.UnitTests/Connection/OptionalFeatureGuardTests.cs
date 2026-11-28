@@ -106,15 +106,8 @@ public sealed class OptionalFeatureGuardTests
     [InlineData("bogus")]
     [InlineData("main")]
     [InlineData("0000,80x24,0,0,1")]
-    [InlineData("{not-a-layout}x")]
     public void An_invalid_layout_is_refused_before_3_4(string layout)
     {
-        if (layout.StartsWith('{'))
-        {
-            TmuxFeatureGuard.Check(V33a, [["select-layout", "-t", "@1", layout]]);
-            return;
-        }
-
         TmuxUnsupportedOnReleaseException refusal = Assert.Throws<TmuxUnsupportedOnReleaseException>(
             () => TmuxFeatureGuard.Check(V33a, [["select-layout", "-t", "@1", layout]]));
         Assert.Throws<TmuxUnsupportedOnReleaseException>(
@@ -126,6 +119,50 @@ public sealed class OptionalFeatureGuardTests
         Assert.Equal(V33a, refusal.ActualVersion);
         Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
     }
+
+    [Theory]
+    [InlineData("3.3a", "main-horizontal-mirrored", "layout-mirrored-main", "3.5 or newer")]
+    [InlineData("3.3a", "main-horizontal-m", "layout-mirrored-main", "3.5 or newer")]
+    [InlineData("3.3a", "main-vertical-", "layout-mirrored-main", "3.5 or newer")]
+    [InlineData("3.4", "main-vertical-mirrored", "layout-mirrored-main", "3.5 or newer")]
+    [InlineData("next-3.5", "main-horizontal-mirrored", "layout-mirrored-main", "3.5 or newer")]
+    [InlineData("3.3a", "{\"V\":2,\"L\":{\"t\":\"p\"}}", "layout-json", "3.8 or newer")]
+    [InlineData("3.3a", "{not-a-layout}x", "layout-json", "3.8 or newer")]
+    [InlineData("3.7c", "{\"V\":2,\"L\":{\"t\":\"p\"}}", "layout-json", "3.8 or newer")]
+    public void A_raw_layout_is_refused_when_its_form_is_newer_than_the_daemon(
+        string version, string layout, string capability, string safeReleases)
+    {
+        IReadOnlyList<IReadOnlyList<string>>[] requests =
+        [
+            [["select-layout", "-t", "@1", layout]],
+            [["selectl", "-t@1", layout]],
+            [["list-sessions", ";", "select-layout", "--", layout]],
+            [["list-sessions;", "select-l", layout]],
+            [["list-sessions"], ["select-layout", layout]],
+        ];
+
+        foreach (IReadOnlyList<IReadOnlyList<string>> commands in requests)
+        {
+            TmuxUnsupportedOnReleaseException refusal = Assert.Throws<TmuxUnsupportedOnReleaseException>(
+                () => TmuxFeatureGuard.Check(TmuxVersion.Parse(version), commands));
+
+            Assert.Equal(capability, refusal.CapabilityId);
+            Assert.Equal("select-layout", refusal.Command);
+            Assert.Equal(safeReleases, refusal.SafeReleases);
+            Assert.Equal(TmuxVersion.Parse(version), refusal.ActualVersion);
+            Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        }
+    }
+
+    [Theory]
+    [InlineData("3.3a", "b25d,80x24,0,0,0")]
+    [InlineData("3.3a", "main-h")]
+    [InlineData("3.5", "main-horizontal-mirrored")]
+    [InlineData("3.5-rc1", "main-vertical-mirrored")]
+    [InlineData("3.5", "main-horizontal-m")]
+    [InlineData("3.8", "{\"V\":2,\"L\":{\"t\":\"p\"}}")]
+    public void A_layout_supported_by_the_daemon_is_not_refused(string version, string layout) =>
+        TmuxFeatureGuard.Check(TmuxVersion.Parse(version), [["select-layout", "-t", "@1", layout]]);
 
     [Theory]
     [InlineData("tiled")]
@@ -144,8 +181,19 @@ public sealed class OptionalFeatureGuardTests
         TmuxFeatureGuard.Check(V33a, [["select-layout", "-E", "-t", "@1"]]);
     }
 
+    [Theory]
+    [InlineData("-n")]
+    [InlineData("-p")]
+    [InlineData("-o")]
+    [InlineData("-E")]
+    public void A_layout_option_that_ignores_its_argument_is_not_refused(string option)
+    {
+        TmuxFeatureGuard.Check(V33a, [["select-layout", option, "main-horizontal-mirrored"]]);
+        TmuxFeatureGuard.Check(V33a, [["select-layout", option, "{\"V\":2,\"L\":{\"t\":\"p\"}}"]]);
+    }
+
     [Fact]
-    public void Any_layout_is_sent_from_3_4() =>
+    public void An_invalid_layout_is_left_to_tmux_from_3_4() =>
         TmuxFeatureGuard.Check(TmuxVersion.Parse("3.4"), [["select-layout", "-t", "@1", "bogus"]]);
 
     [Theory]
@@ -222,6 +270,28 @@ public sealed class OptionalFeatureGuardTests
         Assert.Empty(daemon.Commands);
         await daemon.Server.ExecuteCommandAsync(["delete-buffer"], TestContext.Current.CancellationToken);
         Assert.Single(daemon.Commands);
+    }
+
+    [Theory]
+    [InlineData("main-horizontal-mirrored", false)]
+    [InlineData("main-horizontal-mirrored", true)]
+    [InlineData("{\"V\":2,\"L\":{\"t\":\"p\"}}", false)]
+    [InlineData("{\"V\":2,\"L\":{\"t\":\"p\"}}", true)]
+    public async Task A_raw_layout_refusal_prevents_the_entire_dispatch(string layout, bool chained)
+    {
+        var daemon = new MinimumTmuxVersionTests.FakeDaemon("3.3a");
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        TmuxUnsupportedOnReleaseException refusal = await Assert.ThrowsAsync<TmuxUnsupportedOnReleaseException>(() =>
+            chained
+                ? daemon.Server.Chain()
+                    .Then("set-option", "-g", "@changed", "yes")
+                    .Then("select-layout", "-t", "@1", layout)
+                    .ExecuteAsync(token)
+                : daemon.Server.ExecuteCommandAsync(["select-layout", "-t", "@1", layout], token));
+
+        Assert.Equal(TmuxDispatchState.NotDispatched, refusal.Dispatch);
+        Assert.Empty(daemon.Commands);
     }
 
     [Fact]
@@ -359,8 +429,7 @@ public sealed class OptionalFeatureGuardTests
         ["refresh-client"] = "clipboard-query",
     };
 
-    // No raw form reaches these; each has its own test of the thrown type and id.
-    private static readonly string[] TypedOnlyIds = ["control-mode", "layout-mirrored-main", "layout-json"];
+    private static readonly string[] TypedIds = ["control-mode", "layout-mirrored-main", "layout-json"];
 
     [Theory]
     [MemberData(nameof(RefusedForms))]
@@ -397,7 +466,7 @@ public sealed class OptionalFeatureGuardTests
         ];
 
         Assert.All(refusing, id => Assert.True(
-            RefusedIds.ContainsValue(id) || TypedOnlyIds.Contains(id), id));
+            RefusedIds.ContainsValue(id) || TypedIds.Contains(id), id));
     }
 
     [Theory]

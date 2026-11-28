@@ -337,7 +337,7 @@ public sealed class CompositeMutationDispatchTests
                     "display-message" => $"{Generation.ProcessId}:{Generation.StartTime}\t{rawVersion["tmux ".Length..]}\n",
                     _ => string.Empty,
                 };
-                return Task.FromResult(Success(request, payload));
+                return Task.FromResult(Success(request, payload, rawVersion: rawVersion));
             },
             rawVersion: rawVersion);
 
@@ -881,7 +881,8 @@ public sealed class CompositeMutationDispatchTests
     private static TmuxCommandResult Success(
         TmuxCommandRequest request,
         string payload = "",
-        ServerGeneration? generation = null)
+        ServerGeneration? generation = null,
+        string rawVersion = "tmux 3.7")
     {
         string[] arguments = [.. request.LogicalArguments];
 
@@ -889,7 +890,7 @@ public sealed class CompositeMutationDispatchTests
         // command, whatever else a test is scripting.
         if (arguments is ["-V"])
         {
-            payload = "tmux 3.7\n";
+            payload = $"{rawVersion}\n";
         }
 
         bool guarded = arguments.Contains("if-shell", StringComparer.Ordinal);

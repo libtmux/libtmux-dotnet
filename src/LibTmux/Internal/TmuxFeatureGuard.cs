@@ -204,22 +204,38 @@ internal static class TmuxFeatureGuard
 
     private static void CheckLayout(TmuxVersion version, IReadOnlyList<string> command)
     {
-        CapabilityClaim claim = Capabilities.All.Single(static item => item.Id == "layout-without-checksum");
-        if (version >= claim.SinceVersion || Values(command, "t", "nopE").Any())
+        if (Values(command, "t", "nopE").Any()
+            || Positionals(command, "t") is not [string layout, ..])
         {
             return;
         }
 
-        if (Positionals(command, "t") is not [string layout, ..])
+        string capability;
+        bool supported;
+        if (layout.StartsWith('{'))
         {
-            return;
+            capability = "layout-json";
+            supported = TmuxLayoutSyntax.SupportsJsonLayout(version);
+        }
+        else if (!TmuxLayoutSyntax.IsNamedLayout(layout, mirrored: false)
+            && TmuxLayoutSyntax.IsNamedLayout(layout, mirrored: true))
+        {
+            capability = "layout-mirrored-main";
+            supported = TmuxCapabilities.GetState(version, "layout_mirrors", inferPrerelease: true)
+                == TmuxCapabilityState.Supported;
+        }
+        else
+        {
+            capability = "layout-without-checksum";
+            supported = version >= Capabilities.SinceOf(capability)
+                || TmuxLayoutSyntax.IsValidCandidate(layout, 1);
         }
 
-        if (!TmuxLayoutSyntax.IsValidCandidate(layout, 1))
+        if (!supported)
         {
+            CapabilityClaim claim = Capabilities.All.Single(item => item.Id == capability);
             throw new TmuxUnsupportedOnReleaseException(
-                $"tmux {version} crashes on the layout '{layout}'; it is not a checksummed "
-                + "layout or an unambiguous preset name.",
+                $"Layout '{layout}' is not supported by tmux {version}; use tmux {claim.SafeReleases}.",
                 version,
                 claim.SafeReleases,
                 claim.Id,
