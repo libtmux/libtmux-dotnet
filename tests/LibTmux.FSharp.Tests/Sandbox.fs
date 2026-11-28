@@ -470,6 +470,11 @@ module Sandbox =
             for name in snapshot () |> Map.toList |> List.map fst |> List.filter isSelector do
                 Environment.SetEnvironmentVariable(name, null)
 
+            let pipeDirectory = "TESTINGPLATFORM_PIPE_DIRECTORY"
+
+            if String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable pipeDirectory) then
+                Environment.SetEnvironmentVariable(pipeDirectory, Path.GetTempPath())
+
             Environment.SetEnvironmentVariable("TMUX_TMPDIR", root.Value)
             Environment.SetEnvironmentVariable("TMPDIR", root.Value)
 

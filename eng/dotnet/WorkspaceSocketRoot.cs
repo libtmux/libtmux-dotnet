@@ -89,6 +89,14 @@ internal static class WorkspaceSocketRoot
             Environment.SetEnvironmentVariable(name, null);
         }
 
+        // HangDump opens test-platform sockets in TMPDIR. Keep those pipes in
+        // the caller's temporary directory when tmux claims its own below.
+        const string pipeDirectory = "TESTINGPLATFORM_PIPE_DIRECTORY";
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(pipeDirectory)))
+        {
+            Environment.SetEnvironmentVariable(pipeDirectory, Path.GetTempPath());
+        }
+
         Environment.SetEnvironmentVariable("TMUX_TMPDIR", Root);
         Environment.SetEnvironmentVariable("TMPDIR", Root);
         try
