@@ -691,7 +691,8 @@ Changelog: [`CHANGELOG.md`](src/LibTmux.Mcp/CHANGELOG.md).
   `Pane.DeadStatus` and `pane-died` hooks until another child exits. Use
   tmux 3.6+ or a build with the
   [upstream fix](https://github.com/tmux/tmux/commit/fa5f3cef3d651b0eb9abfa77fc37ccade81679b5).
-- **.NET.** net8.0 and net10.0.
+- **.NET.** The packages target `net8.0` and `net10.0`. Microsoft ended
+  support for .NET 8 on November 10, 2026. [Microsoft's support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core)
 - **Systems.** Linux, including WSL. macOS is best effort. Native Windows has
   only the read-only [`Psmux*` preview](docs/psmux.md), also best effort.
 - **Trimming and NativeAOT.** The `LibTmux` core is analyzed for both.
