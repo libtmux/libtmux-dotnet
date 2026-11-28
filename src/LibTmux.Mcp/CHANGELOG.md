@@ -21,6 +21,9 @@ changes under each shipped in the release after.
 
 ### Changed
 
+- `libtmux-mcp` ships `ModelContextProtocol` and
+  `ModelContextProtocol.Extensions.Tasks` 2.4.0 with
+  `Microsoft.Extensions.Hosting` 10.0.15.
 - `run_shell_command` re-reads a blank pane whose `pane_current_command` still
   names `tmux` across a sub-second backoff window before signing the initial
   input snapshot, and continues to refuse drawn panes or panes started as an
