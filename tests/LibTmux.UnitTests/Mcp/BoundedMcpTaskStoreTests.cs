@@ -191,8 +191,11 @@ public sealed class BoundedMcpTaskStoreTests
             Params = new JsonObject { ["taskId"] = task.TaskId },
         };
 
-        await options.RequestHandlers![0].Handler(request, cancellationToken);
-        await options.RequestHandlers[0].Handler(request, cancellationToken);
+        await using McpServer server = McpServer.Create(
+            new StreamServerTransport(Stream.Null, Stream.Null), options);
+        var context = new RequestContext<JsonNode?>(server, request, request.Params);
+        await options.RequestHandlers![0].Handler(context, cancellationToken);
+        await options.RequestHandlers[0].Handler(context, cancellationToken);
 
         McpProtocolException busy = await Assert.ThrowsAsync<McpProtocolException>(
             () => store.CreateTaskAsync(cancellationToken: cancellationToken));
