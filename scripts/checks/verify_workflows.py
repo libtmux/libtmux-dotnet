@@ -1,6 +1,8 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = ["PyYAML>=6,<7"]
+# [tool.uv]
+# exclude-newer = "3 days"
 # ///
 """Validate the required CI dependency graph, permissions and coverage.
 

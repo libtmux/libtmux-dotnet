@@ -10,6 +10,8 @@
 #     "ruff==0.17.6",
 #     "ty==0.0.110",
 # ]
+# [tool.uv]
+# exclude-newer = "3 days"
 # ///
 """Run the format, lint, type and test checks over ``scripts/``.
 
